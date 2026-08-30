@@ -1,0 +1,83 @@
+{% extends "programs/base.html" %}
+
+{% block title %}訓練項目報名{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="kicker">Programs &middot; 開放報名</p>
+    <h1>訓練項目</h1>
+    <p class="lead">
+      每個項目的名額、日期與對象都不同。點進去看完整安排，線上填一次報名表，
+      資料會直接進入教練的訓練管理系統。
+    </p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    {% if projects %}
+      <div class="prog-list">
+        {% for p in projects %}
+          <article class="prog">
+            <div class="prog-meta">
+              {% if p.is_accepting %}
+                <span class="tag open">開放報名</span>
+              {% else %}
+                <span class="tag closed">{{ p.accepting_reason.1|default:"暫停報名" }}</span>
+              {% endif %}
+              {% if p.organiser %}<span class="org">{{ p.organiser }}</span>{% endif %}
+            </div>
+
+            <div class="prog-main">
+              <h2><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></h2>
+              {% if p.subtitle %}<p class="sub">{{ p.subtitle }}</p>{% endif %}
+              <dl class="facts">
+                {% if p.schedule_text %}<div><dt>日期</dt><dd>{{ p.schedule_text }}</dd></div>{% endif %}
+                {% if p.venue_name %}<div><dt>場地</dt><dd>{{ p.venue_name }}</dd></div>{% endif %}
+                {% if p.trainer %}<div><dt>教練</dt><dd>{{ p.trainer }}</dd></div>{% endif %}
+                {% if p.price_hkd %}<div><dt>費用</dt><dd>HK${{ p.price_hkd|floatformat:0 }}{% if p.price_note %}（{{ p.price_note }}）{% endif %}</dd></div>{% endif %}
+                {% if p.capacity_total %}
+                  <div><dt>名額</dt><dd>
+                    {% if p.seats_left %}尚餘 {{ p.seats_left }} 個（共 {{ p.capacity_total }} 個）{% else %}已額滿，可登記候補{% endif %}
+                  </dd></div>
+                {% endif %}
+                {% if p.closes_at %}<div><dt>報名截止</dt><dd>{{ p.closes_at|date:"Y 年 n 月 j 日" }}</dd></div>{% endif %}
+              </dl>
+            </div>
+
+            <div class="prog-act">
+              {% if p.is_accepting %}
+                <a class="signin" href="{% url 'programs:apply' p.slug %}">立即報名</a>
+              {% endif %}
+              <a class="arrow" href="{{ p.get_absolute_url }}">項目詳情</a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <h2>暫時沒有開放中的項目</h2>
+        <p class="lead">新的訓練班會在這裡公布，請稍後再回來看看。</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="cta">
+  <div class="wrap">
+    <div>
+      <p class="kicker on-dark">報名之後</p>
+      <h2>報名資料會直接成為你的訓練檔案</h2>
+      <p>
+        我們收到報名後會建立你在 ATM 系統的運動員檔案，課堂的負荷、疼痛回報與
+        身體狀況都會記錄在同一個地方，教練據此調整之後的強度。
+      </p>
+    </div>
+    <div class="box">
+      <p>已經是學員？直接登入查看你的課表與數據。</p>
+      <a class="signin" href="{% url 'login' %}">登入 ATM</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

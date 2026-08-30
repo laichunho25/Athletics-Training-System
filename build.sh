@@ -20,3 +20,6 @@ python manage.py create_admin --skip-if-unset
 
 # 有教練帳號時建立短跑課表模板（可重複執行；沒有教練就安靜跳過）
 python manage.py seed_templates --skip-if-empty
+
+# 建立公開報名項目（已存在的項目不會被覆寫，教練在後台改過的內容會保留）
+python manage.py seed_projects

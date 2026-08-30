@@ -74,6 +74,8 @@ INSTALLED_APPS = [
     'analytics',      # 模組4 數據分析
     'nutrition',      # 模組5 營養與恢復
     'injury',         # 模組6 傷患管理
+
+    'programs',       # 公開報名（項目 / 報名表 → 匯入 ATM）
 ]
 
 AUTH_USER_MODEL = 'accounts.User'

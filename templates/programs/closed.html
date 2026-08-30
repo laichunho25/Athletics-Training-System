@@ -1,0 +1,20 @@
+{% extends "programs/base.html" %}
+
+{% block title %}報名未開放 · {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="kicker">Closed &middot; 未開放</p>
+    <h1>{{ closed_reason }}</h1>
+    <p class="lead">
+      「{{ project.title }}」目前不接受網上報名。
+      {% if project.contact_note %}如需查詢，請聯絡 {{ project.contact_note }}。{% endif %}
+    </p>
+    <div class="head-act">
+      <a class="signin" href="{% url 'programs:list' %}">看其他項目</a>
+      <a class="arrow" href="{{ project.get_absolute_url }}">項目詳情</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

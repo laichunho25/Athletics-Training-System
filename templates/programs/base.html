@@ -1,0 +1,44 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}訓練項目報名{% endblock %} · ATM</title>
+  <meta name="description" content="{% block description %}DBSAC 與 ATM 開放報名的訓練項目：力量與體能課、專項訓練營，線上報名並直接建立訓練檔案。{% endblock %}">
+  <link rel="stylesheet" href="{% static 'css/landing.css' %}">
+  <link rel="stylesheet" href="{% static 'css/programs.css' %}">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="{% url 'web:landing' %}">ATM<i>·</i>田徑</a>
+    <nav>
+      <a href="{% url 'web:landing' %}#directions">訓練方向</a>
+      <a href="{% url 'web:landing' %}#plan">十六週</a>
+      <a href="{% url 'programs:list' %}">項目報名</a>
+      {% if user.is_authenticated %}
+        <a class="signin" href="{% url 'web:home' %}">進入系統</a>
+      {% else %}
+        <a class="signin" href="{% url 'login' %}">登入</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+{% block body %}{% endblock %}
+
+<footer>
+  <div class="wrap">
+    <span>ATM · 田徑個人化訓練與管理系統</span>
+    <span>
+      <a href="{% url 'programs:list' %}">項目報名</a> ·
+      <a href="{% url 'web:landing' %}">訓練內容</a> ·
+      <a href="{% url 'login' %}">登入系統</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

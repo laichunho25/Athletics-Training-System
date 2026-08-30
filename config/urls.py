@@ -88,6 +88,8 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls")),
     # 登入 / 登出（django.contrib.auth 內建 views）
     path("accounts/", include("django.contrib.auth.urls")),
+    # 公開報名
+    path("programs/", include("programs.urls")),
     # HTML 前端
     path("", include("core.urls")),
 ]

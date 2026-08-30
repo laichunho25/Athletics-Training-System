@@ -18,6 +18,7 @@
       <a href="#directions">訓練方向</a>
       <a href="#plan">十六週</a>
       <a href="#week">一週結構</a>
+      <a href="{% url 'programs:list' %}">項目報名</a>
       {% if user.is_authenticated %}
         <a class="signin" href="{% url 'web:home' %}">進入系統</a>
       {% else %}
@@ -290,16 +291,22 @@
   <div class="wrap">
     <div>
       <p class="kicker on-dark">Get Started</p>
-      <h2>開始使用</h2>
-      <p>系統帳號由教練或管理員開設。已經有帳號的話，直接從旁邊登入。</p>
+      <h2>報名訓練，或登入你的檔案</h2>
+      <p>
+        公開招生的力量與體能課、專項訓練營都在「項目報名」裡，線上填一次表格即可。
+        系統帳號則由教練或管理員開設，已有帳號的話直接登入。
+      </p>
     </div>
     <div class="box">
-      <p>登入後會依你的角色，自動進入運動員儀表板或教練的團隊總覽。</p>
-      {% if user.is_authenticated %}
-        <a class="signin" href="{% url 'web:home' %}">進入我的儀表板</a>
-      {% else %}
-        <a class="signin" href="{% url 'login' %}">登入 ATM 系統</a>
-      {% endif %}
+      <p>報名資料會直接成為你在 ATM 的運動員檔案。</p>
+      <a class="signin" href="{% url 'programs:list' %}">查看開放中的項目</a>
+      <p style="margin-top:22px">
+        {% if user.is_authenticated %}
+          <a class="arrow on-dark" href="{% url 'web:home' %}">進入我的儀表板</a>
+        {% else %}
+          <a class="arrow on-dark" href="{% url 'login' %}">已經有帳號，登入 ATM</a>
+        {% endif %}
+      </p>
     </div>
   </div>
 </div>
@@ -308,6 +315,7 @@
   <div class="wrap">
     <span>ATM · 田徑個人化訓練與管理系統</span>
     <span>
+      <a href="{% url 'programs:list' %}">項目報名</a> ·
       {% if user.is_authenticated %}
         <a href="{% url 'web:home' %}">儀表板</a>
       {% else %}

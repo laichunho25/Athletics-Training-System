@@ -13,6 +13,7 @@ python manage.py migrate
 python manage.py loaddata events exercises recovery_methods exercise_modifications
 python manage.py seed_demo --weeks 8      # 建立示範資料
 python manage.py seed_templates           # 建立短跑課表模板（需先有教練帳號）
+python manage.py seed_projects            # 建立公開報名項目
 python manage.py createsuperuser
 python manage.py runserver          # 固定跑在 8200 埠（避開其他專案）
 ```
@@ -24,6 +25,7 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 | 位置 | 網址 |
 |---|---|
 | **公開首頁** | http://127.0.0.1:8200/ |
+| **項目報名** | http://127.0.0.1:8200/programs/ |
 | **登入** | http://127.0.0.1:8200/accounts/login/ |
 | 儀表板（運動員） | http://127.0.0.1:8200/dashboard/ |
 | 團隊儀表板（教練） | http://127.0.0.1:8200/team/ |
@@ -51,7 +53,8 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 
 | 頁面 | 內容 |
 |---|---|
-| 公開首頁 `/` | 田徑訓練六大方向、三種週期化模式介紹，暖色調，含 ATM 登入入口（免登入可看） |
+| 公開首頁 `/` | 短跑訓練方向、16 週週期與一週結構，含報名與 ATM 登入入口（免登入可看） |
+| 項目報名 `/programs/` | 公開招生的訓練項目列表、詳情與報名表（免登入可看，見下方章節） |
 | 儀表板 | 賽事倒數、目前分期、ACWR 燈號、準備度、今日/本週課表、近 8 週負荷圖、PB 表 |
 | 團隊儀表板 | 全隊 ACWR/準備度/傷患一覽，高風險與傷患警示條 |
 | 訓練日曆 | 月曆（週一起）、分期色條、依狀態著色的課表，點入可打卡 |
@@ -62,6 +65,7 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 
 - 系統內頁樣板在 `templates/`，樣式 `static/css/atm.css`（深色主題）
 - 公開首頁 `templates/site/landing.html` + `static/css/landing.css`（暖色調，獨立不繼承 base.html）
+- 公開報名 `templates/programs/` + `static/css/programs.css`（沿用 landing.css 的樣式變數）
 - 登入後入口為 `/app/`（依角色分流到 `/dashboard/` 或 `/team/`）
 - Chart.js 4.4.7 已 vendored 於 `static/js/chart.min.js`，**完全離線可用**
 - 教練檢視他人資料用 `?athlete=<id>`，權限一律經 `athlete_ids_visible_to()` 收斂
@@ -198,15 +202,48 @@ python manage.py seed_templates --skip-if-empty  # 沒有教練時安靜跳過�
 
 ---
 
+## 公開報名（programs）
+
+不需登入的招生流程，與 ATM 內部系統共用同一個資料庫。
+
+| 網址 | 內容 |
+| --- | --- |
+| `/programs/` | 所有公開項目的列表，顯示日期、費用、餘額與報名狀態 |
+| `/programs/<slug>/` | 項目詳情（日期、堂數、場地、費用、重要事項） |
+| `/programs/<slug>/apply/` | 報名表：個人資料 / 運動背景 / KYC 健康申報 |
+| `/programs/<slug>/done/` | 送出後的確認頁 |
+
+**後台控制**（`/admin/programs/`）
+
+- `Project` — 建立項目、設定內容，用「狀態」＋「報名開始／截止」控制開放與否。
+  只有狀態為「開放報名」且在時間範圍內，公開頁才會出現報名按鈕。
+- `capacity_total` 額滿後，新報名仍可送出，但自動標記為**候補**，不佔正取名額。
+- `Application` — 每份報名的完整資料，列表會標示需留意的紅旗
+  （現有傷患 / 長期病患 / 未取得醫生許可 / 未成年但無家長聯絡）。
+
+**報名 → ATM**
+
+在報名列表選取後執行「匯入 ATM，建立運動員檔案」，會建立 `User`＋`AthleteProfile`：
+出生日期、性別、身高體重、每週訓練日、重訓年資、學校會所直接對應；
+個人最佳、緊急聯絡、傷患與病歷寫進 `notes`；主項由報名時的項目分類推導。
+密碼設為隨機值（對方須由後台重設），重複執行不會產生第二個帳號。
+另有「匯出 CSV」動作，供保險或場地登記使用。
+
+**第一個項目** 由 `seed_projects` 建立（DBSAC Special Strength & Conditioning
+Sessions），已存在時不會被覆寫，要重設內容請加 `--force`。
+
+---
+
 ## 測試
 
 ```bash
-python manage.py test          # 82 項，約 6 秒
+python manage.py test          # 125 項，約 7 秒
 ```
 
 涵蓋 sRPE 負荷、ACWR（含 0.80 / 1.30 / 1.50 邊界與除零保護）、單調度與壓力、
 成績趨勢斜率、週負荷遞增、營養計算與準備度、疼痛封鎖與課表降階、
-權限收斂（運動員／教練／管理員／匿名），以及 fixture 與模板的資料完整性。
+權限收斂（運動員／教練／管理員／匿名）、公開報名流程（開放控制、名額與候補、
+表單驗證、匯入 ATM 的冪等性），以及 fixture 與模板的資料完整性。
 跑測試時 `settings.py` 會自動切換成 MD5 雜湊，避免 PBKDF2 拖慢建帳號。
 
 ---

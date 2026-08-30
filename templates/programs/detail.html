@@ -1,0 +1,102 @@
+{% extends "programs/base.html" %}
+
+{% block title %}{{ project.title }}{% endblock %}
+{% block description %}{{ project.subtitle|default:project.title }}{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="kicker">{{ project.organiser|default:"Programs" }} &middot; 項目詳情</p>
+    <h1>{{ project.title }}</h1>
+    {% if project.subtitle %}<p class="lead">{{ project.subtitle }}</p>{% endif %}
+    <div class="head-act">
+      {% if accepting %}
+        <a class="signin" href="{% url 'programs:apply' project.slug %}">立即報名</a>
+        {% if project.closes_at %}
+          <span class="deadline">報名截止：{{ project.closes_at|date:"Y 年 n 月 j 日 (l)" }}</span>
+        {% endif %}
+      {% else %}
+        <span class="tag closed">{{ closed_reason }}</span>
+      {% endif %}
+      <a class="arrow" href="{% url 'programs:list' %}">回項目列表</a>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="kicker">關於這個項目</p></div>
+      <div><p class="lead">{{ project.description|linebreaksbr }}</p></div>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <tbody>
+          {% if project.schedule_text %}<tr><td>日期</td><td>{{ project.schedule_text }}</td></tr>{% endif %}
+          {% if project.session_count %}
+            <tr><td>課堂數</td><td>共 {{ project.session_count }} 堂{% if project.group_note %}｜{{ project.group_note }}{% endif %}</td></tr>
+          {% endif %}
+          {% if project.capacity_per_session %}
+            <tr><td>每堂人數</td><td>{{ project.capacity_per_session }} 人
+              {% if project.capacity_total %}｜總名額 {{ project.capacity_total }} 人{% endif %}</td></tr>
+          {% endif %}
+          {% if project.trainer %}<tr><td>教練</td><td>{{ project.trainer }}</td></tr>{% endif %}
+          {% if project.recommended_for %}<tr><td>建議對象</td><td>{{ project.recommended_for }}</td></tr>{% endif %}
+          {% if project.price_hkd %}
+            <tr><td>費用</td><td><span class="em">HK${{ project.price_hkd|floatformat:0 }}</span>
+              {% if project.price_note %}｜{{ project.price_note }}{% endif %}</td></tr>
+          {% endif %}
+          {% if project.venue_name %}
+            <tr><td>場地</td><td>
+              {{ project.venue_name }}
+              {% if project.venue_address %}<br>{{ project.venue_address }}{% endif %}
+              {% if project.venue_note %}<br><span class="dim">{{ project.venue_note }}</span>{% endif %}
+            </td></tr>
+          {% endif %}
+          {% if project.focus %}<tr><td>訓練重點</td><td>{{ project.focus|linebreaksbr }}</td></tr>{% endif %}
+          {% if project.contact_note %}<tr><td>查詢</td><td>{{ project.contact_note }}</td></tr>{% endif %}
+          {% if project.capacity_total %}
+            <tr><td>目前名額</td><td>
+              {% if project.seats_left %}尚餘 {{ project.seats_left }} 個{% else %}已額滿，報名將列入候補{% endif %}
+            </td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if project.important_note %}
+      <div class="notice">
+        <p class="kicker">重要事項</p>
+        <p>{{ project.important_note|linebreaksbr }}</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="cta">
+  <div class="wrap">
+    <div>
+      <p class="kicker on-dark">報名</p>
+      <h2>{% if accepting %}填一次表格，就完成報名{% else %}{{ closed_reason }}{% endif %}</h2>
+      <p>
+        {% if accepting %}
+          報名表包括個人資料、運動背景與健康申報，大約需要 5 分鐘。
+          送出後教練會與你確認名額與付款方式。
+        {% else %}
+          如需查詢下一期的安排{% if project.contact_note %}，請聯絡 {{ project.contact_note }}{% endif %}。
+        {% endif %}
+      </p>
+    </div>
+    <div class="box">
+      {% if accepting %}
+        <p>名額有限，先報先得。</p>
+        <a class="signin" href="{% url 'programs:apply' project.slug %}">開始填寫報名表</a>
+      {% else %}
+        <p>看看其他開放中的項目。</p>
+        <a class="signin" href="{% url 'programs:list' %}">所有項目</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

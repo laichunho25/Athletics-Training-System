@@ -1,0 +1,44 @@
+{% extends "programs/base.html" %}
+
+{% block title %}報名已收到 · {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="kicker">Received &middot; 已收到</p>
+    <h1>報名已送出</h1>
+    <p class="lead">
+      {% if application %}
+        {{ application.name_en }}，你報名的是「{{ project.title }}」。
+        {% if application.status == "WAITLIST" %}
+          正取名額目前已滿，你已列入<strong>候補名單</strong>，有位置時我們會按次序通知你。
+        {% else %}
+          教練會在收到報名後與你確認名額與付款方式。
+        {% endif %}
+      {% else %}
+        我們已收到你的報名，教練會盡快與你聯絡。
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h3>接下來會發生什麼</h3>
+        <p>教練會核對你的資料與健康申報，再以電話或 WhatsApp 與你確認名額、付款與集合安排。</p>
+      </div>
+      <div>
+        <h3>你的訓練檔案</h3>
+        <p>確認後，我們會替你在 ATM 建立運動員檔案，之後每一堂課的負荷與身體狀況都會記錄在裡面。</p>
+      </div>
+      <div>
+        <h3>需要修改資料？</h3>
+        <p>{% if project.contact_note %}請直接聯絡 {{ project.contact_note }}。{% else %}請聯絡教練。{% endif %}</p>
+      </div>
+    </div>
+    <p class="back-row"><a class="arrow" href="{% url 'programs:list' %}">看看其他項目</a></p>
+  </div>
+</section>
+{% endblock %}

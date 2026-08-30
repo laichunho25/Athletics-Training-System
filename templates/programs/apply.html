@@ -1,0 +1,78 @@
+{% extends "programs/base.html" %}
+
+{% block title %}報名 · {{ project.title }}{% endblock %}
+
+{% block body %}
+<div class="page-head">
+  <div class="wrap">
+    <p class="kicker">Application &middot; 報名表</p>
+    <h1>{{ project.title }}</h1>
+    <p class="lead">
+      請據實填寫。健康申報的資料只有教練看得到，用來安排合適的訓練強度與傷患處理。
+    </p>
+    <div class="head-act">
+      <a class="arrow" href="{{ project.get_absolute_url }}">先看項目詳情</a>
+      {% if project.closes_at %}
+        <span class="deadline">報名截止：{{ project.closes_at|date:"Y 年 n 月 j 日" }}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<section class="form-sec">
+  <div class="wrap">
+    {% if is_full %}
+      <div class="notice warn">
+        <p class="kicker">已額滿</p>
+        <p>正取名額已滿。你仍然可以送出報名，我們會把你列入候補名單，有人退出時按次序通知。</p>
+      </div>
+    {% endif %}
+
+    {% if form.errors %}
+      <div class="notice warn">
+        <p class="kicker">請修正以下項目</p>
+        <p>表格未能送出，請檢查標示為紅色的欄位。</p>
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate class="apply-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="field-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% for title, hint, fields in form.sections %}
+        <fieldset>
+          <div class="fs-head">
+            <h2>{{ title }}</h2>
+            <p>{{ hint }}</p>
+          </div>
+          <div class="fs-body">
+            {% for field in fields %}
+              <div class="field{% if field.field.widget.input_type == 'checkbox' %} check{% endif %}{% if field.errors %} has-error{% endif %}">
+                {% if field.field.widget.input_type == 'checkbox' %}
+                  <label for="{{ field.id_for_label }}">{{ field }} <span>{{ field.label }}</span></label>
+                {% else %}
+                  <label for="{{ field.id_for_label }}">
+                    {{ field.label }}{% if field.field.required %}<i>必填</i>{% endif %}
+                  </label>
+                  {{ field }}
+                {% endif %}
+                {% if field.help_text %}<p class="help">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% endfor %}
+
+      <div class="submit-row">
+        <button type="submit" class="signin">送出報名</button>
+        <p class="help">
+          送出即表示你同意上述聲明。若資料有誤，請聯絡{{ project.contact_note|default:"教練" }}修改。
+        </p>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
