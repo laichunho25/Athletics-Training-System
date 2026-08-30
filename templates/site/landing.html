@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>短跑訓練 · ATM 田徑訓練管理系統</title>
-  <meta name="description" content="短跑專項訓練：加速力學、最大速度、速度耐力、力量爆發與負荷監控，以及十六週備賽週期的實際安排。">
+  <title>ATM · 田徑訓練紀錄與分析系統</title>
+  <meta name="description" content="ATM 為每一位運動員量身建立訓練紀錄與分析：課後強度、負荷趨勢、恢復與傷勢，全部留在同一份檔案裡。附短跑訓練專業用詞中英對照表。">
   <link rel="stylesheet" href="{% static 'css/landing.css' %}">
 </head>
 <body>
@@ -15,9 +15,8 @@
     <a class="brand" href="{% url 'web:landing' %}">ATM<i>·</i>田徑</a>
     <nav>
       <a href="#phases">一百公尺的四段</a>
-      <a href="#directions">訓練方向</a>
-      <a href="#plan">十六週</a>
-      <a href="#week">一週結構</a>
+      <a href="#terms">專業用詞</a>
+      <a href="#system">紀錄與分析</a>
       <a href="{% url 'programs:list' %}">項目報名</a>
       {% if user.is_authenticated %}
         <a class="signin" href="{% url 'web:home' %}">進入系統</a>
@@ -31,12 +30,13 @@
 <!-- ============================================================== 主視覺 -->
 <div class="hero">
   <div class="wrap">
-    <div>
+    <div class="hero-copy">
       <p class="kicker on-dark">Sprint &middot; 100m / 200m / 400m</p>
-      <h1>短跑的差距，<br>拉開在沒有被記錄的地方</h1>
+      <h1>課表不是罐頭，<br>紀錄與分析要為人而做</h1>
       <p class="lead">
-        決定名次的很少是單一堂課練得多重，而是十六週下來，每一課的強度、恢復與傷勢
-        有沒有被真正管理住。ATM 把這些變成看得見的數字。
+        ATM 不派發現成的訓練課表。它把每一堂課的內容、強度、恢復狀況與傷勢完整記下來，
+        再換算成教練看得懂的趨勢——課表是教練在持續訓練中逐步認識這名運動員之後長出來的，
+        系統負責讓這個過程一直有依據可循。
       </p>
       <div class="acts">
         {% if user.is_authenticated %}
@@ -44,15 +44,34 @@
         {% else %}
           <a class="signin" href="{% url 'login' %}">登入 ATM 系統</a>
         {% endif %}
-        <a class="arrow on-dark" href="#phases">先看訓練內容</a>
+        <a class="arrow on-dark" href="#system">看系統怎麼運作</a>
       </div>
     </div>
 
-    <div class="hero-figures">
-      <div class="figure"><div class="v">0.100 s</div><div class="l">起跑反應下限，低於此判搶跑</div></div>
-      <div class="figure"><div class="v">30–60 m</div><div class="l">最大速度出現的區間</div></div>
-      <div class="figure"><div class="v">0.80–1.30</div><div class="l">急慢性負荷比的安全區間</div></div>
-      <div class="figure"><div class="v">16 週</div><div class="l">一個完整備賽週期</div></div>
+    <!-- 動態跑道 + 一百公尺衝刺互動 -->
+    <div class="hero-track">
+      <div class="track-stage">
+        <canvas id="track-hero" role="img"
+                aria-label="旋轉的四百公尺跑道示意圖，下方為一百公尺直道與衝刺標記"></canvas>
+        <noscript>
+          <p class="track-fallback">開啟 JavaScript 可看到跑道動畫與一百公尺衝刺示範。</p>
+        </noscript>
+      </div>
+
+      <div class="track-panel">
+        <div class="readouts">
+          <div><span class="l">時間</span><span class="v" data-hero="time">0.00</span><i>s</i></div>
+          <div><span class="l">距離</span><span class="v" data-hero="dist">0.0</span><i>m</i></div>
+          <div><span class="l">速度</span><span class="v" data-hero="speed">0.00</span><i>m/s</i></div>
+          <div><span class="l">階段</span><span class="v p" data-hero="phase">待命</span></div>
+        </div>
+        <button class="signin go" type="button" data-hero="go">跑一趟 100 公尺</button>
+      </div>
+
+      <ol class="splits" data-hero="splits" aria-live="polite"></ol>
+      <p class="track-note">
+        依 v(t) ＝ v<sub>max</sub>（1 − e<sup>−t/τ</sup>）模型即時演算，僅作階段示意，非任何人的實際成績。
+      </p>
     </div>
   </div>
   <div class="hero-foot">
@@ -72,8 +91,8 @@
         <h2>一趟一百公尺，<br>其實是四種能力</h2>
       </div>
       <p class="lead">
-        很多人把短跑練成「一直跑快」，但起跑、加速、最高速與維持速度用的是不同的力學與能量系統，
-        訓練手段也完全不同。把它們分開練，再合起來跑，是短跑課表的基本邏輯。
+        起跑、加速、最高速與維持速度，用的是不同的力學與能量系統。
+        分開看，才知道一名運動員的差距落在哪一段——這也是 ATM 分析成績時的切分方式。
       </p>
     </div>
 
@@ -81,177 +100,69 @@
       <div class="phase">
         <div class="m">0 m</div>
         <h3>起跑與反應</h3>
-        <p>反應時間，加上前兩步的推蹬方向。蹲踞式起跑離開起跑器時軀幹接近四十五度，急著站起來等於把加速距離讓出去。</p>
-        <div class="cue">練法：信號起跑、前 10 m 分段計時</div>
+        <p>反應時間，加上前兩步的推蹬方向。離開起跑器時軀幹接近四十五度，急著站起來等於把加速距離讓出去。</p>
+        <div class="cue">Block Clearance · Reaction Time</div>
       </div>
       <div class="phase">
         <div class="m">0–30 m</div>
         <h3>加速期</h3>
-        <p>身體由前傾逐步轉為直立，步頻與步幅同時增長。這一段最吃水平推進力，力量訓練的效益也最直接反映在這裡。</p>
-        <div class="cue">練法：雪橇推拉、上坡跑、20–30 m 加速</div>
+        <p>身體由前傾逐步轉為直立，步頻與步幅同時增長。這一段最吃水平推進力。</p>
+        <div class="cue">Drive Phase · Shin Angle</div>
       </div>
       <div class="phase">
         <div class="m">30–60 m</div>
         <h3>最大速度</h3>
-        <p>速度的天花板。關鍵在觸地時間縮短與下肢剛性，不是更用力往下踩。疲勞狀態下練這一段，幾乎沒有效果。</p>
-        <div class="cue">練法：飛行跑 20–30 m、組間完全恢復</div>
+        <p>速度的天花板。關鍵在觸地時間縮短與下肢剛性，不是更用力往下踩。</p>
+        <div class="cue">Maximum Velocity · Ground Contact Time</div>
       </div>
       <div class="phase">
         <div class="m">60–100 m</div>
         <h3>速度維持</h3>
-        <p>沒有人能一路加速到終點，名次常在這裡拉開。目標是減速得比對手慢，而技術一旦變形就會加速掉速。</p>
-        <div class="cue">練法：120–150 m 速度耐力、彎道加速</div>
+        <p>沒有人能一路加速到終點，名次常在這裡拉開。目標是減速得比對手慢。</p>
+        <div class="cue">Speed Endurance · Deceleration</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============================================================== 訓練方向 -->
-<section id="directions">
+<!-- ============================================================== 專業用詞 -->
+<section id="terms">
   <div class="wrap">
     <div class="sec-head">
       <div>
-        <p class="kicker">Training Directions</p>
-        <h2>短跑訓練的<br>六個主流方向</h2>
+        <p class="kicker">Sprint Terminology</p>
+        <h2>短跑訓練的<br>專業用詞</h2>
       </div>
       <p class="lead">
-        項目不同只是權重不同：100 m 偏重前兩項，400 m 把速度耐力拉到最前面，
-        跨欄再加上節奏與過欄技術。但這六條主線的結構是一樣的。
+        同一件事，教練、運動員與家長常常各有各的說法。把詞固定下來——中英並列、
+        一句話說清楚——課表上的字、系統裡的欄位與跑道邊的口令才會指向同一件事。
+        全部 {{ glossary_count }} 個詞條同時維護在原始碼的
+        <code>docs/sprint-glossary.md</code>。
       </p>
     </div>
 
-    <div class="list">
-      <div class="item">
-        <div class="no">01</div>
-        <div>
-          <h3>加速力學</h3>
-          <p class="spec">20–40 m × 4–6 趟｜組間 3–5 分鐘｜成績掉超過 3% 就停</p>
+    <div class="gloss">
+      {% for group in glossary %}
+        <div class="gloss-group" id="term-{{ group.id }}">
+          <div class="gloss-head">
+            <h3>{{ group.zh }}</h3>
+            <p class="en">{{ group.en }}</p>
+            <p class="intro">{{ group.intro }}</p>
+            <p class="count">{{ group.terms|length }} 條</p>
+          </div>
+          <dl class="gloss-list">
+            {% for t in group.terms %}
+              <div class="term">
+                <dt>
+                  <span class="t-en">{{ t.en }}</span>
+                  <span class="t-zh">{{ t.zh }}</span>
+                </dt>
+                <dd>{{ t.note }}</dd>
+              </div>
+            {% endfor %}
+          </dl>
         </div>
-        <p>把力量轉成向前的位移。重點在推蹬方向與軀幹角度，而不是抬腿高度。負重推雪橇與上坡跑能強迫身體維持正確前傾。</p>
-      </div>
-      <div class="item">
-        <div class="no">02</div>
-        <div>
-          <h3>最大速度</h3>
-          <p class="spec">飛行跑 20–30 m｜強度 95–100%｜組間 6–10 分鐘</p>
-        </div>
-        <p>短跑唯一無法靠努力補償的能力。必須在完全恢復下練，一有疲勞觸地時間就拉長，練到的就變成別的東西了。一週兩次是上限。</p>
-      </div>
-      <div class="item">
-        <div class="no">03</div>
-        <div>
-          <h3>速度耐力與乳酸耐受</h3>
-          <p class="spec">150–300 m｜強度 85–95%｜組間 8–15 分鐘</p>
-        </div>
-        <p>200 m 與 400 m 的主戰場，100 m 選手則用來撐住後段。這類課恢復慢，要預留 48 小時以上，不要和最大速度課相鄰。</p>
-      </div>
-      <div class="item">
-        <div class="no">04</div>
-        <div>
-          <h3>最大力量與爆發力</h3>
-          <p class="spec">深蹲 / 上膊 85–95% 1RM × 2–4 下｜增強式排在力量課之前</p>
-        </div>
-        <p>力量決定天花板，爆發力決定能用出多少。短跑要的是發力率而非絕對重量，所以低反覆、高品質，以動作速度為判準，不練到力竭。</p>
-      </div>
-      <div class="item">
-        <div class="no">05</div>
-        <div>
-          <h3>週期化與負荷監控</h3>
-          <p class="spec">sRPE ＝ RPE × 實際時長｜急慢性負荷比 0.80–1.30｜週增量 ≤ 10%</p>
-        </div>
-        <p>用一致的方式量化每一堂課，才知道這週到底比上週重多少。負荷突然拉高是傷病最可預測的前兆，而它完全可以提早看見。</p>
-      </div>
-      <div class="item">
-        <div class="no">06</div>
-        <div>
-          <h3>恢復、營養與防護</h3>
-          <p class="spec">睡眠 8 小時以上｜蛋白質 1.6–2.0 g/kg｜膕繩肌離心訓練全年不停</p>
-        </div>
-        <p>膕繩肌拉傷是短跑最常見的傷病，復發率也最高。北歐腿彎舉這類離心訓練不是受傷後才做的復健，是整個賽季都該維持的保險。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================== 十六週 -->
-<section id="plan">
-  <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <p class="kicker">Periodization</p>
-        <h2>十六週備賽<br>怎麼切</h2>
-      </div>
-      <p class="lead">
-        由量到強度，由一般到專項。ATM 預設就是這個十六週結構，
-        建立目標賽事後會自動產生分期與每週的目標負荷。
-      </p>
-    </div>
-
-    <div class="scroll">
-      <table class="tbl">
-        <thead>
-          <tr><th>週次</th><th>分期</th><th>訓練重心</th><th>短跑課實際的樣子</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>W1–5</td>
-            <td class="em">一般準備期</td>
-            <td>有氧基礎、一般力量、技術重建</td>
-            <td>節奏跑 100–150 m 大量、循環訓練、深蹲量大而強度中等</td>
-          </tr>
-          <tr>
-            <td>W6–11</td>
-            <td class="em">專項準備期</td>
-            <td>最大力量、加速力學、速度耐力</td>
-            <td>加速 30 m、速度耐力 150–250 m、力量課 85% 1RM 以上</td>
-          </tr>
-          <tr>
-            <td>W12–14</td>
-            <td class="em">賽前期</td>
-            <td>最大速度、起跑、開始減量</td>
-            <td>飛行跑、起跑器出發，訓練量降 30–40% 但強度維持不變</td>
-          </tr>
-          <tr>
-            <td>W15–16</td>
-            <td class="em">比賽期</td>
-            <td>維持與恢復</td>
-            <td>短而快、大量休息，賽前兩天只做喚醒課與起跑</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================== 一週 -->
-<section id="week">
-  <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <p class="kicker">Weekly Structure</p>
-        <h2>專項準備期的<br>一週長什麼樣</h2>
-      </div>
-      <p class="lead">
-        高強度課之間一定隔開。這不是保守，而是最大速度與速度耐力都需要完整恢復才練得到東西。
-        排課的難處從來不是想不到動作，是把恢復排進去。
-      </p>
-    </div>
-
-    <div class="scroll">
-      <table class="tbl">
-        <thead>
-          <tr><th>星期</th><th>課別</th><th>內容</th><th>負荷</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>一</td><td class="em">速度 + 力量</td><td>加速 30 m × 6、深蹲 5×3 @ 88%</td><td>高</td></tr>
-          <tr><td>二</td><td>恢復</td><td>慢跑 20 分鐘、活動度、軟組織放鬆</td><td>低</td></tr>
-          <tr><td>三</td><td class="em">速度耐力</td><td>150 m × 4 @ 90%，組間 10 分鐘</td><td>高</td></tr>
-          <tr><td>四</td><td>技術 / 恢復</td><td>跑姿練習、核心、髖屈伸活動度</td><td>低</td></tr>
-          <tr><td>五</td><td class="em">最大速度 + 爆發</td><td>飛行跑 30 m × 5、上膊 5×2</td><td>高</td></tr>
-          <tr><td>六</td><td>補強</td><td>節奏跑、北歐腿彎舉、單腳穩定</td><td>中</td></tr>
-          <tr><td>日</td><td>完全休息</td><td>睡飽，這天不練</td><td>—</td></tr>
-        </tbody>
-      </table>
+      {% endfor %}
     </div>
   </div>
 </section>
@@ -261,26 +172,50 @@
   <div class="wrap">
     <div class="sec-head">
       <div>
-        <p class="kicker">The System</p>
-        <h2>ATM 把這些<br>變成日常流程</h2>
+        <p class="kicker">Record &amp; Analysis</p>
+        <h2>把訓練變成<br>一份長期的檔案</h2>
       </div>
       <p class="lead">
-        計劃、記錄、分析、調整，四件事在同一個地方完成，教練與運動員看的是同一份資料。
+        好的課表不是查表查出來的，是教練看著同一名運動員練了幾個月之後才寫得出來。
+        ATM 要做的，是讓這幾個月不至於憑印象——每一堂課留下數字，每一次調整都有根據。
       </p>
+    </div>
+
+    <div class="flow">
+      <div class="step">
+        <div class="n">01</div>
+        <h3>逐課記錄</h3>
+        <p>課後填一次自覺強度與實際時長，跑道上的分段與重量室的組次一併留存。花的時間不到一分鐘，累積下來就是這名運動員的訓練史。</p>
+      </div>
+      <div class="step">
+        <div class="n">02</div>
+        <h3>每日狀態</h3>
+        <p>睡眠、痠痛、壓力與疼痛分數，構成當日的準備度。今天適不適合照原本的安排練，不必只靠一句「還可以」。</p>
+      </div>
+      <div class="step">
+        <div class="n">03</div>
+        <h3>自動換算</h3>
+        <p>系統把紀錄轉成訓練負荷、急慢性負荷比、單調度與壓力值，並標出負荷驟增的那一週。數字用來提問，不是用來下結論。</p>
+      </div>
+      <div class="step">
+        <div class="n">04</div>
+        <h3>教練調整</h3>
+        <p>教練看著趨勢與運動員本人的回饋，決定下一段怎麼練。課表因此是「這個人的」，而不是從範本複製過來的。</p>
+      </div>
     </div>
 
     <div class="cols">
       <div>
-        <h3>教練端</h3>
-        <p>建立目標賽事與十六週分期、把課表模板一次派發給多名運動員、在團隊儀表板一眼看出誰的負荷過高、誰帶著傷還在練。</p>
+        <h3>量身，而不是套用</h3>
+        <p>系統提供的是模板與紀錄結構，不是標準答案。同樣一份模板，派到兩名運動員身上之後會往不同方向長，因為每次調整都寫回各自的檔案。</p>
       </div>
       <div>
-        <h3>運動員端</h3>
-        <p>每堂課記 RPE 與實際時長、每天早上填睡眠與痠痛、有不舒服就記疼痛分數。系統換算成負荷、準備度與當日營養目標。</p>
+        <h3>教練與運動員看同一份資料</h3>
+        <p>不需要來回問「上禮拜練了什麼」。團隊儀表板上誰負荷偏高、誰帶著傷還在練，一眼可見，討論從同一個事實開始。</p>
       </div>
       <div>
-        <h3>自動防護</h3>
-        <p>活動時疼痛達六分以上，當日的高強度課自動降級為恢復課，並依受傷部位換成安全的替代動作，不必等到週會才處理。</p>
+        <h3>安全網先於課表</h3>
+        <p>活動時疼痛達門檻，當日的高強度課自動降級，並依受傷部位換成不加重傷勢的替代動作。能站上跑道，比任何一堂課的內容都重要。</p>
       </div>
     </div>
   </div>
@@ -316,6 +251,7 @@
     <span>ATM · 田徑個人化訓練與管理系統</span>
     <span>
       <a href="{% url 'programs:list' %}">項目報名</a> ·
+      <a href="#terms">專業用詞</a> ·
       {% if user.is_authenticated %}
         <a href="{% url 'web:home' %}">儀表板</a>
       {% else %}
@@ -325,5 +261,6 @@
   </div>
 </footer>
 
+<script src="{% static 'js/track-hero.js' %}" defer></script>
 </body>
 </html>

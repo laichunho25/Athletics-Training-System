@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import AthleteProfile, Event
 from analytics import services as an
+from core.glossary import all_terms, as_groups
 from core.models import Role, SessionStatus
 from core.permissions import athlete_ids_visible_to
 from injury import services as inj
@@ -58,8 +59,12 @@ def _athlete_switcher(request):
 
 
 def landing(request):
-    """公開首頁——不需登入，介紹田徑訓練方向並提供 ATM 登入入口。"""
-    return render(request, "site/landing.html")
+    """公開首頁——不需登入，介紹 ATM 的紀錄與分析能力，並提供短跑術語表與登入入口。"""
+    return render(
+        request,
+        "site/landing.html",
+        {"glossary": as_groups(), "glossary_count": len(all_terms())},
+    )
 
 
 @login_required

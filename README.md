@@ -234,16 +234,42 @@ Sessions），已存在時不會被覆寫，要重設內容請加 `--force`。
 
 ---
 
+## 公開首頁與短跑術語表
+
+首頁 `/` 的主視覺是一個 canvas 動畫：旋轉的四百公尺跑道（wheel effect），
+下方是一條一百公尺直道，按「跑一趟 100 公尺」會依
+`v(t) = vmax · (1 − e^(−t/τ))` 即時演算並顯示時間、距離、速度、
+所處階段與每 10 公尺分段。純 vanilla JS（`static/js/track-hero.js`），
+沒有外部相依，並遵守 `prefers-reduced-motion`。
+
+短跑訓練的專業用詞（中英對照 + 解釋）只維護一份：
+
+```
+core/glossary.py                     ← 唯一資料來源
+  ├─ 首頁 #terms 區塊（core.views.landing 帶入 context）
+  └─ docs/sprint-glossary.md（由管理指令產生）
+```
+
+```bash
+python manage.py export_glossary          # 重新產生 docs/sprint-glossary.md
+python manage.py export_glossary --check  # 只檢查是否同步（測試會跑這一項）
+```
+
+要新增或修改詞條，改 `core/glossary.py` 後執行 `export_glossary`，
+網站與 MD 檔會同時更新，不會各改各的而對不上。
+
+---
+
 ## 測試
 
 ```bash
-python manage.py test          # 125 項，約 7 秒
+python manage.py test          # 134 項，約 10 秒
 ```
 
 涵蓋 sRPE 負荷、ACWR（含 0.80 / 1.30 / 1.50 邊界與除零保護）、單調度與壓力、
 成績趨勢斜率、週負荷遞增、營養計算與準備度、疼痛封鎖與課表降階、
 權限收斂（運動員／教練／管理員／匿名）、公開報名流程（開放控制、名額與候補、
-表單驗證、匯入 ATM 的冪等性），以及 fixture 與模板的資料完整性。
+表單驗證、匯入 ATM 的冪等性）、短跑術語表與 MD 檔的同步，以及 fixture 與模板的資料完整性。
 跑測試時 `settings.py` 會自動切換成 MD5 雜湊，避免 PBKDF2 拖慢建帳號。
 
 ---

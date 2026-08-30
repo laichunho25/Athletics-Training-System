@@ -67,18 +67,39 @@ p{margin:0}
   background:repeating-linear-gradient(
     90deg, transparent 0 118px, rgba(201,161,101,.10) 118px 119px);
 }
-.hero .wrap{position:relative;z-index:1;display:grid;grid-template-columns:1.35fr 1fr;
-  gap:72px;align-items:end;padding-top:104px;padding-bottom:0}
+.hero .wrap{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1.05fr;
+  gap:64px;align-items:center;padding-top:88px;padding-bottom:56px}
 .hero h1{color:#fbf8f3}
 .hero .lead{color:#b6ada0;margin-top:24px;max-width:520px}
 .hero .acts{display:flex;gap:28px;align-items:center;margin-top:36px;flex-wrap:wrap}
-.hero-figures{border-left:1px solid var(--rule2);padding-left:36px}
-.figure{padding:20px 0;border-bottom:1px solid var(--rule2)}
-.figure:last-child{border-bottom:0}
-.figure .v{font-size:27px;font-weight:700;color:#e8c489;line-height:1.2;letter-spacing:-.02em}
-.figure .l{font-size:13px;color:#a89e91;margin-top:2px}
+
+/* --- 動態跑道（canvas）與一百公尺衝刺互動 --- */
+.hero-track{border-left:1px solid var(--rule2);padding-left:36px}
+.track-stage{position:relative;width:100%;height:clamp(300px,44vh,420px)}
+.track-stage canvas{display:block}
+.track-fallback{font-size:13px;color:#a89e91;padding-top:24px}
+
+.track-panel{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:24px;flex-wrap:wrap;border-top:1px solid var(--rule2);padding-top:18px;margin-top:8px}
+.readouts{display:flex;gap:28px;flex-wrap:wrap}
+.readouts>div{display:flex;flex-direction:column;gap:2px}
+.readouts .l{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#8d8478;font-weight:700}
+.readouts .v{font-size:24px;font-weight:700;color:#e8c489;line-height:1.15;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.readouts .v.p{font-size:17px;color:#f1ece4;padding-top:5px}
+.readouts i{font-style:normal;font-size:11px;color:#8d8478;letter-spacing:.08em}
+.go{cursor:pointer;font-family:inherit;line-height:1.6}
+
+.splits{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:0 18px;
+  min-height:22px}
+.splits li{display:flex;gap:6px;font-size:12px;color:#a89e91;
+  font-variant-numeric:tabular-nums}
+.splits li b{color:#c9a165;font-weight:600}
+.track-note{font-size:11.5px;color:#7e756a;margin-top:12px;line-height:1.7}
+.track-note sub,.track-note sup{font-size:9px}
+
 .hero-foot{
-  position:relative;z-index:1;margin-top:72px;border-top:1px solid var(--rule2);
+  position:relative;z-index:1;border-top:1px solid var(--rule2);
 }
 .hero-foot .wrap{display:flex;gap:40px;padding-top:20px;padding-bottom:20px;
   font-size:13px;color:#9b9184;flex-wrap:wrap;align-items:center}
@@ -98,7 +119,8 @@ section:first-of-type{border-top:0}
 .phase h3{margin:10px 0 10px}
 .phase p{font-size:14.5px;color:var(--body)}
 .phase .cue{margin-top:16px;padding-top:14px;border-top:1px dotted var(--rule);
-  font-size:13px;color:var(--mute)}
+  font-size:12px;letter-spacing:.04em;color:var(--accent);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
 /* 方向（編輯式清單） */
 .list{border-top:1px solid var(--rule)}
@@ -110,6 +132,35 @@ section:first-of-type{border-top:0}
 .item p{color:var(--body);font-size:15px}
 .item .spec{margin-top:12px;font-size:13.5px;color:var(--mute);
   border-left:2px solid var(--rule);padding-left:14px}
+
+/* 術語表 */
+.gloss{border-top:1px solid var(--rule)}
+.gloss-group{display:grid;grid-template-columns:260px 1fr;gap:56px;
+  padding:40px 0;border-bottom:1px solid var(--rule);align-items:start}
+.gloss-head{position:sticky;top:96px}
+.gloss-head .en{font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);font-weight:700;margin-top:8px}
+.gloss-head .intro{font-size:13.5px;color:var(--body);margin-top:14px;line-height:1.75}
+.gloss-head .count{font-size:12px;color:var(--mute);margin-top:12px;
+  border-top:1px dotted var(--rule);padding-top:10px}
+.gloss-list{margin:0}
+.term{display:grid;grid-template-columns:300px 1fr;gap:28px;
+  padding:14px 0;border-top:1px dotted var(--rule)}
+.term:first-child{border-top:0;padding-top:0}
+.term dt{margin:0}
+.term dd{margin:0;font-size:14.5px;color:var(--body);line-height:1.75}
+.t-en{display:block;font-size:13.5px;font-weight:600;color:var(--ink);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:-.01em}
+.t-zh{display:block;font-size:14px;color:var(--accent);margin-top:2px}
+
+/* 流程四步 */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--rule);
+  margin-bottom:56px}
+.step{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);padding:26px 26px 30px}
+.step:last-child{border-right:0}
+.step .n{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--accent)}
+.step h3{margin:10px 0 10px}
+.step p{font-size:14.5px;color:var(--body)}
 
 /* 表格 */
 .tbl{width:100%;border-collapse:collapse;font-size:15px;background:var(--white);
@@ -146,8 +197,15 @@ footer a:hover{color:#e8c489}
 
 /* ---------------------------------------------------------------- RWD */
 @media (max-width:960px){
-  .hero .wrap{grid-template-columns:1fr;gap:44px;padding-top:64px}
-  .hero-figures{border-left:0;border-top:1px solid var(--rule2);padding-left:0;padding-top:8px}
+  .hero .wrap{grid-template-columns:1fr;gap:40px;padding-top:56px;padding-bottom:40px}
+  .hero-track{border-left:0;border-top:1px solid var(--rule2);padding-left:0;padding-top:24px}
+  .track-stage{height:clamp(260px,52vw,340px)}
+  .readouts{gap:20px}
+  .gloss-group{grid-template-columns:1fr;gap:24px}
+  .gloss-head{position:static}
+  .term{grid-template-columns:1fr;gap:6px}
+  .flow{grid-template-columns:repeat(2,1fr)}
+  .step:nth-child(2n){border-right:0}
   .sec-head{grid-template-columns:1fr;gap:20px}
   .phases{grid-template-columns:repeat(2,1fr)}
   .phase:nth-child(2n){border-right:0}
