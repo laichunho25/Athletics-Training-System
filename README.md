@@ -1,7 +1,7 @@
 # ATM — Athlete Training Management System
 
 田徑個人化訓練與管理系統（Django 6 + DRF）。
-規格書見 [ATM_SPEC.md](ATM_SPEC.md)。
+規格書見 [ATM_SPEC.md](ATM_SPEC.md)，部署見 [DEPLOY.md](DEPLOY.md)。
 
 ---
 
@@ -169,5 +169,5 @@ python manage.py rebuild_analytics --athlete 1
 - [ ] 單元測試（services 計算邏輯 + 權限）
 - [ ] Notification model 與 Celery 排程
 - [ ] 擴充 fixtures（更多替代動作 / 課表模板）
-- [ ] PostgreSQL 與部署設定
+- [x] PostgreSQL 與 Render 部署設定（見 [DEPLOY.md](DEPLOY.md)）
 - [ ] 報告匯出（CSV / PDF）
