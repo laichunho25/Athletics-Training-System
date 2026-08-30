@@ -13,7 +13,7 @@ SECTIONS = [
         "請填寫與身份證明文件相同的姓名，方便保險與場地登記。",
         [
             "name_en", "name_zh", "sex", "birth_date", "phone", "email",
-            "school_or_club", "graduation_year", "guardian_name", "guardian_phone",
+            "school_or_club", "graduation_year",
         ],
     ),
     (
@@ -113,20 +113,6 @@ class ApplicationForm(forms.ModelForm):
 
         if cleaned.get("has_current_injury") and not (cleaned.get("injury_detail") or "").strip():
             self.add_error("injury_detail", "有傷患時請描述部位與目前狀況。")
-
-        birth_date = cleaned.get("birth_date")
-        if birth_date:
-            today = timezone.localdate()
-            age = (
-                today.year
-                - birth_date.year
-                - ((today.month, today.day) < (birth_date.month, birth_date.day))
-            )
-            if age < 18:
-                if not (cleaned.get("guardian_name") or "").strip():
-                    self.add_error("guardian_name", "未滿 18 歲須填寫家長／監護人姓名。")
-                if not (cleaned.get("guardian_phone") or "").strip():
-                    self.add_error("guardian_phone", "未滿 18 歲須填寫家長／監護人電話。")
 
         return cleaned
 

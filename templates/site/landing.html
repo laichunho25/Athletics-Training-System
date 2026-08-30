@@ -48,14 +48,20 @@
       </div>
     </div>
 
-    <!-- 動態跑道 + 一百公尺衝刺互動 -->
+    <!-- 動態跑道 + 一百公尺挑戰 -->
     <div class="hero-track">
       <div class="track-stage">
-        <canvas id="track-hero" role="img"
-                aria-label="旋轉的四百公尺跑道示意圖，下方為一百公尺直道與衝刺標記"></canvas>
+        <canvas id="track-hero" tabindex="0" role="img"
+                aria-label="旋轉的四百公尺紅色跑道，下方為一百公尺直道與跑者位置"></canvas>
+        <div class="track-call" data-hero="call" aria-live="assertive"></div>
         <noscript>
-          <p class="track-fallback">開啟 JavaScript 可看到跑道動畫與一百公尺衝刺示範。</p>
+          <p class="track-fallback">開啟 JavaScript 可看到跑道動畫與一百公尺挑戰。</p>
         </noscript>
+      </div>
+
+      <div class="tapbar">
+        <div class="rail"><div class="fill" data-hero="tapfill"></div></div>
+        <span class="n" data-hero="tapnum">0 / 200 下</span>
       </div>
 
       <div class="track-panel">
@@ -65,12 +71,17 @@
           <div><span class="l">速度</span><span class="v" data-hero="speed">0.00</span><i>m/s</i></div>
           <div><span class="l">階段</span><span class="v p" data-hero="phase">待命</span></div>
         </div>
-        <button class="signin go" type="button" data-hero="go">跑一趟 100 公尺</button>
+        <div class="track-acts">
+          <button class="signin" type="button" data-hero="go">接受挑戰</button>
+          <button class="ghost" type="button" data-hero="demo">看示範</button>
+        </div>
       </div>
 
       <ol class="splits" data-hero="splits" aria-live="polite"></ol>
       <p class="track-note">
-        依 v(t) ＝ v<sub>max</sub>（1 − e<sup>−t/τ</sup>）模型即時演算，僅作階段示意，非任何人的實際成績。
+        挑戰：聽 On your marks → Set → GO，之後連打滑鼠左鍵，每下前進 0.5 公尺，
+        按滿 200 下衝過終點；GO 之前先按就算搶跑。示範則依
+        v(t) ＝ v<sub>max</sub>（1 − e<sup>−t/τ</sup>）演算，僅作階段示意。
       </p>
     </div>
   </div>
@@ -136,34 +147,50 @@
       <p class="lead">
         同一件事，教練、運動員與家長常常各有各的說法。把詞固定下來——中英並列、
         一句話說清楚——課表上的字、系統裡的欄位與跑道邊的口令才會指向同一件事。
-        全部 {{ glossary_count }} 個詞條同時維護在原始碼的
-        <code>docs/sprint-glossary.md</code>。
+        選一個分類，或直接搜尋。
       </p>
     </div>
 
-    <div class="gloss">
+    <div class="gloss-bar">
+      <div class="chips" data-gloss="chips">
+        <button class="chip" type="button" data-cat="all" aria-pressed="false">
+          全部 <b>{{ glossary_count }}</b>
+        </button>
+        {% for group in glossary %}
+          <button class="chip" type="button" data-cat="{{ group.id }}"
+                  title="{{ group.en }}" aria-pressed="false">
+            {{ group.zh }} <b>{{ group.terms|length }}</b>
+          </button>
+        {% endfor %}
+      </div>
+      <div class="gloss-search">
+        <label class="sr-only" for="gloss-q">搜尋術語</label>
+        <input id="gloss-q" type="search" data-gloss="q" autocomplete="off"
+               placeholder="搜尋中英文或解釋…">
+        <span class="gloss-count" data-gloss="count"></span>
+      </div>
+    </div>
+
+    <div class="gloss-grid" data-gloss="grid">
       {% for group in glossary %}
-        <div class="gloss-group" id="term-{{ group.id }}">
-          <div class="gloss-head">
-            <h3>{{ group.zh }}</h3>
-            <p class="en">{{ group.en }}</p>
-            <p class="intro">{{ group.intro }}</p>
-            <p class="count">{{ group.terms|length }} 條</p>
+        {% for t in group.terms %}
+          <div class="term" data-cat="{{ group.id }}"
+               data-text="{{ t.en|lower }} {{ t.zh }} {{ t.note }}">
+            <button class="term-btn" type="button">
+              <span>
+                <span class="t-en">{{ t.en }}</span>
+                <span class="t-zh">{{ t.zh }}</span>
+              </span>
+              <span class="term-cat">{{ group.zh }}</span>
+            </button>
+            <p class="term-note">{{ t.note }}</p>
           </div>
-          <dl class="gloss-list">
-            {% for t in group.terms %}
-              <div class="term">
-                <dt>
-                  <span class="t-en">{{ t.en }}</span>
-                  <span class="t-zh">{{ t.zh }}</span>
-                </dt>
-                <dd>{{ t.note }}</dd>
-              </div>
-            {% endfor %}
-          </dl>
-        </div>
+        {% endfor %}
       {% endfor %}
     </div>
+    <p class="gloss-empty" data-gloss="empty" hidden>沒有符合的詞條，換個關鍵字試試。</p>
+    <p class="gloss-foot">點一下詞條看解釋。全部 {{ glossary_count }} 條同時維護在
+      <code>docs/sprint-glossary.md</code>。</p>
   </div>
 </section>
 
@@ -262,5 +289,6 @@
 </footer>
 
 <script src="{% static 'js/track-hero.js' %}" defer></script>
+<script src="{% static 'js/glossary.js' %}" defer></script>
 </body>
 </html>

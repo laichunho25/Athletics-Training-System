@@ -232,21 +232,41 @@ python manage.py seed_templates --skip-if-empty  # 沒有教練時安靜跳過�
 **第一個項目** 由 `seed_projects` 建立（DBSAC Special Strength & Conditioning
 Sessions），已存在時不會被覆寫，要重設內容請加 `--force`。
 
+此項目只公開給 DBSAC 的師兄弟，所以報名表的個人資料段沒有家長／監護人欄位，
+「學校 / 體育會」預設填 `DBSAC`（報名者可改，教練也可在後台改）。
+
 ---
 
 ## 公開首頁與短跑術語表
 
-首頁 `/` 的主視覺是一個 canvas 動畫：旋轉的四百公尺跑道（wheel effect），
-下方是一條一百公尺直道，按「跑一趟 100 公尺」會依
-`v(t) = vmax · (1 − e^(−t/τ))` 即時演算並顯示時間、距離、速度、
-所處階段與每 10 公尺分段。純 vanilla JS（`static/js/track-hero.js`），
-沒有外部相依，並遵守 `prefers-reduced-motion`。
+全站配色照真實田徑場：Mondo 紅膠面（`--track #c0392b`）配白色分道線，
+深紅區塊用於主視覺、結尾與頁尾。
+
+首頁 `/` 的主視覺是一個 canvas 動畫（`static/js/track-hero.js`，純 vanilla JS、
+無外部相依、遵守 `prefers-reduced-motion`）：旋轉的四百公尺紅色跑道（wheel effect），
+下方是一條一百公尺直道。兩種玩法：
+
+| | 內容 |
+| --- | --- |
+| **挑戰** | 依序出現 On your marks → Set → GO（Set 後隨機等待，背不了口令），之後連打滑鼠左鍵，每下前進 0.5 公尺，按滿 **200 下** 完成一百米。GO 之前先按判搶跑犯規。 |
+| **示範** | 依 `v(t) = vmax · (1 − e^(−t/τ))` 自動跑完一趟。 |
+
+兩者都即時顯示時間 / 距離 / 速度 / 階段（起跑反應 → 加速推進期 → 最大速度 →
+速度維持），並逐一列出每 10 公尺分段時間。跑者同時在輪上前進，
+一百米正好是四百公尺輪的四分之一圈。
+
+登入按鈕（`.signin`）做成起跑架的樣子：滑過去時白色分道線由左掃入，
+起跑箭頭往前彈出。
+
+術語區塊是互動式的：分類篩選鈕（含各類條數）、關鍵字搜尋（中英文與解釋都找），
+預設只展開第一類，點詞條才顯示解釋，版面不會一次倒出六十幾條。
+沒有 JavaScript 時所有詞條照樣完整顯示。
 
 短跑訓練的專業用詞（中英對照 + 解釋）只維護一份：
 
 ```
 core/glossary.py                     ← 唯一資料來源
-  ├─ 首頁 #terms 區塊（core.views.landing 帶入 context）
+  ├─ 首頁 #terms 區塊（core.views.landing 帶入 context，static/js/glossary.js 負責篩選）
   └─ docs/sprint-glossary.md（由管理指令產生）
 ```
 
@@ -263,7 +283,7 @@ python manage.py export_glossary --check  # 只檢查是否同步（測試會跑
 ## 測試
 
 ```bash
-python manage.py test          # 134 項，約 10 秒
+python manage.py test          # 138 項，約 10 秒
 ```
 
 涵蓋 sRPE 負荷、ACWR（含 0.80 / 1.30 / 1.50 邊界與除零保護）、單調度與壓力、

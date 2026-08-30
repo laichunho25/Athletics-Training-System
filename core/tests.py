@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
@@ -222,8 +223,39 @@ class LandingContentTests(TestCase):
     def test_track_hero_canvas_and_script_present(self):
         self.assertIn('id="track-hero"', self.html)
         self.assertIn("js/track-hero", self.html)
-        for slot in ("time", "dist", "speed", "phase", "go", "splits"):
+        for slot in (
+            "time", "dist", "speed", "phase", "go", "demo",
+            "splits", "call", "tapfill", "tapnum",
+        ):
             self.assertIn(f'data-hero="{slot}"', self.html)
+
+    def test_hundred_metre_challenge_is_explained(self):
+        self.assertIn("接受挑戰", self.html)
+        self.assertIn("0 / 200 下", self.html)
+        self.assertIn("On your marks", self.html)
+        self.assertIn("搶跑", self.html)
+
+    def test_glossary_is_filterable_not_a_wall_of_text(self):
+        from core.glossary import GLOSSARY, all_terms
+
+        self.assertIn("js/glossary", self.html)
+        for slot in ("chips", "grid", "q", "count", "empty"):
+            self.assertIn(f'data-gloss="{slot}"', self.html)
+        # 每一類一個篩選鈕，外加「全部」
+        self.assertEqual(self.html.count('class="chip"'), len(GLOSSARY) + 1)
+        for group in GLOSSARY:
+            self.assertIn(f'data-cat="{group["id"]}"', self.html)
+        # 每個詞條都帶著分類與搜尋用的文字
+        self.assertEqual(self.html.count('class="term"'), len(all_terms()))
+        self.assertEqual(self.html.count("data-text="), len(all_terms()))
+
+    def test_track_red_and_white_palette(self):
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "landing.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--track:#c0392b", css)
+        self.assertIn("--line:#ffffff", css)
+        self.assertNotIn("#8a5a24", css)  # 舊的銅色已全部換掉
 
     def test_glossary_rendered_from_context(self):
         from django.utils.html import escape

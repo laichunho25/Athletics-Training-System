@@ -126,7 +126,6 @@ class ApplicationAdmin(admin.ModelAdmin):
                 "fields": (
                     ("name_en", "name_zh"), ("sex", "birth_date"),
                     ("phone", "email"), ("school_or_club", "graduation_year"),
-                    ("guardian_name", "guardian_phone"),
                 )
             },
         ),
@@ -186,7 +185,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         rows = [
             ("姓名", obj.full_name),
             ("年齡", f"{obj.age} 歲（{obj.birth_date:%Y-%m-%d}）"),
-            ("學校 / 會所", f"{obj.school_or_club}｜畢業年份 {obj.graduation_year or '未填'}"),
+            ("學校 / 體育會", f"{obj.school_or_club}｜畢業年份 {obj.graduation_year or '未填'}"),
             ("田徑訓練", "有" if obj.has_track_training else "沒有"),
             (
                 "項目",
@@ -251,9 +250,8 @@ class ApplicationAdmin(admin.ModelAdmin):
             ("年齡", lambda a: a.age),
             ("電話", lambda a: a.phone),
             ("電郵", lambda a: a.email),
-            ("學校/會所", lambda a: a.school_or_club),
+            ("學校/體育會", lambda a: a.school_or_club),
             ("畢業年份", lambda a: a.graduation_year or ""),
-            ("家長", lambda a: f"{a.guardian_name} {a.guardian_phone}".strip()),
             ("有田徑訓練", lambda a: "是" if a.has_track_training else "否"),
             ("項目分類", lambda a: a.get_event_category_display()),
             ("主項", lambda a: a.primary_event or ""),

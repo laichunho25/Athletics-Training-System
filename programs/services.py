@@ -71,8 +71,6 @@ def build_notes(application):
         lines.append(f"敏感：{application.allergies}")
     if not application.doctor_clearance:
         lines.append("⚠ 尚未取得醫生許可")
-    if application.is_minor and application.guardian_name:
-        lines.append(f"家長：{application.guardian_name} {application.guardian_phone}")
     if application.remarks:
         lines.append(f"報名備註：{application.remarks}")
     return "\n".join(lines)

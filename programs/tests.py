@@ -20,10 +20,8 @@ VALID_FORM = {
     "birth_date": "2006-03-15",
     "phone": "+852 9000 0000",
     "email": "taiman@example.com",
-    "school_or_club": "DBS",
+    "school_or_club": "DBSAC",
     "graduation_year": 2028,
-    "guardian_name": "",
-    "guardian_phone": "",
     "has_track_training": "on",
     "event_category": EventCategory.SPRINT,
     "primary_event": "",
@@ -182,7 +180,7 @@ class SubmitApplicationTests(TestCase):
         application = Application.objects.get()
         self.assertEqual(application.project, self.project)
         self.assertEqual(application.status, ApplicationStatus.NEW)
-        self.assertEqual(application.school_or_club, "DBS")
+        self.assertEqual(application.school_or_club, "DBSAC")
         self.assertEqual(application.graduation_year, 2028)
         self.assertTrue(application.has_track_training)
 
@@ -219,22 +217,23 @@ class SubmitApplicationTests(TestCase):
         self.assertContains(r, "請描述部位")
         self.assertEqual(Application.objects.count(), 0)
 
-    def test_minor_must_provide_guardian(self):
+    def test_minor_is_accepted_without_guardian_fields(self):
+        """報名只公開給 DBSAC 師兄弟，家長欄位已移除，未成年不再被擋。"""
         minor_birth = timezone.localdate().replace(year=timezone.localdate().year - 15)
         r = self.post(birth_date=minor_birth.isoformat())
-        self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "未滿 18 歲")
-        self.assertEqual(Application.objects.count(), 0)
-
-    def test_minor_with_guardian_is_accepted(self):
-        minor_birth = timezone.localdate().replace(year=timezone.localdate().year - 15)
-        r = self.post(
-            birth_date=minor_birth.isoformat(),
-            guardian_name="Chan Siu Ming",
-            guardian_phone="+852 9111 1111",
-        )
         self.assertRedirects(r, reverse("programs:done", args=["sc"]))
         self.assertTrue(Application.objects.get().is_minor)
+
+    def test_guardian_fields_are_gone_from_the_form(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertNotIn("guardian_name", html)
+        self.assertNotIn("guardian_phone", html)
+        self.assertNotIn("監護人", html)
+
+    def test_school_field_defaults_to_dbsac(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("學校 / 體育會", html)
+        self.assertIn('value="DBSAC"', html)
 
     def test_future_birth_date_is_rejected(self):
         future = (timezone.localdate() + timedelta(days=1)).isoformat()
@@ -275,7 +274,7 @@ class ImportToAtmTests(TestCase):
         self.assertIsInstance(athlete, AthleteProfile)
         self.assertEqual(athlete.user.role, Role.ATHLETE)
         self.assertEqual(athlete.birth_date, date(2006, 3, 15))
-        self.assertEqual(athlete.school_or_club, "DBS")
+        self.assertEqual(athlete.school_or_club, "DBSAC")
         self.assertEqual(athlete.training_days_per_week, 5)
         self.assertEqual(float(athlete.strength_experience_years), 1.5)
         self.assertEqual(athlete.user.email, "taiman@example.com")

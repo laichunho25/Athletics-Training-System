@@ -150,7 +150,12 @@ class Application(TimeStampedModel):
     birth_date = models.DateField("出生日期")
     phone = models.CharField("聯絡電話 / WhatsApp", max_length=30)
     email = models.EmailField("電郵")
-    school_or_club = models.CharField("學校 / 會所", max_length=100)
+    school_or_club = models.CharField(
+        "學校 / 體育會",
+        max_length=100,
+        default="DBSAC",
+        help_text="預設為 DBSAC，教練可在後台修改",
+    )
     graduation_year = models.PositiveSmallIntegerField(
         "學校畢業年份",
         null=True,
@@ -158,8 +163,6 @@ class Application(TimeStampedModel):
         validators=[MinValueValidator(1950), MaxValueValidator(2100)],
         help_text="預計或實際的中學畢業年份",
     )
-    guardian_name = models.CharField("家長／監護人姓名", max_length=100, blank=True)
-    guardian_phone = models.CharField("家長／監護人電話", max_length=30, blank=True)
 
     # ---- 運動背景 ----
     has_track_training = models.BooleanField(
@@ -271,6 +274,4 @@ class Application(TimeStampedModel):
             flags.append("長期病患")
         if not self.doctor_clearance:
             flags.append("未取得醫生許可")
-        if self.is_minor and not self.guardian_phone:
-            flags.append("未成年但無家長聯絡")
         return flags
