@@ -1,6 +1,6 @@
 /*
  * 首頁主視覺：一座按規格畫出來的 400 公尺標準田徑場，緩慢旋轉（wheel effect），
- * 並附一百公尺連打挑戰。
+ * 並附一百公尺連打挑戰（八十下、附起跑槍聲效）。
  *
  * 幾何完全依 World Athletics 規格：
  *   直道 84.39 m × 2、內側緣石半徑 36.50 m、第 1 道量距線 36.80 m、
@@ -126,7 +126,7 @@
 
   // ---------------------------------------------------------------- 挑戰參數
   var RACE = 100;
-  var TAPS = 200;
+  var TAPS = 80;
   var PER_TAP = RACE / TAPS;
 
   var VMAX = 11.35;
@@ -138,6 +138,101 @@
   var MARKS_MS = 1100;
   var SET_MIN = 900;
   var SET_VAR = 1100;
+
+  // ------------------------------------------------------------ 起跑槍聲效
+  /*
+   * 用 WebAudio 合成，不外掛音檔：一段極短的白噪音爆點（槍口爆震）加一顆
+   * 低頻 thump（後座與場地回音），尾巴帶一點衰減殘響。瀏覽器要求使用者
+   * 操作過才給發聲，而這裡只在按下「接受挑戰」之後的流程裡響，剛好合規。
+   */
+  var actx = null;
+  var noiseBuf = null;
+
+  function audio() {
+    if (actx) return actx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      actx = new AC();
+    } catch (e) {
+      return null;
+    }
+    return actx;
+  }
+
+  function noise(ac) {
+    if (noiseBuf) return noiseBuf;
+    var n = Math.floor(ac.sampleRate * 0.5);
+    noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    for (var i = 0; i < n; i += 1) {
+      // 越後面越小聲，做出槍聲的自然衰減
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    }
+    return noiseBuf;
+  }
+
+  function gunshot() {
+    var ac = audio();
+    if (!ac) return;
+    if (ac.state === "suspended" && ac.resume) ac.resume();
+
+    var t0 = ac.currentTime + 0.01;
+    var master = ac.createGain();
+    master.gain.value = 0.55;
+    master.connect(ac.destination);
+
+    // 爆震：高通過的噪音，衝上來再快速收掉
+    var src = ac.createBufferSource();
+    src.buffer = noise(ac);
+    var hp = ac.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.setValueAtTime(1400, t0);
+    hp.frequency.exponentialRampToValueAtTime(300, t0 + 0.28);
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(1, t0 + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.09);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+    src.connect(hp);
+    hp.connect(g);
+    g.connect(master);
+    src.start(t0);
+    src.stop(t0 + 0.5);
+
+    // 低頻 thump：胸口那一下
+    var osc = ac.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, t0);
+    osc.frequency.exponentialRampToValueAtTime(42, t0 + 0.14);
+    var og = ac.createGain();
+    og.gain.setValueAtTime(0.0001, t0);
+    og.gain.exponentialRampToValueAtTime(0.8, t0 + 0.008);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    osc.connect(og);
+    og.connect(master);
+    osc.start(t0);
+    osc.stop(t0 + 0.35);
+  }
+
+  /* 口令的短提示音，讓 On your marks / Set 有節奏感 */
+  function blip(freq, vol) {
+    var ac = audio();
+    if (!ac) return;
+    if (ac.state === "suspended" && ac.resume) ac.resume();
+    var t0 = ac.currentTime + 0.01;
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    osc.connect(g);
+    g.connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.2);
+  }
 
   function velocity(t) {
     if (t <= REACTION) return 0;
@@ -434,14 +529,17 @@
     reset("marks");
     if (btnGo) btnGo.textContent = "準備…";
     say("On your marks", "");
+    blip(660, 0.16);
     later(function () {
       if (state.mode !== "marks") return;
       state.mode = "set";
       say("Set", "");
+      blip(880, 0.18);
       later(function () {
         if (state.mode !== "set") return;
         state.mode = "live";
         state.startedAt = performance.now();
+        gunshot();
         say("GO!", "go");
         if (btnGo) btnGo.textContent = "連打左鍵！";
         later(function () {
@@ -453,6 +551,9 @@
 
   function foul() {
     reset("foul");
+    // 搶跑照規則鳴第二槍召回
+    gunshot();
+    later(gunshot, 260);
     say("搶跑犯規 · False Start", "foul");
     if (btnGo) btnGo.textContent = "再來一次";
     later(function () {

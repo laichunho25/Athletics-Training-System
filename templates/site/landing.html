@@ -61,7 +61,7 @@
 
       <div class="tapbar">
         <div class="rail"><div class="fill" data-hero="tapfill"></div></div>
-        <span class="n" data-hero="tapnum">0 / 200 下</span>
+        <span class="n" data-hero="tapnum">0 / 80 下</span>
       </div>
 
       <div class="track-panel">
@@ -79,8 +79,8 @@
 
       <ol class="splits" data-hero="splits" aria-live="polite"></ol>
       <p class="track-note">
-        挑戰：聽 On your marks → Set → GO，之後連打滑鼠左鍵，每下前進 0.5 公尺，
-        按滿 200 下衝過終點；GO 之前先按就算搶跑。示範則依
+        挑戰：聽 On your marks → Set → 鳴槍 GO，之後連打滑鼠左鍵，每下前進 1.25 公尺，
+        按滿 80 下衝過終點；GO 之前先按就算搶跑（會補鳴召回槍）。示範則依
         v(t) ＝ v<sub>max</sub>（1 − e<sup>−t/τ</sup>）演算，僅作階段示意。
       </p>
       <p class="track-note">
@@ -153,7 +153,7 @@
       <p class="lead">
         同一件事，教練、運動員與家長常常各有各的說法。把詞固定下來——中英並列、
         一句話說清楚——課表上的字、系統裡的欄位與跑道邊的口令才會指向同一件事。
-        選一個分類，或直接搜尋。
+        選一個分類，或直接搜尋；一頁最多十條，其餘用分頁翻。
       </p>
     </div>
 
@@ -195,7 +195,8 @@
       {% endfor %}
     </div>
     <p class="gloss-empty" data-gloss="empty" hidden>沒有符合的詞條，換個關鍵字試試。</p>
-    <p class="gloss-foot">點一下詞條看解釋。全部 {{ glossary_count }} 條同時維護在
+    <nav class="gloss-pager" data-gloss="pager" aria-label="術語表分頁" hidden></nav>
+    <p class="gloss-foot">點一下詞條看解釋，一頁十條、用下方分頁翻閱。全部 {{ glossary_count }} 條同時維護在
       <code>docs/sprint-glossary.md</code>。</p>
   </div>
 </section>
