@@ -150,6 +150,49 @@ class LoginPageTests(TestCase):
             body = self.client.get("/accounts/login/").content.decode()
         self.assertIn("atm12345", body)
 
+    def test_real_credentials_log_in_and_land_in_the_app(self):
+        """正式流程：POST 帳密 → 轉去 /app/，CSRF 與 next 都要正常運作。"""
+        make_athlete(username="athlete_x")
+        resp = self.client.post(
+            "/accounts/login/",
+            {"username": "athlete_x", "password": "test-pw-12345", "next": ""},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], settings.LOGIN_REDIRECT_URL)
+
+    def test_admin_site_accepts_the_created_superuser(self):
+        make_admin(username="boss")
+        resp = self.client.post(
+            "/admin/login/",
+            {"username": "boss", "password": "test-pw-12345", "next": "/admin/"},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "/admin/")
+
+
+class DeploymentHealthTests(TestCase):
+    """部署相關回歸測試——這些一壞，整站就登入不了。"""
+
+    def test_healthz_is_public_and_cheap(self):
+        resp = self.client.get("/healthz")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content, b"ok")
+
+    def test_healthz_is_not_redirected_to_https_in_production(self):
+        """Render 的健康檢查走內部 http；被 301 轉址會被判定服務不健康。"""
+        with self.settings(
+            SECURE_SSL_REDIRECT=True, SECURE_REDIRECT_EXEMPT=[r"^healthz$"]
+        ):
+            resp = self.client.get("/healthz")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_custom_domains_are_csrf_trusted(self):
+        """CSRF_TRUSTED_ORIGINS 少了網域，登入 POST 會全部被擋成 403。"""
+        for host in settings.ALLOWED_HOSTS:
+            if host in {"localhost", "127.0.0.1", "[::1]", "testserver"}:
+                continue
+            self.assertIn(f"https://{host}", settings.CSRF_TRUSTED_ORIGINS)
+
 
 class SprintGlossaryTests(TestCase):
     """短跑術語表：資料完整性，以及 MD 檔與原始資料同步。"""
@@ -231,9 +274,36 @@ class LandingContentTests(TestCase):
 
     def test_hundred_metre_challenge_is_explained(self):
         self.assertIn("接受挑戰", self.html)
-        self.assertIn("0 / 200 下", self.html)
+        self.assertIn("0 / 80 下", self.html)
         self.assertIn("On your marks", self.html)
         self.assertIn("搶跑", self.html)
+
+    def test_finish_card_starts_hidden_and_can_be_dismissed(self):
+        """成績卡預設要收起來，不能擋住跑道；`hidden` 必須壓得過 display:flex。"""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "landing.css").read_text(
+            encoding="utf-8"
+        )
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "track-hero.js").read_text(
+            encoding="utf-8"
+        )
+        # 樣板上預設帶 hidden
+        self.assertIn('data-hero="finish"', self.html)
+        self.assertRegex(self.html, r'data-hero="finish"[^>]*(?s:.{0,200}?)hidden')
+        # 作者樣式蓋掉瀏覽器預設的 [hidden]{display:none}，所以要自己補一條
+        self.assertIn("[hidden]{display:none!important}", css)
+        # 面板本身預設不顯示，加上 .show 才展開
+        self.assertRegex(css, r"\.track-finish\{[^}]*display:none")
+        self.assertIn(".track-finish.show{display:flex", css)
+        # JS 兩邊都要同步：開的時候加 class，關的時候拿掉
+        self.assertIn('finishBox.classList.add("show")', js)
+        self.assertIn('finishBox.classList.remove("show")', js)
+        # 「再來」按鈕會 reset，而 reset 會呼叫 hideFinish
+        self.assertIn('data-hero="again"', self.html)
+        self.assertIn("hideFinish();", js)
+
+    def test_glossary_footnote_removed(self):
+        for phrase in ("一頁十條", "同時維護在", "sprint-glossary.md", "gloss-foot"):
+            self.assertNotIn(phrase, self.html)
 
     def test_glossary_is_filterable_not_a_wall_of_text(self):
         from core.glossary import GLOSSARY, all_terms

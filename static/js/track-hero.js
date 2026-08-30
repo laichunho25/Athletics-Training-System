@@ -660,7 +660,9 @@
 
   // ------------------------------------------------------------ 完成面板
   function hideFinish() {
-    if (finishBox) finishBox.hidden = true;
+    if (!finishBox) return;
+    finishBox.classList.remove("show");
+    finishBox.hidden = true;
   }
 
   function showFinish(wasDemo) {
@@ -705,6 +707,7 @@
     }
 
     finishBox.hidden = false;
+    finishBox.classList.add("show");
     if (btnAgain) btnAgain.focus();
   }
 

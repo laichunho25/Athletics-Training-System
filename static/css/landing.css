@@ -37,6 +37,8 @@
   --max:1200px;
 }
 *{box-sizing:border-box}
+/* hidden 屬性要壓得過下面那些 display:flex／grid 的規則，否則彈窗關不掉 */
+[hidden]{display:none!important}
 html{scroll-behavior:smooth}
 body{
   margin:0;color:var(--ink);
@@ -165,11 +167,11 @@ p{margin:0}
 
 /* 完成成績卡：蓋在跑道上，按「再來」才收 */
 .track-finish{
-  position:absolute;inset:0;z-index:2;display:flex;align-items:center;
+  position:absolute;inset:0;z-index:2;display:none;align-items:center;
   justify-content:center;padding:16px;
   background:rgba(22,30,27,.5);backdrop-filter:blur(3px);
-  animation:finish-in .22s ease-out;
 }
+.track-finish.show{display:flex;animation:finish-in .22s ease-out}
 .finish-card{
   width:min(420px,100%);max-height:100%;overflow:auto;text-align:center;
   padding:22px 24px 24px;border-radius:18px;
@@ -342,11 +344,6 @@ section{padding:88px 0;border-top:1px solid var(--rule)}
 .page-btn:disabled{opacity:.4;cursor:default}
 .page-btn.is-current{background:var(--accent);border-color:var(--accent);color:#fff}
 .gloss-empty{margin-top:18px;font-size:14px;color:var(--mute)}
-.gloss-foot{margin-top:18px;font-size:13px;color:var(--mute)}
-.gloss-foot code{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
-  background:var(--accent-soft);padding:2px 6px;border-radius:5px;color:var(--accent-2);
-}
 
 /* ------------------------------------------------------------ 系統流程 */
 .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:56px}
