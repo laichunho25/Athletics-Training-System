@@ -55,7 +55,8 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 換成自訂的 AdminSite（只放行管理員；見 core/admin.py）
+    'config.admin_apps.ATMAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -196,6 +197,8 @@ if not DEBUG:
     # Render 在前面做 TLS 終結，靠這個 header 才知道原始請求是 https
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
+    # Render 的健康檢查走內部 http，若被 301 轉去 https 會判定服務不健康
+    SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30      # 先設 30 天，確認無誤後可調長
@@ -208,7 +211,51 @@ if not DEBUG:
 if "test" in sys.argv:
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
+# --------------------------------------------------------------- 記錄檔
+# Django 預設在 DEBUG=0 時把 500 的 traceback 交給 mail_admins；
+# 沒設 ADMINS 就等於整個吞掉，Render 的 log 只會看到一行 500。
+# 這裡明確把 django.request 的錯誤印到 stdout，讓 Render 看得到堆疊。
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "[{levelname}] {asctime} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        # 500 的完整 traceback
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        # 被擋下來的登入嘗試（CSRF / DisallowedHost 等）
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ------------------------------------------------------------------ 後台
+# 後台網址可改：正式站設 DJANGO_ADMIN_URL=<不好猜的路徑>/，讓 /admin/ 直接 404。
+ADMIN_URL = (os.environ.get("DJANGO_ADMIN_URL") or "admin/").strip().strip("/") + "/"
+
+# 額外把後台鎖到指定帳號（逗號分隔）；留空表示「所有管理員帳號皆可」。
+ADMIN_ALLOWED_USERS = [
+    u.strip()
+    for u in os.environ.get("DJANGO_ADMIN_ALLOWED_USERS", "").split(",")
+    if u.strip()
+]
+
+# CSRF 失敗時給看得懂的頁面，而不是瀏覽器直接吐 403
+CSRF_FAILURE_VIEW = "core.views.csrf_failure"
 
 # 登入導向
 LOGIN_URL = 'login'

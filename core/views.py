@@ -2,11 +2,12 @@
 
 import calendar as pycalendar
 import json
+import logging
 from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import AthleteProfile, Event
@@ -20,6 +21,30 @@ from nutrition import services as nu
 from nutrition.models import NutritionTarget, RecoveryLog, RecoveryMethod
 from planning.models import TrainingSession
 from training.models import Exercise
+
+logger = logging.getLogger(__name__)
+
+def csrf_failure(request, reason=""):
+    """CSRF 檢查失敗時的說明頁（settings.CSRF_FAILURE_VIEW）。
+
+    最常見的情境是登入頁在分頁裡放了太久、或瀏覽器留著舊網域的 csrftoken，
+    第一次送出就被擋掉——重新整理拿一個新 token 就會過。
+    預設的 403 頁講的是英文的 CSRF 術語，使用者只會看到「死 error」，
+    所以這裡換成看得懂的指示，並把原因寫進 log 方便追。
+    """
+    logger.warning("CSRF 檢查失敗：%s（path=%s）", reason, request.path)
+    return render(
+        request,
+        "web/csrf_failure.html",
+        {"reason": reason, "retry_to": request.path},
+        status=403,
+    )
+
+
+def healthz(request):
+    """Render 健康檢查端點：不碰資料庫、不強制轉 https，永遠回 200。"""
+    return HttpResponse("ok", content_type="text/plain")
+
 
 RISK_CSS = {
     "OPTIMAL": ("b-green", "c-green"),

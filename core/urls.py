@@ -6,6 +6,7 @@ app_name = "web"
 
 urlpatterns = [
     path("", views.landing, name="landing"),        # 公開首頁
+    path("healthz", views.healthz, name="healthz"),  # Render 健康檢查
     path("app/", views.home, name="home"),          # 登入後分流
     path("dashboard/", views.dashboard, name="dashboard"),
     path("team/", views.coach_dashboard, name="coach_dashboard"),

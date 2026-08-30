@@ -56,7 +56,7 @@ Render → 服務 → **Environment** → Add Environment Variable：
 
 | Key | Value |
 |---|---|
-| `ADMIN_USERNAME` | `boyce` |
+| `ADMIN_USERNAME` | `coachlai` |
 | `ADMIN_EMAIL` | `laichunho25@gmail.com` |
 | `ADMIN_PASSWORD` | 至少 12 字元的強密碼 |
 
@@ -82,6 +82,106 @@ python manage.py create_admin --skip-if-unset
 > 若不小心跑了，用 `python manage.py purge_demo` 清掉
 >（此指令會擋住「刪光所有管理員」的情況）。
 > 登入頁的示範帳密提示只在 `DEBUG=1` 顯示，正式站不會外洩。
+
+### 登入不了怎麼查
+
+`build.sh` 每次部署最後會跑 `python manage.py check_accounts`，
+在 build log 印出帳號統計。看到這段就代表**資料庫裡沒有任何帳號**：
+
+```
+警告：資料庫沒有任何可用的管理員帳號，現在沒有人登入得了。
+```
+
+#### 第一步：問線上的資料庫，不要用猜的
+
+Render → 服務 → **Shell**，貼這一行（它跑在**真正上線的環境**裡，
+跟 build log 不一定是同一個資料庫）：
+
+```bash
+python manage.py check_accounts
+```
+
+輸出第一行是「目前連線的資料庫」，第二行是帳號統計。三種結果三種處理：
+
+| 看到什麼 | 意思 | 怎麼修 |
+|---|---|---|
+| `SQLite（檔案 …）` | 沒讀到 `DATABASE_URL` | Environment 補上 `DATABASE_URL`（Blueprint 服務由 `fromDatabase` 自動注入；**手動建立的服務不會有**，要自己貼 Internal Database URL） |
+| `postgresql（…）`＋`管理員 0` | 連對資料庫，但帳號沒建成 | 見下面第二步 |
+| `管理員 1` 且列出你的帳號 | 帳號存在，是登入流程的問題 | 見下面第三步 |
+
+#### 第二步：帳號沒建成
+
+在 Shell 直接跑，**不要靠重新部署**（這樣才看得到錯誤訊息）：
+
+```bash
+python manage.py create_admin
+```
+
+它現在會把失敗原因講明白，常見三種：
+
+1. **密碼不滿 12 個字元**——會直接報錯（以前是安靜跳過，站就這樣壞著）。
+2. **值前後夾帶空白或換行**——從 Dashboard 複製貼上很容易帶到，
+   指令會自動去除並提醒你「登入時要用去掉空白後的密碼」。
+3. **變數根本沒生效**——`echo "[$ADMIN_USERNAME]"` 確認一下；
+   在 Environment 存檔後要等重新部署完成，Shell 才看得到新值。
+
+成功時會印出「已建立/已更新管理員：xxx（**已通過登入驗證**）」——
+這行代表指令已經用同一組帳密實際跑過一次 Django 認證，密碼一定是對的。
+
+#### 第三步：帳號在、密碼對，還是登不進去
+
+看瀏覽器實際收到什麼：
+
+- **403 CSRF verification failed**：`DJANGO_ALLOWED_HOSTS` 少了你正在用的網域
+  （`CSRF_TRUSTED_ORIGINS` 由它推導）。用哪個網域開就要列哪個。
+- **頁面重新出現、沒有錯誤訊息**：session cookie 沒被存下來。
+  正式環境 `SESSION_COOKIE_SECURE=True`，一定要用 **https** 開；
+  用 http 或 IP 直連會登入後立刻被打回登入頁。
+- **「帳號或密碼錯誤」**：密碼真的不對，回第二步用 `create_admin` 覆寫一次。
+
+> 本機的 `db.sqlite3` 不在版控內，**不會**跟著 `git push` 上去；
+> Render 用的是全新的 PostgreSQL，本機的 admin／教練／運動員帳號在正式站並不存在。
+
+---
+
+## 後台（admin）的門禁
+
+後台預設掛在 `/admin/`，這是全世界掃描器第一個試的路徑。兩層防護：
+
+### 第一層：換掉網址
+
+Render → Environment 設 `DJANGO_ADMIN_URL`（結尾不用加 `/`）：
+
+```
+DJANGO_ADMIN_URL=atm-console-4b91
+```
+
+重新部署後後台在 `https://www.hohosports.com/atm-console-4b91/`，
+而 `/admin/` 會直接回 **404**——外人連登入框都看不到。
+**請把新路徑記在密碼管理器裡**，忘了就只能回 Environment 查。
+
+### 第二層：只有管理員進得去（這一層才是真的防線）
+
+門檻是**超級使用者**，不是 Django 預設的 `is_staff`：
+
+| 帳號 | 能不能進後台 |
+|---|---|
+| 管理員（`create_admin` 建的） | ✅ |
+| 教練 | ❌ |
+| 運動員 | ❌ |
+| 被誤勾成 staff 的教練 | ❌ |
+
+教練或運動員若已登入 ATM 系統後再去敲後台網址，**不會**看到後台的登入框，
+而是被帶回系統首頁並顯示「你的帳號沒有後台權限」——沒有可以反覆試密碼的表單。
+
+想再收緊到單一帳號，設這個（逗號分隔，留空＝所有超級使用者皆可）：
+
+```
+DJANGO_ADMIN_ALLOWED_USERS=coachlai
+```
+
+> ⚠️ 白名單填錯字會把自己鎖在門外。真的鎖住時，到 Render Shell 把變數清掉，
+> 或直接用 `python manage.py create_admin` 重建帳號。
 
 ---
 
