@@ -1,14 +1,20 @@
 /*
- * 首頁動態視覺：旋轉的 400 公尺跑道（wheel effect）＋ 一百公尺互動。
+ * 首頁主視覺：一座按規格畫出來的 400 公尺標準田徑場，緩慢旋轉（wheel effect），
+ * 並附一百公尺連打挑戰。
  *
- * 配色照真實田徑場：Mondo 紅膠面 + 白色分道線。
+ * 幾何完全依 World Athletics 規格：
+ *   直道 84.39 m × 2、內側緣石半徑 36.50 m、第 1 道量距線 36.80 m、
+ *   第 2–8 道量距線距內側分道線 0.20 m、分道寬 1.22 m、共 8 道。
+ *   2 × 84.39 + 2π × 36.80 = 400.00 m。
  *
- * 兩種玩法
- *   1. 示範   —— 依 v(t) = vmax(1 - e^(-t/tau)) 自動跑完一趟，作階段示意。
- *   2. 挑戰   —— On your marks / Set / GO 口令後，用滑鼠左鍵連打，
- *                 每下前進 0.5 公尺，按滿 200 下完成一百米。搶跑會被判犯規。
+ * 起跑線不是畫上去的，是算出來的：
+ *   100 m / 110 m 欄  直道延伸段上的一條共用起跑線（無分道差）
+ *   200 m / 400 m     沿「該道自身路線」由終點往回量，分道差自然浮現
+ *   800 m             一圈彎道的分道差（break 後可切入內道）
+ *   過程 mark         第 1 道由終點回量的 100 / 200 / 300 m
  *
- * 純 vanilla JS，沒有外部相依，並遵守 prefers-reduced-motion。
+ * 顏色照真實場地：紅色膠面、白色分道線、綠色內場。
+ * 純 vanilla JS，無外部相依，並遵守 prefers-reduced-motion。
  */
 (function () {
   "use strict";
@@ -38,31 +44,100 @@
   var tapFill = pick("tapfill");
   var tapNum = pick("tapnum");
 
-  // ---------------------------------------------------------------- 參數
-  var RACE = 100; // m
-  var TAPS = 200; // 按滿 200 下 = 100 公尺
-  var PER_TAP = RACE / TAPS; // 0.5 m / 下
-  var LAP = 400; // 跑道一圈，用來換算跑者在輪上的位置
+  // ---------------------------------------------------- 場地規格（單位：公尺）
+  var STRAIGHT = 84.39;              // 直道長
+  var KERB = 36.5;                   // 內側緣石半徑
+  var LANE_W = 1.22;                 // 分道寬
+  var LANES = 8;
+  var EXT = 34;                      // 直道延伸段，容納 100 m / 110 m 欄起跑
+  var R_OUT = KERB + LANES * LANE_W; // 最外側分道線 46.26
 
-  var VMAX = 11.35; // m/s，示範用
+  /* 第 n 道（1 起算）的量距線半徑 */
+  function measRadius(n) {
+    return n === 1 ? KERB + 0.3 : KERB + 0.2 + (n - 1) * LANE_W;
+  }
+  function laneInner(n) {
+    return KERB + (n - 1) * LANE_W;
+  }
+  function laneCentre(n) {
+    return KERB + (n - 0.5) * LANE_W;
+  }
+
+  /*
+   * 由終點線往回量 sBack 公尺（沿第 n 道自身路線），落在哪一段的哪個位置。
+   * 終點線設在下方直道的右端，跑向逆時針（畫面下方直道由左往右）。
+   * sBack 給負值即為由終點往前量。
+   */
+  function locateBack(n, sBack) {
+    var r = measRadius(n);
+    var bend = Math.PI * r;
+    var lap = 2 * STRAIGHT + 2 * bend;
+    var s = (((lap - (sBack % lap)) % lap) + lap) % lap; // 轉成由終點往前量
+    if (s <= bend) return { k: "R", a: Math.PI / 2 - s / r };
+    s -= bend;
+    if (s <= STRAIGHT) return { k: "T", x: STRAIGHT / 2 - s };
+    s -= STRAIGHT;
+    if (s <= bend) return { k: "L", a: -Math.PI / 2 - s / r };
+    s -= bend;
+    return { k: "B", x: -STRAIGHT / 2 + s };
+  }
+
+  /* 把位置投影到任一半徑，用來畫跨越分道的橫線 */
+  function atRadius(loc, rr) {
+    if (loc.k === "R")
+      return { x: STRAIGHT / 2 + rr * Math.cos(loc.a), y: rr * Math.sin(loc.a) };
+    if (loc.k === "L")
+      return { x: -STRAIGHT / 2 + rr * Math.cos(loc.a), y: rr * Math.sin(loc.a) };
+    if (loc.k === "T") return { x: loc.x, y: -rr };
+    return { x: loc.x, y: rr };
+  }
+
+  /* 一個彎道的分道差：外道要多跑的弧長 */
+  function turnStagger(n) {
+    return Math.PI * (measRadius(n) - measRadius(1));
+  }
+
+  // 各項目起跑線；顏色為圖例用色，方便一眼分辨不同項目
+  var EVENTS = [
+    { label: "100 m", back: 100, kind: "straight", color: "#ffffff" },
+    { label: "110 mH", back: 110, kind: "straight", color: "#f4c542" },
+    { label: "200 m", back: 200, kind: "full", color: "#5ec8e5" },
+    { label: "400 m", back: 400, kind: "full", color: "#5b9bf0" },
+    { label: "800 m", back: 800, kind: "oneturn", color: "#8ad46a" },
+  ];
+
+  function eventLocate(ev, n) {
+    if (ev.kind === "oneturn") return locateBack(n, ev.back - turnStagger(n));
+    return locateBack(n, ev.back);
+  }
+
+  // ---------------------------------------------------------------- 場地配色
+  var C = {
+    surface: "#bf4029",              // 紅色膠面
+    apron: "#a8351f",                // 延伸段稍深
+    infield: "#4f8b4a",              // 內場草皮
+    infieldLine: "rgba(255,255,255,.5)",
+    line: "#ffffff",
+    lineSoft: "rgba(255,255,255,.66)",
+    mark: "rgba(255,255,255,.5)",
+    runner: "#ffffff",
+    runnerCore: "#1d2b22",
+  };
+
+  // ---------------------------------------------------------------- 挑戰參數
+  var RACE = 100;
+  var TAPS = 200;
+  var PER_TAP = RACE / TAPS;
+
+  var VMAX = 11.35;
   var TAU = 1.18;
   var REACTION = 0.148;
   var FADE_FROM = 6.0;
   var FADE_RATE = 0.007;
 
-  var MARKS_MS = 1100; // On your marks 停留
-  var SET_MIN = 900; // Set 之後隨機等待，避免背口令
+  var MARKS_MS = 1100;
+  var SET_MIN = 900;
   var SET_VAR = 1100;
-
-  var C = {
-    surface: "#c0392b", // 跑道紅
-    surfaceIn: "#a52f22", // 內圈稍深，分出層次
-    line: "#ffffff",
-    lineSoft: "rgba(255,255,255,.45)",
-    lineFaint: "rgba(255,255,255,.22)",
-    text: "#ffffff",
-    textDim: "rgba(255,255,255,.62)",
-  };
 
   function velocity(t) {
     if (t <= REACTION) return 0;
@@ -78,10 +153,14 @@
     return "速度維持";
   }
 
-  // ---------------------------------------------------------------- 尺寸
-  var W = 0,
-    H = 0,
-    dpr = 1;
+  // ------------------------------------------------------------------ 尺寸
+  var W = 0, H = 0, dpr = 1, scale = 1;
+
+  // 旋轉時不被裁切所需的半徑（含直道延伸段）
+  var FIT_R = Math.max(
+    STRAIGHT / 2 + R_OUT + 5,
+    Math.hypot(STRAIGHT / 2 + EXT, R_OUT)
+  );
 
   function resize() {
     var rect = stage.getBoundingClientRect();
@@ -93,192 +172,171 @@
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    scale = ((Math.min(W, H) / 2) * 0.97) / FIT_R;
   }
 
-  function layout() {
-    var stripH = Math.min(92, Math.max(68, H * 0.23));
-    return {
-      oval: { top: 0, h: H - stripH },
-      strip: { top: H - stripH, h: stripH },
-    };
-  }
-
-  // ------------------------------------------------------------ 跑道幾何
-  var LANES = 8;
-
-  function ovalPath(cx, cy, straight, r) {
+  // -------------------------------------------------------------- 畫跑道
+  function ovalPath(rr) {
     var p = new Path2D();
-    p.moveTo(cx - straight / 2, cy - r);
-    p.lineTo(cx + straight / 2, cy - r);
-    p.arc(cx + straight / 2, cy, r, -Math.PI / 2, Math.PI / 2);
-    p.lineTo(cx - straight / 2, cy + r);
-    p.arc(cx - straight / 2, cy, r, Math.PI / 2, (Math.PI * 3) / 2);
+    p.moveTo(-STRAIGHT / 2, rr);
+    p.lineTo(STRAIGHT / 2, rr);
+    p.arc(STRAIGHT / 2, 0, rr, Math.PI / 2, -Math.PI / 2, true);
+    p.lineTo(-STRAIGHT / 2, -rr);
+    p.arc(-STRAIGHT / 2, 0, rr, -Math.PI / 2, Math.PI / 2, true);
     p.closePath();
     return p;
   }
 
-  /* 沿跑道中線走 s（0…周長）之後的座標。起點是上直道左端，順時針。 */
-  function pointAt(s, cx, cy, straight, r) {
-    var bend = Math.PI * r;
-    var peri = 2 * straight + 2 * bend;
-    s = ((s % peri) + peri) % peri;
-    if (s <= straight) return { x: cx - straight / 2 + s, y: cy - r };
-    s -= straight;
-    if (s <= bend) {
-      var a1 = -Math.PI / 2 + s / r;
-      return { x: cx + straight / 2 + r * Math.cos(a1), y: cy + r * Math.sin(a1) };
-    }
-    s -= bend;
-    if (s <= straight) return { x: cx + straight / 2 - s, y: cy + r };
-    s -= straight;
-    var a2 = Math.PI / 2 + s / r;
-    return { x: cx - straight / 2 + r * Math.cos(a2), y: cy + r * Math.sin(a2) };
-  }
-
-  /* 在跑道上距離 s 的位置，畫一條由內道橫跨到外道的線（直道垂直、彎道放射）。 */
-  function crossAt(s, cx, cy, straight, r, rIn, rOut) {
-    var bend = Math.PI * r;
-    var peri = 2 * straight + 2 * bend;
-    s = ((s % peri) + peri) % peri;
-    if (s <= straight) {
-      var x1 = cx - straight / 2 + s;
-      return { ax: x1, ay: cy - rOut, bx: x1, by: cy - rIn };
-    }
-    s -= straight;
-    if (s <= bend) {
-      var a1 = -Math.PI / 2 + s / r;
-      var ox = cx + straight / 2;
-      return {
-        ax: ox + rOut * Math.cos(a1), ay: cy + rOut * Math.sin(a1),
-        bx: ox + rIn * Math.cos(a1), by: cy + rIn * Math.sin(a1),
-      };
-    }
-    s -= bend;
-    if (s <= straight) {
-      var x2 = cx + straight / 2 - s;
-      return { ax: x2, ay: cy + rOut, bx: x2, by: cy + rIn };
-    }
-    s -= straight;
-    var a2 = Math.PI / 2 + s / r;
-    var ox2 = cx - straight / 2;
-    return {
-      ax: ox2 + rOut * Math.cos(a2), ay: cy + rOut * Math.sin(a2),
-      bx: ox2 + rIn * Math.cos(a2), by: cy + rIn * Math.sin(a2),
-    };
-  }
-
-  function drawTrack(spin, band) {
-    var cx = W / 2;
-    var cy = band.top + band.h / 2;
-    var size = Math.min(W * 0.88, band.h * 1.6);
-    var straight = size * 0.34;
-    var rOuter = (size - straight) / 2;
-    var gap = rOuter / (LANES + 2.6);
-    var rInner = rOuter - LANES * gap;
-    var runLane = rOuter - 3.5 * gap; // 第 4 道中線
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(spin);
-    ctx.translate(-cx, -cy);
-
-    // 紅色膠面：外圈填滿後挖掉內場
-    ctx.fillStyle = C.surface;
-    ctx.fill(ovalPath(cx, cy, straight, rOuter));
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.fill(ovalPath(cx, cy, straight, rInner));
-    ctx.restore();
-
-    // 白色分道線
-    for (var i = 0; i <= LANES; i++) {
-      var r = rOuter - i * gap;
-      ctx.strokeStyle = i === 0 || i === LANES ? C.line : C.lineSoft;
-      ctx.lineWidth = i === 0 || i === LANES ? 1.6 : 1;
-      ctx.stroke(ovalPath(cx, cy, straight, r));
-    }
-
-    // 每 100 公尺一條橫線；100 m 終點加粗
-    var peri = 2 * straight + 2 * Math.PI * runLane;
-    for (var m = 0; m < LAP; m += 100) {
-      var seg = crossAt((m / LAP) * peri, cx, cy, straight, runLane, rInner, rOuter);
-      ctx.strokeStyle = m === 100 ? C.line : C.lineFaint;
-      ctx.lineWidth = m === 100 ? 3 : 1;
-      ctx.beginPath();
-      ctx.moveTo(seg.ax, seg.ay);
-      ctx.lineTo(seg.bx, seg.by);
-      ctx.stroke();
-    }
-
-    // 跑者：白色圓點加紅心，位置由已跑距離換算
-    var pos = pointAt((state.dist / LAP) * peri, cx, cy, straight, runLane);
-    ctx.fillStyle = C.line;
+  function crossLine(loc, ra, rb, color, width) {
+    var a = atRadius(loc, ra);
+    var b = atRadius(loc, rb);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = C.surfaceIn;
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
   }
 
-  // -------------------------------------------------- 一百公尺直道（下方）
-  function drawStrip(band) {
-    var padX = Math.max(20, W * 0.05);
-    var x0 = padX;
-    var x1 = W - padX;
-    var span = x1 - x0;
-    var laneTop = band.top + band.h * 0.30;
-    var laneH = Math.max(20, band.h * 0.34);
-    var base = laneTop + laneH;
-
-    // 紅膠道
-    ctx.fillStyle = C.surface;
-    ctx.fillRect(x0, laneTop, span, laneH);
-    ctx.strokeStyle = C.line;
-    ctx.lineWidth = 1.4;
-    ctx.strokeRect(x0 + 0.5, laneTop + 0.5, span - 1, laneH - 1);
-
-    // 每 10 公尺白線
-    ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+  /* 反向旋轉回正的小字，讓標示在輪子轉動時仍然讀得到 */
+  function label(x, y, text, color, spin, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-spin);
+    ctx.scale(1 / scale, 1 / scale);
+    ctx.font =
+      "700 " + (size || 9) + "px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.textAlign = "center";
-    for (var m = 10; m < RACE; m += 10) {
-      var x = x0 + (m / RACE) * span;
-      ctx.strokeStyle = state.dist >= m ? C.line : C.lineFaint;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, laneTop);
-      ctx.lineTo(x, base);
-      ctx.stroke();
-      ctx.fillStyle = state.dist >= m ? C.text : C.textDim;
-      ctx.fillText(String(m), x, base + 15);
-    }
-
-    // 起點與終點
-    ctx.textAlign = "left";
-    ctx.fillStyle = C.textDim;
-    ctx.fillText("START", x0, laneTop - 8);
-    ctx.textAlign = "right";
-    ctx.fillStyle = state.mode === "done" ? C.text : C.textDim;
-    ctx.fillText("FINISH 100 m", x1, laneTop - 8);
-
-    // 跑者與速度尾跡
-    var px = x0 + (Math.min(state.dist, RACE) / RACE) * span;
-    var tail = Math.min(50, state.speed * 4.4);
-    if (tail > 1) {
-      ctx.fillStyle = "rgba(255,255,255,.35)";
-      ctx.fillRect(px - tail, laneTop + laneH * 0.34, tail, laneH * 0.3);
-    }
-    ctx.fillStyle = C.line;
-    ctx.fillRect(px - 3, laneTop + 2, 6, laneH - 4);
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = color;
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
   }
 
-  // ---------------------------------------------------------------- 狀態
-  // mode: idle | marks | set | live | demo | done | foul
+  function drawTrack(spin) {
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(spin);
+    ctx.scale(scale, scale);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "butt";
+
+    // 直道延伸段：100 m / 110 m 欄的起跑區
+    ctx.fillStyle = C.apron;
+    ctx.fillRect(-STRAIGHT / 2 - EXT, KERB, EXT, LANES * LANE_W);
+
+    // 紅膠跑道面 + 綠色內場
+    ctx.fillStyle = C.surface;
+    ctx.fill(ovalPath(R_OUT));
+    ctx.fillStyle = C.infield;
+    ctx.fill(ovalPath(KERB));
+
+    // 內場：足球場輪廓
+    ctx.strokeStyle = C.infieldLine;
+    ctx.lineWidth = 0.32;
+    ctx.strokeRect(-50, -32, 100, 64);
+    ctx.beginPath();
+    ctx.moveTo(0, -32);
+    ctx.lineTo(0, 32);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 9.15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeRect(-50, -20.16, 16.5, 40.32);
+    ctx.strokeRect(33.5, -20.16, 16.5, 40.32);
+
+    // 分道線（k = 0 為內側緣石）
+    for (var k = 0; k <= LANES; k++) {
+      var rr = KERB + k * LANE_W;
+      ctx.strokeStyle = k === 0 ? C.line : C.lineSoft;
+      ctx.lineWidth = k === 0 ? 0.55 : 0.3;
+      ctx.stroke(ovalPath(rr));
+      ctx.beginPath();
+      ctx.moveTo(-STRAIGHT / 2 - EXT, rr);
+      ctx.lineTo(-STRAIGHT / 2, rr);
+      ctx.stroke();
+    }
+
+    // 過程中的距離 mark：第 1 道由終點回量 100 / 200 / 300 m
+    for (var m = 100; m <= 300; m += 100) {
+      var loc = locateBack(1, m);
+      crossLine(loc, KERB, R_OUT, C.mark, 0.28);
+      var lp = atRadius(loc, R_OUT + 3.4);
+      label(lp.x, lp.y, m + " m", "rgba(255,255,255,.8)", spin, 8);
+    }
+
+    // 各項目起跑線
+    EVENTS.forEach(function (ev) {
+      if (ev.kind === "straight") {
+        // 直道項目：八道共用一條起跑線，沒有分道差
+        var x = STRAIGHT / 2 - ev.back;
+        ctx.strokeStyle = ev.color;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, KERB);
+        ctx.lineTo(x, R_OUT);
+        ctx.stroke();
+        label(x, R_OUT + 3.4, ev.label, ev.color, spin, 8);
+        return;
+      }
+      for (var n = 1; n <= LANES; n++) {
+        crossLine(
+          eventLocate(ev, n),
+          laneInner(n),
+          laneInner(n) + LANE_W,
+          ev.color,
+          0.45
+        );
+      }
+      var tip = atRadius(eventLocate(ev, LANES), R_OUT + 3.4);
+      label(tip.x, tip.y, ev.label, ev.color, spin, 8);
+    });
+
+    // 終點線：八道共用
+    var fin = locateBack(1, 0);
+    crossLine(fin, KERB, R_OUT, C.line, 0.85);
+    var fp = atRadius(fin, R_OUT + 4.8);
+    label(fp.x, fp.y, "FINISH", C.line, spin, 9);
+
+    // 道次
+    for (var i = 1; i <= LANES; i++) {
+      label(
+        STRAIGHT / 2 - 7,
+        laneCentre(i),
+        String(i),
+        "rgba(255,255,255,.85)",
+        spin,
+        7
+      );
+    }
+
+    // 跑者：一百公尺全程都在下方直道（含延伸段），第 4 道
+    var rx = STRAIGHT / 2 - (RACE - Math.min(state.dist, RACE));
+    var ry = laneCentre(4);
+    var tail = Math.min(13, state.speed * 1.2);
+    if (tail > 0.4) {
+      ctx.strokeStyle = "rgba(255,255,255,.55)";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(rx - tail, ry);
+      ctx.lineTo(rx, ry);
+      ctx.stroke();
+    }
+    ctx.fillStyle = C.runner;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.runnerCore;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 0.95, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // ------------------------------------------------------------------ 狀態
   var state = {
-    mode: "idle",
+    mode: "idle", // idle | marks | set | live | demo | done | foul
     t: 0,
     dist: 0,
     speed: 0,
@@ -298,13 +356,11 @@
   function later(fn, ms) {
     timers.push(setTimeout(fn, ms));
   }
-
   function say(text, cls) {
     if (!callEl) return;
     callEl.textContent = text || "";
     callEl.className = "track-call" + (text ? " show " + (cls || "") : "");
   }
-
   function fmt(n, d) {
     return n.toFixed(d === undefined ? 2 : d);
   }
@@ -323,11 +379,10 @@
               ? "就位"
               : phaseOf(state.dist, state.t);
     }
-    if (tapFill) {
+    if (tapFill)
       tapFill.style.width = (Math.min(state.taps, TAPS) / TAPS) * 100 + "%";
-    }
-    if (tapNum) tapNum.textContent = Math.min(state.taps, TAPS) + " / " + TAPS + " 下";
-    // 減少動態時沒有 rAF 迴圈，畫面得跟著讀數一起更新
+    if (tapNum)
+      tapNum.textContent = Math.min(state.taps, TAPS) + " / " + TAPS + " 下";
     if (reduced) render();
   }
 
@@ -383,19 +438,16 @@
       if (state.mode !== "marks") return;
       state.mode = "set";
       say("Set", "");
-      later(
-        function () {
-          if (state.mode !== "set") return;
-          state.mode = "live";
-          state.startedAt = performance.now();
-          say("GO!", "go");
-          if (btnGo) btnGo.textContent = "連打左鍵！";
-          later(function () {
-            if (state.mode === "live") say("", "");
-          }, 550);
-        },
-        SET_MIN + Math.random() * SET_VAR
-      );
+      later(function () {
+        if (state.mode !== "set") return;
+        state.mode = "live";
+        state.startedAt = performance.now();
+        say("GO!", "go");
+        if (btnGo) btnGo.textContent = "連打左鍵！";
+        later(function () {
+          if (state.mode === "live") say("", "");
+        }, 550);
+      }, SET_MIN + Math.random() * SET_VAR);
     }, MARKS_MS);
   }
 
@@ -423,7 +475,6 @@
     state.dist = Math.min(state.taps * PER_TAP, RACE);
     state.t = (performance.now() - state.startedAt) / 1000;
 
-    // 即時速度：取最近幾下的平均，避免單下抖動
     state.tapTimes.push(state.t);
     if (state.tapTimes.length > 10) state.tapTimes.shift();
     var n = state.tapTimes.length;
@@ -444,7 +495,6 @@
     if (btnGo) btnGo.textContent = "接受挑戰";
     say("", "");
     if (reduced) {
-      // 減少動態：直接算完整趟，只呈現結果與分段
       while (state.mode === "demo" && state.t < 30) stepDemo(0.004);
       paint();
     }
@@ -463,22 +513,21 @@
     }
   }
 
-  // ---------------------------------------------------------------- 迴圈
+  // ------------------------------------------------------------------ 迴圈
   function render() {
-    var band = layout();
     ctx.clearRect(0, 0, W, H);
-    drawTrack(spin, band.oval);
-    drawStrip(band.strip);
+    drawTrack(spin);
   }
 
   function frame(ts) {
     var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0;
     last = ts;
-    if (!reduced) spin += dt * (state.mode === "live" || state.mode === "demo" ? 0.15 : 0.045);
+    if (!reduced)
+      spin +=
+        dt * (state.mode === "live" || state.mode === "demo" ? 0.075 : 0.03);
     if (state.mode === "demo") stepDemo(dt);
     if (state.mode === "live") {
       state.t = (performance.now() - state.startedAt) / 1000;
-      // 久久沒按就讓速度自然歸零
       var n = state.tapTimes.length;
       if (n && state.t - state.tapTimes[n - 1] > 0.6) state.speed = 0;
     }
@@ -487,7 +536,7 @@
     requestAnimationFrame(frame);
   }
 
-  // ---------------------------------------------------------------- 綁定
+  // ------------------------------------------------------------------ 綁定
   window.addEventListener("resize", function () {
     resize();
     render();
@@ -496,7 +545,6 @@
   if (btnGo) btnGo.addEventListener("click", startChallenge);
   if (btnDemo) btnDemo.addEventListener("click", startDemo);
 
-  // 只認滑鼠左鍵／觸控的主要接觸點
   canvas.addEventListener("pointerdown", function (e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
@@ -517,10 +565,5 @@
   resize();
   reset("idle");
   render();
-
-  if (reduced) {
-    render();
-  } else {
-    requestAnimationFrame(frame);
-  }
+  if (!reduced) requestAnimationFrame(frame);
 })();

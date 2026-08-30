@@ -249,13 +249,36 @@ class LandingContentTests(TestCase):
         self.assertEqual(self.html.count('class="term"'), len(all_terms()))
         self.assertEqual(self.html.count("data-text="), len(all_terms()))
 
-    def test_track_red_and_white_palette(self):
+    def test_soft_gradient_page_keeps_red_for_the_track_only(self):
+        """跑道紅只留給畫布，版面底色改為溫和的漸變。"""
         css = (Path(settings.BASE_DIR) / "static" / "css" / "landing.css").read_text(
             encoding="utf-8"
         )
-        self.assertIn("--track:#c0392b", css)
+        # 跑道本身仍是紅膠面 + 白線 + 綠內場
+        self.assertIn("--track:#bf4029", css)
         self.assertIn("--line:#ffffff", css)
-        self.assertNotIn("#8a5a24", css)  # 舊的銅色已全部換掉
+        self.assertIn("--infield:#4f8b4a", css)
+        # 版面底色是漸變，重點色不是紅色
+        self.assertIn("--accent:#2f6b52", css)
+        self.assertRegex(css, r"body\{[^}]*background:linear-gradient")
+        # 舊的紅色版面用色已全部退場
+        for gone in ("#c0392b", "#8d2418", "#6d1a10", "#8a5a24"):
+            self.assertNotIn(gone, css)
+
+    def test_track_canvas_is_a_regulation_400m_stadium(self):
+        """跑道畫布依規格繪製，並標出各項目起跑線與過程標記。"""
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "track-hero.js").read_text(
+            encoding="utf-8"
+        )
+        for spec in ("STRAIGHT = 84.39", "KERB = 36.5", "LANE_W = 1.22", "LANES = 8"):
+            self.assertIn(spec, js)
+        for event in ("100 m", "110 mH", "200 m", "400 m", "800 m", "FINISH"):
+            self.assertIn(event, js)
+        # 分道差是算出來的，不是寫死的座標
+        self.assertIn("turnStagger", js)
+        self.assertIn("locateBack", js)
+        # 內場草綠
+        self.assertIn("#4f8b4a", js)
 
     def test_glossary_rendered_from_context(self):
         from django.utils.html import escape
