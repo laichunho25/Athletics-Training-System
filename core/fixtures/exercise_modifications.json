@@ -403,5 +403,389 @@
       "max_pain_level": 4,
       "rationale": "脛骨骨膜炎期間改為脛前肌漸進負荷。"
     }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 29,
+    "fields": {
+      "original_exercise": 1,
+      "substitute_exercise": 11,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "QUAD"
+      ],
+      "max_pain_level": 3,
+      "rationale": "股四頭肌拉傷期避免深蹲的離心負荷，改以髖主導動作維持下肢力量。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 30,
+    "fields": {
+      "original_exercise": 51,
+      "substitute_exercise": 12,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "QUAD",
+        "KNEE"
+      ],
+      "max_pain_level": 2,
+      "rationale": "膝伸展機是股四頭與髕腱張力最高的動作，急性期直接替換為臀橋。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 31,
+    "fields": {
+      "original_exercise": 31,
+      "substitute_exercise": 60,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "QUAD",
+        "KNEE"
+      ],
+      "max_pain_level": 2,
+      "rationale": "深跳落地的離心衝擊過高，改以無衝擊的踩踏爆發維持神經驅動。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 32,
+    "fields": {
+      "original_exercise": 44,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "QUAD"
+      ],
+      "max_pain_level": 3,
+      "rationale": "弓箭步的單腳離心不易控制，腿推可在固定軌跡與可控範圍內承重。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 33,
+    "fields": {
+      "original_exercise": 2,
+      "substitute_exercise": 11,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "QUAD"
+      ],
+      "max_pain_level": 3,
+      "rationale": "前蹲舉重心前移使股四頭負荷更集中，改以臀推維持髖伸力量。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 34,
+    "fields": {
+      "original_exercise": 8,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HIP"
+      ],
+      "max_pain_level": 3,
+      "rationale": "髖夾擠或深層髖痛時避免大範圍髖屈伸，改以固定軌跡推蹬。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 35,
+    "fields": {
+      "original_exercise": 43,
+      "substitute_exercise": 45,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HIP",
+        "GROIN"
+      ],
+      "max_pain_level": 3,
+      "rationale": "保加利亞分腿蹲後腳髖屈角度大，低箱登階可縮小髖活動範圍。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 36,
+    "fields": {
+      "original_exercise": 41,
+      "substitute_exercise": 40,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HIP"
+      ],
+      "max_pain_level": 3,
+      "rationale": "懸垂舉腿需大量髖屈肌出力，死蟲式改以核心穩定為主。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 37,
+    "fields": {
+      "original_exercise": 52,
+      "substitute_exercise": 38,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HIP"
+      ],
+      "max_pain_level": 3,
+      "rationale": "以等長側橋取代帶阻力的髖外展，減少臀中肌肌腱夾擠。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 38,
+    "fields": {
+      "original_exercise": 33,
+      "substitute_exercise": 61,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HIP",
+        "GROIN"
+      ],
+      "max_pain_level": 2,
+      "rationale": "跨步跳的騰空與著地衝擊大，水中跑保留跑姿而沒有地面反作用力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 39,
+    "fields": {
+      "original_exercise": 47,
+      "substitute_exercise": 37,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "GROIN"
+      ],
+      "max_pain_level": 3,
+      "rationale": "哥本哈根側棒對內收肌張力極高，急性期改為前棒維持核心。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 40,
+    "fields": {
+      "original_exercise": 3,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "GROIN"
+      ],
+      "max_pain_level": 3,
+      "rationale": "寬站高腳杯蹲會拉長內收肌，改以窄距推蹬避免鼠蹊牽拉。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 41,
+    "fields": {
+      "original_exercise": 34,
+      "substitute_exercise": 62,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "GROIN",
+        "HIP"
+      ],
+      "max_pain_level": 2,
+      "rationale": "跨欄跳的側向剪力集中在鼠蹊，滑步機維持有氧而無衝擊。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 42,
+    "fields": {
+      "original_exercise": 30,
+      "substitute_exercise": 63,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "CALF"
+      ],
+      "max_pain_level": 2,
+      "rationale": "跳箱起跳依賴小腿彈性，改以上下肢共同出力的划船維持心肺。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 43,
+    "fields": {
+      "original_exercise": 35,
+      "substitute_exercise": 59,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "CALF",
+        "SHIN"
+      ],
+      "max_pain_level": 2,
+      "rationale": "腳踝彈跳連續衝擊小腿，反向雪橇以向心為主、幾乎沒有離心負荷。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 44,
+    "fields": {
+      "original_exercise": 48,
+      "substitute_exercise": 62,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "CALF"
+      ],
+      "max_pain_level": 2,
+      "rationale": "小腿急性拉傷不做提踵，先以低阻力循環維持血流與活動度。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 45,
+    "fields": {
+      "original_exercise": 46,
+      "substitute_exercise": 11,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING"
+      ],
+      "max_pain_level": 3,
+      "rationale": "單腿羅馬尼亞硬舉在末端拉長膕繩肌，臀推以短縮位出力較安全。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 46,
+    "fields": {
+      "original_exercise": 13,
+      "substitute_exercise": 57,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING"
+      ],
+      "max_pain_level": 3,
+      "rationale": "北歐腿彎舉是最高強度的離心動作，疼痛期改以等長收縮鎮痛。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 47,
+    "fields": {
+      "original_exercise": 33,
+      "substitute_exercise": 54,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ACHILLES"
+      ],
+      "max_pain_level": 3,
+      "rationale": "以慢速離心提踵取代彈跳，符合肌腱漸進負荷原則。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 48,
+    "fields": {
+      "original_exercise": 45,
+      "substitute_exercise": 7,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE"
+      ],
+      "max_pain_level": 3,
+      "rationale": "登階的單腳離心對髕股關節壓力高，等長西班牙蹲可鎮痛並維持刺激。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 49,
+    "fields": {
+      "original_exercise": 25,
+      "substitute_exercise": 30,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 3,
+      "rationale": "移除槓鈴對脊柱的壓縮與剪力，改以自體重量爆發維持功率輸出。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 50,
+    "fields": {
+      "original_exercise": 42,
+      "substitute_exercise": 39,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 3,
+      "rationale": "藥球下砸的軀幹屈曲速度快，改以抗旋轉等長維持核心控制。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 51,
+    "fields": {
+      "original_exercise": 11,
+      "substitute_exercise": 12,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 4,
+      "rationale": "槓鈴臀推需槓片壓在髖上，徒手臀橋可去掉腰椎壓力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 52,
+    "fields": {
+      "original_exercise": 27,
+      "substitute_exercise": 21,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 3,
+      "rationale": "抓舉的過頭穩定需求高，改以水平拉維持上背肌力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 53,
+    "fields": {
+      "original_exercise": 20,
+      "substitute_exercise": 22,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 4,
+      "rationale": "引體向上懸吊拉長肩關節囊，坐姿划船可在中立位訓練。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 54,
+    "fields": {
+      "original_exercise": 19,
+      "substitute_exercise": 18,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 4,
+      "rationale": "雙槓臂屈伸在最低點造成肩前側夾擠，伏地挺身可自行控制深度。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 55,
+    "fields": {
+      "original_exercise": 30,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ANKLE"
+      ],
+      "max_pain_level": 3,
+      "rationale": "跳躍落地需要踝關節穩定，腿推可在固定軌跡下持續負重。"
+    }
   }
 ]

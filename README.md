@@ -12,6 +12,7 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py loaddata events exercises recovery_methods exercise_modifications
 python manage.py seed_demo --weeks 8      # 建立示範資料
+python manage.py seed_templates           # 建立短跑課表模板（需先有教練帳號）
 python manage.py createsuperuser
 python manage.py runserver          # 固定跑在 8200 埠（避開其他專案）
 ```
@@ -167,11 +168,54 @@ python manage.py rebuild_analytics --athlete 1
 
 ---
 
+## 基礎資料與課表模板
+
+`core/fixtures/` 的四份 fixture 由 `loaddata` 載入，pk 固定，可重複執行：
+
+| Fixture | 內容 |
+| --- | --- |
+| `events.json` | 田徑項目 |
+| `exercises.json` | 動作字典（64 個動作，以 `code` 供模板引用） |
+| `recovery_methods.json` | 恢復手段 |
+| `exercise_modifications.json` | 替代動作對照表（55 筆，13 個身體部位全覆蓋） |
+
+替代動作表是傷患期自動降階的依據：某部位疼痛時，教練依 `contraindicated_body_parts`
+與 `max_pain_level` 查出可執行的替代動作。
+
+**課表模板**（`SessionTemplate`）的 `coach` 是必填外鍵，沒辦法用 fixture 灌，
+改由管理指令掛到現有教練身上，以「教練 + 模板名稱」為鍵做 upsert：
+
+```bash
+python manage.py seed_templates                  # 掛給所有教練
+python manage.py seed_templates --coach coach_chan
+python manage.py seed_templates --skip-if-empty  # 沒有教練時安靜跳過（build.sh 用）
+```
+
+內建 11 個短跑專項模板：加速期起跑、最大速度飛行跑、速度耐力 150m、
+特殊耐力 300/250/200、節奏跑、最大力量、爆發力、上肢與軀幹穩定、
+技術日、恢復日、賽前激活。`SessionTemplate.clone_to_session()`
+會把模板展開成一堂實際課，含 `TrackSet` 與 `StrengthSet`。
+
+---
+
+## 測試
+
+```bash
+python manage.py test          # 82 項，約 6 秒
+```
+
+涵蓋 sRPE 負荷、ACWR（含 0.80 / 1.30 / 1.50 邊界與除零保護）、單調度與壓力、
+成績趨勢斜率、週負荷遞增、營養計算與準備度、疼痛封鎖與課表降階、
+權限收斂（運動員／教練／管理員／匿名），以及 fixture 與模板的資料完整性。
+跑測試時 `settings.py` 會自動切換成 MD5 雜湊，避免 PBKDF2 拖慢建帳號。
+
+---
+
 ## 尚未實作（下一步）
 
 - [x] HTML 前端頁面與 Chart.js 圖表
-- [ ] 單元測試（services 計算邏輯 + 權限）
+- [x] 單元測試（services 計算邏輯 + 權限）
 - [ ] Notification model 與 Celery 排程
-- [ ] 擴充 fixtures（更多替代動作 / 課表模板）
+- [x] 擴充 fixtures（更多替代動作 / 課表模板）
 - [x] PostgreSQL 與 Render 部署設定（見 [DEPLOY.md](DEPLOY.md)）
 - [ ] 報告匯出（CSV / PDF）

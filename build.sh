@@ -17,3 +17,6 @@ python manage.py loaddata events exercises recovery_methods exercise_modificatio
 
 # 有設定 ADMIN_USERNAME / ADMIN_PASSWORD 時自動建立管理員（可重複執行）
 python manage.py create_admin --skip-if-unset
+
+# 有教練帳號時建立短跑課表模板（可重複執行；沒有教練就安靜跳過）
+python manage.py seed_templates --skip-if-empty

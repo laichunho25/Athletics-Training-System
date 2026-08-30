@@ -22,7 +22,10 @@ def affected_body_parts(athlete):
 def worst_pain_today(athlete, on_date=None):
     """今日各傷患中最高的活動時疼痛值。"""
     on_date = on_date or date.today()
-    logs = PainLog.objects.filter(injury__athlete=athlete, date=on_date)
+    # 只看仍在追蹤中的傷患；已康復傷患的舊紀錄不應繼續封鎖訓練
+    logs = PainLog.objects.filter(
+        injury__athlete=athlete, date=on_date
+    ).exclude(injury__status=InjuryStatus.RESOLVED)
     values = [l.pain_during_activity for l in logs]
     return max(values) if values else None
 
