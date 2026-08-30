@@ -52,11 +52,15 @@
     {% for week in weeks %}
       {% for cell in week %}
         <div class="day {% if not cell.in_month %}other{% endif %} {% if cell.is_today %}today{% endif %}">
-          <div class="daynum">{{ cell.date|date:"j" }}</div>
+          <div class="daynum">
+            <span>{{ cell.date|date:"j" }}</span>
+            <button type="button" class="addday" title="在 {{ cell.date }} 新增 program"
+                    data-date="{{ cell.date|date:'Y-m-d' }}">＋</button>
+          </div>
           {% for s in cell.sessions %}
-            <a class="ev {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %}"
+            <a class="ev t-{{ s.session_type|lower }} {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %}"
                href="{% url 'web:session_detail' s.id %}"
-               title="{{ s.title }}｜{{ s.get_status_display }}｜負荷 {{ s.session_load }} AU">
+               title="{{ s.get_session_type_display }}｜{{ s.title }}｜{{ s.get_status_display }}｜負荷 {{ s.session_load }} AU">
               {{ s.title }}
             </a>
           {% endfor %}
@@ -71,14 +75,82 @@
   <span class="badge b-green">已完成</span>
   <span class="badge b-yellow">部分完成</span>
   <span class="badge b-red">缺席</span>
-  <span>· 點擊課表可打卡記錄 RPE 與實際時長</span>
+  <span>· 點日期上的 ＋ 新增 program，點課表可打卡記錄 RPE 與實際時長</span>
 </div>
+
+<!-- ------------------------------------------------- 新增 program 對話框 -->
+<dialog id="progDlg" class="dlg">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_program">
+    <input type="hidden" name="athlete" value="{{ athlete.id }}">
+    <div class="between mb">
+      <h2 style="margin:0">新增 program</h2>
+      <button type="button" class="btn ghost sm" onclick="progDlg.close()">關閉</button>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" name="date" id="progDate" value="{{ today_iso }}" required>
+      </div>
+      <div class="field">
+        <label>時段</label>
+        <select name="time_slot">
+          <option value="AM">上午</option>
+          <option value="PM" selected>下午</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>計劃時長（分）</label>
+        <input type="number" name="planned_duration_min" min="10" max="480" value="90">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>類別</label>
+      <div class="typepick">
+        {% for value, label in program_types %}
+          <label class="typeopt">
+            <input type="radio" name="session_type" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label>名稱</label>
+      <input type="text" name="title" placeholder="留空會自動用類別名稱，例：加速度課 / 下肢最大力量">
+    </div>
+    <div class="field">
+      <label>內容</label>
+      <textarea name="description" rows="4"
+        placeholder="例：熱身 20 分 → 6 × 60m（95%）休 6 分 → 收操&#10;重量：背蹲舉 4×3 @85%、保加利亞分腿蹲 3×8"></textarea>
+    </div>
+
+    <button class="btn" type="submit">加入日曆</button>
+  </form>
+</dialog>
 
 <div class="card mt small c-dim">
   <strong>快速指令選單</strong>
-  [1] 點日曆課表 <em>記錄今日訓練</em>
+  [1] 點日期 ＋ <em>新增 program</em>
   [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
   [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
   [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // 點日期上的 ＋：帶著那一天的日期打開新增 program 的對話框
+  const dlg = document.getElementById('progDlg');
+  document.querySelectorAll('.addday').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('progDate').value = btn.dataset.date;
+      dlg.showModal();
+    });
+  });
+</script>
 {% endblock %}

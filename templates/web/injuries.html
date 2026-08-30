@@ -96,6 +96,170 @@
     </div>
   </div>
 
+  <!-- --------------------------------------------------- 治療方向 -->
+  <div class="card-head" style="border-top:1px solid var(--border)">
+    <span>治療方向</span>
+    <span class="flex">
+      <span class="badge b-orange">{{ item.direction.stage_label }}</span>
+      {% if item.injury.next_review_date %}
+        <span class="badge b-blue">下次覆診 {{ item.injury.next_review_date }}</span>
+      {% endif %}
+      {% if item.treatments.total %}
+        <span class="badge b-dim">已治療 {{ item.treatments.total }} 次</span>
+      {% endif %}
+    </span>
+  </div>
+
+  <div style="padding:16px 18px">
+    <div class="grid grid-2">
+      <!-- 系統建議 -->
+      <div>
+        <h3>這一階段要做什麼</h3>
+        <div class="alert blue" style="margin-bottom:12px">
+          <strong>目標：</strong>{{ item.direction.goal }}
+        </div>
+        <ul style="padding-left:18px;margin-bottom:12px">
+          {% for a in item.direction.actions %}<li class="small">{{ a }}</li>{% endfor %}
+        </ul>
+        <div class="flex mb" style="flex-wrap:wrap">
+          {% for m in item.direction.modalities %}<span class="badge b-dim">{{ m }}</span>{% endfor %}
+        </div>
+        <div class="small c-dim mb"><strong>過關條件：</strong>{{ item.direction.next_when }}</div>
+        {% if item.direction.caution %}
+          <div class="alert yellow" style="margin:0">⚠️ {{ item.direction.caution }}</div>
+        {% endif %}
+        {% if item.treatments.best %}
+          <div class="small c-green mt">
+            ✅ 目前最有效的手段：<strong>{{ item.treatments.best.type }}</strong>
+            （{{ item.treatments.best.count }} 次中 {{ item.treatments.best.improved }} 次有改善）
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 設定方向 -->
+      <div>
+        <h3>設定治療方向</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="set_direction">
+          <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
+          <div class="row">
+            <div class="field">
+              <label>治療進度</label>
+              <select name="treatment_status">
+                {% for value, label in treatment_stages %}
+                  <option value="{{ value }}" {% if value == item.injury.treatment_status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>下次覆診 / 檢視</label>
+              <input type="date" name="next_review_date"
+                     value="{{ item.injury.next_review_date|date:'Y-m-d' }}">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>診斷</label>
+              <input type="text" name="diagnosis" value="{{ item.injury.diagnosis }}"
+                     placeholder="例：右膕繩肌二級拉傷">
+            </div>
+            <div class="field">
+              <label>主責醫療人員</label>
+              <input type="text" name="practitioner" value="{{ item.injury.practitioner }}"
+                     placeholder="例：陳physio / XX 骨科">
+            </div>
+          </div>
+          <div class="field">
+            <label>治療方向（自己寫的計劃）</label>
+            <textarea name="treatment_direction" rows="3"
+              placeholder="例：兩週內以離心負荷為主，每週兩次物理治療；痛感 ≤ 2 才加入加速跑">{{ item.injury.treatment_direction }}</textarea>
+          </div>
+          <button class="btn" type="submit">儲存方向</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 記一次治療 -->
+    <h3 class="mt">記錄一次治療</h3>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="treatment_log">
+      <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
+      <div class="row">
+        <div class="field">
+          <label>日期</label>
+          <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required>
+        </div>
+        <div class="field">
+          <label>治療手段</label>
+          <select name="treatment_type" required>
+            {% for value, label in treatment_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>治療者 / 機構</label>
+          <input type="text" name="provider" placeholder="例：陳physio">
+        </div>
+        <div class="field">
+          <label>成效</label>
+          <select name="effect">
+            {% for value, label in treatment_effects %}
+              <option value="{{ value }}" {% if value == 3 %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>治療後疼痛 0–10</label>
+          <input type="number" min="0" max="10" name="pain_after">
+        </div>
+        <div class="field">
+          <label>費用 (HKD)</label>
+          <input type="number" step="0.01" min="0" name="cost_hkd">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>處理內容</label>
+          <input type="text" name="content" placeholder="例：超聲波 8 分鐘 + 深層按摩 + 離心練習教學">
+        </div>
+        <div class="field">
+          <label>下一步</label>
+          <input type="text" name="next_step" placeholder="例：一週後覆診，期間每日北歐腿彎舉 3×6">
+        </div>
+      </div>
+      <button class="btn" type="submit">記錄治療</button>
+    </form>
+  </div>
+
+  {% if item.treatments.recent %}
+  <table>
+    <thead>
+      <tr>
+        <th class="num">日期</th><th>手段</th><th>治療者</th><th>內容</th>
+        <th>成效</th><th class="num">後續疼痛</th><th>下一步</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in item.treatments.recent %}
+      <tr>
+        <td class="num">{{ t.date }}</td>
+        <td>{{ t.get_treatment_type_display }}</td>
+        <td>{{ t.provider|default:"—" }}</td>
+        <td class="small c-dim">{{ t.content|default:"—" }}</td>
+        <td>
+          <span class="badge {% if t.effect == 1 %}b-green{% elif t.effect == 2 %}b-blue{% elif t.effect == 4 %}b-red{% else %}b-dim{% endif %}">
+            {{ t.get_effect_display }}
+          </span>
+        </td>
+        <td class="num">{% if t.pain_after != None %}{{ t.pain_after }}/10{% else %}—{% endif %}</td>
+        <td class="small c-dim">{{ t.next_step|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   <!-- --------------------------------------------------- 替代動作 -->
   <div class="card-head" style="border-top:1px solid var(--border)">
     <span>替代動作建議（維持體能、不加重傷勢）</span>

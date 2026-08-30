@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}團隊儀表板{% endblock %}
+{% block title %}運動員狀態總覽{% endblock %}
 
 {% block content %}
-<h1>團隊儀表板</h1>
+<h1>運動員狀態總覽</h1>
 <p class="subtitle">{{ today }} · 共 {{ total }} 名運動員</p>
 
 {% if high_risk %}
@@ -55,7 +55,7 @@
 
 <div class="card mt small c-dim">
   <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">派發／檢視課表</a>
+  [1] <a href="{% url 'web:plan' %}">看我負責的計劃</a>
   [2] <a href="{% url 'web:analytics' %}">查看負荷分析</a>
   [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
   [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>

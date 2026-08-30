@@ -13,12 +13,12 @@
 <div class="topbar">
   <a class="brand" href="{% url 'web:landing' %}" style="text-decoration:none;color:inherit">ATM<span>·</span>田徑</a>
   <nav class="nav">
-    <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">儀表板</a>
+    <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">運動員狀態總覽</a>
+    <a href="{% url 'web:plan' %}" class="{% if page == 'plan' %}active{% endif %}">計劃</a>
     <a href="{% url 'web:calendar' %}" class="{% if page == 'calendar' %}active{% endif %}">訓練日曆</a>
     <a href="{% url 'web:analytics' %}" class="{% if page == 'analytics' %}active{% endif %}">數據分析</a>
     <a href="{% url 'web:nutrition' %}" class="{% if page == 'nutrition' %}active{% endif %}">營養與恢復</a>
     <a href="{% url 'web:injuries' %}" class="{% if page == 'injuries' %}active{% endif %}">傷患管理</a>
-    {% if CAN_USE_ADMIN %}<a href="{{ ADMIN_URL }}">後台</a>{% endif %}
   </nav>
   <div class="userbox">
     <span>{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}</span>

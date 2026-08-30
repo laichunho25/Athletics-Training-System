@@ -20,8 +20,9 @@ class User(AbstractUser):
     avatar = models.ImageField("頭像", upload_to="avatars/", null=True, blank=True)
 
     class Meta:
-        verbose_name = "使用者"
-        verbose_name_plural = "使用者"
+        # 後台 Accounts 區塊只保留四張表，這張是「管理員」（帳號與角色）
+        verbose_name = "管理員"
+        verbose_name_plural = "管理員"
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.get_role_display()})"

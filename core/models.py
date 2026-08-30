@@ -54,13 +54,37 @@ class PhaseType(models.TextChoices):
 
 
 class SessionType(models.TextChoices):
-    TRACK = "TRACK", "田徑專項"
-    STRENGTH = "STRENGTH", "力量訓練"
-    TECHNIQUE = "TECHNIQUE", "技術訓練"
+    """課別（program 分類）。
+
+    前五項是教練在訓練日曆上「按日期新增 program」時會看到的選項，
+    其餘幾項留著是為了讓舊資料仍然顯示得出中文名稱。
+    """
+
+    TRACK = "TRACK", "田徑場訓練"
+    STRENGTH = "STRENGTH", "重量訓練"
     RECOVERY = "RECOVERY", "恢復訓練"
+    REHAB = "REHAB", "治療康復"
+    OTHER = "OTHER", "其他"
+    # ---- 舊資料相容（不出現在新增 program 的選單）----
+    TECHNIQUE = "TECHNIQUE", "技術訓練"
     CROSS_TRAINING = "CROSS_TRAINING", "交叉訓練"
     COMPETITION = "COMPETITION", "比賽"
     REST = "REST", "休息"
+
+
+#: 訓練日曆上可以新增的 program 類別（依教練實際使用的五大類）
+PROGRAM_SESSION_TYPES = [
+    SessionType.TRACK,
+    SessionType.STRENGTH,
+    SessionType.REHAB,
+    SessionType.RECOVERY,
+    SessionType.OTHER,
+]
+
+
+def program_type_choices():
+    """給表單用的 (value, label) 清單。"""
+    return [(t.value, t.label) for t in PROGRAM_SESSION_TYPES]
 
 
 class SessionStatus(models.TextChoices):

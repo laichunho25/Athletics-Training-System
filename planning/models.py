@@ -342,3 +342,75 @@ class SessionTemplate(TimeStampedModel):
             StrengthSet.objects.create(session=session, exercise=exercise, order=i, **data)
 
         return session
+
+
+class ProjectAssignment(TimeStampedModel):
+    """把一個已有的報名項目（programs.Project）分配給教練。
+
+    管理員在「計劃」頁面建立這筆關係之後，該教練登入時就會在同一頁
+    看到自己被分配到的項目，點進去可以看到項目裡所有運動員的狀況。
+    用獨立的表而不是 Project 上的 M2M，是因為要記錄「誰分配的、什麼時候、備註」。
+    """
+
+    project = models.ForeignKey(
+        "programs.Project",
+        on_delete=models.CASCADE,
+        related_name="assignments",
+        verbose_name="報名項目",
+    )
+    coach = models.ForeignKey(
+        CoachProfile,
+        on_delete=models.CASCADE,
+        related_name="project_assignments",
+        verbose_name="負責教練",
+    )
+    assigned_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_assignments_made",
+        verbose_name="分配者",
+    )
+    is_active = models.BooleanField("生效中", default=True)
+    note = models.TextField("分配備註", blank=True, help_text="例：只負責短跑組、每週二四帶課")
+
+    class Meta:
+        verbose_name = "項目分配"
+        verbose_name_plural = "項目分配"
+        unique_together = ("project", "coach")
+        ordering = ["project__display_order", "coach__user__username"]
+
+    def __str__(self):
+        return f"{self.project.title} → {self.coach}"
+
+
+def project_athletes(project):
+    """報名項目裡「已匯入 ATM」的運動員 queryset。"""
+    from accounts.models import AthleteProfile
+
+    return (
+        AthleteProfile.objects.filter(application__project=project)
+        .select_related("user", "primary_event", "coach__user")
+        .distinct()
+    )
+
+
+def projects_for(user):
+    """依角色回傳這個使用者在「計劃」頁面看得到的報名項目。"""
+    from programs.models import Project
+
+    from core.models import Role
+
+    qs = Project.objects.all().order_by("display_order", "-created_at")
+    if not user.is_authenticated:
+        return qs.none()
+    if user.is_superuser or user.role == Role.ADMIN:
+        return qs
+    if user.role == Role.COACH:
+        coach = getattr(user, "coach_profile", None)
+        if coach is None:
+            return qs.none()
+        return qs.filter(assignments__coach=coach, assignments__is_active=True).distinct()
+    # 運動員：只看得到自己有報名的項目
+    return qs.filter(applications__athlete__user=user).distinct()

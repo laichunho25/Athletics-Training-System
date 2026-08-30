@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>{{ project.title }}</h1>
+    <div class="subtitle" style="margin:0">
+      <a href="{% url 'web:plan' %}">計劃</a> ／ {{ project.get_status_display }}
+      {% if project.schedule_text %}· {{ project.schedule_text }}{% endif %}
+      · {{ rows|length }} 名運動員
+    </div>
+  </div>
+  <span class="flex">
+    {% for a in assignments %}
+      <span class="badge b-orange">{{ a.coach.user.get_full_name|default:a.coach.user.username }}</span>
+    {% endfor %}
+  </span>
+</div>
+
+{% if high_risk %}
+<div class="alert red">
+  🔴 <strong>高受傷風險（ACWR &gt; 1.50）：</strong>
+  {% for r in high_risk %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.acwr }}）{% if not forloop.last %}、{% endif %}{% endfor %}
+  — 建議本週減量 20–30%。
+</div>
+{% endif %}
+{% if injured %}
+<div class="alert yellow">
+  ⚠️ <strong>傷患中：</strong>
+  {% for r in injured %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.injuries }} 筆）{% if not forloop.last %}、{% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>項目內運動員狀況 · {{ today }}</span>
+    <span class="small c-dim">點運動員可看完整狀態</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>運動員</th><th>主項</th><th>狀態</th>
+        <th class="num">ACWR</th><th>風險</th><th class="num">準備度</th>
+        <th class="num">傷患</th><th class="num">本週課</th><th>最近一堂</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><strong>{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}</strong></td>
+        <td>{{ r.athlete.primary_event.name_zh }}</td>
+        <td><span class="badge {% if r.athlete.status == 'HEALTHY' %}b-green{% elif r.athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ r.status }}</span></td>
+        <td class="num {{ r.color }}"><strong>{% if r.acwr %}{{ r.acwr }}{% else %}—{% endif %}</strong></td>
+        <td><span class="badge {{ r.badge }}">{{ r.icon }} {{ r.risk_label }}</span></td>
+        <td class="num {% if r.readiness >= 75 %}c-green{% elif r.readiness >= 55 %}c-yellow{% else %}c-red{% endif %}">{{ r.readiness|default:"—" }}</td>
+        <td class="num">{% if r.injuries %}<span class="c-red">{{ r.injuries }}</span>{% else %}0{% endif %}</td>
+        <td class="num">{{ r.week_sessions }}</td>
+        <td class="small c-dim">
+          {% if r.last_session %}{{ r.last_session.date|date:"m/d" }} {{ r.last_session.title }}{% else %}—{% endif %}
+        </td>
+        <td>
+          <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ r.athlete.id }}">狀態</a>
+          <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ r.athlete.id }}">日曆</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="10" class="empty">這個項目還沒有已匯入 ATM 的運動員</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if is_admin and not_imported %}
+<div class="card pad0">
+  <div class="card-head">
+    <span>尚未匯入 ATM 的報名表（{{ not_imported|length }} 份）</span>
+    <span class="small c-dim">到後台的報名表用「匯入 ATM」動作轉成運動員檔案</span>
+  </div>
+  <table>
+    <thead><tr><th>姓名</th><th>學校 / 體育會</th><th>項目分類</th><th>狀態</th><th class="num">報名日期</th></tr></thead>
+    <tbody>
+    {% for a in not_imported %}
+      <tr>
+        <td>{{ a.full_name }}</td>
+        <td>{{ a.school_or_club }}</td>
+        <td>{{ a.get_event_category_display }}</td>
+        <td><span class="badge b-dim">{{ a.get_status_display }}</span></td>
+        <td class="num">{{ a.created_at|date:"Y-m-d" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

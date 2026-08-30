@@ -37,10 +37,58 @@ def user_may_use_admin(user):
     return not allowed or user.username in allowed
 
 
+# 後台首頁的區塊順序與中文標題。沒有列在這裡的 app 會排到最後面。
+APP_ORDER = [
+    ("accounts", "帳號與檔案"),
+    ("programs", "報名項目"),
+    ("planning", "訓練計劃與日程"),
+    ("training", "訓練紀錄"),
+    ("analytics", "數據分析"),
+    ("nutrition", "營養與恢復"),
+    ("injury", "傷患管理"),
+    ("auth", "權限群組"),
+]
+
+# 區塊內的表格順序（用 model 的小寫名稱）。沒列到的排在後面，維持原本的字母序。
+MODEL_ORDER = {
+    "accounts": ["user", "coachprofile", "event", "athleteprofile"],
+    "programs": ["project", "application"],
+    "planning": ["projectassignment", "trainingsession", "competition", "macrocycle"],
+    "analytics": ["metricitem", "metricrecord", "dailyload", "weeklysummary"],
+    "injury": ["injury", "treatmentlog", "rehabprotocol", "exercisemodification"],
+}
+
+
 class ATMAdminSite(admin.AdminSite):
     site_header = "ATM 後台管理"
     site_title = "ATM 後台"
     index_title = "資料管理"
+
+    def get_app_list(self, request, app_label=None):
+        """把後台首頁重排成「跟系統選單同一個順序」，並換成看得懂的中文區塊名。
+
+        Django 預設是照 app 的字母序、表格也照字母序排，
+        管理員要找一張表得整頁掃。這裡改成依實際使用頻率由上而下。
+        """
+        app_list = super().get_app_list(request, app_label)
+        order = {label: i for i, (label, _) in enumerate(APP_ORDER)}
+        titles = dict(APP_ORDER)
+
+        for app in app_list:
+            label = app.get("app_label", "")
+            if label in titles:
+                app["name"] = titles[label]
+            wanted = MODEL_ORDER.get(label, [])
+            rank = {name: i for i, name in enumerate(wanted)}
+            app["models"].sort(
+                key=lambda m: (
+                    rank.get(str(m.get("object_name", "")).lower(), len(wanted)),
+                    str(m.get("name", "")),
+                )
+            )
+
+        app_list.sort(key=lambda a: (order.get(a.get("app_label", ""), len(order)), a["name"]))
+        return app_list
 
     def has_permission(self, request):
         return user_may_use_admin(request.user)

@@ -6,6 +6,7 @@ from planning.models import (
     Macrocycle,
     Microcycle,
     Phase,
+    ProjectAssignment,
     SessionTemplate,
     TrainingSession,
 )
@@ -76,3 +77,18 @@ class TrainingSessionAdmin(admin.ModelAdmin):
 class SessionTemplateAdmin(admin.ModelAdmin):
     list_display = ("name", "coach", "session_type", "planned_duration_min")
     list_filter = ("session_type", "coach")
+
+
+@admin.register(ProjectAssignment)
+class ProjectAssignmentAdmin(admin.ModelAdmin):
+    """管理員在這裡（或在系統的「計劃」頁面）把報名項目分配給教練。"""
+
+    list_display = ("project", "coach", "is_active", "assigned_by", "created_at")
+    list_filter = ("is_active", "coach", "project")
+    autocomplete_fields = ["project", "coach"]
+    search_fields = ("project__title", "coach__user__username", "note")
+
+    def save_model(self, request, obj, form, change):
+        if obj.assigned_by_id is None:
+            obj.assigned_by = request.user
+        super().save_model(request, obj, form, change)

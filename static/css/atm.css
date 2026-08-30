@@ -205,3 +205,73 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   font-size: 12px; color: var(--text-dim); line-height: 1.9;
 }
 .login-hint code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--text); }
+
+/* ------------------------------------------------- 日曆：按日期新增 program */
+.cal .daynum { display: flex; align-items: center; justify-content: space-between; }
+.cal .addday {
+  width: 18px; height: 18px; line-height: 1; padding: 0;
+  background: transparent; border: 1px solid transparent; border-radius: 5px;
+  color: var(--text-dim); font-size: 13px; cursor: pointer; opacity: 0;
+  transition: opacity .12s;
+}
+.cal .day:hover .addday { opacity: 1; }
+.cal .addday:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cal .day.today .addday { opacity: .7; }
+
+/* 課別色條（左邊界顏色代表狀態，底色代表類別） */
+.cal .ev.t-track    { background: #ff6b3522; }
+.cal .ev.t-strength { background: #58a6ff22; }
+.cal .ev.t-recovery { background: #3fb95022; }
+.cal .ev.t-rehab    { background: #d2992222; }
+.cal .ev.t-other    { background: var(--surface-2); }
+
+/* -------------------------------------------------------------- 對話框 */
+.dlg {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px; width: min(620px, 92vw);
+}
+.dlg::backdrop { background: #000a; }
+.dlg h2 { margin: 0; }
+
+/* 類別選擇：把 radio 做成一排可點的膠囊 */
+.typepick { display: flex; flex-wrap: wrap; gap: 8px; }
+.typeopt input { display: none; }
+.typeopt span {
+  display: inline-block; padding: 7px 14px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-size: 13px; cursor: pointer; color: var(--text-dim);
+}
+.typeopt input:checked + span {
+  background: var(--accent-dim); border-color: var(--accent); color: var(--accent);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ 分頁標籤 */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.tabs a {
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim); font-weight: 600; font-size: 13px;
+}
+.tabs a:hover { color: var(--text); text-decoration: none; }
+.tabs a.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* 數據項目清單 */
+.itemlist { max-height: 420px; overflow-y: auto; }
+.itemlist a {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 9px 18px; border-bottom: 1px solid var(--border); color: var(--text);
+}
+.itemlist a:hover { background: var(--surface-2); text-decoration: none; }
+.itemlist a.active { background: var(--accent-dim); color: var(--accent); }
+.itemlist a .meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.itemlist a.active .meta { color: var(--accent); }
+
+/* 表格 / 徽章裡的純文字按鈕（例如取消分配的 ×） */
+.linkbtn {
+  background: none; border: none; color: inherit; cursor: pointer;
+  padding: 0 0 0 4px; font-size: 13px; opacity: .6; font-family: inherit;
+}
+.linkbtn:hover { opacity: 1; }
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }

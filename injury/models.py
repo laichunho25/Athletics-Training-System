@@ -49,6 +49,39 @@ class InjuryStatus(models.TextChoices):
     RESOLVED = "RESOLVED", "已康復"
 
 
+class TreatmentStage(models.TextChoices):
+    """治療方向的四個階段——決定現在該做什麼、什麼時候可以往下一步。"""
+
+    ASSESS = "ASSESS", "評估診斷"
+    RELIEVE = "RELIEVE", "消炎止痛"
+    RESTORE = "RESTORE", "恢復功能"
+    RECONDITION = "RECONDITION", "重建體能"
+
+
+class TreatmentType(models.TextChoices):
+    DOCTOR = "DOCTOR", "醫生診症"
+    IMAGING = "IMAGING", "影像檢查"
+    PHYSIO = "PHYSIO", "物理治療"
+    MANUAL = "MANUAL", "手法治療 / 推拿"
+    ACUPUNCTURE = "ACUPUNCTURE", "針灸 / 針刺"
+    ICE = "ICE", "冰敷 / 冷療"
+    HEAT = "HEAT", "熱敷"
+    STRETCH = "STRETCH", "伸展 / 筋膜放鬆"
+    STRENGTH = "STRENGTH", "復健強化訓練"
+    TAPING = "TAPING", "貼紮 / 護具"
+    MEDICATION = "MEDICATION", "藥物"
+    SURGERY = "SURGERY", "手術"
+    REST = "REST", "完全休息"
+    OTHER = "OTHER", "其他"
+
+
+class TreatmentEffect(models.IntegerChoices):
+    MUCH_BETTER = 1, "明顯改善"
+    BETTER = 2, "略有改善"
+    SAME = 3, "無變化"
+    WORSE = 4, "變差"
+
+
 class Injury(TimeStampedModel):
     athlete = models.ForeignKey(AthleteProfile, on_delete=models.CASCADE, related_name="injuries")
     body_part = models.CharField("部位", max_length=20, choices=BodyPart.choices)
@@ -68,6 +101,15 @@ class Injury(TimeStampedModel):
     expected_return_date = models.DateField("預計回歸日期", null=True, blank=True)
     diagnosis = models.TextField("診斷", blank=True)
     practitioner = models.CharField("醫療人員", max_length=80, blank=True)
+    treatment_direction = models.TextField(
+        "治療方向",
+        blank=True,
+        help_text="這個傷要往哪個方向處理：目標、主要手段、下一步條件",
+    )
+    treatment_status = models.CharField(
+        "治療進度", max_length=15, choices=TreatmentStage.choices, default=TreatmentStage.ASSESS
+    )
+    next_review_date = models.DateField("下次覆診 / 檢視", null=True, blank=True)
 
     class Meta:
         verbose_name = "傷患"
@@ -107,6 +149,43 @@ class Injury(TimeStampedModel):
             .order_by("date")
             .values("date", "pain_at_rest", "pain_during_activity")
         )
+
+
+class TreatmentLog(TimeStampedModel):
+    """一次治療紀錄。
+
+    傷患管理原本只記「痛不痛」，但教練真正要追的是「做了什麼、有沒有用」——
+    所以每一筆都要求填手段與成效，累積起來就看得出哪個方向有效。
+    """
+
+    injury = models.ForeignKey(Injury, on_delete=models.CASCADE, related_name="treatments")
+    date = models.DateField("治療日期")
+    treatment_type = models.CharField("治療手段", max_length=15, choices=TreatmentType.choices)
+    provider = models.CharField(
+        "治療者 / 機構", max_length=100, blank=True, help_text="例：陳physio、XX 骨科"
+    )
+    content = models.TextField("處理內容", blank=True, help_text="做了什麼、劑量或時間")
+    effect = models.PositiveSmallIntegerField(
+        "成效", choices=TreatmentEffect.choices, default=TreatmentEffect.SAME
+    )
+    pain_after = models.PositiveSmallIntegerField(
+        "治療後疼痛 (0-10)", null=True, blank=True, validators=PAIN_VALIDATORS
+    )
+    next_step = models.CharField("下一步", max_length=200, blank=True)
+    cost_hkd = models.DecimalField("費用 (HKD)", max_digits=8, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "治療紀錄"
+        verbose_name_plural = "治療紀錄"
+        ordering = ["-date", "-id"]
+        indexes = [models.Index(fields=["injury", "date"])]
+
+    def __str__(self):
+        return f"{self.injury.get_body_part_display()} {self.date} {self.get_treatment_type_display()}"
+
+    @property
+    def is_improving(self):
+        return self.effect in (TreatmentEffect.MUCH_BETTER, TreatmentEffect.BETTER)
 
 
 class PainLog(TimeStampedModel):

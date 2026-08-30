@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}計劃{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>計劃</h1>
+    <div class="subtitle" style="margin:0">
+      {% if is_admin %}
+        把已有的報名項目分配給教練；教練登入後會在這一頁看到自己負責的項目。
+      {% else %}
+        你被分配到的報名項目 · 共 {{ total_athletes }} 名運動員
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if not rows %}
+<div class="card empty mb">
+  <h2>目前沒有可檢視的項目</h2>
+  <p class="small">
+    {% if is_admin %}
+      請先在報名模組建立項目，並把報名表匯入成運動員，之後就能在這裡分配給教練。
+    {% else %}
+      管理員還沒有把任何報名項目分配給你。
+    {% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% for row in rows %}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>
+      <a href="{% url 'web:plan_detail' row.project.id %}"><strong>{{ row.project.title }}</strong></a>
+      <span class="badge {% if row.project.status == 'OPEN' %}b-green{% elif row.project.status == 'DRAFT' %}b-dim{% elif row.project.status == 'CLOSED' %}b-yellow{% else %}b-dim{% endif %}">
+        {{ row.project.get_status_display }}
+      </span>
+    </span>
+    <span class="flex">
+      <span class="badge b-blue">{{ row.my_count }} 名運動員</span>
+      {% if row.injured %}<span class="badge b-red">{{ row.injured }} 人傷患中</span>{% endif %}
+      {% if is_admin and row.pending %}<span class="badge b-yellow">{{ row.pending }} 份報名未匯入</span>{% endif %}
+      <a class="btn ghost sm" href="{% url 'web:plan_detail' row.project.id %}">看運動員狀況 →</a>
+    </span>
+  </div>
+
+  <div style="padding:14px 18px">
+    <div class="small c-dim mb">
+      {% if row.project.schedule_text %}{{ row.project.schedule_text }} · {% endif %}
+      {% if row.project.venue_name %}{{ row.project.venue_name }} · {% endif %}
+      {{ row.project.subtitle|default:"" }}
+    </div>
+
+    <div class="flex" style="flex-wrap:wrap;align-items:center">
+      <span class="small c-dim">負責教練：</span>
+      {% for a in row.assignments %}
+        <span class="badge {% if a.is_active %}b-orange{% else %}b-dim{% endif %}">
+          {{ a.coach.user.get_full_name|default:a.coach.user.username }}
+          {% if a.coach.squad_name %}· {{ a.coach.squad_name }}{% endif %}
+          {% if is_admin %}
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="unassign">
+              <input type="hidden" name="project_id" value="{{ row.project.id }}">
+              <input type="hidden" name="coach_id" value="{{ a.coach.id }}">
+              <button type="submit" class="linkbtn" title="取消分配">×</button>
+            </form>
+          {% endif %}
+        </span>
+      {% empty %}
+        <span class="small c-dim">尚未分配</span>
+      {% endfor %}
+    </div>
+
+    {% if is_admin %}
+    <details class="mt">
+      <summary class="small c-accent" style="cursor:pointer">＋ 分配給教練</summary>
+      <form method="post" class="mt">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign">
+        <input type="hidden" name="project_id" value="{{ row.project.id }}">
+        <div class="row">
+          <div class="field" style="flex:2">
+            <label>選擇教練（可多選）</label>
+            <select name="coach_ids" multiple size="4">
+              {% for c in coaches %}
+                <option value="{{ c.id }}">
+                  {{ c.user.get_full_name|default:c.user.username }}
+                  {% if c.squad_name %}（{{ c.squad_name }}）{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field" style="flex:3">
+            <label>分配備註</label>
+            <input type="text" name="note" placeholder="例：只負責短跑組、每週二四帶課">
+          </div>
+        </div>
+        <button class="btn" type="submit">分配</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

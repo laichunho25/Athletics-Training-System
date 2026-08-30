@@ -547,3 +547,124 @@ def rebuild_all(athlete, days=90):
 def rebuild_everyone(days=90):
     for athlete in AthleteProfile.objects.all():
         rebuild_all(athlete, days)
+
+
+# --------------------------------------------------------------- 數據紀錄分析
+
+
+def metric_points(athlete, item, days=365):
+    """某位運動員在某個數據項目上的所有紀錄（由舊到新）。"""
+    from analytics.models import MetricRecord
+
+    since = date.today() - timedelta(days=days)
+    return list(
+        MetricRecord.objects.filter(athlete=athlete, item=item, date__gte=since)
+        .select_related("session")
+        .order_by("date", "id")
+    )
+
+
+def metric_analysis(athlete, item, days=365):
+    """依紀錄自動產生分析：最佳、最近、趨勢、與最佳的差距、建議。
+
+    「好」的方向由項目自己的 higher_is_better 決定——計時類越小越好，
+    重量與距離類越大越好，所以進步與否不能只看斜率正負。
+    """
+    records = metric_points(athlete, item, days)
+    values = [float(r.value) for r in records]
+    result = {
+        "item": item,
+        "records": records,
+        "count": len(records),
+        "points": [
+            {
+                "date": str(r.date),
+                "value": float(r.value),
+                "session": r.session.title if r.session_id else "",
+                "context": r.context,
+            }
+            for r in records
+        ],
+        "best": None,
+        "latest": None,
+        "first": None,
+        "average": None,
+        "slope_per_month": None,
+        "improving": None,
+        "gap_to_best": None,
+        "change_pct": None,
+        "advice": "",
+    }
+    if not values:
+        result["advice"] = "尚無紀錄。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。"
+        return result
+
+    better = max if item.higher_is_better else min
+    result["best"] = better(values)
+    result["latest"] = values[-1]
+    result["first"] = values[0]
+    result["average"] = round(statistics.mean(values), 2)
+    result["gap_to_best"] = round(abs(values[-1] - result["best"]), 2)
+
+    if len(values) < 2:
+        result["advice"] = "只有 1 筆紀錄，再累積至少 1 筆才算得出趨勢。"
+        return result
+
+    base = date.today()
+    xs = [(r.date - base).days for r in records]
+    slope = _linear_slope(xs, values)
+    if slope is not None:
+        result["slope_per_month"] = round(slope * 30, 3)
+        result["improving"] = slope > 0 if item.higher_is_better else slope < 0
+
+    if values[0]:
+        change = (values[-1] - values[0]) / abs(values[0]) * 100
+        result["change_pct"] = round(change if item.higher_is_better else -change, 1)
+
+    spread = statistics.pstdev(values)
+    if result["improving"] is True:
+        result["advice"] = (
+            f"趨勢向好，每月約 {abs(result['slope_per_month'])} {item.unit}。"
+            "維持目前的課表方向，別急著加量。"
+        )
+    elif result["improving"] is False:
+        result["advice"] = (
+            f"近期退步，每月約 {abs(result['slope_per_month'])} {item.unit}。"
+            "先看同期的 ACWR 與睡眠——多數情況是累積疲勞而不是能力下降。"
+        )
+    else:
+        result["advice"] = "數值持平，可考慮調整刺激（強度或動作選擇）。"
+
+    if result["best"] and spread / (abs(statistics.mean(values)) or 1) > 0.15:
+        result["advice"] += " 另外波動偏大，記錄時記得註明情境（風速、組次、疲勞度）。"
+
+    return result
+
+
+def metric_overview(athlete, domain, days=365):
+    """一個範疇底下所有項目的摘要，給數據分析頁的項目清單用。"""
+    from analytics.models import MetricItem, MetricRecord
+
+    items = MetricItem.objects.filter(domain=domain, is_active=True)
+    since = date.today() - timedelta(days=days)
+    rows = []
+    for item in items:
+        qs = MetricRecord.objects.filter(athlete=athlete, item=item, date__gte=since)
+        values = list(qs.values_list("value", "date"))
+        if values:
+            nums = [float(v) for v, _ in values]
+            latest = max(values, key=lambda p: p[1])
+            best = (max if item.higher_is_better else min)(nums)
+        else:
+            nums, latest, best = [], None, None
+        rows.append(
+            {
+                "item": item,
+                "count": len(nums),
+                "latest": float(latest[0]) if latest else None,
+                "latest_date": latest[1] if latest else None,
+                "best": best,
+            }
+        )
+    rows.sort(key=lambda r: (-r["count"], r["item"].name))
+    return rows

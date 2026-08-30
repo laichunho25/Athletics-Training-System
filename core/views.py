@@ -10,16 +10,36 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.models import AthleteProfile, Event
+from accounts.models import AthleteProfile, CoachProfile, Event
 from analytics import services as an
+from analytics.models import (
+    MetricDomain,
+    MetricItem,
+    MetricRecord,
+    ensure_builtin_items,
+)
 from core.glossary import all_terms, as_groups
-from core.models import Role, SessionStatus
+from core.models import Role, SessionStatus, SessionType, program_type_choices
 from core.permissions import athlete_ids_visible_to
 from injury import services as inj
-from injury.models import Injury, PainLog
+from injury.models import (
+    Injury,
+    PainLog,
+    TreatmentEffect,
+    TreatmentLog,
+    TreatmentStage,
+    TreatmentType,
+)
 from nutrition import services as nu
 from nutrition.models import NutritionTarget, RecoveryLog, RecoveryMethod
-from planning.models import TrainingSession
+from planning.models import (
+    Microcycle,
+    ProjectAssignment,
+    TrainingSession,
+    project_athletes,
+    projects_for,
+)
+from programs.models import Project
 from training.models import Exercise
 
 logger = logging.getLogger(__name__)
@@ -189,7 +209,155 @@ def coach_dashboard(request):
     )
 
 
+# ------------------------------------------------------------------ 計劃
+
+
+def _is_admin(user):
+    return user.is_superuser or user.role == Role.ADMIN
+
+
+def _athlete_row(athlete):
+    """計劃頁的一列運動員狀況（跟團隊總覽同一組指標）。"""
+    week_start = an.monday_of(date.today())
+    row = {
+        "athlete": athlete,
+        "status": athlete.get_status_display(),
+        "readiness": an.readiness_score(athlete)["score"],
+        "injuries": athlete.active_injuries.count(),
+        "today_sessions": athlete.sessions.filter(date=date.today()).count(),
+        "week_sessions": athlete.sessions.filter(
+            date__gte=week_start, date__lte=week_start + timedelta(days=6)
+        ).count(),
+        "last_session": athlete.sessions.order_by("-date").first(),
+        **an.acwr_report(athlete),
+    }
+    row["badge"], row["color"] = RISK_CSS[row["risk_flag"]]
+    return row
+
+
+@login_required
+def plan_view(request):
+    """計劃總覽。
+
+    管理員：看得到全部報名項目，並且可以把項目分配給教練。
+    教練：只看得到被分配到的項目，點進去看項目裡運動員的狀況。
+    運動員：看得到自己有報名的項目。
+    """
+    is_admin = _is_admin(request.user)
+
+    if request.method == "POST":
+        if not is_admin:
+            messages.error(request, "只有管理員可以分配項目。")
+            return redirect("web:plan")
+
+        action = request.POST.get("action")
+        project = get_object_or_404(Project, pk=request.POST.get("project_id"))
+
+        if action == "assign":
+            coach_ids = request.POST.getlist("coach_ids")
+            added = 0
+            for coach in CoachProfile.objects.filter(id__in=coach_ids):
+                _, created = ProjectAssignment.objects.update_or_create(
+                    project=project,
+                    coach=coach,
+                    defaults={
+                        "is_active": True,
+                        "assigned_by": request.user,
+                        "note": request.POST.get("note", ""),
+                    },
+                )
+                added += int(created)
+            messages.success(
+                request, f"已把「{project.title}」分配給 {len(coach_ids)} 位教練（新增 {added} 筆）。"
+            )
+        elif action == "unassign":
+            ProjectAssignment.objects.filter(
+                project=project, coach_id=request.POST.get("coach_id")
+            ).delete()
+            messages.info(request, f"已取消「{project.title}」的一筆教練分配。")
+        return redirect("web:plan")
+
+    visible = set(athlete_ids_visible_to(request.user))
+    rows = []
+    for project in projects_for(request.user).prefetch_related("assignments__coach__user"):
+        athletes = list(project_athletes(project))
+        mine = [a for a in athletes if a.id in visible]
+        rows.append(
+            {
+                "project": project,
+                "assignments": list(project.assignments.all()),
+                "athlete_count": len(athletes),
+                "my_count": len(mine),
+                "injured": sum(1 for a in mine if a.active_injuries.exists()),
+                "pending": project.applications.filter(athlete__isnull=True).count(),
+            }
+        )
+
+    return render(
+        request,
+        "web/plan.html",
+        {
+            "page": "plan",
+            "rows": rows,
+            "is_admin": is_admin,
+            "coaches": CoachProfile.objects.select_related("user") if is_admin else [],
+            "total_athletes": sum(r["my_count"] for r in rows),
+        },
+    )
+
+
+@login_required
+def plan_detail(request, pk):
+    """單一報名項目：這個項目裡的運動員現在怎麼樣。"""
+    project = get_object_or_404(Project, pk=pk)
+    if not projects_for(request.user).filter(pk=pk).exists():
+        raise Http404("這個項目沒有分配給你。")
+
+    visible = set(athlete_ids_visible_to(request.user))
+    athletes = [a for a in project_athletes(project) if a.id in visible]
+    rows = [_athlete_row(a) for a in athletes]
+
+    return render(
+        request,
+        "web/plan_detail.html",
+        {
+            "page": "plan",
+            "project": project,
+            "rows": rows,
+            "is_admin": _is_admin(request.user),
+            "assignments": project.assignments.select_related("coach__user"),
+            "high_risk": [r for r in rows if r["risk_flag"] == "HIGH"],
+            "injured": [r for r in rows if r["injuries"]],
+            "not_imported": project.applications.filter(athlete__isnull=True),
+            "today": date.today(),
+        },
+    )
+
+
 # ------------------------------------------------------------------ 日曆
+
+
+DEFAULT_PROGRAM_TITLES = {
+    SessionType.TRACK: "田徑場訓練",
+    SessionType.STRENGTH: "重量訓練",
+    SessionType.RECOVERY: "恢復訓練",
+    SessionType.REHAB: "治療康復",
+    SessionType.OTHER: "其他安排",
+}
+
+
+def _microcycle_for(athlete, on_date):
+    """找出這一天落在哪個週計劃，找不到就留空（session.microcycle 允許 null）。"""
+    return (
+        Microcycle.objects.filter(
+            macrocycle__athlete=athlete,
+            macrocycle__is_active=True,
+            start_date__lte=on_date,
+            start_date__gte=on_date - timedelta(days=6),
+        )
+        .order_by("-start_date")
+        .first()
+    )
 
 
 @login_required
@@ -197,6 +365,35 @@ def calendar_view(request):
     athlete = _current_athlete(request)
     if athlete is None:
         return render(request, "web/no_athlete.html", {"page": "calendar"})
+
+    # ---- 按日期新增 program ----
+    if request.method == "POST" and request.POST.get("action") == "add_program":
+        session_type = request.POST.get("session_type", SessionType.TRACK)
+        if session_type not in DEFAULT_PROGRAM_TITLES:
+            messages.error(request, "不認得的 program 類別。")
+            return redirect(f"{request.path}?athlete={athlete.id}")
+
+        on_date = date.fromisoformat(request.POST["date"])
+        coach = getattr(request.user, "coach_profile", None)
+        session = TrainingSession.objects.create(
+            athlete=athlete,
+            microcycle=_microcycle_for(athlete, on_date),
+            date=on_date,
+            time_slot=request.POST.get("time_slot", "PM"),
+            session_type=session_type,
+            title=request.POST.get("title", "").strip()
+            or DEFAULT_PROGRAM_TITLES[session_type],
+            description=request.POST.get("description", ""),
+            assigned_by=coach,
+            planned_duration_min=int(request.POST.get("planned_duration_min") or 90),
+        )
+        messages.success(
+            request,
+            f"已在 {on_date} 新增「{session.title}」（{session.get_session_type_display()}）。",
+        )
+        return redirect(
+            f"{request.path}?athlete={athlete.id}&year={on_date.year}&month={on_date.month}"
+        )
 
     today = date.today()
     year = int(request.GET.get("year", today.year))
@@ -252,6 +449,8 @@ def calendar_view(request):
             "phases": macro.phases.all() if macro else [],
             "month_load": sum(s.session_load for s in sessions if first <= s.date <= last),
             "month_count": sum(1 for s in sessions if first <= s.date <= last),
+            "program_types": program_type_choices(),
+            "today_iso": today.isoformat(),
         },
     )
 
@@ -305,28 +504,107 @@ def session_detail(request, pk):
 
 @login_required
 def analytics_view(request):
+    """數據分析。
+
+    上半部是訓練負荷（沿用 ACWR / Monotony 那套），
+    下半部是「接著日曆的 program 做出來的數據紀錄」——分比賽、田徑練習、
+    重量三個範疇，每個範疇有內建項目，教練也能自己加項目，
+    系統再依這些紀錄自動算趨勢與建議。
+    """
     athlete = _current_athlete(request)
     if athlete is None:
         return render(request, "web/no_athlete.html", {"page": "analytics"})
 
+    ensure_builtin_items()
+
+    # ---- 新增項目 / 新增紀錄 ----
+    if request.method == "POST":
+        action = request.POST.get("action")
+        back = f"{request.path}?athlete={athlete.id}&domain={request.POST.get('domain', '')}"
+
+        if action == "add_item":
+            name = request.POST.get("name", "").strip()
+            domain = request.POST.get("domain")
+            if not name:
+                messages.error(request, "請填項目名稱。")
+            elif domain not in MetricDomain.values:
+                messages.error(request, "不認得的範疇。")
+            else:
+                item, created = MetricItem.objects.get_or_create(
+                    domain=domain,
+                    name=name,
+                    defaults={
+                        "unit": request.POST.get("unit", "").strip(),
+                        "higher_is_better": bool(request.POST.get("higher_is_better")),
+                        "created_by": request.user,
+                    },
+                )
+                if created:
+                    messages.success(request, f"已新增項目「{item.name}」。")
+                else:
+                    messages.info(request, f"「{item.name}」已經在清單裡了。")
+                back += f"&item={item.id}"
+            return redirect(back)
+
+        if action == "add_record":
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            session_id = request.POST.get("session") or None
+            session = None
+            if session_id:
+                session = TrainingSession.objects.filter(
+                    pk=session_id, athlete=athlete
+                ).first()
+            record = MetricRecord.objects.create(
+                athlete=athlete,
+                item=item,
+                session=session,
+                date=request.POST.get("date") or date.today(),
+                value=request.POST["value"],
+                context=request.POST.get("context", ""),
+                note=request.POST.get("note", ""),
+            )
+            messages.success(
+                request, f"已記錄 {item.name} {record.value}{item.unit}（{record.date}）。"
+            )
+            return redirect(f"{back}&item={item.id}")
+
+        if action == "delete_record":
+            record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
+            if record.athlete_id != athlete.id:
+                raise Http404("無權限刪除這筆紀錄。")
+            item_id = record.item_id
+            record.delete()
+            messages.info(request, "已刪除一筆紀錄。")
+            return redirect(f"{back}&item={item_id}")
+
+    # ---- 訓練負荷 ----
     weeks = int(request.GET.get("weeks", 12))
     prog = an.weekly_load_progression(athlete, weeks)
     acwr = an.acwr_report(athlete)
     badge, color = RISK_CSS[acwr["risk_flag"]]
-
-    event_code = request.GET.get("event") or athlete.primary_event.code
-    event = Event.objects.filter(code=event_code).first() or athlete.primary_event
-    trend = an.performance_trend(athlete, event)
-
-    ex_code = request.GET.get("exercise", "BACK_SQUAT")
-    exercise = Exercise.objects.filter(code=ex_code).first()
-    strength = an.strength_trend(athlete, exercise) if exercise else {"points": []}
-
     dist = an.volume_distribution(athlete)
     week_start = an.monday_of(date.today())
 
-    # 可選項目：主項 + 副項 + 有紀錄的項目
-    events = [athlete.primary_event] + list(athlete.secondary_events.all())
+    # ---- 數據紀錄 ----
+    domain = request.GET.get("domain")
+    if domain not in MetricDomain.values:
+        domain = MetricDomain.COMPETITION
+    overview = an.metric_overview(athlete, domain)
+
+    requested_item = request.GET.get("item")
+    item = None
+    if requested_item:
+        item = MetricItem.objects.filter(pk=requested_item, domain=domain).first()
+    if item is None:
+        with_records = [r["item"] for r in overview if r["count"]]
+        item = with_records[0] if with_records else (overview[0]["item"] if overview else None)
+
+    analysis = an.metric_analysis(athlete, item) if item else None
+
+    # 給「這筆數據來自哪一堂 program」的下拉選單
+    recent_sessions = athlete.sessions.filter(
+        date__gte=date.today() - timedelta(days=60)
+    ).order_by("-date")[:40]
 
     return render(
         request,
@@ -342,25 +620,23 @@ def analytics_view(request):
             "strain": an.calculate_strain(athlete, week_start),
             "wow": an.week_over_week_change(athlete, week_start),
             "weeks": weeks,
-            "events": events,
-            "event": event,
-            "exercises": Exercise.objects.filter(is_measured_by_1rm=True)[:20],
-            "exercise": exercise,
-            "trend": trend,
-            "strength": strength,
             "labels": json.dumps([p["label"] for p in prog]),
             "loads": json.dumps([p["total_load"] for p in prog]),
             "acwrs": json.dumps([p["acwr"] for p in prog]),
             "monotonies": json.dumps([p["monotony"] for p in prog]),
-            "trend_data": json.dumps(
-                [{"x": str(p["date"]), "y": p["mark"], "src": p["source"]} for p in trend["points"]]
-            ),
-            "strength_data": json.dumps(
-                [{"x": str(p["date"]), "y": p["value"]} for p in strength["points"]]
-            ),
             "dist_labels": json.dumps([d["type"] for d in dist]),
             "dist_values": json.dumps([d["load"] for d in dist]),
             "dist": dist,
+            # 數據紀錄
+            "domains": MetricDomain.choices,
+            "domain": domain,
+            "domain_label": dict(MetricDomain.choices)[domain],
+            "overview": overview,
+            "item": item,
+            "analysis": analysis,
+            "chart_points": json.dumps(analysis["points"] if analysis else []),
+            "recent_sessions": recent_sessions,
+            "today_iso": date.today().isoformat(),
         },
     )
 
@@ -490,6 +766,46 @@ def injuries_view(request):
             injury.save(update_fields=["status", "updated_at"])
             inj.sync_athlete_status(athlete)
             messages.success(request, f"已更新狀態為 {injury.get_status_display()}。")
+        elif action == "set_direction":
+            injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
+            injury.treatment_status = request.POST.get(
+                "treatment_status", TreatmentStage.ASSESS
+            )
+            injury.treatment_direction = request.POST.get("treatment_direction", "")
+            injury.next_review_date = request.POST.get("next_review_date") or None
+            injury.diagnosis = request.POST.get("diagnosis", injury.diagnosis)
+            injury.practitioner = request.POST.get("practitioner", injury.practitioner)
+            injury.save(
+                update_fields=[
+                    "treatment_status",
+                    "treatment_direction",
+                    "next_review_date",
+                    "diagnosis",
+                    "practitioner",
+                    "updated_at",
+                ]
+            )
+            messages.success(
+                request, f"已更新治療方向：{injury.get_treatment_status_display()}。"
+            )
+        elif action == "treatment_log":
+            injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
+            log = TreatmentLog.objects.create(
+                injury=injury,
+                date=request.POST.get("date") or date.today(),
+                treatment_type=request.POST["treatment_type"],
+                provider=request.POST.get("provider", ""),
+                content=request.POST.get("content", ""),
+                effect=int(request.POST.get("effect", TreatmentEffect.SAME)),
+                pain_after=request.POST.get("pain_after") or None,
+                next_step=request.POST.get("next_step", ""),
+                cost_hkd=request.POST.get("cost_hkd") or None,
+            )
+            messages.success(
+                request,
+                f"已記錄 {log.date} 的{log.get_treatment_type_display()}"
+                f"（{log.get_effect_display()}）。",
+            )
         return redirect("web:injuries")
 
     injuries = list(athlete.injuries.all())
@@ -503,6 +819,8 @@ def injuries_view(request):
                 "injury": i,
                 "report": inj.injury_alternatives_report(i),
                 "rtp": inj.rtp_checklist(i),
+                "direction": inj.suggest_treatment_direction(i),
+                "treatments": inj.treatment_summary(i),
                 "labels": json.dumps([r["date"].strftime("%m/%d") for r in trend]),
                 "rest": json.dumps([r["pain_at_rest"] for r in trend]),
                 "activity": json.dumps([r["pain_during_activity"] for r in trend]),
@@ -528,6 +846,9 @@ def injuries_view(request):
             "sides": Injury._meta.get_field("side").choices,
             "injury_types": Injury._meta.get_field("injury_type").choices,
             "statuses": Injury._meta.get_field("status").choices,
+            "treatment_stages": TreatmentStage.choices,
+            "treatment_types": TreatmentType.choices,
+            "treatment_effects": TreatmentEffect.choices,
             "today": date.today(),
         },
     )

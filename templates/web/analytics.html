@@ -4,11 +4,199 @@
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>數據分析與評估</h1>
-    <div class="subtitle" style="margin:0">{{ athlete.user.get_full_name|default:athlete.user.username }} · 近 {{ weeks }} 週</div>
+    <h1>數據分析</h1>
+    <div class="subtitle" style="margin:0">
+      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
+      日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢
+    </div>
   </div>
   {% include "web/_switcher.html" %}
 </div>
+
+<!-- ==================================================== 一、數據紀錄三範疇 -->
+<div class="tabs">
+  {% for value, label in domains %}
+    <a href="?athlete={{ athlete.id }}&domain={{ value }}"
+       class="{% if value == domain %}active{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="grid grid-2 mb" style="grid-template-columns:minmax(260px,340px) 1fr">
+  <!-- ---------------------------------------------------------- 項目清單 -->
+  <div class="card pad0">
+    <div class="card-head">
+      <span>{{ domain_label }}</span>
+      <span class="small c-dim">{{ overview|length }} 個項目</span>
+    </div>
+    <div class="itemlist">
+      {% for row in overview %}
+        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}"
+           class="{% if item and row.item.id == item.id %}active{% endif %}">
+          <span>
+            {{ row.item.name }}
+            {% if row.item.unit %}<span class="meta">（{{ row.item.unit }}）</span>{% endif %}
+            {% if not row.item.is_builtin %}<span class="badge b-dim">自訂</span>{% endif %}
+          </span>
+          <span class="meta">
+            {% if row.count %}{{ row.latest }} · {{ row.count }} 筆{% else %}—{% endif %}
+          </span>
+        </a>
+      {% empty %}
+        <div class="empty">這個範疇還沒有項目</div>
+      {% endfor %}
+    </div>
+
+    <div style="padding:14px 18px;border-top:1px solid var(--border)">
+      <details>
+        <summary class="small c-accent" style="cursor:pointer">＋ 新增項目</summary>
+        <form method="post" class="mt">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_item">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <div class="field">
+            <label>項目名稱</label>
+            <input type="text" name="name" placeholder="例：120m 計時、單腳跳距離" required>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>單位</label>
+              <input type="text" name="unit" placeholder="秒 / m / kg / cm">
+            </div>
+            <div class="field">
+              <label>方向</label>
+              <select name="higher_is_better">
+                <option value="1">數值越大越好（距離、重量）</option>
+                <option value="">數值越小越好（計時、名次）</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn sm" type="submit">新增項目</button>
+        </form>
+      </details>
+    </div>
+  </div>
+
+  <!-- -------------------------------------------------------- 項目分析 -->
+  <div class="card pad0">
+    {% if item %}
+    <div class="card-head">
+      <span>{{ item.name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
+      <span class="small c-dim">
+        {% if item.higher_is_better %}越大越好{% else %}越小越好{% endif %} · {{ analysis.count }} 筆紀錄
+      </span>
+    </div>
+
+    <div class="grid grid-4" style="padding:16px 18px 0">
+      <div class="stat">
+        <div class="label">最佳</div>
+        <div class="value sm c-accent">{{ analysis.best|default:"—" }}</div>
+        <div class="hint">{{ item.unit }}</div>
+      </div>
+      <div class="stat">
+        <div class="label">最近一次</div>
+        <div class="value sm">{{ analysis.latest|default:"—" }}</div>
+        <div class="hint">與最佳差 {{ analysis.gap_to_best|default:"—" }}</div>
+      </div>
+      <div class="stat">
+        <div class="label">月變化</div>
+        <div class="value sm {% if analysis.improving %}c-green{% elif analysis.improving is False %}c-red{% endif %}">
+          {% if analysis.slope_per_month %}{% if analysis.slope_per_month > 0 %}+{% endif %}{{ analysis.slope_per_month }}{% else %}—{% endif %}
+        </div>
+        <div class="hint">
+          {% if analysis.improving %}📈 進步中{% elif analysis.improving is False %}📉 需注意{% else %}資料不足{% endif %}
+        </div>
+      </div>
+      <div class="stat">
+        <div class="label">平均</div>
+        <div class="value sm">{{ analysis.average|default:"—" }}</div>
+        <div class="hint">總變化 {% if analysis.change_pct %}{{ analysis.change_pct }}%{% else %}—{% endif %}</div>
+      </div>
+    </div>
+
+    <div class="chart-box"><canvas id="metricChart"></canvas></div>
+
+    <div style="padding:0 18px 16px">
+      <div class="alert {% if analysis.improving %}green{% elif analysis.improving is False %}yellow{% else %}blue{% endif %}" style="margin:0">
+        <strong>分析：</strong>{{ analysis.advice }}
+      </div>
+    </div>
+
+    <!-- 新增紀錄 -->
+    <div class="card-head" style="border-top:1px solid var(--border)"><span>新增一筆紀錄</span></div>
+    <form method="post" style="padding:14px 18px">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_record">
+      <input type="hidden" name="domain" value="{{ domain }}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+      <div class="row">
+        <div class="field">
+          <label>日期</label>
+          <input type="date" name="date" value="{{ today_iso }}" required>
+        </div>
+        <div class="field">
+          <label>數值{% if item.unit %}（{{ item.unit }}）{% endif %}</label>
+          <input type="number" step="0.01" name="value" required>
+        </div>
+        <div class="field" style="flex:2">
+          <label>對應 program</label>
+          <select name="session">
+            <option value="">（不對應課表）</option>
+            {% for s in recent_sessions %}
+              <option value="{{ s.id }}">
+                {{ s.date|date:"m/d" }} {{ s.get_session_type_display }} · {{ s.title }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>情境</label>
+        <input type="text" name="context" placeholder="例：順風 1.2、第 3 組、賽前熱身">
+      </div>
+      <button class="btn" type="submit">記錄</button>
+    </form>
+
+    <!-- 紀錄明細 -->
+    <div class="card-head" style="border-top:1px solid var(--border)"><span>紀錄明細</span></div>
+    <table>
+      <thead>
+        <tr><th class="num">日期</th><th class="num">數值</th><th>對應 program</th><th>情境</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for r in analysis.records reversed %}
+        <tr>
+          <td class="num">{{ r.date }}</td>
+          <td class="num"><strong>{{ r.value }}</strong> {{ item.unit }}</td>
+          <td>
+            {% if r.session %}
+              <a href="{% url 'web:session_detail' r.session.id %}">{{ r.session.title }}</a>
+              <span class="badge b-dim">{{ r.session.get_session_type_display }}</span>
+            {% else %}<span class="c-dim">—</span>{% endif %}
+          </td>
+          <td class="small c-dim">{{ r.context|default:"—" }}</td>
+          <td>
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_record">
+              <input type="hidden" name="domain" value="{{ domain }}">
+              <input type="hidden" name="record_id" value="{{ r.id }}">
+              <button class="linkbtn" type="submit" title="刪除">×</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="empty">尚無紀錄</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">左邊先新增一個項目，才能開始記錄。</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ==================================================== 二、訓練負荷監控 -->
+<h2>訓練負荷監控</h2>
 
 <div class="grid grid-4 mb">
   <div class="card stat">
@@ -40,79 +228,19 @@
   <span class="small">（急性 {{ acwr.acute_load }} AU / 慢性 {{ acwr.chronic_load }} AU）</span>
 </div>
 
-<!-- ------------------------------------------------------ 週負荷 + ACWR -->
 <div class="card pad0 mb">
   <div class="card-head">
     <span>週負荷進程與 ACWR</span>
     <span class="flex">
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=8">8 週</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=12">12 週</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=26">26 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=8">8 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=12">12 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=26">26 週</a>
     </span>
   </div>
   <div class="chart-box tall"><canvas id="c1"></canvas></div>
 </div>
 
-<div class="grid grid-2 mb">
-  <!-- ----------------------------------------------------- 專項成績趨勢 -->
-  <div class="card pad0">
-    <div class="card-head">
-      <span>專項成績趨勢</span>
-      <form method="get">
-        <input type="hidden" name="athlete" value="{{ athlete.id }}">
-        <select name="event" onchange="this.form.submit()" style="width:auto">
-          {% for e in events %}
-            <option value="{{ e.code }}" {% if e.code == event.code %}selected{% endif %}>{{ e.name_zh }}</option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
-    <div class="chart-box"><canvas id="c2"></canvas></div>
-    <div style="padding:0 18px 16px" class="small c-dim">
-      {% if trend.slope_per_month %}
-        月變化 <strong class="{% if trend.improving %}c-green{% else %}c-red{% endif %}">
-          {% if trend.slope_per_month > 0 %}+{% endif %}{{ trend.slope_per_month }}
-        </strong>
-        · {% if trend.improving %}📈 進步中{% else %}📉 需注意{% endif %}
-        · 最佳 <strong class="c-accent">{{ trend.best }}</strong>
-        · 共 {{ trend.points|length }} 筆
-      {% else %}
-        資料點不足，無法計算趨勢（需至少 2 筆紀錄）。
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ----------------------------------------------------- 力量趨勢 -->
-  <div class="card pad0">
-    <div class="card-head">
-      <span>力量趨勢 (1RM)</span>
-      <form method="get">
-        <input type="hidden" name="athlete" value="{{ athlete.id }}">
-        <select name="exercise" onchange="this.form.submit()" style="width:auto">
-          {% for e in exercises %}
-            <option value="{{ e.code }}" {% if exercise and e.code == exercise.code %}selected{% endif %}>{{ e.name_zh }}</option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
-    <div class="chart-box"><canvas id="c3"></canvas></div>
-    <div style="padding:0 18px 16px" class="small c-dim">
-      {% if strength.current_1rm %}
-        目前 <strong class="c-accent">{{ strength.current_1rm }} kg</strong>
-        · 最佳 {{ strength.best_1rm }} kg
-        {% if strength.slope_per_month %}
-          · 月增長 <strong class="{% if strength.slope_per_month > 0 %}c-green{% else %}c-red{% endif %}">
-            {% if strength.slope_per_month > 0 %}+{% endif %}{{ strength.slope_per_month }} kg</strong>
-        {% endif %}
-      {% else %}
-        尚無此動作的 1RM 或推估紀錄。
-      {% endif %}
-    </div>
-  </div>
-</div>
-
 <div class="grid grid-2">
-  <!-- --------------------------------------------------------- 量分佈 -->
   <div class="card pad0">
     <div class="card-head"><span>近 28 天訓練量分佈</span></div>
     <div class="chart-box"><canvas id="c4"></canvas></div>
@@ -140,8 +268,8 @@
 
 <div class="card mt small c-dim">
   <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
-  [2] 切換上方週數 <em>查看不同區間負荷</em>
+  [1] <a href="{% url 'web:calendar' %}">到日曆新增 program</a>
+  [2] 上方分頁 <em>切換比賽 / 田徑練習 / 重量紀錄</em>
   [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
   [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
 </div>
@@ -150,6 +278,31 @@
 {% block scripts %}
 <script>
 const ACC = '#ff6b35', BLUE = '#58a6ff', GREEN = '#3fb950', YELLOW = '#d29922';
+
+{% if item %}
+const pts = {{ chart_points|safe }};
+new Chart(document.getElementById('metricChart'), {
+  type: 'line',
+  data: {
+    labels: pts.map(p => p.date),
+    datasets: [{
+      label: '{{ item.name }}{% if item.unit %} ({{ item.unit }}){% endif %}',
+      data: pts.map(p => p.value),
+      borderColor: ACC, backgroundColor: ACC + '33',
+      fill: true, pointRadius: 4, tension: .2
+    }]
+  },
+  options: {
+    // 越小越好的項目把 y 軸反過來，圖上「往上＝變好」永遠成立
+    scales: { y: { reverse: {% if item.higher_is_better %}false{% else %}true{% endif %},
+                   title: { display: true,
+                            text: '{{ item.unit }}{% if not item.higher_is_better %}（軸已反轉：越上面越好）{% endif %}' } } },
+    plugins: { tooltip: { callbacks: {
+      afterLabel: (ctx) => [pts[ctx.dataIndex].session, pts[ctx.dataIndex].context].filter(Boolean).join(' · ')
+    } } }
+  }
+});
+{% endif %}
 
 new Chart(document.getElementById('c1'), {
   data: {
@@ -170,39 +323,6 @@ new Chart(document.getElementById('c1'), {
             title: { display: true, text: 'ACWR / Monotony' } }
     }
   }
-});
-
-const trendPts = {{ trend_data|safe }};
-new Chart(document.getElementById('c2'), {
-  type: 'line',
-  data: {
-    labels: trendPts.map(p => p.x),
-    datasets: [{
-      label: '{{ event.name_zh }}',
-      data: trendPts.map(p => p.y),
-      borderColor: ACC, backgroundColor: ACC,
-      pointRadius: 5, tension: .2
-    }]
-  },
-  options: {
-    scales: { y: { reverse: {% if event.unit == 'TIME' %}true{% else %}false{% endif %},
-                   title: { display: true, text: '{% if event.unit == "TIME" %}秒（軸已反轉：越上面越快）{% else %}公尺 / 分數{% endif %}' } } },
-    plugins: { tooltip: { callbacks: {
-      afterLabel: (ctx) => trendPts[ctx.dataIndex].src === 'COMPETITION' ? '比賽成績' : '訓練最佳單趟'
-    } } }
-  }
-});
-
-const stPts = {{ strength_data|safe }};
-new Chart(document.getElementById('c3'), {
-  type: 'line',
-  data: {
-    labels: stPts.map(p => p.x),
-    datasets: [{ label: '{{ exercise.name_zh|default:"1RM" }} (kg)', data: stPts.map(p => p.y),
-                 borderColor: GREEN, backgroundColor: GREEN + '33',
-                 fill: true, pointRadius: 4, tension: .2 }]
-  },
-  options: { scales: { y: { title: { display: true, text: 'kg' } } } }
 });
 
 new Chart(document.getElementById('c4'), {

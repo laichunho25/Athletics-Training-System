@@ -98,22 +98,32 @@ class AdminUrlTests(TestCase):
 
 
 class AdminLinkTests(TestCase):
-    """導覽列的「後台」連結只給進得去的人看，而且要跟著設定走。"""
+    """導覽列不再放後台入口——後台只從網址進，系統選單裡看不到。"""
 
-    def test_link_shown_to_admin(self):
+    def test_nav_has_no_admin_link(self):
         boss = User.objects.create_user(
             username="boss2", password="x", role=Role.ADMIN,
             is_staff=True, is_superuser=True,
         )
         self.client.force_login(boss)
         body = self.client.get(reverse("web:dashboard")).content.decode()
-        self.assertIn(">後台</a>", body)
-        self.assertIn("/" + settings.ADMIN_URL, body)
+        nav = body.split('<nav class="nav">')[1].split("</nav>")[0]
+        self.assertNotIn("後台", nav)
+        self.assertNotIn(settings.ADMIN_URL, nav)
 
     def test_link_hidden_from_coach(self):
         self.client.force_login(make_coach(username="c3").user)
         body = self.client.get(reverse("web:coach_dashboard")).content.decode()
         self.assertNotIn(">後台</a>", body)
+
+    def test_nav_shows_the_renamed_and_new_entries(self):
+        """儀表板已改名為「運動員狀態總覽」，並多了「計劃」。"""
+        self.client.force_login(make_coach(username="c4").user)
+        body = self.client.get(reverse("web:coach_dashboard")).content.decode()
+        nav = body.split('<nav class="nav">')[1].split("</nav>")[0]
+        self.assertIn("運動員狀態總覽", nav)
+        self.assertIn("計劃", nav)
+        self.assertNotIn("儀表板", nav)
 
 
 class CsrfFailurePageTests(TestCase):
