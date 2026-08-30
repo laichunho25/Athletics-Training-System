@@ -67,26 +67,62 @@ ADMIN_PASSWORD=<至少 12 字元的強密碼>
 
 ---
 
-## 步驟 4／切換網域
+## 步驟 4／切換網域（實測現況版）
 
-1. 舊 OEM 服務 → Settings → Custom Domains → **移除** `www.hohosports.com`
-   （先移除，同一個網域不能同時掛在兩個服務上）
-2. 新服務 `atm-athletics` → Settings → Custom Domains → **Add** `www.hohosports.com`
-3. Render 會顯示要設定的 DNS 記錄，到你的網域註冊商設定：
+目前 `hohosports.com` 的實際狀態（2026-08-30 實測）：
 
-   | 類型 | 名稱 | 值 |
-   |---|---|---|
-   | CNAME | `www` | `atm-athletics.onrender.com` |
-   | A（根網域，選用） | `@` | Render 提供的 IP |
+| 項目 | 現況 |
+|---|---|
+| DNS 供應商 | GoDaddy（`ns29/ns30.domaincontrol.com`） |
+| `www.hohosports.com` | CNAME → `hoho-sports-trading-company.onrender.com`（舊 OEM 服務） |
+| `hohosports.com`（根網域） | A → `216.24.57.1`（Render 的共用 IP） |
+| 舊站行為 | `www` → 301 → `https://hohosports.com/zh-hant/` |
+| 新 ATM 服務 | `https://atm-athletics.onrender.com/` 已上線（登入頁 HTTP 200） |
+| 兩者區域 | 同為 Render GCP `us-west1` |
 
-4. 等 DNS 生效（幾分鐘到數小時），Render 會自動簽發 Let's Encrypt 憑證
+**關鍵**：網域本來就已經指向 Render，所以根網域的 A 記錄 `216.24.57.1`
+**完全不用改**，只要在 Render 後台把自訂網域從舊服務搬到新服務，
+再把 GoDaddy 的 `www` CNAME 改成新服務主機名即可。
 
-驗證：
+### 順序（照做，可隨時回滾）
+
+1. **先確認新站可用**：開 `https://atm-athletics.onrender.com/accounts/login/`，
+   能登入、圖表正常再往下做。
+2. **舊服務移除網域**：Render → `hoho-sports-trading-company` → Settings →
+   Custom Domains → 移除 `www.hohosports.com` 與 `hohosports.com`。
+   （同一網域不能同時掛在兩個服務上；**不要刪除舊服務本身**，保留以便回滾。）
+3. **新服務加入網域**：Render → `atm-athletics` → Settings → Custom Domains →
+   Add `www.hohosports.com`，再 Add `hohosports.com`。
+4. **改 GoDaddy DNS**（My Products → DNS → Manage Zones → hohosports.com）：
+
+   | 類型 | 名稱 | 舊值 | 新值 |
+   |---|---|---|---|
+   | CNAME | `www` | `hoho-sports-trading-company.onrender.com` | `atm-athletics.onrender.com` |
+   | A | `@` | `216.24.57.1` | **不用改** |
+
+   若 Render 顯示不同的目標主機名，以 Render 畫面上的為準。
+5. **等憑證**：Render 會自動簽發 Let's Encrypt（通常數分鐘，DNS TTL 長則久一點），
+   狀態變成 Certificate Issued 才算完成。
+6. **確認環境變數**：新服務 Environment 內
+   `DJANGO_ALLOWED_HOSTS=www.hohosports.com,hohosports.com`、`DJANGO_DEBUG=0`。
+   缺了會回 400 Bad Request。
+
+### 驗證
 
 ```bash
-nslookup www.hohosports.com
-curl -I https://www.hohosports.com/accounts/login/    # 應回 200
+nslookup www.hohosports.com                            # 應指向 atm-athletics
+curl -I https://www.hohosports.com/accounts/login/     # 應回 200
+curl -I http://www.hohosports.com/                     # 應回 301 → https
 ```
+
+### 回滾
+
+把步驟 2、3、4 反過來做即可：新服務移除網域 → 舊服務加回 → `www` CNAME 改回
+`hoho-sports-trading-company.onrender.com`。舊服務只要沒刪除，資料與內容都還在。
+
+> **注意 HSTS**：本站正式環境開了 `SECURE_HSTS_SECONDS = 30 天` 且含 `includeSubDomains`。
+> 瀏覽器造訪過 `www.hohosports.com` 之後，30 天內都會強制走 https。
+> 這在正式上線是好事，但代表切換後若要暫時退回 http 測試會被瀏覽器擋下。
 
 ---
 
