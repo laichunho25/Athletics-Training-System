@@ -77,7 +77,8 @@ analytics_urls = [
 ]
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # 後台路徑可用 DJANGO_ADMIN_URL 換掉，換掉後 /admin/ 會是 404
+    path(settings.ADMIN_URL, admin.site.urls),
     path("api/", include(router.urls)),
     path("api/analytics/", include(analytics_urls)),
     path(

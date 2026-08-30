@@ -18,7 +18,7 @@
     <a href="{% url 'web:analytics' %}" class="{% if page == 'analytics' %}active{% endif %}">數據分析</a>
     <a href="{% url 'web:nutrition' %}" class="{% if page == 'nutrition' %}active{% endif %}">營養與恢復</a>
     <a href="{% url 'web:injuries' %}" class="{% if page == 'injuries' %}active{% endif %}">傷患管理</a>
-    {% if user.is_staff %}<a href="/admin/">後台</a>{% endif %}
+    {% if CAN_USE_ADMIN %}<a href="{{ ADMIN_URL }}">後台</a>{% endif %}
   </nav>
   <div class="userbox">
     <span>{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}</span>

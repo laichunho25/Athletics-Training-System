@@ -4,7 +4,10 @@
 <div class="card empty">
   <h2>尚未建立運動員資料</h2>
   <p>你的帳號目前沒有可檢視的運動員 Profile。</p>
-  <p class="small mt">請先到 <a href="/admin/accounts/athleteprofile/add/">後台建立運動員</a>，
-     或執行 <code>python manage.py seed_demo</code> 建立示範資料。</p>
+  {% if CAN_USE_ADMIN %}
+  <p class="small mt">請先到 <a href="{{ ADMIN_URL }}accounts/athleteprofile/add/">後台建立運動員</a>建立資料。</p>
+  {% else %}
+  <p class="small mt">請聯絡教練或管理員替你建立運動員 Profile。</p>
+  {% endif %}
 </div>
 {% endblock %}

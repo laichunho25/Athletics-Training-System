@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}請重新登入一次{% endblock %}
+
+{% block content %}
+<div class="card empty">
+  <h2>這次的送出被安全檢查擋下了</h2>
+  <p>你的登入表單放太久，或瀏覽器留著舊的安全權杖（CSRF token），
+     所以這一次沒有送成功。<b>這不是帳號或密碼有問題。</b></p>
+  <p class="small mt">
+    請按下面的按鈕重新載入登入頁，再輸入一次帳密就會正常。
+    若一直重複發生，請清除本站 Cookie 後再試。
+  </p>
+  <p class="mt">
+    <a class="btn" href="{% url 'login' %}">重新載入登入頁</a>
+    <a class="btn ghost" href="{% url 'web:landing' %}">回首頁</a>
+  </p>
+  {% if DEBUG %}<p class="small mt c-dim">原因（僅開發模式顯示）：{{ reason }}</p>{% endif %}
+</div>
+{% endblock %}
