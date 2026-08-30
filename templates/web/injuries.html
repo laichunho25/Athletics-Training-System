@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}傷患管理{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>傷患與防護管理</h1>
+    <div class="subtitle" style="margin:0">
+      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
+      <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
+    </div>
+  </div>
+  {% include "web/_switcher.html" %}
+</div>
+
+{% if blocked %}
+<div class="alert red">🚫 <strong>今日高強度訓練已封鎖：</strong>{{ block_reason }}</div>
+{% else %}
+<div class="alert green">✅ 目前無疼痛封鎖，可執行計劃課表。</div>
+{% endif %}
+
+{% for item in detail %}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>
+      {{ item.injury.get_body_part_display }}
+      {% if item.injury.side != 'NA' %}（{{ item.injury.get_side_display }}）{% endif %}
+      · {{ item.injury.get_injury_type_display }}
+    </span>
+    <span class="flex">
+      <span class="badge {% if item.injury.current_pain_level >= 6 %}b-red{% elif item.injury.current_pain_level >= 3 %}b-yellow{% else %}b-green{% endif %}">
+        疼痛 {{ item.injury.current_pain_level }}/10
+      </span>
+      <span class="badge b-dim">{{ item.injury.get_status_display }}</span>
+      <span class="badge b-dim">第 {{ item.injury.days_since_onset }} 天</span>
+    </span>
+  </div>
+
+  <div style="padding:16px 18px">
+    <div class="small c-dim mb">
+      受傷日期 {{ item.injury.onset_date }} · 嚴重度 {{ item.injury.severity }}/5
+      {% if item.injury.mechanism %}· 機制：{{ item.injury.mechanism }}{% endif %}
+      {% if item.injury.expected_return_date %}· 預計回歸 {{ item.injury.expected_return_date }}{% endif %}
+    </div>
+
+    <div class="grid grid-2">
+      <!-- ------------------------------------------------ 疼痛趨勢圖 -->
+      <div>
+        <h3>近 28 天疼痛趨勢</h3>
+        <div class="chart-box" style="padding:0"><canvas id="pain{{ item.injury.id }}"></canvas></div>
+      </div>
+
+      <!-- ------------------------------------------------ 今日記錄 -->
+      <div>
+        <h3>今日疼痛記錄</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="pain_log">
+          <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
+          <div class="row">
+            <div class="field">
+              <label>靜態疼痛 0–10</label>
+              <input type="number" min="0" max="10" name="pain_at_rest" value="{{ item.today_log.pain_at_rest|default:0 }}">
+            </div>
+            <div class="field">
+              <label>活動時疼痛 0–10</label>
+              <input type="number" min="0" max="10" name="pain_during_activity" value="{{ item.today_log.pain_during_activity|default:0 }}">
+            </div>
+          </div>
+          <div class="flex mb small">
+            <label style="margin:0"><input type="checkbox" name="swelling" style="width:auto" {% if item.today_log.swelling %}checked{% endif %}> 腫脹</label>
+            <label style="margin:0"><input type="checkbox" name="rom_limited" style="width:auto" {% if item.today_log.rom_limited %}checked{% endif %}> 活動度受限</label>
+          </div>
+          <div class="field">
+            <label>備註</label>
+            <input type="text" name="note" value="{{ item.today_log.note|default:'' }}" placeholder="何時最痛、什麼動作誘發…">
+          </div>
+          <button class="btn" type="submit">記錄</button>
+          <span class="small c-dim" style="margin-left:8px">活動疼痛 ≥ 6 將自動調整今日課表</span>
+        </form>
+
+        <form method="post" class="mt">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_status">
+          <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
+          <div class="flex">
+            <select name="status" style="width:auto">
+              {% for value, label in statuses %}
+                <option value="{{ value }}" {% if value == item.injury.status %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn ghost sm" type="submit">更新狀態</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- --------------------------------------------------- 替代動作 -->
+  <div class="card-head" style="border-top:1px solid var(--border)">
+    <span>替代動作建議（維持體能、不加重傷勢）</span>
+    <span class="small c-dim">目前疼痛 {{ item.report.current_pain }}/10</span>
+  </div>
+  <table>
+    <thead><tr><th>原動作</th><th>替代方案</th><th>原因</th><th class="num">疼痛上限</th><th>可否執行</th></tr></thead>
+    <tbody>
+    {% for a in item.report.alternatives %}
+      <tr>
+        <td>{{ a.original }}</td>
+        <td class="c-accent"><strong>{{ a.substitute }}</strong></td>
+        <td class="small c-dim">{{ a.rationale }}</td>
+        <td class="num">≤ {{ a.max_pain_level }}</td>
+        <td>
+          {% if a.allowed %}<span class="badge b-green">可執行</span>
+          {% else %}<span class="badge b-red">暫停</span>{% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="empty">此部位尚無對照的替代動作（請擴充 exercise_modifications fixture）</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- --------------------------------------------------- RTP -->
+  <div class="card-head" style="border-top:1px solid var(--border)"><span>Return-to-Play 檢核表</span></div>
+  <table>
+    <tbody>
+    {% for c in item.rtp.criteria %}
+      <tr><td>☐ {{ c.item }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div style="padding:12px 18px" class="small c-dim">{{ item.rtp.note }}</div>
+</div>
+{% empty %}
+<div class="card empty mb">
+  <h2>目前無進行中傷患 🎉</h2>
+  <p class="small">如有不適，請於下方登錄以便系統自動調整課表。</p>
+</div>
+{% endfor %}
+
+<!-- ------------------------------------------------------- 新增傷患 -->
+<div class="card mb">
+  <h2>登錄新傷患</h2>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="new_injury">
+    <div class="row">
+      <div class="field">
+        <label>部位</label>
+        <select name="body_part" required>
+          {% for value, label in body_parts %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>側別</label>
+        <select name="side">
+          {% for value, label in sides %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>類型</label>
+        <select name="injury_type" required>
+          {% for value, label in injury_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>受傷日期</label>
+        <input type="date" name="onset_date" value="{{ today|date:'Y-m-d' }}" required>
+      </div>
+      <div class="field">
+        <label>嚴重度 1–5</label>
+        <input type="number" min="1" max="5" name="severity" value="2">
+      </div>
+    </div>
+    <div class="field">
+      <label>受傷機制</label>
+      <input type="text" name="mechanism" placeholder="例：加速期第 3 步後腿有拉扯感 / 落地時扭到 / 過度使用">
+    </div>
+    <button class="btn" type="submit">登錄傷患</button>
+  </form>
+</div>
+
+{% if resolved %}
+<div class="card pad0">
+  <div class="card-head"><span>已結案傷患歷史</span></div>
+  <table>
+    <thead><tr><th>部位</th><th>類型</th><th class="num">受傷日</th><th class="num">歷時</th><th>狀態</th></tr></thead>
+    <tbody>
+    {% for i in resolved %}
+      <tr>
+        <td>{{ i.get_body_part_display }}{% if i.side != 'NA' %}（{{ i.get_side_display }}）{% endif %}</td>
+        <td>{{ i.get_injury_type_display }}</td>
+        <td class="num">{{ i.onset_date }}</td>
+        <td class="num">{{ i.days_since_onset }} 天</td>
+        <td><span class="badge b-green">{{ i.get_status_display }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="card mt small c-dim">
+  <strong>快速指令選單</strong>
+  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
+  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
+  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
+  [4] 上方表單 <em>更新傷患狀態</em>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% for item in detail %}
+new Chart(document.getElementById('pain{{ item.injury.id }}'), {
+  type: 'line',
+  data: {
+    labels: {{ item.labels|safe }},
+    datasets: [
+      { label: '靜態疼痛', data: {{ item.rest|safe }}, borderColor: '#58a6ff',
+        backgroundColor: '#58a6ff', tension: .3, spanGaps: true },
+      { label: '活動時疼痛', data: {{ item.activity|safe }}, borderColor: '#f85149',
+        backgroundColor: '#f8514933', fill: true, tension: .3, spanGaps: true }
+    ]
+  },
+  options: {
+    scales: { y: { min: 0, max: 10, ticks: { stepSize: 2 } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endfor %}
+</script>
+{% endblock %}

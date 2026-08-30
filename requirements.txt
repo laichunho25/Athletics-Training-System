@@ -1,0 +1,15 @@
+# ---- 核心 ----
+Django>=5.2,<7.0
+djangorestframework>=3.16
+django-filter>=25.1
+Pillow>=11.0                # ImageField（頭像 / 餐點照片）
+
+# ---- 部署（Render）----
+gunicorn>=23.0              # WSGI 伺服器
+whitenoise[brotli]>=6.8     # 靜態檔（CSS / Chart.js）
+dj-database-url>=2.3        # 讀取 DATABASE_URL
+psycopg[binary]>=3.2        # PostgreSQL 驅動
+
+# ---- 選用（尚未啟用）----
+# celery>=5.4               # 排程重算負荷
+# redis>=5.2

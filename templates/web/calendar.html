@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}訓練日曆{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>訓練日曆</h1>
+    <div class="subtitle" style="margin:0">
+      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
+      本月 {{ month_count }} 課 / {{ month_load }} AU
+    </div>
+  </div>
+  {% include "web/_switcher.html" %}
+</div>
+
+{% if macro %}
+<div class="card mb">
+  <div class="between">
+    <div>
+      <strong>{{ macro }}</strong>
+      <span class="small c-dim">
+        {{ macro.start_date }} → {{ macro.end_date }} ·
+        第 {{ macro.current_week_number|default:"—" }} / {{ macro.total_weeks }} 週
+      </span>
+    </div>
+    <span class="badge b-blue">{{ macro.target_competition.countdown_display }}</span>
+  </div>
+  <div class="flex mt small" style="flex-wrap:wrap">
+    {% for p in phases %}
+      <span class="badge {% if p == macro.current_phase %}b-orange{% else %}b-dim{% endif %}">
+        W{{ p.week_start }}–{{ p.week_end }} {{ p.get_phase_type_display }}
+        <span class="c-dim">· {{ p.target_weekly_load }} AU</span>
+      </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card pad0">
+  <div class="card-head">
+    <span>{{ month_name }}</span>
+    <span class="flex">
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ prev.year }}&month={{ prev.month }}">← 上月</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}">本月</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ next.year }}&month={{ next.month }}">下月 →</a>
+    </span>
+  </div>
+
+  <div class="cal">
+    <div class="dow">一</div><div class="dow">二</div><div class="dow">三</div>
+    <div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>
+    {% for week in weeks %}
+      {% for cell in week %}
+        <div class="day {% if not cell.in_month %}other{% endif %} {% if cell.is_today %}today{% endif %}">
+          <div class="daynum">{{ cell.date|date:"j" }}</div>
+          {% for s in cell.sessions %}
+            <a class="ev {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %}"
+               href="{% url 'web:session_detail' s.id %}"
+               title="{{ s.title }}｜{{ s.get_status_display }}｜負荷 {{ s.session_load }} AU">
+              {{ s.title }}
+            </a>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="flex mt small c-dim" style="flex-wrap:wrap">
+  <span class="badge b-blue">已排定</span>
+  <span class="badge b-green">已完成</span>
+  <span class="badge b-yellow">部分完成</span>
+  <span class="badge b-red">缺席</span>
+  <span>· 點擊課表可打卡記錄 RPE 與實際時長</span>
+</div>
+
+<div class="card mt small c-dim">
+  <strong>快速指令選單</strong>
+  [1] 點日曆課表 <em>記錄今日訓練</em>
+  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
+  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
+  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+</div>
+{% endblock %}

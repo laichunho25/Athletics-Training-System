@@ -1,0 +1,338 @@
+[
+  {
+    "model": "accounts.event",
+    "pk": 1,
+    "fields": {
+      "code": "60M",
+      "name_zh": "60公尺",
+      "name_en": "60m",
+      "category": "SPRINT",
+      "unit": "TIME",
+      "distance_m": 60
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 2,
+    "fields": {
+      "code": "100M",
+      "name_zh": "100公尺",
+      "name_en": "100m",
+      "category": "SPRINT",
+      "unit": "TIME",
+      "distance_m": 100
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 3,
+    "fields": {
+      "code": "200M",
+      "name_zh": "200公尺",
+      "name_en": "200m",
+      "category": "SPRINT",
+      "unit": "TIME",
+      "distance_m": 200
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 4,
+    "fields": {
+      "code": "400M",
+      "name_zh": "400公尺",
+      "name_en": "400m",
+      "category": "SPRINT",
+      "unit": "TIME",
+      "distance_m": 400
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 5,
+    "fields": {
+      "code": "800M",
+      "name_zh": "800公尺",
+      "name_en": "800m",
+      "category": "MIDDLE",
+      "unit": "TIME",
+      "distance_m": 800
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 6,
+    "fields": {
+      "code": "1500M",
+      "name_zh": "1500公尺",
+      "name_en": "1500m",
+      "category": "MIDDLE",
+      "unit": "TIME",
+      "distance_m": 1500
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 7,
+    "fields": {
+      "code": "3000M",
+      "name_zh": "3000公尺",
+      "name_en": "3000m",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 3000
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 8,
+    "fields": {
+      "code": "5000M",
+      "name_zh": "5000公尺",
+      "name_en": "5000m",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 5000
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 9,
+    "fields": {
+      "code": "10000M",
+      "name_zh": "10000公尺",
+      "name_en": "10000m",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 10000
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 10,
+    "fields": {
+      "code": "3000SC",
+      "name_zh": "3000公尺障礙",
+      "name_en": "3000m Steeplechase",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 3000
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 11,
+    "fields": {
+      "code": "HALF_MAR",
+      "name_zh": "半程馬拉松",
+      "name_en": "Half Marathon",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 21097
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 12,
+    "fields": {
+      "code": "MARATHON",
+      "name_zh": "馬拉松",
+      "name_en": "Marathon",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 42195
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 13,
+    "fields": {
+      "code": "100MH",
+      "name_zh": "100公尺欄",
+      "name_en": "100m Hurdles",
+      "category": "HURDLES",
+      "unit": "TIME",
+      "distance_m": 100
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 14,
+    "fields": {
+      "code": "110MH",
+      "name_zh": "110公尺欄",
+      "name_en": "110m Hurdles",
+      "category": "HURDLES",
+      "unit": "TIME",
+      "distance_m": 110
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 15,
+    "fields": {
+      "code": "400MH",
+      "name_zh": "400公尺欄",
+      "name_en": "400m Hurdles",
+      "category": "HURDLES",
+      "unit": "TIME",
+      "distance_m": 400
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 16,
+    "fields": {
+      "code": "4X100M",
+      "name_zh": "4×100公尺接力",
+      "name_en": "4x100m Relay",
+      "category": "RELAY",
+      "unit": "TIME",
+      "distance_m": 400
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 17,
+    "fields": {
+      "code": "4X400M",
+      "name_zh": "4×400公尺接力",
+      "name_en": "4x400m Relay",
+      "category": "RELAY",
+      "unit": "TIME",
+      "distance_m": 1600
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 18,
+    "fields": {
+      "code": "LJ",
+      "name_zh": "跳遠",
+      "name_en": "Long Jump",
+      "category": "JUMP",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 19,
+    "fields": {
+      "code": "TJ",
+      "name_zh": "三級跳遠",
+      "name_en": "Triple Jump",
+      "category": "JUMP",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 20,
+    "fields": {
+      "code": "HJ",
+      "name_zh": "跳高",
+      "name_en": "High Jump",
+      "category": "JUMP",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 21,
+    "fields": {
+      "code": "PV",
+      "name_zh": "撐竿跳高",
+      "name_en": "Pole Vault",
+      "category": "JUMP",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 22,
+    "fields": {
+      "code": "SP",
+      "name_zh": "鉛球",
+      "name_en": "Shot Put",
+      "category": "THROW",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 23,
+    "fields": {
+      "code": "DT",
+      "name_zh": "鐵餅",
+      "name_en": "Discus Throw",
+      "category": "THROW",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 24,
+    "fields": {
+      "code": "JT",
+      "name_zh": "標槍",
+      "name_en": "Javelin Throw",
+      "category": "THROW",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 25,
+    "fields": {
+      "code": "HT",
+      "name_zh": "鏈球",
+      "name_en": "Hammer Throw",
+      "category": "THROW",
+      "unit": "DISTANCE",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 26,
+    "fields": {
+      "code": "DEC",
+      "name_zh": "十項全能",
+      "name_en": "Decathlon",
+      "category": "COMBINED",
+      "unit": "POINTS",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 27,
+    "fields": {
+      "code": "HEP",
+      "name_zh": "七項全能",
+      "name_en": "Heptathlon",
+      "category": "COMBINED",
+      "unit": "POINTS",
+      "distance_m": null
+    }
+  },
+  {
+    "model": "accounts.event",
+    "pk": 28,
+    "fields": {
+      "code": "20KW",
+      "name_zh": "20公里競走",
+      "name_en": "20km Race Walk",
+      "category": "DISTANCE",
+      "unit": "TIME",
+      "distance_m": 20000
+    }
+  }
+]

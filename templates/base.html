@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ATM{% endblock %} · 田徑訓練管理系統</title>
+  <link rel="stylesheet" href="{% static 'css/atm.css' %}">
+  <script src="{% static 'js/chart.min.js' %}"></script>
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="topbar">
+  <div class="brand">ATM<span>·</span>田徑</div>
+  <nav class="nav">
+    <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">儀表板</a>
+    <a href="{% url 'web:calendar' %}" class="{% if page == 'calendar' %}active{% endif %}">訓練日曆</a>
+    <a href="{% url 'web:analytics' %}" class="{% if page == 'analytics' %}active{% endif %}">數據分析</a>
+    <a href="{% url 'web:nutrition' %}" class="{% if page == 'nutrition' %}active{% endif %}">營養與恢復</a>
+    <a href="{% url 'web:injuries' %}" class="{% if page == 'injuries' %}active{% endif %}">傷患管理</a>
+    {% if user.is_staff %}<a href="/admin/">後台</a>{% endif %}
+  </nav>
+  <div class="userbox">
+    <span>{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}</span>
+    <form method="post" action="{% url 'logout' %}" style="display:inline">
+      {% csrf_token %}
+      <button class="btn ghost sm" type="submit">登出</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="wrap">
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert {% if m.tags == 'error' %}red{% elif m.tags == 'warning' %}yellow{% elif m.tags == 'info' %}blue{% else %}green{% endif %}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</div>
+
+<script>
+  // Chart.js 全域深色主題
+  if (window.Chart) {
+    Chart.defaults.color = '#8b98a8';
+    Chart.defaults.borderColor = '#2b3543';
+    Chart.defaults.font.family = '-apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif';
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.maintainAspectRatio = false;
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

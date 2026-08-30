@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}登入{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand">ATM<span>·</span>田徑</div>
+    <p class="subtitle" style="text-align:center">個人化訓練與管理系統</p>
+
+    <div class="card">
+      {% if form.errors %}
+        <div class="alert red">帳號或密碼錯誤，請再試一次。</div>
+      {% endif %}
+      {% if next and user.is_authenticated %}
+        <div class="alert yellow">你目前的帳號沒有權限存取此頁面，請改用其他帳號登入。</div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="field">
+          <label for="id_username">帳號</label>
+          <input type="text" name="username" id="id_username" autofocus required>
+        </div>
+        <div class="field">
+          <label for="id_password">密碼</label>
+          <input type="password" name="password" id="id_password" required>
+        </div>
+        <button class="btn" type="submit" style="width:100%">登入</button>
+        <input type="hidden" name="next" value="{{ next }}">
+      </form>
+
+      <div class="login-hint">
+        <div><strong>示範帳號</strong></div>
+        <div>教練：<code>coach_chan</code> / <code>atm12345</code></div>
+        <div>運動員：<code>athlete_lai</code> / <code>atm12345</code></div>
+        <div>管理員：<code>admin</code> / <code>admin12345</code></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

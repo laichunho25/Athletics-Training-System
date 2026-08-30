@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}營養與恢復{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>運動營養與恢復</h1>
+    <div class="subtitle" style="margin:0">
+      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
+      {{ t.date }} · <span class="badge b-orange">{{ t.get_day_type_display }}</span>
+      <span class="badge b-dim">{{ t.get_goal_display }}</span>
+    </div>
+  </div>
+  {% include "web/_switcher.html" %}
+</div>
+
+<div class="grid grid-4 mb">
+  <div class="card stat">
+    <div class="label">目標熱量</div>
+    <div class="value c-accent">{{ t.target_kcal }}<span style="font-size:14px"> kcal</span></div>
+    <div class="hint">BMR {{ t.bmr_kcal }} · TDEE {{ t.tdee_kcal }}</div>
+  </div>
+  <div class="card stat">
+    <div class="label">碳水</div>
+    <div class="value c-blue">{{ t.carb_g }}<span style="font-size:14px"> g</span></div>
+    <div class="hint">{{ t.macro_kcal_split.carb }} kcal</div>
+  </div>
+  <div class="card stat">
+    <div class="label">蛋白質</div>
+    <div class="value c-green">{{ t.protein_g }}<span style="font-size:14px"> g</span></div>
+    <div class="hint">{{ t.macro_kcal_split.protein }} kcal</div>
+  </div>
+  <div class="card stat">
+    <div class="label">脂肪 / 水份</div>
+    <div class="value sm c-yellow">{{ t.fat_g }} g<span class="c-dim" style="font-size:14px"> · {{ t.water_ml }} ml</span></div>
+    <div class="hint">{{ t.macro_kcal_split.fat }} kcal</div>
+  </div>
+</div>
+
+<div class="grid grid-2 mb">
+  <div class="card pad0">
+    <div class="card-head">
+      <span>三大營養素熱量分配</span>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="recalc">
+        <select name="goal" style="width:auto;display:inline-block">
+          <option value="MAINTAIN">維持體重</option>
+          <option value="GAIN">增重／增肌</option>
+          <option value="CUT">減脂</option>
+        </select>
+        <button class="btn sm" type="submit">重新計算</button>
+      </form>
+    </div>
+    <div class="chart-box"><canvas id="macro"></canvas></div>
+  </div>
+
+  <!-- ------------------------------------------------------- 晨間問卷 -->
+  <div class="card">
+    <div class="between mb">
+      <h2 style="margin:0">今日晨間問卷</h2>
+      <span class="badge {% if readiness.score >= 75 %}b-green{% elif readiness.score >= 55 %}b-yellow{% else %}b-red{% endif %}">
+        準備度 {{ readiness.score|default:"—" }} · {{ readiness.label }}
+      </span>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="morning">
+      <div class="row">
+        <div class="field">
+          <label>睡眠時數</label>
+          <input type="number" step="0.1" name="sleep_hours" value="{{ recovery.sleep_hours|default:'' }}" placeholder="7.5">
+        </div>
+        <div class="field">
+          <label>睡眠品質 1–5</label>
+          <input type="number" min="1" max="5" name="sleep_quality" value="{{ recovery.sleep_quality|default:'' }}">
+        </div>
+        <div class="field">
+          <label>肌肉痠痛 1–10</label>
+          <input type="number" min="1" max="10" name="soreness_level" value="{{ recovery.soreness_level|default:'' }}">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>壓力 1–5</label>
+          <input type="number" min="1" max="5" name="stress_level" value="{{ recovery.stress_level|default:'' }}">
+        </div>
+        <div class="field">
+          <label>心情 1–5</label>
+          <input type="number" min="1" max="5" name="mood" value="{{ recovery.mood|default:'' }}">
+        </div>
+        <div class="field">
+          <label>晨脈 (bpm)</label>
+          <input type="number" name="resting_hr" value="{{ recovery.resting_hr|default:'' }}">
+        </div>
+      </div>
+      <div class="field">
+        <label>飲水量 (ml) — 今日目標 {{ t.water_ml }} ml</label>
+        <input type="number" name="water_intake_ml" value="{{ recovery.water_intake_ml|default:0 }}">
+      </div>
+      <button class="btn" type="submit">儲存問卷</button>
+    </form>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------- 睡眠/痠痛 -->
+<div class="card pad0 mb">
+  <div class="card-head"><span>近 14 天睡眠與痠痛</span></div>
+  <div class="chart-box"><canvas id="sleep"></canvas></div>
+</div>
+
+<div class="grid grid-2 mb">
+  <div class="card pad0">
+    <div class="card-head"><span>本週營養達成率</span></div>
+    <table>
+      <thead><tr><th>日期</th><th>日類型</th><th class="num">目標 kcal</th><th class="num">實際</th><th class="num">達成率</th></tr></thead>
+      <tbody>
+      {% for r in compliance %}
+        <tr>
+          <td class="num">{{ r.date|date:"m/d (D)" }}</td>
+          <td>{{ r.day_type|default:"—" }}</td>
+          <td class="num">{% if r.has_target %}{{ r.target_kcal }}{% else %}—{% endif %}</td>
+          <td class="num">{% if r.has_target %}{{ r.actual.kcal }}{% else %}—{% endif %}</td>
+          <td class="num">
+            {% if r.compliance.kcal %}
+              <span class="badge {% if r.compliance.kcal >= 90 %}b-green{% elif r.compliance.kcal >= 70 %}b-yellow{% else %}b-red{% endif %}">{{ r.compliance.kcal }}%</span>
+            {% else %}<span class="c-dim">未記錄</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card pad0">
+    <div class="card-head"><span>恢復手段</span></div>
+    <table>
+      <thead><tr><th>方式</th><th>分類</th><th class="num">建議時長</th></tr></thead>
+      <tbody>
+      {% for m in methods %}
+        <tr><td>{{ m.name }}</td><td class="c-dim">{{ m.category }}</td><td class="num">{{ m.default_duration_min }} 分</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="empty">尚未載入 recovery_methods fixture</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card pad0">
+  <div class="card-head"><span>常見補充劑參考</span></div>
+  <table>
+    <thead><tr><th>補充劑</th><th>劑量</th><th>時機</th><th>目的</th></tr></thead>
+    <tbody>
+    {% for name, dose, timing, purpose in supplements %}
+      <tr><td><strong>{{ name }}</strong></td><td class="num">{{ dose }}</td><td>{{ timing }}</td><td class="small c-dim">{{ purpose }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div style="padding:12px 18px" class="small c-dim">
+    ※ 補充劑僅供參考，未成年運動員與有醫療狀況者請先諮詢醫師／營養師，並注意反禁藥條例（WADA）。
+  </div>
+</div>
+
+<div class="card mt small c-dim">
+  <strong>快速指令選單</strong>
+  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
+  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
+  [3] 上方 <em>重新計算</em> 調整營養菜單
+  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+new Chart(document.getElementById('macro'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ macro_labels|safe }},
+    datasets: [{ data: {{ macro_values|safe }},
+                 backgroundColor: ['#58a6ff', '#3fb950', '#d29922'],
+                 borderColor: '#171d26', borderWidth: 2 }]
+  },
+  options: {
+    cutout: '58%',
+    plugins: {
+      legend: { position: 'right' },
+      tooltip: { callbacks: { label: (c) => c.label + ' ' + c.parsed + ' kcal' } }
+    }
+  }
+});
+
+new Chart(document.getElementById('sleep'), {
+  data: {
+    labels: {{ sleep_labels|safe }},
+    datasets: [
+      { type: 'line', label: '睡眠 (小時)', data: {{ sleep_values|safe }},
+        borderColor: '#58a6ff', backgroundColor: '#58a6ff33', fill: true,
+        spanGaps: true, tension: .3, yAxisID: 'y' },
+      { type: 'bar', label: '痠痛 (1-10)', data: {{ soreness_values|safe }},
+        backgroundColor: '#d2992288', borderColor: '#d29922', borderWidth: 1, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    scales: {
+      y:  { position: 'left', min: 0, max: 12, title: { display: true, text: '小時' } },
+      y1: { position: 'right', min: 0, max: 10, grid: { drawOnChartArea: false },
+            title: { display: true, text: '痠痛' } }
+    }
+  }
+});
+</script>
+{% endblock %}

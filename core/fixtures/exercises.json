@@ -1,0 +1,898 @@
+[
+  {
+    "model": "training.exercise",
+    "pk": 1,
+    "fields": {
+      "code": "BACK_SQUAT",
+      "name_zh": "背蹲舉",
+      "name_en": "Back Squat",
+      "category": "SQUAT",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、臀大肌、豎脊肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 2,
+    "fields": {
+      "code": "FRONT_SQUAT",
+      "name_zh": "前蹲舉",
+      "name_en": "Front Squat",
+      "category": "SQUAT",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、核心",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 3,
+    "fields": {
+      "code": "GOBLET_SQUAT",
+      "name_zh": "高腳杯蹲",
+      "name_en": "Goblet Squat",
+      "category": "SQUAT",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、核心",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 4,
+    "fields": {
+      "code": "BOX_SQUAT",
+      "name_zh": "箱式蹲",
+      "name_en": "Box Squat",
+      "category": "SQUAT",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "臀大肌、股四頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 5,
+    "fields": {
+      "code": "LEG_PRESS",
+      "name_zh": "腿推",
+      "name_en": "Leg Press",
+      "category": "SQUAT",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 6,
+    "fields": {
+      "code": "WALL_SIT",
+      "name_zh": "靠牆蹲(等長)",
+      "name_en": "Wall Sit",
+      "category": "SQUAT",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 7,
+    "fields": {
+      "code": "SPANISH_SQUAT",
+      "name_zh": "西班牙蹲",
+      "name_en": "Spanish Squat",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、髕腱",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 8,
+    "fields": {
+      "code": "DEADLIFT",
+      "name_zh": "傳統硬舉",
+      "name_en": "Conventional Deadlift",
+      "category": "HINGE",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌、臀大肌、豎脊肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 9,
+    "fields": {
+      "code": "RDL",
+      "name_zh": "羅馬尼亞硬舉",
+      "name_en": "Romanian Deadlift",
+      "category": "HINGE",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 10,
+    "fields": {
+      "code": "TRAP_BAR_DL",
+      "name_zh": "六角槓硬舉",
+      "name_en": "Trap Bar Deadlift",
+      "category": "HINGE",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 11,
+    "fields": {
+      "code": "HIP_THRUST",
+      "name_zh": "臀推",
+      "name_en": "Barbell Hip Thrust",
+      "category": "HINGE",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 12,
+    "fields": {
+      "code": "GLUTE_BRIDGE",
+      "name_zh": "橋式",
+      "name_en": "Glute Bridge",
+      "category": "HINGE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "臀大肌、膕繩肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 13,
+    "fields": {
+      "code": "NORDIC",
+      "name_zh": "北歐式屈腿",
+      "name_en": "Nordic Hamstring Curl",
+      "category": "HINGE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌(離心)",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 14,
+    "fields": {
+      "code": "BACK_EXT",
+      "name_zh": "背伸展",
+      "name_en": "Back Extension",
+      "category": "HINGE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "豎脊肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 15,
+    "fields": {
+      "code": "BENCH_PRESS",
+      "name_zh": "臥推",
+      "name_en": "Bench Press",
+      "category": "PUSH",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "胸大肌、三頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 16,
+    "fields": {
+      "code": "OHP",
+      "name_zh": "肩上推舉",
+      "name_en": "Overhead Press",
+      "category": "PUSH",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "三角肌、三頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 17,
+    "fields": {
+      "code": "DB_PRESS",
+      "name_zh": "啞鈴臥推",
+      "name_en": "Dumbbell Bench Press",
+      "category": "PUSH",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "胸大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 18,
+    "fields": {
+      "code": "PUSH_UP",
+      "name_zh": "伏地挺身",
+      "name_en": "Push Up",
+      "category": "PUSH",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "胸大肌、核心",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 19,
+    "fields": {
+      "code": "DIP",
+      "name_zh": "雙槓臂屈伸",
+      "name_en": "Dip",
+      "category": "PUSH",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "三頭肌、胸大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 20,
+    "fields": {
+      "code": "PULL_UP",
+      "name_zh": "引體向上",
+      "name_en": "Pull Up",
+      "category": "PULL",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "背闊肌、二頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 21,
+    "fields": {
+      "code": "BB_ROW",
+      "name_zh": "槓鈴划船",
+      "name_en": "Barbell Row",
+      "category": "PULL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "背闊肌、菱形肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 22,
+    "fields": {
+      "code": "SEATED_ROW",
+      "name_zh": "坐姿划船",
+      "name_en": "Seated Cable Row",
+      "category": "PULL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "背闊肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 23,
+    "fields": {
+      "code": "LAT_PULLDOWN",
+      "name_zh": "滑輪下拉",
+      "name_en": "Lat Pulldown",
+      "category": "PULL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "背闊肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 24,
+    "fields": {
+      "code": "FACE_PULL",
+      "name_zh": "面拉",
+      "name_en": "Face Pull",
+      "category": "PULL",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "後三角肌、旋轉肌群",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 25,
+    "fields": {
+      "code": "POWER_CLEAN",
+      "name_zh": "抓舉式上膊",
+      "name_en": "Power Clean",
+      "category": "OLYMPIC",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "全身爆發鏈",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 26,
+    "fields": {
+      "code": "HANG_CLEAN",
+      "name_zh": "懸垂上膊",
+      "name_en": "Hang Clean",
+      "category": "OLYMPIC",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "全身爆發鏈",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 27,
+    "fields": {
+      "code": "POWER_SNATCH",
+      "name_zh": "高抓",
+      "name_en": "Power Snatch",
+      "category": "OLYMPIC",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "全身爆發鏈",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 28,
+    "fields": {
+      "code": "PUSH_JERK",
+      "name_zh": "推挺",
+      "name_en": "Push Jerk",
+      "category": "OLYMPIC",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "肩、腿爆發",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 29,
+    "fields": {
+      "code": "HIGH_PULL",
+      "name_zh": "高拉",
+      "name_en": "High Pull",
+      "category": "OLYMPIC",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "斜方肌、髖伸肌群",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 30,
+    "fields": {
+      "code": "BOX_JUMP",
+      "name_zh": "跳箱",
+      "name_en": "Box Jump",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢爆發",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 31,
+    "fields": {
+      "code": "DEPTH_JUMP",
+      "name_zh": "落地反跳",
+      "name_en": "Depth Jump",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢反應力量",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 32,
+    "fields": {
+      "code": "BROAD_JUMP",
+      "name_zh": "立定跳遠",
+      "name_en": "Standing Broad Jump",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢水平爆發",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 33,
+    "fields": {
+      "code": "BOUNDING",
+      "name_zh": "跨步跳",
+      "name_en": "Bounding",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢彈性、髖伸",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 34,
+    "fields": {
+      "code": "HURDLE_HOP",
+      "name_zh": "跨欄跳",
+      "name_en": "Hurdle Hops",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢剛度",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 35,
+    "fields": {
+      "code": "POGO",
+      "name_zh": "腳踝彈跳",
+      "name_en": "Pogo Jump",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "小腿、跟腱剛度",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 36,
+    "fields": {
+      "code": "CMJ",
+      "name_zh": "反向跳",
+      "name_en": "Countermovement Jump",
+      "category": "PLYO",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "下肢爆發(測試用)",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 37,
+    "fields": {
+      "code": "PLANK",
+      "name_zh": "棒式",
+      "name_en": "Plank",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "腹橫肌、核心",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 38,
+    "fields": {
+      "code": "SIDE_PLANK",
+      "name_zh": "側棒式",
+      "name_en": "Side Plank",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "腹斜肌、臀中肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 39,
+    "fields": {
+      "code": "PALLOF",
+      "name_zh": "帕洛夫推",
+      "name_en": "Pallof Press",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "抗旋轉核心",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 40,
+    "fields": {
+      "code": "DEAD_BUG",
+      "name_zh": "死蟲式",
+      "name_en": "Dead Bug",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "腹直肌、核心穩定",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 41,
+    "fields": {
+      "code": "HANGING_LEG",
+      "name_zh": "懸垂舉腿",
+      "name_en": "Hanging Leg Raise",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "髖屈肌、腹直肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 42,
+    "fields": {
+      "code": "MED_BALL_SLAM",
+      "name_zh": "藥球下砸",
+      "name_en": "Medicine Ball Slam",
+      "category": "CORE",
+      "is_measured_by_1rm": false,
+      "is_plyometric": true,
+      "primary_muscles": "全身爆發",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 43,
+    "fields": {
+      "code": "BSS",
+      "name_zh": "後腳抬高蹲",
+      "name_en": "Bulgarian Split Squat",
+      "category": "UNILATERAL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 44,
+    "fields": {
+      "code": "LUNGE",
+      "name_zh": "弓步蹲",
+      "name_en": "Walking Lunge",
+      "category": "UNILATERAL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、臀大肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 45,
+    "fields": {
+      "code": "STEP_UP",
+      "name_zh": "登階",
+      "name_en": "Step Up",
+      "category": "UNILATERAL",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "臀大肌、股四頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 46,
+    "fields": {
+      "code": "SL_RDL",
+      "name_zh": "單腿羅馬尼亞硬舉",
+      "name_en": "Single Leg RDL",
+      "category": "UNILATERAL",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌、臀中肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 47,
+    "fields": {
+      "code": "COPENHAGEN",
+      "name_zh": "哥本哈根側橋",
+      "name_en": "Copenhagen Adduction",
+      "category": "UNILATERAL",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "內收肌群",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 48,
+    "fields": {
+      "code": "CALF_RAISE",
+      "name_zh": "站姿提踵",
+      "name_en": "Standing Calf Raise",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "腓腸肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 49,
+    "fields": {
+      "code": "SEATED_CALF",
+      "name_zh": "坐姿提踵",
+      "name_en": "Seated Calf Raise",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "比目魚肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 50,
+    "fields": {
+      "code": "LEG_CURL",
+      "name_zh": "腿彎舉",
+      "name_en": "Leg Curl",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 51,
+    "fields": {
+      "code": "LEG_EXT",
+      "name_zh": "腿伸展",
+      "name_en": "Leg Extension",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": true,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 52,
+    "fields": {
+      "code": "HIP_ABDUCTION",
+      "name_zh": "髖外展",
+      "name_en": "Hip Abduction",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "臀中肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 53,
+    "fields": {
+      "code": "TIB_RAISE",
+      "name_zh": "脛前肌訓練",
+      "name_en": "Tibialis Raise",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "脛前肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 54,
+    "fields": {
+      "code": "HEEL_DROP",
+      "name_zh": "離心提踵",
+      "name_en": "Eccentric Heel Drop",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "跟腱、小腿",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 55,
+    "fields": {
+      "code": "FOOT_DOMING",
+      "name_zh": "足弓短縮",
+      "name_en": "Short Foot / Doming",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "足底內在肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 56,
+    "fields": {
+      "code": "BALANCE_BOARD",
+      "name_zh": "平衡板訓練",
+      "name_en": "Balance Board",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "踝關節本體感覺",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 57,
+    "fields": {
+      "code": "ISO_HAMSTRING",
+      "name_zh": "等長膕繩肌橋式",
+      "name_en": "Isometric Hamstring Bridge",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "膕繩肌",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 58,
+    "fields": {
+      "code": "SLED_PUSH",
+      "name_zh": "雪橇推",
+      "name_en": "Sled Push",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "髖伸肌群(向心為主)",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 59,
+    "fields": {
+      "code": "SLED_BACKWARD",
+      "name_zh": "反向雪橇拖",
+      "name_en": "Backward Sled Drag",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "股四頭肌、膝關節友善",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 60,
+    "fields": {
+      "code": "BIKE_SPRINT",
+      "name_zh": "單車衝刺",
+      "name_en": "Bike Sprint",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "下肢無衝擊心肺",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 61,
+    "fields": {
+      "code": "AQUA_RUN",
+      "name_zh": "水中跑",
+      "name_en": "Aqua Jogging",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "無衝擊心肺",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 62,
+    "fields": {
+      "code": "ELLIPTICAL",
+      "name_zh": "橢圓機",
+      "name_en": "Elliptical",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "低衝擊心肺",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 63,
+    "fields": {
+      "code": "ROWING_ERG",
+      "name_zh": "划船機",
+      "name_en": "Rowing Ergometer",
+      "category": "ACCESSORY",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "全身心肺",
+      "video_url": ""
+    }
+  },
+  {
+    "model": "training.exercise",
+    "pk": 64,
+    "fields": {
+      "code": "UPPER_CIRCUIT",
+      "name_zh": "上肢循環",
+      "name_en": "Upper Body Circuit",
+      "category": "REHAB",
+      "is_measured_by_1rm": false,
+      "is_plyometric": false,
+      "primary_muscles": "上肢、心肺",
+      "video_url": ""
+    }
+  }
+]

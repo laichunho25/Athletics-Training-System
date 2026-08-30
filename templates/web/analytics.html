@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}數據分析{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>數據分析與評估</h1>
+    <div class="subtitle" style="margin:0">{{ athlete.user.get_full_name|default:athlete.user.username }} · 近 {{ weeks }} 週</div>
+  </div>
+  {% include "web/_switcher.html" %}
+</div>
+
+<div class="grid grid-4 mb">
+  <div class="card stat">
+    <div class="label">ACWR</div>
+    <div class="value {{ acwr_color }}">{% if acwr.acwr %}{{ acwr.acwr }}{% else %}—{% endif %} {{ acwr.icon }}</div>
+    <div class="hint"><span class="badge {{ acwr_badge }}">{{ acwr.risk_label }}</span> EWMA {{ acwr.acwr_ewma|default:"—" }}</div>
+  </div>
+  <div class="card stat">
+    <div class="label">Monotony 單調性</div>
+    <div class="value {% if monotony >= 2 %}c-red{% elif monotony >= 1.5 %}c-yellow{% else %}c-green{% endif %}">{{ monotony|default:"—" }}</div>
+    <div class="hint">&gt; 2.0 表示課表變化不足</div>
+  </div>
+  <div class="card stat">
+    <div class="label">Strain 訓練張力</div>
+    <div class="value">{{ strain|default:"—" }}</div>
+    <div class="hint">週總負荷 × Monotony</div>
+  </div>
+  <div class="card stat">
+    <div class="label">週對週變化</div>
+    <div class="value {% if wow > 15 %}c-red{% elif wow < -15 %}c-blue{% else %}c-green{% endif %}">
+      {% if wow > 0 %}+{% endif %}{{ wow|default:"—" }}%
+    </div>
+    <div class="hint">建議 ±10% 以內</div>
+  </div>
+</div>
+
+<div class="alert {% if acwr.risk_flag == 'HIGH' %}red{% elif acwr.risk_flag == 'ELEVATED' %}yellow{% elif acwr.risk_flag == 'OPTIMAL' %}green{% else %}blue{% endif %}">
+  {{ acwr.icon }} <strong>{{ acwr.risk_label }}：</strong>{{ acwr.advice }}
+  <span class="small">（急性 {{ acwr.acute_load }} AU / 慢性 {{ acwr.chronic_load }} AU）</span>
+</div>
+
+<!-- ------------------------------------------------------ 週負荷 + ACWR -->
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>週負荷進程與 ACWR</span>
+    <span class="flex">
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=8">8 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=12">12 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&weeks=26">26 週</a>
+    </span>
+  </div>
+  <div class="chart-box tall"><canvas id="c1"></canvas></div>
+</div>
+
+<div class="grid grid-2 mb">
+  <!-- ----------------------------------------------------- 專項成績趨勢 -->
+  <div class="card pad0">
+    <div class="card-head">
+      <span>專項成績趨勢</span>
+      <form method="get">
+        <input type="hidden" name="athlete" value="{{ athlete.id }}">
+        <select name="event" onchange="this.form.submit()" style="width:auto">
+          {% for e in events %}
+            <option value="{{ e.code }}" {% if e.code == event.code %}selected{% endif %}>{{ e.name_zh }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div class="chart-box"><canvas id="c2"></canvas></div>
+    <div style="padding:0 18px 16px" class="small c-dim">
+      {% if trend.slope_per_month %}
+        月變化 <strong class="{% if trend.improving %}c-green{% else %}c-red{% endif %}">
+          {% if trend.slope_per_month > 0 %}+{% endif %}{{ trend.slope_per_month }}
+        </strong>
+        · {% if trend.improving %}📈 進步中{% else %}📉 需注意{% endif %}
+        · 最佳 <strong class="c-accent">{{ trend.best }}</strong>
+        · 共 {{ trend.points|length }} 筆
+      {% else %}
+        資料點不足，無法計算趨勢（需至少 2 筆紀錄）。
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ----------------------------------------------------- 力量趨勢 -->
+  <div class="card pad0">
+    <div class="card-head">
+      <span>力量趨勢 (1RM)</span>
+      <form method="get">
+        <input type="hidden" name="athlete" value="{{ athlete.id }}">
+        <select name="exercise" onchange="this.form.submit()" style="width:auto">
+          {% for e in exercises %}
+            <option value="{{ e.code }}" {% if exercise and e.code == exercise.code %}selected{% endif %}>{{ e.name_zh }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div class="chart-box"><canvas id="c3"></canvas></div>
+    <div style="padding:0 18px 16px" class="small c-dim">
+      {% if strength.current_1rm %}
+        目前 <strong class="c-accent">{{ strength.current_1rm }} kg</strong>
+        · 最佳 {{ strength.best_1rm }} kg
+        {% if strength.slope_per_month %}
+          · 月增長 <strong class="{% if strength.slope_per_month > 0 %}c-green{% else %}c-red{% endif %}">
+            {% if strength.slope_per_month > 0 %}+{% endif %}{{ strength.slope_per_month }} kg</strong>
+        {% endif %}
+      {% else %}
+        尚無此動作的 1RM 或推估紀錄。
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <!-- --------------------------------------------------------- 量分佈 -->
+  <div class="card pad0">
+    <div class="card-head"><span>近 28 天訓練量分佈</span></div>
+    <div class="chart-box"><canvas id="c4"></canvas></div>
+  </div>
+
+  <div class="card pad0">
+    <div class="card-head"><span>分佈明細</span></div>
+    <table>
+      <thead><tr><th>課別</th><th class="num">負荷 (AU)</th><th class="num">佔比</th><th></th></tr></thead>
+      <tbody>
+      {% for d in dist %}
+        <tr>
+          <td>{{ d.type }}</td>
+          <td class="num">{{ d.load }}</td>
+          <td class="num">{{ d.pct }}%</td>
+          <td style="width:35%"><div class="progress"><div style="width:{{ d.pct }}%"></div></div></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="empty">近 28 天無已完成課表</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt small c-dim">
+  <strong>快速指令選單</strong>
+  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
+  [2] 切換上方週數 <em>查看不同區間負荷</em>
+  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
+  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACC = '#ff6b35', BLUE = '#58a6ff', GREEN = '#3fb950', YELLOW = '#d29922';
+
+new Chart(document.getElementById('c1'), {
+  data: {
+    labels: {{ labels|safe }},
+    datasets: [
+      { type: 'bar', label: '週總負荷 (AU)', data: {{ loads|safe }},
+        backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1, yAxisID: 'y' },
+      { type: 'line', label: 'ACWR', data: {{ acwrs|safe }}, borderColor: BLUE,
+        backgroundColor: BLUE, tension: .3, spanGaps: true, yAxisID: 'y1' },
+      { type: 'line', label: 'Monotony', data: {{ monotonies|safe }}, borderColor: YELLOW,
+        backgroundColor: YELLOW, borderDash: [5, 4], tension: .3, spanGaps: true, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    scales: {
+      y:  { position: 'left', beginAtZero: true, title: { display: true, text: 'AU' } },
+      y1: { position: 'right', min: 0, max: 2.5, grid: { drawOnChartArea: false },
+            title: { display: true, text: 'ACWR / Monotony' } }
+    }
+  }
+});
+
+const trendPts = {{ trend_data|safe }};
+new Chart(document.getElementById('c2'), {
+  type: 'line',
+  data: {
+    labels: trendPts.map(p => p.x),
+    datasets: [{
+      label: '{{ event.name_zh }}',
+      data: trendPts.map(p => p.y),
+      borderColor: ACC, backgroundColor: ACC,
+      pointRadius: 5, tension: .2
+    }]
+  },
+  options: {
+    scales: { y: { reverse: {% if event.unit == 'TIME' %}true{% else %}false{% endif %},
+                   title: { display: true, text: '{% if event.unit == "TIME" %}秒（軸已反轉：越上面越快）{% else %}公尺 / 分數{% endif %}' } } },
+    plugins: { tooltip: { callbacks: {
+      afterLabel: (ctx) => trendPts[ctx.dataIndex].src === 'COMPETITION' ? '比賽成績' : '訓練最佳單趟'
+    } } }
+  }
+});
+
+const stPts = {{ strength_data|safe }};
+new Chart(document.getElementById('c3'), {
+  type: 'line',
+  data: {
+    labels: stPts.map(p => p.x),
+    datasets: [{ label: '{{ exercise.name_zh|default:"1RM" }} (kg)', data: stPts.map(p => p.y),
+                 borderColor: GREEN, backgroundColor: GREEN + '33',
+                 fill: true, pointRadius: 4, tension: .2 }]
+  },
+  options: { scales: { y: { title: { display: true, text: 'kg' } } } }
+});
+
+new Chart(document.getElementById('c4'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ dist_labels|safe }},
+    datasets: [{
+      data: {{ dist_values|safe }},
+      backgroundColor: [ACC, BLUE, GREEN, YELLOW, '#db6d28', '#8b98a8', '#f85149'],
+      borderColor: '#171d26', borderWidth: 2
+    }]
+  },
+  options: { plugins: { legend: { position: 'right' } }, cutout: '58%' }
+});
+</script>
+{% endblock %}

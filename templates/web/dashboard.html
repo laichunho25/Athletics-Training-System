@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}儀表板{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>{{ athlete.user.get_full_name|default:athlete.user.username }}</h1>
+    <div class="subtitle" style="margin:0">
+      {{ athlete.primary_event.name_zh }} · {{ athlete.age }} 歲 ·
+      {{ athlete.height_cm }} cm / {{ athlete.current_weight_kg }} kg ·
+      <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
+    </div>
+  </div>
+  {% include "web/_switcher.html" %}
+</div>
+
+{% if injuries %}
+<div class="alert yellow">
+  ⚠️ 目前有 {{ injuries|length }} 筆進行中傷患：
+  {% for i in injuries %}{{ i.get_body_part_display }}（疼痛 {{ i.current_pain_level }}/10）{% if not forloop.last %}、{% endif %}{% endfor %}
+  · <a href="{% url 'web:injuries' %}">前往傷患管理</a>
+</div>
+{% endif %}
+
+<!-- ---------------------------------------------------------- 四格總覽 -->
+<div class="grid grid-4 mb">
+  <div class="card stat">
+    <div class="label">距離目標賽事</div>
+    <div class="value c-accent">{{ d.countdown|default:"—" }}</div>
+    <div class="hint">{{ d.target_competition.name|default:"尚未設定目標賽事" }}</div>
+  </div>
+
+  <div class="card stat">
+    <div class="label">目前分期</div>
+    <div class="value sm">{{ d.current_phase.get_phase_type_display|default:"—" }}</div>
+    <div class="hint">
+      {% if d.current_week %}第 {{ d.current_week }} 週 / 16 週{% else %}尚未建立週期計劃{% endif %}
+    </div>
+  </div>
+
+  <div class="card stat">
+    <div class="label">ACWR 負荷比</div>
+    <div class="value {{ acwr_color }}">
+      {% if acwr.acwr %}{{ acwr.acwr }}{% else %}—{% endif %}
+      <span style="font-size:20px">{{ acwr.icon }}</span>
+    </div>
+    <div class="hint">
+      <span class="badge {{ acwr_badge }}">{{ acwr.risk_label }}</span>
+      急性 {{ acwr.acute_load }} / 慢性 {{ acwr.chronic_load }} AU
+    </div>
+  </div>
+
+  <div class="card stat">
+    <div class="label">今日準備度</div>
+    <div class="value {% if readiness.score >= 75 %}c-green{% elif readiness.score >= 55 %}c-yellow{% else %}c-red{% endif %}">
+      {{ readiness.score|default:"—" }}
+    </div>
+    <div class="hint">{{ readiness.label }} · {{ readiness.inputs }} 項輸入</div>
+  </div>
+</div>
+
+<div class="alert {% if acwr.risk_flag == 'HIGH' %}red{% elif acwr.risk_flag == 'ELEVATED' %}yellow{% elif acwr.risk_flag == 'OPTIMAL' %}green{% else %}blue{% endif %}">
+  {{ acwr.icon }} <strong>負荷建議：</strong>{{ acwr.advice }}
+</div>
+
+<div class="grid grid-2 mb">
+  <!-- --------------------------------------------------------- 今日課表 -->
+  <div class="card pad0">
+    <div class="card-head">
+      <span>今日課表 · {{ d.date }}</span>
+      <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">看月曆</a>
+    </div>
+    {% if d.today_sessions %}
+      <table>
+        <thead><tr><th>時段</th><th>課別</th><th>內容</th><th>狀態</th><th class="num">負荷</th></tr></thead>
+        <tbody>
+        {% for s in d.today_sessions %}
+          <tr>
+            <td>{{ s.get_time_slot_display }}</td>
+            <td>{{ s.get_session_type_display }}</td>
+            <td><a href="{% url 'web:session_detail' s.id %}">{{ s.title }}</a>
+                {% if s.is_modified %}<span class="badge b-yellow">已調整</span>{% endif %}</td>
+            <td>
+              <span class="badge {% if s.status == 'COMPLETED' %}b-green{% elif s.status == 'PARTIAL' %}b-yellow{% elif s.status == 'SKIPPED' %}b-red{% else %}b-blue{% endif %}">{{ s.get_status_display }}</span>
+            </td>
+            <td class="num">{{ s.session_load }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">今日無安排課表（休息日）</div>
+    {% endif %}
+  </div>
+
+  <!-- --------------------------------------------------------- 本週一覽 -->
+  <div class="card pad0">
+    <div class="card-head"><span>本週課表（{{ week_start }} 起）</span></div>
+    {% if week_sessions %}
+      <table>
+        <thead><tr><th>日期</th><th>課表</th><th>狀態</th><th class="num">RPE</th><th class="num">負荷</th></tr></thead>
+        <tbody>
+        {% for s in week_sessions %}
+          <tr>
+            <td class="num">{{ s.date|date:"m/d (D)" }}</td>
+            <td><a href="{% url 'web:session_detail' s.id %}">{{ s.title }}</a></td>
+            <td><span class="badge {% if s.status == 'COMPLETED' %}b-green{% elif s.status == 'PARTIAL' %}b-yellow{% elif s.status == 'SKIPPED' %}b-red{% else %}b-blue{% endif %}">{{ s.get_status_display }}</span></td>
+            <td class="num">{{ s.session_rpe|default:"—" }}</td>
+            <td class="num">{{ s.session_load }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">本週尚無課表</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------- 負荷走勢 -->
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>近 8 週訓練負荷與 ACWR</span>
+    <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ athlete.id }}">完整分析</a>
+  </div>
+  <div class="chart-box tall"><canvas id="loadChart"></canvas></div>
+</div>
+
+<!-- ----------------------------------------------------------- 個人最佳 -->
+<div class="card pad0">
+  <div class="card-head"><span>個人最佳成績 (PB)</span></div>
+  <table>
+    <thead><tr><th>項目</th><th>成績</th><th>日期</th><th>賽事</th></tr></thead>
+    <tbody>
+    {% for pb in athlete.personal_bests.all %}
+      {% if pb.is_current %}
+      <tr>
+        <td>{{ pb.event.name_zh }}</td>
+        <td class="num c-accent"><strong>{{ pb.mark_display }}</strong></td>
+        <td class="num">{{ pb.date }}</td>
+        <td>{{ pb.competition_name|default:"—" }}</td>
+      </tr>
+      {% endif %}
+    {% empty %}
+      <tr><td colspan="4" class="empty">尚未登錄 PB</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card mt small c-dim">
+  <strong>快速指令選單</strong>
+  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
+  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
+  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
+  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+new Chart(document.getElementById('loadChart'), {
+  data: {
+    labels: {{ chart_labels|safe }},
+    datasets: [
+      { type: 'bar', label: '週總負荷 (AU)', data: {{ chart_load|safe }},
+        backgroundColor: '#ff6b3599', borderColor: '#ff6b35', borderWidth: 1, yAxisID: 'y' },
+      { type: 'line', label: 'ACWR', data: {{ chart_acwr|safe }},
+        borderColor: '#58a6ff', backgroundColor: '#58a6ff', tension: .3,
+        spanGaps: true, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    scales: {
+      y:  { position: 'left', title: { display: true, text: 'AU' }, beginAtZero: true },
+      y1: { position: 'right', title: { display: true, text: 'ACWR' },
+            min: 0, max: 2, grid: { drawOnChartArea: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

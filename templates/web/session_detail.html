@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ s.title }}{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>{{ s.title }}</h1>
+    <div class="subtitle" style="margin:0">
+      {{ s.date }}（{{ s.date|date:"D" }}）{{ s.get_time_slot_display }} ·
+      {{ s.get_session_type_display }} ·
+      {{ s.athlete.user.get_full_name|default:s.athlete.user.username }} ·
+      {% if s.assigned_by %}教練派發：{{ s.assigned_by }}{% else %}運動員自訂{% endif %}
+    </div>
+  </div>
+  <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ s.athlete.id }}&year={{ s.date.year }}&month={{ s.date.month }}">← 回日曆</a>
+</div>
+
+{% if blocked %}
+<div class="alert red">🚫 <strong>高強度已被封鎖：</strong>{{ block_reason }}
+  <form method="post" style="display:inline;margin-left:10px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="modify">
+    <button class="btn sm" type="submit">依傷患自動調整此課表</button>
+  </form>
+</div>
+{% endif %}
+{% if s.is_modified %}
+<div class="alert yellow">⚠️ 此課表已經過傷患調整。</div>
+{% endif %}
+
+<div class="grid grid-4 mb">
+  <div class="card stat">
+    <div class="label">狀態</div>
+    <div class="value sm">
+      <span class="badge {% if s.status == 'COMPLETED' %}b-green{% elif s.status == 'PARTIAL' %}b-yellow{% elif s.status == 'SKIPPED' %}b-red{% else %}b-blue{% endif %}">{{ s.get_status_display }}</span>
+    </div>
+    <div class="hint">完成度 {{ s.completion_pct }}%</div>
+  </div>
+  <div class="card stat">
+    <div class="label">時長</div>
+    <div class="value">{{ s.actual_duration_min|default:s.planned_duration_min }}<span style="font-size:14px"> 分</span></div>
+    <div class="hint">計劃 {{ s.planned_duration_min }} 分</div>
+  </div>
+  <div class="card stat">
+    <div class="label">課後 RPE</div>
+    <div class="value">{{ s.session_rpe|default:"—" }}<span style="font-size:14px">/10</span></div>
+  </div>
+  <div class="card stat">
+    <div class="label">訓練負荷</div>
+    <div class="value c-accent">{{ s.session_load }}<span style="font-size:14px"> AU</span></div>
+    <div class="hint">RPE × 實際時長</div>
+  </div>
+</div>
+
+{% if s.description %}
+<div class="card mb"><h3>課表內容</h3><div style="white-space:pre-wrap">{{ s.description }}</div></div>
+{% endif %}
+
+{% if track_sets %}
+<div class="card pad0 mb">
+  <div class="card-head"><span>田徑專項組數</span></div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>內容</th><th class="num">距離</th><th class="num">目標</th><th class="num">實際</th>
+          <th class="num">配速/100m</th><th class="num">%PB</th><th class="num">組間休</th><th class="num">RPE</th><th>技術重點</th></tr>
+    </thead>
+    <tbody>
+    {% for t in track_sets %}
+      <tr>
+        <td class="num">{{ t.order }}</td>
+        <td>{{ t.description }}</td>
+        <td class="num">{{ t.distance_m }} m</td>
+        <td class="num">{{ t.target_time_sec|default:"—" }}</td>
+        <td class="num c-accent">{{ t.actual_time_sec|default:"—" }}</td>
+        <td class="num">{{ t.pace_per_100m|default:"—" }}</td>
+        <td class="num">{% if t.intensity_vs_pb %}{{ t.intensity_vs_pb }}%{% else %}—{% endif %}</td>
+        <td class="num">{{ t.rest_between_reps_sec }}s</td>
+        <td class="num">{{ t.rpe|default:"—" }}</td>
+        <td class="small">{{ t.technical_focus|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if strength_sets %}
+<div class="card pad0 mb">
+  <div class="card-head"><span>力量訓練組數</span></div>
+  <table>
+    <thead>
+      <tr><th>動作</th><th class="num">組</th><th class="num">次</th><th class="num">重量</th>
+          <th class="num">目標%1RM</th><th class="num">實際%1RM</th><th class="num">RIR</th>
+          <th class="num">RPE</th><th class="num">Tonnage</th><th>備註</th></tr>
+    </thead>
+    <tbody>
+    {% for x in strength_sets %}
+      <tr>
+        <td>{{ x.exercise.name_zh }}</td>
+        <td class="num">{{ x.set_number }}</td>
+        <td class="num">{{ x.reps }}</td>
+        <td class="num c-accent">{{ x.weight_kg }} kg</td>
+        <td class="num">{% if x.target_1rm_pct %}{{ x.target_1rm_pct }}%{% else %}—{% endif %}</td>
+        <td class="num">{% if x.actual_1rm_pct %}{{ x.actual_1rm_pct }}%{% else %}—{% endif %}</td>
+        <td class="num">{{ x.rir|default:"—" }}</td>
+        <td class="num">{{ x.rpe|default:"—" }}</td>
+        <td class="num">{{ x.tonnage }}</td>
+        <td class="small">{{ x.note|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <!-- ------------------------------------------------------------- 打卡 -->
+  <div class="card">
+    <h2>訓練打卡</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="complete">
+      <div class="row">
+        <div class="field">
+          <label for="dur">實際時長（分鐘）</label>
+          <input type="number" id="dur" name="actual_duration_min" min="0" max="600"
+                 value="{{ s.actual_duration_min|default:s.planned_duration_min }}" required>
+        </div>
+        <div class="field">
+          <label for="rpe">課後 RPE (1–10)</label>
+          <input type="number" id="rpe" name="session_rpe" min="1" max="10"
+                 value="{{ s.session_rpe|default:7 }}" required>
+        </div>
+        <div class="field">
+          <label for="pct">完成度 (%)</label>
+          <input type="number" id="pct" name="completion_pct" min="0" max="100"
+                 value="{{ s.completion_pct|default:100 }}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fb">運動員反饋</label>
+        <textarea id="fb" name="athlete_feedback" rows="3"
+                  placeholder="感受、狀況、身體反應…">{{ s.athlete_feedback }}</textarea>
+      </div>
+      <button class="btn" type="submit">送出打卡</button>
+      <span class="small c-dim" style="margin-left:10px">負荷 = RPE × 時長，送出後即時重算 ACWR</span>
+    </form>
+  </div>
+
+  <!-- --------------------------------------------------------- 教練評語 -->
+  <div class="card">
+    <h2>教練評語</h2>
+    {% if is_coach %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="coach_comment">
+        <div class="field">
+          <textarea name="coach_comment" rows="5" placeholder="技術修正、下次調整方向…">{{ s.coach_comment }}</textarea>
+        </div>
+        <button class="btn" type="submit">儲存評語</button>
+      </form>
+    {% else %}
+      <div style="white-space:pre-wrap">{{ s.coach_comment|default:"教練尚未留下評語。" }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

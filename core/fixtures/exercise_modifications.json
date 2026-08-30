@@ -1,0 +1,407 @@
+[
+  {
+    "model": "injury.exercisemodification",
+    "pk": 1,
+    "fields": {
+      "original_exercise": 8,
+      "substitute_exercise": 59,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING",
+        "LOW_BACK"
+      ],
+      "max_pain_level": 3,
+      "rationale": "避免膕繩肌高張力離心與脊柱剪力，改以向心為主的推拉。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 2,
+    "fields": {
+      "original_exercise": 9,
+      "substitute_exercise": 57,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING"
+      ],
+      "max_pain_level": 4,
+      "rationale": "急性期以等長收縮止痛並維持肌腱剛度，取代離心負荷。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 3,
+    "fields": {
+      "original_exercise": 1,
+      "substitute_exercise": 3,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 4,
+      "rationale": "前負荷降低脊柱軸向壓力與剪力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 4,
+    "fields": {
+      "original_exercise": 1,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 3,
+      "rationale": "完全卸除脊柱負荷，維持下肢肌力刺激。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 5,
+    "fields": {
+      "original_exercise": 1,
+      "substitute_exercise": 6,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE"
+      ],
+      "max_pain_level": 5,
+      "rationale": "等長收縮具止痛效果，且不需大範圍膝屈曲。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 6,
+    "fields": {
+      "original_exercise": 2,
+      "substitute_exercise": 7,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE"
+      ],
+      "max_pain_level": 5,
+      "rationale": "髕腱病變首選：等長 + 減少髕股關節壓力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 7,
+    "fields": {
+      "original_exercise": 30,
+      "substitute_exercise": 49,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ACHILLES"
+      ],
+      "max_pain_level": 3,
+      "rationale": "跟腱病變禁止高速拉長-縮短循環，改為坐姿等長/慢速負荷。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 8,
+    "fields": {
+      "original_exercise": 31,
+      "substitute_exercise": 61,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ACHILLES",
+        "SHIN",
+        "FOOT"
+      ],
+      "max_pain_level": 3,
+      "rationale": "移除落地衝擊，維持心肺與動作節奏。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 9,
+    "fields": {
+      "original_exercise": 33,
+      "substitute_exercise": 60,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING",
+        "CALF"
+      ],
+      "max_pain_level": 4,
+      "rationale": "保留爆發意圖與心肺刺激，去除離心衝擊。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 10,
+    "fields": {
+      "original_exercise": 34,
+      "substitute_exercise": 35,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE"
+      ],
+      "max_pain_level": 4,
+      "rationale": "降低關節活動範圍與落地力量。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 11,
+    "fields": {
+      "original_exercise": 48,
+      "substitute_exercise": 54,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ACHILLES"
+      ],
+      "max_pain_level": 5,
+      "rationale": "離心提踵是跟腱病變的標準復健負荷 (Alfredson protocol)。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 12,
+    "fields": {
+      "original_exercise": 44,
+      "substitute_exercise": 45,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE"
+      ],
+      "max_pain_level": 4,
+      "rationale": "縮小膝關節活動範圍，降低髕股關節壓力。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 13,
+    "fields": {
+      "original_exercise": 43,
+      "substitute_exercise": 5,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ANKLE",
+        "KNEE"
+      ],
+      "max_pain_level": 3,
+      "rationale": "去除平衡需求與踝背屈範圍。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 14,
+    "fields": {
+      "original_exercise": 25,
+      "substitute_exercise": 29,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "KNEE",
+        "SHOULDER"
+      ],
+      "max_pain_level": 4,
+      "rationale": "移除接槓的深蹲與肩上支撐階段。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 15,
+    "fields": {
+      "original_exercise": 25,
+      "substitute_exercise": 42,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER",
+        "LOW_BACK"
+      ],
+      "max_pain_level": 4,
+      "rationale": "保留爆發訓練意圖，去除高負荷與過頂動作。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 16,
+    "fields": {
+      "original_exercise": 28,
+      "substitute_exercise": 17,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 4,
+      "rationale": "移除爆發過頂與腰椎伸展代償。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 17,
+    "fields": {
+      "original_exercise": 16,
+      "substitute_exercise": 18,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 4,
+      "rationale": "避免過頂夾擠角度。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 18,
+    "fields": {
+      "original_exercise": 15,
+      "substitute_exercise": 17,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHOULDER"
+      ],
+      "max_pain_level": 5,
+      "rationale": "啞鈴容許自然肩胛動作，降低夾擠。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 19,
+    "fields": {
+      "original_exercise": 58,
+      "substitute_exercise": 64,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ANKLE",
+        "FOOT",
+        "PLANTAR"
+      ],
+      "max_pain_level": 3,
+      "rationale": "承重受限時改為上肢循環維持心肺。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 20,
+    "fields": {
+      "original_exercise": 21,
+      "substitute_exercise": 22,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 4,
+      "rationale": "有支撐姿勢移除脊柱靜態負荷。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 21,
+    "fields": {
+      "original_exercise": 14,
+      "substitute_exercise": 40,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 4,
+      "rationale": "改為抗伸展核心穩定，避免腰椎反覆伸展。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 22,
+    "fields": {
+      "original_exercise": 50,
+      "substitute_exercise": 57,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "HAMSTRING"
+      ],
+      "max_pain_level": 4,
+      "rationale": "等長優先，疼痛下降後再回到動態屈膝。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 23,
+    "fields": {
+      "original_exercise": 32,
+      "substitute_exercise": 62,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "PLANTAR",
+        "FOOT",
+        "SHIN"
+      ],
+      "max_pain_level": 3,
+      "rationale": "移除足部衝擊。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 24,
+    "fields": {
+      "original_exercise": 63,
+      "substitute_exercise": 64,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "LOW_BACK"
+      ],
+      "max_pain_level": 3,
+      "rationale": "划船的髖屈+脊柱屈曲對急性下背不利。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 25,
+    "fields": {
+      "original_exercise": 12,
+      "substitute_exercise": 47,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "GROIN"
+      ],
+      "max_pain_level": 4,
+      "rationale": "鼠蹊傷患以內收肌漸進負荷為主。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 26,
+    "fields": {
+      "original_exercise": 36,
+      "substitute_exercise": null,
+      "substitute_name": "暫停此動作",
+      "contraindicated_body_parts": [
+        "ACHILLES",
+        "KNEE",
+        "ANKLE"
+      ],
+      "max_pain_level": 2,
+      "rationale": "急性期暫停跳躍測試，待無痛後再評估。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 27,
+    "fields": {
+      "original_exercise": 46,
+      "substitute_exercise": 56,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "ANKLE"
+      ],
+      "max_pain_level": 4,
+      "rationale": "先重建本體感覺與踝穩定，再加負荷。"
+    }
+  },
+  {
+    "model": "injury.exercisemodification",
+    "pk": 28,
+    "fields": {
+      "original_exercise": 45,
+      "substitute_exercise": 53,
+      "substitute_name": "",
+      "contraindicated_body_parts": [
+        "SHIN"
+      ],
+      "max_pain_level": 4,
+      "rationale": "脛骨骨膜炎期間改為脛前肌漸進負荷。"
+    }
+  }
+]

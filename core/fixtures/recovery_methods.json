@@ -1,0 +1,122 @@
+[
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 1,
+    "fields": {
+      "name": "冰浴 (Cold Water Immersion)",
+      "category": "被動恢復",
+      "default_duration_min": 12,
+      "description": "10–15°C 浸泡 10–15 分鐘，高強度賽事日後使用；力量訓練後 4 小時內避免。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 2,
+    "fields": {
+      "name": "泡沫軸放鬆",
+      "category": "自我筋膜放鬆",
+      "default_duration_min": 15,
+      "description": "每個肌群 60–90 秒，訓練後或睡前。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 3,
+    "fields": {
+      "name": "按摩槍",
+      "category": "自我筋膜放鬆",
+      "default_duration_min": 10,
+      "description": "每個部位 1–2 分鐘，避開骨突與急性傷處。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 4,
+    "fields": {
+      "name": "動態伸展",
+      "category": "活動度",
+      "default_duration_min": 10,
+      "description": "訓練前熱身使用，每個動作 8–10 次。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 5,
+    "fields": {
+      "name": "靜態伸展",
+      "category": "活動度",
+      "default_duration_min": 10,
+      "description": "訓練後使用，每個部位 30 秒 × 2。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 6,
+    "fields": {
+      "name": "壓縮褲",
+      "category": "被動恢復",
+      "default_duration_min": 60,
+      "description": "訓練後或長途移動時穿著。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 7,
+    "fields": {
+      "name": "桑拿",
+      "category": "熱療",
+      "default_duration_min": 20,
+      "description": "80–90°C，15–20 分鐘，注意補水。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 8,
+    "fields": {
+      "name": "主動恢復慢跑",
+      "category": "主動恢復",
+      "default_duration_min": 25,
+      "description": "心率 < 70% HRmax，20–30 分鐘。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 9,
+    "fields": {
+      "name": "水中恢復",
+      "category": "主動恢復",
+      "default_duration_min": 20,
+      "description": "低衝擊，適合下肢傷患期。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 10,
+    "fields": {
+      "name": "午睡",
+      "category": "睡眠",
+      "default_duration_min": 25,
+      "description": "20–30 分鐘，避免超過 30 分鐘造成睡眠慣性。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 11,
+    "fields": {
+      "name": "呼吸放鬆 / 冥想",
+      "category": "神經恢復",
+      "default_duration_min": 10,
+      "description": "睡前 4-7-8 呼吸或箱式呼吸，降低交感神經活性。"
+    }
+  },
+  {
+    "model": "nutrition.recoverymethod",
+    "pk": 12,
+    "fields": {
+      "name": "物理治療",
+      "category": "醫療",
+      "default_duration_min": 45,
+      "description": "由專業人員執行，依傷患需求安排。"
+    }
+  }
+]

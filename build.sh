@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Render build script — 每次部署時執行
+set -o errexit
+
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 收集靜態檔（atm.css / chart.min.js / admin）
+python manage.py collectstatic --no-input
+
+# 套用資料庫遷移
+python manage.py migrate --no-input
+
+# 載入基礎資料（項目 / 動作庫 / 恢復手段 / 替代動作對照表）
+# loaddata 是冪等的：相同 pk 會被覆寫，不會重複新增
+python manage.py loaddata events exercises recovery_methods exercise_modifications

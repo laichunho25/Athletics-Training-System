@@ -1,0 +1,12 @@
+{% if athletes %}
+<form method="get" class="flex" style="gap:8px">
+  <label style="margin:0">檢視運動員</label>
+  <select name="athlete" onchange="this.form.submit()" style="width:auto">
+    {% for a in athletes %}
+      <option value="{{ a.id }}" {% if a.id == athlete.id %}selected{% endif %}>
+        {{ a.user.get_full_name|default:a.user.username }}（{{ a.primary_event.name_zh }}）
+      </option>
+    {% endfor %}
+  </select>
+</form>
+{% endif %}
