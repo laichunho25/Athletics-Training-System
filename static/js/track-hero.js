@@ -43,6 +43,18 @@
   var splitList = pick("splits");
   var tapFill = pick("tapfill");
   var tapNum = pick("tapnum");
+  var finishBox = pick("finish");
+  var btnAgain = pick("again");
+  var fOut = {
+    title: pick("f-title"),
+    time: pick("f-time"),
+    avg: pick("f-avg"),
+    top: pick("f-top"),
+    rate: pick("f-rate"),
+    half: pick("f-half"),
+    note: pick("f-note"),
+    splits: pick("f-splits"),
+  };
 
   // ---------------------------------------------------- 場地規格（單位：公尺）
   var STRAIGHT = 84.39;              // 直道長
@@ -141,12 +153,24 @@
 
   // ------------------------------------------------------------ 起跑槍聲效
   /*
-   * 用 WebAudio 合成，不外掛音檔：一段極短的白噪音爆點（槍口爆震）加一顆
-   * 低頻 thump（後座與場地回音），尾巴帶一點衰減殘響。瀏覽器要求使用者
-   * 操作過才給發聲，而這裡只在按下「接受挑戰」之後的流程裡響，剛好合規。
+   * WebAudio 合成，不外掛音檔。真實的發令槍不是一顆噪音，是三層疊起來的：
+   *
+   *   1. crack   槍口爆震。攻擊只有零點幾毫秒，能量集中在 1–4 kHz，
+   *              再經過軟削波（waveshaper）做出錄音爆表那種粗糙感。
+   *   2. body    火藥推出來的低頻，一顆 190→45 Hz 的下滑正弦加低通噪音，
+   *              就是站在起點線旁邊胸口被撞一下的感覺。
+   *   3. tail    看台與場館的殘響。用程式合成一段脈衝響應餵給 convolver，
+   *              再加一條 slapback 延遲，做出空曠場地那聲「碰──啪」。
+   *
+   * 每次擊發的濾波頻率與時值都帶一點隨機，連鳴兩槍才不會像複製貼上。
+   * 瀏覽器要求使用者操作過才給發聲，而這裡只在按下「接受挑戰」之後的
+   * 流程裡響，剛好合規。
    */
   var actx = null;
   var noiseBuf = null;
+  var irBuf = null;
+  var shaper = null;
+  var bus = null; // dry + 殘響的共用匯流排
 
   function audio() {
     if (actx) return actx;
@@ -160,16 +184,82 @@
     return actx;
   }
 
+  /* 白噪音素材，播放時再用濾波與包絡塑形 */
   function noise(ac) {
     if (noiseBuf) return noiseBuf;
-    var n = Math.floor(ac.sampleRate * 0.5);
-    noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
-    var d = noiseBuf.getChannelData(0);
-    for (var i = 0; i < n; i += 1) {
-      // 越後面越小聲，做出槍聲的自然衰減
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var n = Math.floor(ac.sampleRate * 0.6);
+    noiseBuf = ac.createBuffer(2, n, ac.sampleRate);
+    for (var ch = 0; ch < 2; ch += 1) {
+      var d = noiseBuf.getChannelData(ch);
+      for (var i = 0; i < n; i += 1) d[i] = Math.random() * 2 - 1;
     }
     return noiseBuf;
+  }
+
+  /* 合成的場館脈衝響應：早期反射比較密，尾巴指數衰減並逐漸變暗 */
+  function impulse(ac) {
+    if (irBuf) return irBuf;
+    var len = Math.floor(ac.sampleRate * 1.35);
+    irBuf = ac.createBuffer(2, len, ac.sampleRate);
+    for (var ch = 0; ch < 2; ch += 1) {
+      var d = irBuf.getChannelData(ch);
+      for (var i = 0; i < len; i += 1) {
+        var x = i / len;
+        var decay = Math.pow(1 - x, 2.6);
+        // 前 60 ms 疏一點，模擬看台的早期反射而不是一團糊
+        var density = i < ac.sampleRate * 0.06 ? 0.35 : 1;
+        d[i] = (Math.random() * 2 - 1) * decay * density;
+      }
+    }
+    return irBuf;
+  }
+
+  /* 軟削波曲線：讓爆震聽起來是「炸開」而不是「吹一口氣」 */
+  function curve() {
+    if (shaper) return shaper;
+    shaper = new Float32Array(1024);
+    for (var i = 0; i < 1024; i += 1) {
+      var x = (i / 1023) * 2 - 1;
+      shaper[i] = Math.tanh(x * 4.2);
+    }
+    return shaper;
+  }
+
+  /* 建一次就好：dry → 殘響 / slapback → 輸出 */
+  function busOf(ac) {
+    if (bus) return bus;
+    var input = ac.createGain();
+    input.gain.value = 1;
+
+    var outGain = ac.createGain();
+    outGain.gain.value = 0.62;
+    outGain.connect(ac.destination);
+    input.connect(outGain);
+
+    var verb = ac.createConvolver();
+    verb.buffer = impulse(ac);
+    var verbGain = ac.createGain();
+    verbGain.gain.value = 0.5;
+    input.connect(verb);
+    verb.connect(verbGain);
+    verbGain.connect(outGain);
+
+    // slapback：空曠田徑場那一記回聲
+    var delay = ac.createDelay(1);
+    delay.delayTime.value = 0.115;
+    var fb = ac.createGain();
+    fb.gain.value = 0.22;
+    var damp = ac.createBiquadFilter();
+    damp.type = "lowpass";
+    damp.frequency.value = 1600;
+    input.connect(delay);
+    delay.connect(damp);
+    damp.connect(fb);
+    fb.connect(delay);
+    damp.connect(outGain);
+
+    bus = input;
+    return bus;
   }
 
   function gunshot() {
@@ -177,42 +267,82 @@
     if (!ac) return;
     if (ac.state === "suspended" && ac.resume) ac.resume();
 
+    var dest = busOf(ac);
     var t0 = ac.currentTime + 0.01;
-    var master = ac.createGain();
-    master.gain.value = 0.55;
-    master.connect(ac.destination);
+    var rnd = 0.9 + Math.random() * 0.2; // 每一槍略有差別
 
-    // 爆震：高通過的噪音，衝上來再快速收掉
+    // ---- 1. 爆震
     var src = ac.createBufferSource();
     src.buffer = noise(ac);
+    src.playbackRate.value = 1.1 * rnd;
+
     var hp = ac.createBiquadFilter();
     hp.type = "highpass";
-    hp.frequency.setValueAtTime(1400, t0);
-    hp.frequency.exponentialRampToValueAtTime(300, t0 + 0.28);
-    var g = ac.createGain();
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(1, t0 + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.09);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
-    src.connect(hp);
-    hp.connect(g);
-    g.connect(master);
-    src.start(t0);
-    src.stop(t0 + 0.5);
+    hp.frequency.setValueAtTime(700, t0);
 
-    // 低頻 thump：胸口那一下
+    var peak = ac.createBiquadFilter();
+    peak.type = "peaking";
+    peak.frequency.setValueAtTime(2600 * rnd, t0);
+    peak.Q.value = 0.9;
+    peak.gain.value = 11;
+
+    // 爆震一瞬間最亮，接著迅速變鈍——這是槍聲最關鍵的線索
+    var lp = ac.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(11000, t0);
+    lp.frequency.exponentialRampToValueAtTime(1500, t0 + 0.05);
+    lp.frequency.exponentialRampToValueAtTime(500, t0 + 0.22);
+
+    var drive = ac.createWaveShaper();
+    drive.curve = curve();
+
+    var g = ac.createGain();
+    // 攻擊用線性、只花 0.4 ms，慢一點就變成拍手聲
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(1, t0 + 0.0004);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.07 * rnd);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+
+    src.connect(hp);
+    hp.connect(peak);
+    peak.connect(lp);
+    lp.connect(drive);
+    drive.connect(g);
+    g.connect(dest);
+    src.start(t0);
+    src.stop(t0 + 0.4);
+
+    // ---- 2. 低頻本體：下滑正弦 + 低通噪音
     var osc = ac.createOscillator();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(150, t0);
-    osc.frequency.exponentialRampToValueAtTime(42, t0 + 0.14);
+    osc.frequency.setValueAtTime(190, t0);
+    osc.frequency.exponentialRampToValueAtTime(45, t0 + 0.11);
     var og = ac.createGain();
-    og.gain.setValueAtTime(0.0001, t0);
-    og.gain.exponentialRampToValueAtTime(0.8, t0 + 0.008);
-    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    og.gain.setValueAtTime(0, t0);
+    og.gain.linearRampToValueAtTime(0.85, t0 + 0.003);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
     osc.connect(og);
-    og.connect(master);
+    og.connect(dest);
     osc.start(t0);
-    osc.stop(t0 + 0.35);
+    osc.stop(t0 + 0.3);
+
+    var boom = ac.createBufferSource();
+    boom.buffer = noise(ac);
+    boom.playbackRate.value = 0.8;
+    var blp = ac.createBiquadFilter();
+    blp.type = "lowpass";
+    blp.frequency.setValueAtTime(320, t0);
+    blp.Q.value = 0.7;
+    var bg = ac.createGain();
+    bg.gain.setValueAtTime(0, t0);
+    bg.gain.linearRampToValueAtTime(0.6, t0 + 0.004);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+    boom.connect(blp);
+    blp.connect(bg);
+    bg.connect(dest);
+    boom.start(t0);
+    boom.stop(t0 + 0.4);
   }
 
   /* 口令的短提示音，讓 On your marks / Set 有節奏感 */
@@ -439,6 +569,8 @@
     nextSplit: 10,
     startedAt: 0,
     tapTimes: [],
+    top: 0,        // 全程最高瞬時速度
+    splits: [],    // 每 10 m 的通過時間
   };
   var spin = 0;
   var last = 0;
@@ -491,7 +623,10 @@
     state.nextSplit = 10;
     state.startedAt = 0;
     state.tapTimes = [];
+    state.top = 0;
+    state.splits = [];
     if (splitList) splitList.innerHTML = "";
+    hideFinish();
     paint();
   }
 
@@ -510,18 +645,80 @@
   function checkSplits() {
     while (state.nextSplit <= RACE && state.dist >= state.nextSplit) {
       pushSplit(state.nextSplit, state.t);
+      state.splits.push({ m: state.nextSplit, t: state.t });
       state.nextSplit += 10;
     }
   }
 
+  /* 由 10 m 分段表回推某個距離的通過時間 */
+  function splitAt(m) {
+    for (var i = 0; i < state.splits.length; i += 1) {
+      if (state.splits[i].m === m) return state.splits[i].t;
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------ 完成面板
+  function hideFinish() {
+    if (finishBox) finishBox.hidden = true;
+  }
+
+  function showFinish(wasDemo) {
+    if (!finishBox) return;
+    var t = state.t;
+    var avg = t > 0 ? RACE / t : 0;
+    var half = splitAt(50);
+
+    if (fOut.title) fOut.title.textContent = wasDemo ? "示範完成" : "挑戰完成";
+    if (fOut.time) fOut.time.textContent = fmt(t);
+    if (fOut.avg) fOut.avg.textContent = fmt(avg);
+    if (fOut.top) fOut.top.textContent = fmt(state.top);
+    if (fOut.rate)
+      fOut.rate.textContent = wasDemo ? "—" : fmt(t > 0 ? TAPS / t : 0, 1);
+    if (fOut.half)
+      fOut.half.textContent =
+        half === null ? "—" : fmt(half) + " / " + fmt(t - half);
+
+    // 分段表：完成面板裡再列一次，關掉才看不到
+    if (fOut.splits) {
+      fOut.splits.innerHTML = "";
+      state.splits.forEach(function (sp) {
+        var li = document.createElement("li");
+        var a = document.createElement("b");
+        a.textContent = sp.m + " m";
+        var b = document.createElement("span");
+        b.textContent = fmt(sp.t);
+        li.appendChild(a);
+        li.appendChild(b);
+        fOut.splits.appendChild(li);
+      });
+    }
+
+    if (fOut.note) {
+      var gap = t - 9.58;
+      fOut.note.textContent = wasDemo
+        ? "以 v(t) ＝ v_max（1 − e^−t/τ）模擬的曲線，僅作階段示意。"
+        : "世界紀錄 9.58 s（Usain Bolt, 2009）——" +
+          (gap <= 0
+            ? "你的手速已經超出真人範圍了。"
+            : "相差 " + fmt(gap) + " s。");
+    }
+
+    finishBox.hidden = false;
+    if (btnAgain) btnAgain.focus();
+  }
+
   function finish() {
+    var wasDemo = state.mode === "demo";
     state.dist = RACE;
     state.mode = "done";
     state.speed = state.t > 0 ? RACE / state.t : 0;
-    say(fmt(state.t) + " s", "go");
+    if (state.top < state.speed) state.top = state.speed;
+    say("", "");
     if (btnGo) btnGo.textContent = "再挑戰一次";
     if (btnDemo) btnDemo.textContent = "看示範";
     paint();
+    showFinish(wasDemo);
   }
 
   // -------------------------------------------------------------- 挑戰流程
@@ -582,6 +779,7 @@
     if (n >= 2) {
       var dt = state.tapTimes[n - 1] - state.tapTimes[0];
       state.speed = dt > 0 ? ((n - 1) * PER_TAP) / dt : 0;
+      if (state.speed > state.top) state.top = state.speed;
     }
 
     checkSplits();
@@ -608,6 +806,7 @@
       remain -= h;
       state.t += h;
       state.speed = velocity(state.t);
+      if (state.speed > state.top) state.top = state.speed;
       state.dist += state.speed * h;
       checkSplits();
       if (state.dist >= RACE) finish();
@@ -649,7 +848,9 @@
   canvas.addEventListener("pointerdown", function (e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
-    if (state.mode === "idle" || state.mode === "done") startChallenge();
+    // 完成面板開著時，畫布不接受操作——要按「再來」才重置
+    if (state.mode === "done") return;
+    if (state.mode === "idle") startChallenge();
     else tap();
   });
   canvas.addEventListener("contextmenu", function (e) {
@@ -658,10 +859,20 @@
   canvas.addEventListener("keydown", function (e) {
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
-      if (state.mode === "idle" || state.mode === "done") startChallenge();
+      if (state.mode === "done") return;
+      if (state.mode === "idle") startChallenge();
       else tap();
     }
   });
+
+  if (btnAgain)
+    btnAgain.addEventListener("click", function () {
+      reset("idle");
+      if (btnGo) btnGo.textContent = "接受挑戰";
+      say("", "");
+      render();
+      canvas.focus();
+    });
 
   resize();
   reset("idle");

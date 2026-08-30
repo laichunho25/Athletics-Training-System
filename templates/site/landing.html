@@ -54,6 +54,25 @@
         <canvas id="track-hero" tabindex="0" role="img"
                 aria-label="緩慢旋轉的標準四百公尺田徑場：紅色膠面、八條白色分道、綠色內場，標有各項目起跑線、每一百公尺的過程標記與終點線"></canvas>
         <div class="track-call" data-hero="call" aria-live="assertive"></div>
+
+        <!-- 跑完 80 下才彈出來的成績卡，按「再來」才重置 -->
+        <div class="track-finish" data-hero="finish" role="dialog" aria-modal="false"
+             aria-labelledby="finish-title" hidden>
+          <div class="finish-card">
+            <p class="finish-kicker">Finish</p>
+            <h3 class="finish-title" id="finish-title" data-hero="f-title">挑戰完成</h3>
+            <p class="finish-time"><span data-hero="f-time">0.00</span><i>s</i></p>
+            <dl class="finish-stats">
+              <div><dt>平均速度</dt><dd><span data-hero="f-avg">0.00</span> m/s</dd></div>
+              <div><dt>最高速度</dt><dd><span data-hero="f-top">0.00</span> m/s</dd></div>
+              <div><dt>前 50 / 後 50</dt><dd><span data-hero="f-half">—</span> s</dd></div>
+              <div><dt>連打頻率</dt><dd><span data-hero="f-rate">0.0</span> 下/秒</dd></div>
+            </dl>
+            <ol class="finish-splits" data-hero="f-splits" aria-label="每十公尺分段"></ol>
+            <p class="finish-note" data-hero="f-note"></p>
+            <button class="signin" type="button" data-hero="again">再來</button>
+          </div>
+        </div>
         <noscript>
           <p class="track-fallback">開啟 JavaScript 可看到跑道動畫與一百公尺挑戰。</p>
         </noscript>
