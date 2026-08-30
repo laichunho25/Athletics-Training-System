@@ -11,7 +11,7 @@
 <body>
 {% if user.is_authenticated %}
 <div class="topbar">
-  <div class="brand">ATM<span>·</span>田徑</div>
+  <a class="brand" href="{% url 'web:landing' %}" style="text-decoration:none;color:inherit">ATM<span>·</span>田徑</a>
   <nav class="nav">
     <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">儀表板</a>
     <a href="{% url 'web:calendar' %}" class="{% if page == 'calendar' %}active{% endif %}">訓練日曆</a>

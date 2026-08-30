@@ -45,25 +45,43 @@ Render Dashboard → **New** → **Blueprint** → 選剛才的 repo。
 
 ---
 
-## 步驟 3／建立你自己的管理員帳號
+## 步驟 3／建立你自己的登入帳號（**必做**）
 
-部署完成後，Render 服務頁 → **Shell**：
+migrate 與 loaddata 只會載入項目、動作庫這類基礎資料，**不會建立任何使用者**。
+沒有這一步，登入頁會正常顯示但任何帳密都登不進去（回「帳號或密碼錯誤」）。
+
+### 方法 A：設環境變數後重新部署（推薦）
+
+Render → 服務 → **Environment** → Add Environment Variable：
+
+| Key | Value |
+|---|---|
+| `ADMIN_USERNAME` | `boyce` |
+| `ADMIN_EMAIL` | `laichunho25@gmail.com` |
+| `ADMIN_PASSWORD` | 至少 12 字元的強密碼 |
+
+存檔會自動觸發重新部署，`build.sh` 最後一行會執行：
 
 ```bash
-python manage.py create_admin
+python manage.py create_admin --skip-if-unset
 ```
 
-需要先在 **Environment** 加這三個變數（建完可以刪掉 `ADMIN_PASSWORD`）：
+指令是冪等的（帳號存在就更新密碼），沒設變數則安靜跳過、不會弄壞部署。
+建好之後可以把 `ADMIN_PASSWORD` 從 Environment 刪掉。
 
-```
-ADMIN_USERNAME=boyce
-ADMIN_EMAIL=laichunho25@gmail.com
-ADMIN_PASSWORD=<至少 12 字元的強密碼>
-```
+### 方法 B：Render Shell 手動執行
+
+服務頁 → **Shell** → `python manage.py create_admin`（同樣要先有上面三個變數）。
+
+### 建好之後
+
+用這個帳號登入 `https://www.hohosports.com/accounts/login/`，
+再到 `/admin/` 幫教練和運動員開帳號（Users → Add，記得設好 Role）。
 
 > 🔒 **正式站絕對不要跑 `seed_demo`**——它會建立 `atm12345` 這種弱密碼的示範帳號。
 > 若不小心跑了，用 `python manage.py purge_demo` 清掉
 >（此指令會擋住「刪光所有管理員」的情況）。
+> 登入頁的示範帳密提示只在 `DEBUG=1` 顯示，正式站不會外洩。
 
 ---
 

@@ -5,7 +5,8 @@ from core import views
 app_name = "web"
 
 urlpatterns = [
-    path("", views.home, name="home"),
+    path("", views.landing, name="landing"),        # 公開首頁
+    path("app/", views.home, name="home"),          # 登入後分流
     path("dashboard/", views.dashboard, name="dashboard"),
     path("team/", views.coach_dashboard, name="coach_dashboard"),
     path("calendar/", views.calendar_view, name="calendar"),

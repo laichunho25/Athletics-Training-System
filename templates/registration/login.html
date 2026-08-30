@@ -4,7 +4,7 @@
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
-    <div class="brand">ATM<span>·</span>田徑</div>
+    <a class="brand" href="{% url 'web:landing' %}" style="display:block;text-align:center;text-decoration:none;color:inherit">ATM<span>·</span>田徑</a>
     <p class="subtitle" style="text-align:center">個人化訓練與管理系統</p>
 
     <div class="card">
@@ -29,11 +29,18 @@
         <input type="hidden" name="next" value="{{ next }}">
       </form>
 
+      {% if DEBUG %}
       <div class="login-hint">
-        <div><strong>示範帳號</strong></div>
+        <div><strong>示範帳號</strong>（僅開發模式顯示）</div>
         <div>教練：<code>coach_chan</code> / <code>atm12345</code></div>
         <div>運動員：<code>athlete_lai</code> / <code>atm12345</code></div>
         <div>管理員：<code>admin</code> / <code>admin12345</code></div>
+      </div>
+      {% endif %}
+
+      <div class="login-hint" style="text-align:center">
+        <a href="{% url 'web:landing' %}">← 回首頁</a>
+        <span class="c-dim"> · 帳號由教練或管理員開設</span>
       </div>
     </div>
   </div>

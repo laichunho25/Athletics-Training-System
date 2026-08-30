@@ -22,6 +22,7 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 
 | 位置 | 網址 |
 |---|---|
+| **公開首頁** | http://127.0.0.1:8200/ |
 | **登入** | http://127.0.0.1:8200/accounts/login/ |
 | 儀表板（運動員） | http://127.0.0.1:8200/dashboard/ |
 | 團隊儀表板（教練） | http://127.0.0.1:8200/team/ |
@@ -49,6 +50,7 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 
 | 頁面 | 內容 |
 |---|---|
+| 公開首頁 `/` | 田徑訓練六大方向、三種週期化模式介紹，暖色調，含 ATM 登入入口（免登入可看） |
 | 儀表板 | 賽事倒數、目前分期、ACWR 燈號、準備度、今日/本週課表、近 8 週負荷圖、PB 表 |
 | 團隊儀表板 | 全隊 ACWR/準備度/傷患一覽，高風險與傷患警示條 |
 | 訓練日曆 | 月曆（週一起）、分期色條、依狀態著色的課表，點入可打卡 |
@@ -57,7 +59,9 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 | 營養與恢復 | TDEE 與三大營養素、熱量分配圓環、晨間問卷、近 14 天睡眠/痠痛圖、本週達成率、補充劑表 |
 | 傷患管理 | 疼痛趨勢圖、今日疼痛記錄（≥6 自動調整課表）、替代動作表、RTP 檢核表、新增/結案 |
 
-- 樣板在 `templates/`，樣式 `static/css/atm.css`（深色主題，CSS 變數）
+- 系統內頁樣板在 `templates/`，樣式 `static/css/atm.css`（深色主題）
+- 公開首頁 `templates/site/landing.html` + `static/css/landing.css`（暖色調，獨立不繼承 base.html）
+- 登入後入口為 `/app/`（依角色分流到 `/dashboard/` 或 `/team/`）
 - Chart.js 4.4.7 已 vendored 於 `static/js/chart.min.js`，**完全離線可用**
 - 教練檢視他人資料用 `?athlete=<id>`，權限一律經 `athlete_ids_visible_to()` 收斂
 

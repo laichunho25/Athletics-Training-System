@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>田徑專項訓練 · ATM 訓練管理系統</title>
+  <meta name="description" content="專業田徑運動員的訓練方向與週期化管理：速度、力量、專項耐力、技術、負荷監控與恢復防護。">
+  <link rel="stylesheet" href="{% static 'css/landing.css' %}">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">ATM<b>·</b>田徑</div>
+    <nav>
+      <a href="#directions">訓練方向</a>
+      <a href="#periodization">週期化</a>
+      <a href="#system">系統</a>
+      {% if user.is_authenticated %}
+        <a class="btn sm" href="{% url 'web:home' %}">進入系統</a>
+      {% else %}
+        <a class="btn sm" href="{% url 'login' %}">登入 ATM</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<!-- ------------------------------------------------------------ 主視覺 -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Track &amp; Field Performance</div>
+    <h1>把訓練<span>量化</span>，<br>把進步變成可以驗證的事</h1>
+    <p class="lead">
+      田徑的成績不是靠感覺累積的。速度、力量、耐力、技術各有各的訓練法則，
+      而把它們排進同一份課表、控制在身體承受得住的範圍，才是專業訓練真正困難的地方。
+    </p>
+    <div class="cta">
+      {% if user.is_authenticated %}
+        <a class="btn" href="{% url 'web:home' %}">進入我的儀表板 →</a>
+      {% else %}
+        <a class="btn" href="{% url 'login' %}">登入 ATM 系統 →</a>
+      {% endif %}
+      <a class="btn ghost" href="#directions">先看訓練方向</a>
+      <span class="note">教練與運動員共用一套資料</span>
+    </div>
+
+    <div class="facts">
+      <div><div class="n">6</div><div class="t">主流訓練方向</div></div>
+      <div><div class="n">16 週</div><div class="t">預設備賽週期</div></div>
+      <div><div class="n">ACWR</div><div class="t">急慢性負荷比監控</div></div>
+      <div><div class="n">0–10</div><div class="t">疼痛分級自動調整課表</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------ 訓練方向 -->
+<section id="directions">
+  <div class="wrap">
+    <div class="head">
+      <div class="k">Training Directions</div>
+      <h2>訓練的六個主流方向</h2>
+      <p>不管是短跑、中距離、跨欄還是跳擲，現代田徑訓練都圍繞著這六條主線在配比。項目不同，差別只在權重。</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="num">01</div>
+        <h3>速度與加速度</h3>
+        <p>起跑加速期著重水平推進與軀幹角度，最大速度期則看觸地剛性與扒地機制。原則是質量優先：短距離、完全恢復、狀態不好就停。</p>
+        <span class="tag">30–60 m · 組間 4–8 分鐘</span>
+      </div>
+      <div class="card">
+        <div class="num">02</div>
+        <h3>最大力量與爆發力</h3>
+        <p>用深蹲、上膊、單腳推蹬建立力量基礎，再以增強式與負重跳把力量轉換成發力率（RFD）。力量是天花板，爆發力是把天花板用出來。</p>
+        <span class="tag">85%+ 1RM · 低反覆</span>
+      </div>
+      <div class="card">
+        <div class="num">03</div>
+        <h3>專項耐力與有氧基礎</h3>
+        <p>400／800 需要乳酸耐受與速度儲備，中長距離則靠閾值跑與有氧容量撐起訓練量。用配速區間控制，而不是用感覺。</p>
+        <span class="tag">依項目調整權重</span>
+      </div>
+      <div class="card">
+        <div class="num">04</div>
+        <h3>技術與動作經濟性</h3>
+        <p>步頻與步幅的比例、擺臂、跨欄節奏、助跑準確度、投擲的動力鏈順序。技術課一定排在疲勞最低的時段，累了練只會固化壞習慣。</p>
+        <span class="tag">安排在課表最前段</span>
+      </div>
+      <div class="card">
+        <div class="num">05</div>
+        <h3>週期化與負荷管理</h3>
+        <p>用 sRPE（RPE × 時長）量化每一課的負荷，追蹤急慢性負荷比、單調度與壓力值，把每週增量壓在身體承受得住的幅度內。</p>
+        <span class="tag">ACWR 甜蜜點 0.80–1.30</span>
+      </div>
+      <div class="card">
+        <div class="num">06</div>
+        <h3>恢復、營養與防護</h3>
+        <p>睡眠時數與品質、蛋白質與碳水的攝取時機、晨間問卷與疼痛記錄。能不能連續訓練下去，瓶頸幾乎都在這一塊，不在課表本身。</p>
+        <span class="tag">疼痛 ≥ 6 即降強度</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ 週期化 -->
+<section id="periodization">
+  <div class="wrap">
+    <div class="head">
+      <div class="k">Periodization</div>
+      <h2>三種主流週期化模式</h2>
+      <p>沒有哪一種是絕對正確的，差別在於你的賽程密度與選手的訓練年齡。</p>
+    </div>
+
+    <div class="tablebox">
+      <table>
+        <thead>
+          <tr><th>模式</th><th>核心概念</th><th>適合對象</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>傳統線性</strong><br><span style="font-size:13px;color:var(--dim)">Matveyev</span></td>
+            <td>由大量低強度逐步轉為小量高強度，全年推向單一高峰。結構清楚、容易執行。</td>
+            <td>訓練年齡較淺、基礎期選手，賽季單純者。</td>
+          </tr>
+          <tr>
+            <td><strong>板塊週期</strong><br><span style="font-size:13px;color:var(--dim)">Block · Issurin</span></td>
+            <td>累積 → 轉化 → 實現，每個板塊只集中發展 2–3 種能力，避免同時練太多而互相干擾。</td>
+            <td>高水平選手、一年多次比賽需要重複做高峰者。</td>
+          </tr>
+          <tr>
+            <td><strong>共軛訓練</strong><br><span style="font-size:13px;color:var(--dim)">Conjugate</span></td>
+            <td>最大力量、爆發力與專項在同一週內並行，靠每週輪換動作維持刺激新鮮度。</td>
+            <td>力量主導項目：投擲、跳躍、短跑爆發需求高者。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ 系統 -->
+<section id="system">
+  <div class="wrap">
+    <div class="head">
+      <div class="k">The System</div>
+      <h2>ATM 把上面這些變成日常流程</h2>
+      <p>訓練管理系統（Athlete Training Management）＝ 計劃、記錄、分析、調整，四件事在同一個地方完成。</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>教練端</h3>
+        <p>建立 16 週備賽週期與分期、派發課表模板給多名運動員、在團隊儀表板一眼看出誰的負荷過高、誰帶傷。</p>
+      </div>
+      <div class="card">
+        <h3>運動員端</h3>
+        <p>每天打卡 RPE 與實際時長、填晨間問卷、記錄疼痛。系統自動換算負荷、準備度與營養目標。</p>
+      </div>
+      <div class="card">
+        <h3>自動防護</h3>
+        <p>活動時疼痛達 6 分以上，當日高強度課自動降級為恢復課，並依部位對照表換成安全的替代動作。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ 結尾 -->
+<section style="border-top:0">
+  <div class="wrap">
+    <div class="band">
+      <h2>開始使用</h2>
+      <p>系統帳號由教練或管理員開設。已經有帳號的話，直接從這裡登入。</p>
+      {% if user.is_authenticated %}
+        <a class="btn" href="{% url 'web:home' %}">進入我的儀表板 →</a>
+      {% else %}
+        <a class="btn" href="{% url 'login' %}">登入 ATM 系統 →</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>ATM · 田徑個人化訓練與管理系統</span>
+    <span>
+      {% if user.is_authenticated %}
+        <a href="{% url 'web:home' %}">儀表板</a>
+      {% else %}
+        <a href="{% url 'login' %}">登入</a>
+      {% endif %}
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

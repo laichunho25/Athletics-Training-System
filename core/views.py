@@ -57,8 +57,14 @@ def _athlete_switcher(request):
     )
 
 
+def landing(request):
+    """公開首頁——不需登入，介紹田徑訓練方向並提供 ATM 登入入口。"""
+    return render(request, "site/landing.html")
+
+
 @login_required
 def home(request):
+    """登入後的分流入口（/app/）。"""
     if request.user.role == Role.COACH:
         return redirect("web:coach_dashboard")
     return redirect("web:dashboard")

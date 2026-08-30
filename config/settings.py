@@ -115,6 +115,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.site_flags',
             ],
         },
     },
@@ -204,8 +205,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 登入導向
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_REDIRECT_URL = '/app/'     # 登入後進系統，不是回公開首頁
+LOGOUT_REDIRECT_URL = '/'        # 登出回公開首頁
 
 # ATM 系統參數
 ATM_DEFAULT_MACROCYCLE_WEEKS = 16
