@@ -27,6 +27,7 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 | **公開首頁** | http://127.0.0.1:8200/ |
 | **項目報名** | http://127.0.0.1:8200/programs/ |
 | **登入** | http://127.0.0.1:8200/accounts/login/ |
+| 運動員列表 | http://127.0.0.1:8200/athletes/ |
 | 儀表板（運動員） | http://127.0.0.1:8200/dashboard/ |
 | 團隊儀表板（教練） | http://127.0.0.1:8200/team/ |
 | 訓練日曆 | http://127.0.0.1:8200/calendar/ |
@@ -55,7 +56,8 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 |---|---|
 | 公開首頁 `/` | 短跑訓練方向、16 週週期與一週結構，含報名與 ATM 登入入口（免登入可看） |
 | 項目報名 `/programs/` | 公開招生的訓練項目列表、詳情與報名表（免登入可看，見下方章節） |
-| 儀表板 | 賽事倒數、目前分期、ACWR 燈號、準備度、今日/本週課表、近 8 週負荷圖、PB 表 |
+| 運動員列表 | 姓名／計劃／主項／年紀／傷患狀態一覽，可搜尋、篩選與點表頭排序，是進入個人總覽的入口 |
+| 儀表板 | 賽事倒數、目前分期（兩者可直接在卡片上改）、ACWR 燈號、準備度、今日/本週課表、近 8 週負荷圖、PB 表 |
 | 團隊儀表板 | 全隊 ACWR/準備度/傷患一覽，高風險與傷患警示條 |
 | 訓練日曆 | 月曆（週一起）、分期色條、依狀態著色的課表，點入可打卡 |
 | 課表詳情 | 專項組數與力量組數明細、RPE/時長打卡表單、教練評語、傷患調整按鈕 |
@@ -66,7 +68,8 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 - 系統內頁樣板在 `templates/`，樣式 `static/css/atm.css`（深色主題）
 - 公開首頁 `templates/site/landing.html` + `static/css/landing.css`（暖色調，獨立不繼承 base.html）
 - 公開報名 `templates/programs/` + `static/css/programs.css`（沿用 landing.css 的樣式變數）
-- 登入後入口為 `/app/`（依角色分流到 `/dashboard/` 或 `/team/`）
+- 登入後入口為 `/app/`（運動員到 `/dashboard/`，教練先到 `/athletes/` 挑人）
+- 目標賽事與分期在儀表板上改，寫的是 `Competition` / `Macrocycle` / `Phase` 本身，日曆與分析同步更新
 - Chart.js 4.4.7 已 vendored 於 `static/js/chart.min.js`，**完全離線可用**
 - 教練檢視他人資料用 `?athlete=<id>`，權限一律經 `athlete_ids_visible_to()` 收斂
 

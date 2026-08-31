@@ -8,10 +8,11 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import F
+from django.db.models import Count, F, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import AthleteProfile, CoachProfile, Event
@@ -24,7 +25,14 @@ from analytics.models import (
 )
 from core import liveedit
 from core.glossary import all_terms, as_groups
-from core.models import Role, SessionStatus, SessionType, program_type_choices
+from core.models import (
+    AthleteStatus,
+    PhaseType,
+    Role,
+    SessionStatus,
+    SessionType,
+    program_type_choices,
+)
 from core.permissions import athlete_ids_visible_to
 from injury import services as inj
 from injury.models import (
@@ -38,7 +46,11 @@ from injury.models import (
 from nutrition import services as nu
 from nutrition.models import NutritionTarget, RecoveryLog, RecoveryMethod
 from planning.models import (
+    Competition,
+    CompetitionLevel,
+    Macrocycle,
     Microcycle,
+    Phase,
     NoteKind,
     SessionNote,
     ProjectAssignment,
@@ -129,7 +141,7 @@ def landing(request):
 def home(request):
     """登入後的分流入口（/app/）。"""
     if request.user.role == Role.COACH:
-        return redirect("web:coach_dashboard")
+        return redirect("web:athlete_list")
     return redirect("web:dashboard")
 
 
@@ -139,7 +151,8 @@ def home(request):
 @login_required
 def dashboard(request):
     if request.user.role == Role.COACH and not request.GET.get("athlete"):
-        return redirect("web:coach_dashboard")
+        # 教練先看列表挑人，挑完才進到某一位的狀態總覽
+        return redirect("web:athlete_list")
 
     athlete = _current_athlete(request)
     if athlete is None:
@@ -156,6 +169,8 @@ def dashboard(request):
 
     prog = an.weekly_load_progression(athlete, 8)
 
+    macro = athlete.macrocycles.filter(is_active=True).first()
+
     return render(
         request,
         "web/dashboard.html",
@@ -163,6 +178,16 @@ def dashboard(request):
             "page": "dashboard",
             "athlete": athlete,
             "athletes": _athlete_switcher(request),
+            # 「距離目標賽事 / 目前分期」兩張卡片的編輯用資料
+            "macro": macro,
+            "phases": macro.phases.all() if macro else [],
+            "competitions": Competition.objects.filter(
+                date__gte=date.today() - timedelta(days=30)
+            ).order_by("date"),
+            "competition_levels": CompetitionLevel.choices,
+            "phase_types": PhaseType.choices,
+            "can_edit_plan": _can_edit_plan(request.user, athlete),
+            "today_iso": date.today().isoformat(),
             "d": d,
             "acwr": acwr,
             "acwr_badge": badge,
@@ -220,6 +245,327 @@ def coach_dashboard(request):
             "total": len(rows),
         },
     )
+
+
+# -------------------------------------------------------------- 運動員列表
+
+#: 列表可以排序的欄位 → 實際的 order_by（預設方向＝由小到大 / A→Z）
+ATHLETE_SORTS = {
+    "name": ["user__first_name", "user__last_name", "user__username"],
+    "project": ["application__project__title", "user__username"],
+    "event": ["primary_event__category", "primary_event__distance_m", "primary_event__code"],
+    "age": ["-birth_date"],  # 生日越晚＝年紀越小
+    "status": ["status", "-injury_count", "user__username"],
+}
+
+#: 表頭與「目前排序」提示用的中文欄名
+SORT_LABELS = {
+    "name": "姓名",
+    "project": "計劃",
+    "event": "主項",
+    "age": "年紀",
+    "status": "傷患狀態",
+}
+
+#: 傷患狀態欄的篩選選項（除了三種 status，再加一個「身上有未結案傷患」）
+INJURY_FILTERS = list(AthleteStatus.choices) + [("HAS_INJURY", "有未結案傷患")]
+
+
+def _flip(ordering):
+    return [f[1:] if f.startswith("-") else f"-{f}" for f in ordering]
+
+
+def _sort_urls(request, sort, direction):
+    """每個表頭連到「換成這個欄位排序」的網址，點同一欄再點一次就反向。"""
+    urls = {}
+    for key in ATHLETE_SORTS:
+        params = request.GET.copy()
+        params["sort"] = key
+        params["dir"] = "desc" if key == sort and direction == "asc" else "asc"
+        urls[key] = f"?{params.urlencode()}"
+    return urls
+
+
+@login_required
+def athlete_list(request):
+    """運動員列表：先挑人，再進去看那個人的狀態總覽。
+
+    帶搜尋、篩選（計劃／主項／傷患狀態）與排序，資料本身跟總覽頁同一份。
+    """
+    qs = (
+        AthleteProfile.objects.filter(id__in=athlete_ids_visible_to(request.user))
+        .select_related("user", "primary_event", "coach__user", "application__project")
+        .annotate(
+            injury_count=Count(
+                "injuries", filter=~Q(injuries__status="RESOLVED"), distinct=True
+            )
+        )
+    )
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(user__first_name__icontains=q)
+            | Q(user__last_name__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(primary_event__name_zh__icontains=q)
+            | Q(primary_event__code__icontains=q)
+            | Q(school_or_club__icontains=q)
+            | Q(application__project__title__icontains=q)
+        )
+
+    project = request.GET.get("project", "")
+    if project == "none":
+        qs = qs.filter(application__isnull=True)
+    elif project:
+        qs = qs.filter(application__project_id=project)
+
+    event = request.GET.get("event", "")
+    if event:
+        qs = qs.filter(primary_event_id=event)
+
+    injury = request.GET.get("injury", "")
+    if injury == "HAS_INJURY":
+        qs = qs.filter(injury_count__gt=0)
+    elif injury in AthleteStatus.values:
+        qs = qs.filter(status=injury)
+
+    sort = request.GET.get("sort", "name")
+    if sort not in ATHLETE_SORTS:
+        sort = "name"
+    direction = "desc" if request.GET.get("dir") == "desc" else "asc"
+    ordering = ATHLETE_SORTS[sort]
+    athletes = list(qs.order_by(*(_flip(ordering) if direction == "desc" else ordering)))
+
+    visible_projects = (
+        Project.objects.filter(applications__athlete__in=athletes).distinct().order_by("title")
+    )
+    visible_events = (
+        Event.objects.filter(primary_athletes__in=athletes)
+        .distinct()
+        .order_by("category", "distance_m", "code")
+    )
+
+    return render(
+        request,
+        "web/athlete_list.html",
+        {
+            "page": "athletes",
+            "athletes": athletes,
+            "total": len(athletes),
+            "q": q,
+            "project": project,
+            "event": event,
+            "injury": injury,
+            "sort": sort,
+            "sort_label": SORT_LABELS[sort],
+            "dir": direction,
+            "arrow": "▲" if direction == "asc" else "▼",
+            "sort_urls": _sort_urls(request, sort, direction),
+            "projects": visible_projects,
+            "events": visible_events,
+            "injury_filters": INJURY_FILTERS,
+            "has_filter": bool(q or project or event or injury),
+            "today": date.today(),
+        },
+    )
+
+
+# --------------------------------------------------- 備戰計劃（目標賽事／分期）
+
+
+def _can_edit_plan(user, athlete):
+    """誰改得動這名運動員的目標賽事與分期：本人、他的教練、管理員。"""
+    if _is_admin(user):
+        return True
+    if user.role == Role.COACH:
+        return athlete.coach_id is not None and athlete.coach.user_id == user.id
+    return athlete.user_id == user.id
+
+
+def _relink_microcycles(macro):
+    """大週期的起訖或分期一改，底下的週計劃要跟著對回正確的日期與分期。"""
+    for micro in macro.microcycles.all():
+        if micro.week_number > macro.total_weeks:
+            if not micro.sessions.exists():
+                micro.delete()
+            continue
+        phase = macro.phases.filter(
+            week_start__lte=micro.week_number, week_end__gte=micro.week_number
+        ).first()
+        start = macro.start_date + timedelta(weeks=micro.week_number - 1)
+        fields = []
+        if micro.phase_id != (phase.id if phase else None):
+            micro.phase = phase
+            fields.append("phase")
+        if micro.start_date != start:
+            micro.start_date = start
+            fields.append("start_date")
+        if phase and not micro.actual_load and micro.planned_load != phase.target_weekly_load:
+            micro.planned_load = phase.target_weekly_load
+            fields.append("planned_load")
+        if fields:
+            micro.save(update_fields=fields + ["updated_at"])
+
+
+def _rebuild_cycle(macro):
+    """分期與週計劃都是從大週期算出來的，改完大週期就整份重建。"""
+    macro.generate_phases()
+    macro.generate_microcycles()
+    _relink_microcycles(macro)
+
+
+def _plan_int(raw, low, high, default):
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return max(low, min(high, value))
+
+
+def _save_target(request, athlete):
+    """存目標賽事：順便把備戰大週期（起始日、週數、基準負荷）一起定下來。"""
+    choice = request.POST.get("competition", "")
+    if choice == "__new__":
+        name = request.POST.get("comp_name", "").strip()
+        if not name:
+            raise ValueError("要填賽事名稱。")
+        try:
+            comp_date = date.fromisoformat(request.POST.get("comp_date", ""))
+        except ValueError:
+            raise ValueError("比賽日期格式要是 YYYY-MM-DD。")
+        competition, created = Competition.objects.get_or_create(
+            name=name,
+            date=comp_date,
+            defaults={
+                "venue": request.POST.get("comp_venue", "").strip(),
+                "level": request.POST.get("comp_level", "REGIONAL"),
+                "is_target": True,
+            },
+        )
+        if not created and not competition.is_target:
+            competition.is_target = True
+            competition.save(update_fields=["is_target", "updated_at"])
+    elif choice:
+        competition = get_object_or_404(Competition, pk=choice)
+    else:
+        raise ValueError("要選一個目標賽事。")
+
+    total_weeks = _plan_int(request.POST.get("total_weeks"), 1, 52, 16)
+    baseline = _plan_int(request.POST.get("baseline_weekly_load"), 100, 20000, 1800)
+
+    raw_start = request.POST.get("start_date", "").strip()
+    if raw_start:
+        try:
+            start = date.fromisoformat(raw_start)
+        except ValueError:
+            raise ValueError("開始日期格式要是 YYYY-MM-DD。")
+    else:
+        # 沒填就從比賽日往回數，湊成完整的 N 週（由週一開始）
+        start = an.monday_of(competition.date - timedelta(weeks=total_weeks - 1))
+
+    macro = athlete.macrocycles.filter(is_active=True).first()
+    structural = True
+    if macro is None:
+        macro = Macrocycle(athlete=athlete)
+    else:
+        structural = (
+            macro.start_date != start
+            or macro.total_weeks != total_weeks
+            or macro.baseline_weekly_load != baseline
+            or not macro.phases.exists()
+        )
+
+    macro.target_competition = competition
+    macro.start_date = start
+    macro.total_weeks = total_weeks
+    macro.baseline_weekly_load = baseline
+    macro.end_date = start + timedelta(weeks=total_weeks, days=-1)
+    macro.is_active = True
+    macro.save()
+
+    if structural:
+        _rebuild_cycle(macro)
+
+    messages.success(
+        request,
+        f"目標賽事已設為「{competition.name}」（{competition.date}）"
+        f"：{start} 起共 {total_weeks} 週，{competition.countdown_display}。",
+    )
+
+
+def _save_phase(request, athlete):
+    """存分期：改的是 Phase 本身，日曆、週計劃、負荷分析看到的都會跟著變。"""
+    macro = athlete.macrocycles.filter(is_active=True).first()
+    if macro is None:
+        raise ValueError("要先設定目標賽事，才有分期可以改。")
+
+    if request.POST.get("reset") == "1":
+        _rebuild_cycle(macro)
+        messages.success(request, "已依預設模板重建整份分期與週計劃。")
+        return
+
+    phase_id = request.POST.get("phase_id", "")
+    phase = macro.phases.filter(pk=phase_id).first() if phase_id else macro.current_phase
+
+    phase_type = request.POST.get("phase_type", "")
+    if phase_type not in PhaseType.values:
+        raise ValueError("不認得的期別。")
+
+    week_start = _plan_int(request.POST.get("week_start"), 1, macro.total_weeks, 1)
+    week_end = _plan_int(request.POST.get("week_end"), 1, macro.total_weeks, macro.total_weeks)
+    if week_end < week_start:
+        raise ValueError("結束週不能早於起始週。")
+
+    if phase is None:
+        phase = Phase(macrocycle=macro)
+    phase.phase_type = phase_type
+    phase.week_start = week_start
+    phase.week_end = week_end
+    phase.start_date = macro.start_date + timedelta(weeks=week_start - 1)
+    phase.end_date = macro.start_date + timedelta(weeks=week_end, days=-1)
+    phase.focus = request.POST.get("focus", "").strip()
+    phase.target_weekly_load = _plan_int(
+        request.POST.get("target_weekly_load"), 0, 20000, macro.baseline_weekly_load
+    )
+    phase.save()
+
+    _relink_microcycles(macro)
+    messages.success(
+        request,
+        f"分期已更新為「{phase.get_phase_type_display()}」"
+        f"（第 {week_start}–{week_end} 週，目標週負荷 {phase.target_weekly_load} AU）。",
+    )
+
+
+@login_required
+@require_POST
+def athlete_plan_edit(request, pk):
+    """儀表板上「距離目標賽事 / 目前分期」兩張卡片的編輯入口。
+
+    寫進去的是 Competition / Macrocycle / Phase 本身，所以日曆、計劃頁、
+    負荷分析拿到的都是同一份資料，改一次到處都會更新。
+    """
+    athlete = get_object_or_404(AthleteProfile, pk=pk)
+    if athlete.id not in set(athlete_ids_visible_to(request.user)):
+        raise Http404("看不到這名運動員。")
+
+    back = f"{reverse('web:dashboard')}?athlete={athlete.id}"
+    if not _can_edit_plan(request.user, athlete):
+        messages.error(request, "只有這名運動員本人、他的教練或管理員可以改備戰計劃。")
+        return redirect(back)
+
+    action = request.POST.get("action")
+    try:
+        if action == "set_target":
+            _save_target(request, athlete)
+        elif action == "set_phase":
+            _save_phase(request, athlete)
+        else:
+            messages.error(request, "不認得的動作。")
+    except ValueError as exc:
+        messages.error(request, f"沒有存起來：{exc}")
+    return redirect(back)
 
 
 # ------------------------------------------------------------------ 計劃

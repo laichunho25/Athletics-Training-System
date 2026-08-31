@@ -2,8 +2,13 @@
 {% block title %}運動員狀態總覽{% endblock %}
 
 {% block content %}
-<h1>運動員狀態總覽</h1>
-<p class="subtitle">{{ today }} · 共 {{ total }} 名運動員</p>
+<div class="between mb">
+  <div>
+    <h1>運動員狀態總覽</h1>
+    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員</p>
+  </div>
+  <a class="btn ghost sm" href="{% url 'web:athlete_list' %}">← 回運動員列表</a>
+</div>
 
 {% if high_risk %}
 <div class="alert red">

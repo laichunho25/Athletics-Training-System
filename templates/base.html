@@ -13,6 +13,7 @@
 <div class="topbar">
   <a class="brand" href="{% url 'web:landing' %}" style="text-decoration:none;color:inherit">ATM<span>·</span>田徑</a>
   <nav class="nav">
+    <a href="{% url 'web:athlete_list' %}" class="{% if page == 'athletes' %}active{% endif %}">運動員列表</a>
     <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">運動員狀態總覽</a>
     <a href="{% url 'web:plan' %}" class="{% if page == 'plan' %}active{% endif %}">計劃</a>
     <a href="{% url 'web:calendar' %}" class="{% if page == 'calendar' %}active{% endif %}">訓練日曆</a>

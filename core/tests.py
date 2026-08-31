@@ -133,8 +133,9 @@ class ViewAccessControlTests(TestCase):
         )
         self.client.logout()
         self.client.login(username="coach1", password=self.pw)
+        # 教練先看運動員列表，挑完人才進到那一位的狀態總覽
         self.assertRedirects(
-            self.client.get(reverse("web:home")), reverse("web:coach_dashboard")
+            self.client.get(reverse("web:home")), reverse("web:athlete_list")
         )
 
 

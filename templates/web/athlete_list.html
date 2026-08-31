@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}運動員列表{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>運動員列表</h1>
+    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員{% if has_filter %}（已篩選）{% endif %}</p>
+  </div>
+  <div class="flex">
+    <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">全隊燈號總覽</a>
+    <a class="btn ghost sm" href="{% url 'web:plan' %}">計劃</a>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------ 搜尋 / 篩選 -->
+<div class="card mb">
+  <form method="get" class="row" style="align-items:end">
+    <div class="field" style="margin:0">
+      <label>搜尋</label>
+      <input type="search" name="q" value="{{ q }}" placeholder="姓名、主項、學校或計劃">
+    </div>
+    <div class="field" style="margin:0">
+      <label>計劃</label>
+      <select name="project">
+        <option value="">全部計劃</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}" {% if project == p.id|stringformat:"s" %}selected{% endif %}>{{ p.title }}</option>
+        {% endfor %}
+        <option value="none" {% if project == "none" %}selected{% endif %}>未參加任何計劃</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label>主項</label>
+      <select name="event">
+        <option value="">全部項目</option>
+        {% for e in events %}
+          <option value="{{ e.id }}" {% if event == e.id|stringformat:"s" %}selected{% endif %}>{{ e.name_zh }}（{{ e.code }}）</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin:0">
+      <label>傷患狀態</label>
+      <select name="injury">
+        <option value="">全部狀態</option>
+        {% for value, label in injury_filters %}
+          <option value="{{ value }}" {% if injury == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field flex" style="margin:0">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="dir" value="{{ dir }}">
+      <button class="btn" type="submit">套用</button>
+      {% if has_filter %}<a class="btn ghost" href="{% url 'web:athlete_list' %}">清除</a>{% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- ------------------------------------------------------------ 列表 -->
+<div class="card pad0">
+  <div class="card-head">
+    <span>點表頭可排序 · 點運動員進入狀態總覽</span>
+    <span class="small c-dim">目前依「{{ sort_label }}」{% if dir == 'asc' %}正序{% else %}倒序{% endif %}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th><a href="{{ sort_urls.name }}">運動員 {% if sort == 'name' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.project }}">計劃 {% if sort == 'project' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.event }}">主項 {% if sort == 'event' %}{{ arrow }}{% endif %}</a></th>
+        <th class="num"><a href="{{ sort_urls.age }}">年紀 {% if sort == 'age' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.status }}">傷患狀態 {% if sort == 'status' %}{{ arrow }}{% endif %}</a></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for a in athletes %}
+      <tr>
+        <td>
+          <strong>{{ a.user.get_full_name|default:a.user.username }}</strong>
+          {% if a.school_or_club %}<div class="small c-dim">{{ a.school_or_club }}</div>{% endif %}
+        </td>
+        <td>
+          {% if a.application.project %}
+            <a href="{% url 'web:plan_detail' a.application.project.id %}">{{ a.application.project.title }}</a>
+          {% else %}
+            <span class="c-dim">—</span>
+          {% endif %}
+        </td>
+        <td>{{ a.primary_event.name_zh }} <span class="small c-dim">{{ a.primary_event.code }}</span></td>
+        <td class="num">{{ a.age }}</td>
+        <td>
+          <span class="badge {% if a.status == 'HEALTHY' %}b-green{% elif a.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ a.get_status_display }}</span>
+          {% if a.injury_count %}<span class="small c-red">· {{ a.injury_count }} 筆未結案</span>{% endif %}
+        </td>
+        <td>
+          <div class="flex" style="gap:6px">
+            <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ a.id }}">狀態總覽</a>
+            <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ a.id }}">日曆</a>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="empty">{% if has_filter %}沒有符合條件的運動員{% else %}尚未有旗下運動員{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

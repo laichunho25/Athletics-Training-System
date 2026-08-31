@@ -25,16 +25,26 @@
 <!-- ---------------------------------------------------------- 四格總覽 -->
 <div class="grid grid-4 mb">
   <div class="card stat">
-    <div class="label">距離目標賽事</div>
+    <div class="label">
+      距離目標賽事
+      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="targetDlg.showModal()">修改</button>{% endif %}
+    </div>
     <div class="value c-accent">{{ d.countdown|default:"—" }}</div>
-    <div class="hint">{{ d.target_competition.name|default:"尚未設定目標賽事" }}</div>
+    <div class="hint">
+      {{ d.target_competition.name|default:"尚未設定目標賽事" }}
+      {% if d.target_competition %}<br>{{ d.target_competition.date }} · {{ d.target_competition.get_level_display }}{% endif %}
+    </div>
   </div>
 
   <div class="card stat">
-    <div class="label">目前分期</div>
+    <div class="label">
+      目前分期
+      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="phaseDlg.showModal()">修改</button>{% endif %}
+    </div>
     <div class="value sm">{{ d.current_phase.get_phase_type_display|default:"—" }}</div>
     <div class="hint">
-      {% if d.current_week %}第 {{ d.current_week }} 週 / 16 週{% else %}尚未建立週期計劃{% endif %}
+      {% if d.current_week %}第 {{ d.current_week }} 週 / {{ macro.total_weeks }} 週{% else %}尚未建立週期計劃{% endif %}
+      {% if d.current_phase %}<br>{{ d.current_phase.focus|truncatechars:40 }}{% endif %}
     </div>
   </div>
 
@@ -155,6 +165,159 @@
   [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
   [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
 </div>
+{% if can_edit_plan %}
+<!-- --------------------------------------------- 目標賽事 / 分期 對話框 -->
+<dialog id="targetDlg" class="dlg">
+  <form method="post" action="{% url 'web:athlete_plan_edit' athlete.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="set_target">
+    <div class="between mb">
+      <h2>設定目標賽事</h2>
+      <button type="button" class="btn ghost sm" onclick="targetDlg.close()">關閉</button>
+    </div>
+
+    <div class="field">
+      <label>目標賽事</label>
+      <select name="competition" id="compPick" onchange="toggleNewComp()">
+        <option value="">— 請選擇 —</option>
+        {% for c in competitions %}
+          <option value="{{ c.id }}" {% if macro and macro.target_competition_id == c.id %}selected{% endif %}>
+            {{ c.name }}（{{ c.date }}）
+          </option>
+        {% endfor %}
+        <option value="__new__">＋ 新增一個賽事…</option>
+      </select>
+    </div>
+
+    <div id="newComp" style="display:none">
+      <div class="row">
+        <div class="field">
+          <label>賽事名稱</label>
+          <input type="text" name="comp_name" maxlength="150" placeholder="例：全港學界田徑錦標賽">
+        </div>
+        <div class="field">
+          <label>比賽日期</label>
+          <input type="date" name="comp_date" value="{{ today_iso }}">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>場地</label>
+          <input type="text" name="comp_venue" maxlength="150">
+        </div>
+        <div class="field">
+          <label>層級</label>
+          <select name="comp_level">
+            {% for value, label in competition_levels %}
+              <option value="{{ value }}" {% if value == 'REGIONAL' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>備戰開始日期</label>
+        <input type="date" name="start_date" value="{{ macro.start_date|date:'Y-m-d' }}">
+        <div class="small c-dim" style="margin-top:4px">留空＝由比賽日往回數，自動對齊週一</div>
+      </div>
+      <div class="field">
+        <label>總週數</label>
+        <input type="number" name="total_weeks" min="1" max="52" value="{{ macro.total_weeks|default:16 }}">
+      </div>
+      <div class="field">
+        <label>基準週負荷 (AU)</label>
+        <input type="number" name="baseline_weekly_load" min="100" max="20000" step="50"
+               value="{{ macro.baseline_weekly_load|default:1800 }}">
+      </div>
+    </div>
+
+    <div class="alert blue small">
+      改動開始日期、總週數或基準負荷會依模板重建分期與週計劃；
+      已排的課表會重新對回新的週次。
+    </div>
+    <button class="btn" type="submit">儲存目標賽事</button>
+  </form>
+</dialog>
+
+<dialog id="phaseDlg" class="dlg">
+  <form method="post" action="{% url 'web:athlete_plan_edit' athlete.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="set_phase">
+    <div class="between mb">
+      <h2>修改分期</h2>
+      <button type="button" class="btn ghost sm" onclick="phaseDlg.close()">關閉</button>
+    </div>
+
+    {% if not macro %}
+      <div class="alert yellow">要先設定目標賽事，才有分期可以改。</div>
+    {% else %}
+      <div class="field">
+        <label>要改哪一段分期</label>
+        <select name="phase_id" id="phasePick" onchange="fillPhase()">
+          {% for ph in phases %}
+            <option value="{{ ph.id }}"
+                    data-type="{{ ph.phase_type }}" data-start="{{ ph.week_start }}"
+                    data-end="{{ ph.week_end }}" data-load="{{ ph.target_weekly_load }}"
+                    data-focus="{{ ph.focus }}"
+                    {% if d.current_phase and d.current_phase.id == ph.id %}selected{% endif %}>
+              {{ ph.get_phase_type_display }}（W{{ ph.week_start }}–W{{ ph.week_end }}）{% if d.current_phase and d.current_phase.id == ph.id %} · 目前{% endif %}
+            </option>
+          {% endfor %}
+          <option value="">＋ 新增一段分期</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>期別</label>
+        <div class="typepick">
+          {% for value, label in phase_types %}
+            <label class="typeopt">
+              <input type="radio" name="phase_type" value="{{ value }}"
+                     {% if d.current_phase.phase_type == value %}checked{% endif %}>
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>起始週</label>
+          <input type="number" name="week_start" id="phWeekStart" min="1" max="{{ macro.total_weeks }}"
+                 value="{{ d.current_phase.week_start|default:1 }}">
+        </div>
+        <div class="field">
+          <label>結束週</label>
+          <input type="number" name="week_end" id="phWeekEnd" min="1" max="{{ macro.total_weeks }}"
+                 value="{{ d.current_phase.week_end|default:macro.total_weeks }}">
+        </div>
+        <div class="field">
+          <label>目標週負荷 (AU)</label>
+          <input type="number" name="target_weekly_load" id="phLoad" min="0" max="20000" step="50"
+                 value="{{ d.current_phase.target_weekly_load|default:macro.baseline_weekly_load }}">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>訓練重心</label>
+        <textarea name="focus" id="phFocus" rows="3"
+                  placeholder="例：專項速度/耐力、最大力量→爆發力轉化">{{ d.current_phase.focus }}</textarea>
+      </div>
+
+      <div class="between">
+        <button class="btn" type="submit">儲存分期</button>
+        <button class="btn ghost" type="submit" name="reset" value="1"
+                onclick="return confirm('會依預設模板重建整份分期，自訂的重心與目標負荷會被覆蓋。要繼續嗎？')">
+          重建預設分期
+        </button>
+      </div>
+    {% endif %}
+  </form>
+</dialog>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -179,4 +342,28 @@ new Chart(document.getElementById('loadChart'), {
   }
 });
 </script>
+
+{% if can_edit_plan %}
+<script>
+  // 目標賽事：選「新增一個賽事」才展開下面的欄位
+  function toggleNewComp() {
+    document.getElementById('newComp').style.display =
+      document.getElementById('compPick').value === '__new__' ? 'block' : 'none';
+  }
+
+  // 分期：換一段分期就把該段現有的值填回表單
+  function fillPhase() {
+    const opt = document.getElementById('phasePick').selectedOptions[0];
+    if (!opt) return;
+    const d = opt.dataset;
+    document.getElementById('phWeekStart').value = d.start || 1;
+    document.getElementById('phWeekEnd').value = d.end || 1;
+    document.getElementById('phLoad').value = d.load || 0;
+    document.getElementById('phFocus').value = d.focus || '';
+    document.querySelectorAll('input[name="phase_type"]').forEach(r => {
+      r.checked = r.value === d.type;
+    });
+  }
+</script>
+{% endif %}
 {% endblock %}
