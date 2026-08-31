@@ -1,51 +1,143 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="zh-Hant">
+{% load static %}<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}ATM{% endblock %} · 田徑訓練管理系統</title>
   <link rel="stylesheet" href="{% static 'css/atm.css' %}">
+  <script>
+    // 先套用使用者上次選的外觀／密度／側欄狀態，避免載入時閃一下
+    (function () {
+      try {
+        var d = document.documentElement;
+        d.dataset.theme = localStorage.getItem('atm-theme') || 'light';
+        d.dataset.density = localStorage.getItem('atm-density') || 'default';
+        if (localStorage.getItem('atm-sidebar') === 'collapsed') d.classList.add('sb-collapsed');
+      } catch (e) {}
+    })();
+  </script>
   <script src="{% static 'js/chart.min.js' %}"></script>
 </head>
 <body>
+
 {% if user.is_authenticated %}
-<div class="topbar">
-  <a class="brand" href="{% url 'web:landing' %}" style="text-decoration:none;color:inherit">ATM<span>·</span>田徑</a>
-  <nav class="nav">
-    <a href="{% url 'web:athlete_list' %}" class="{% if page == 'athletes' %}active{% endif %}">運動員列表</a>
-    <a href="{% url 'web:dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">運動員狀態總覽</a>
-    <a href="{% url 'web:plan' %}" class="{% if page == 'plan' %}active{% endif %}">計劃</a>
-    <a href="{% url 'web:calendar' %}" class="{% if page == 'calendar' %}active{% endif %}">訓練日曆</a>
-    <a href="{% url 'web:analytics' %}" class="{% if page == 'analytics' %}active{% endif %}">數據分析</a>
-    <a href="{% url 'web:nutrition' %}" class="{% if page == 'nutrition' %}active{% endif %}">營養與恢復</a>
-    <a href="{% url 'web:injuries' %}" class="{% if page == 'injuries' %}active{% endif %}">傷患管理</a>
-  </nav>
-  <div class="userbox">
-    <span>{{ user.get_full_name|default:user.username }} · {{ user.get_role_display }}</span>
-    <form method="post" action="{% url 'logout' %}" style="display:inline">
-      {% csrf_token %}
-      <button class="btn ghost sm" type="submit">登出</button>
-    </form>
-  </div>
-</div>
+{% include "web/_icons.html" %}
+<div class="applayout">
+
+  <!-- ------------------------------------------------------ 左側主導航 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <a class="brand" href="{% url 'web:landing' %}">ATM<span>·</span><b>田徑</b></a>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-title">運動員</div>
+        <a href="{% url 'web:athlete_list' %}" data-tip="運動員列表"
+           class="nav-item {% if page == 'athletes' %}active{% endif %}">
+          <svg class="ic"><use href="#i-people"></use></svg><span>運動員列表</span></a>
+        <a href="{% url 'web:dashboard' %}" data-tip="運動員狀態總覽"
+           class="nav-item {% if page == 'dashboard' %}active{% endif %}">
+          <svg class="ic"><use href="#i-gauge"></use></svg><span>運動員狀態總覽</span></a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">訓練管理</div>
+        <a href="{% url 'web:plan' %}" data-tip="計劃"
+           class="nav-item {% if page == 'plan' %}active{% endif %}">
+          <svg class="ic"><use href="#i-clipboard"></use></svg><span>計劃</span></a>
+        <a href="{% url 'web:calendar' %}" data-tip="訓練日曆"
+           class="nav-item {% if page == 'calendar' %}active{% endif %}">
+          <svg class="ic"><use href="#i-calendar"></use></svg><span>訓練日曆</span></a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">數據與健康</div>
+        <a href="{% url 'web:analytics' %}" data-tip="數據分析"
+           class="nav-item {% if page == 'analytics' %}active{% endif %}">
+          <svg class="ic"><use href="#i-chart"></use></svg><span>數據分析</span></a>
+        <a href="{% url 'web:nutrition' %}" data-tip="營養與恢復"
+           class="nav-item {% if page == 'nutrition' %}active{% endif %}">
+          <svg class="ic"><use href="#i-heart"></use></svg><span>營養與恢復</span></a>
+        <a href="{% url 'web:injuries' %}" data-tip="傷患管理"
+           class="nav-item {% if page == 'injuries' %}active{% endif %}">
+          <svg class="ic"><use href="#i-shield"></use></svg><span>傷患管理</span></a>
+      </div>
+    </nav>
+
+    <div class="sb-foot">
+      <button type="button" class="sb-collapse" data-act="collapse" data-tip="展開選單">
+        <svg class="ic"><use href="#i-collapse"></use></svg><span>收合選單</span>
+      </button>
+    </div>
+  </aside>
+  <div class="sb-scrim" data-act="close-nav"></div>
+
+  <!-- ------------------------------------------------------- 右側工作區 -->
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="iconbtn only-mobile" data-act="open-nav" aria-label="開啟選單">
+        <svg class="ic"><use href="#i-menu"></use></svg>
+      </button>
+
+      {% include "web/_crumb.html" %}
+
+      <form class="topsearch" method="get" action="{% url 'web:athlete_list' %}">
+        <svg class="ic"><use href="#i-search"></use></svg>
+        <input type="search" name="q" placeholder="搜尋運動員、主項或計劃" aria-label="全域搜尋">
+      </form>
+
+      <div class="topacts">
+        <label class="densitypick" title="表格間距">
+          <svg class="ic"><use href="#i-rows"></use></svg>
+          <select data-act="density" aria-label="表格間距">
+            <option value="compact">緊湊</option>
+            <option value="default" selected>標準</option>
+            <option value="loose">寬鬆</option>
+          </select>
+        </label>
+        <button type="button" class="iconbtn" data-act="theme" aria-label="切換淺色／深色">
+          <svg class="ic light-only"><use href="#i-moon"></use></svg>
+          <svg class="ic dark-only"><use href="#i-sun"></use></svg>
+        </button>
+        <div class="userbox">
+          <span class="avatar">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</span>
+          <span class="uinfo">
+            <b>{{ user.get_full_name|default:user.username }}</b>
+            <em>{{ user.get_role_display }}</em>
+          </span>
+        </div>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button class="btn ghost sm" type="submit">登出</button>
+        </form>
+      </div>
+    </header>
 {% endif %}
 
-<div class="wrap">
-  {% if messages %}
-    {% for m in messages %}
-      <div class="alert {% if m.tags == 'error' %}red{% elif m.tags == 'warning' %}yellow{% elif m.tags == 'info' %}blue{% else %}green{% endif %}">{{ m }}</div>
-    {% endfor %}
-  {% endif %}
-  {% block content %}{% endblock %}
-</div>
+    <div class="wrap">
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert {% if m.tags == 'error' %}red{% elif m.tags == 'warning' %}yellow{% elif m.tags == 'info' %}blue{% else %}green{% endif %}">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+
+{% if user.is_authenticated %}
+  </div><!-- /.main -->
+</div><!-- /.applayout -->
+<script src="{% static 'js/shell.js' %}"></script>
+{% endif %}
 
 <script>
-  // Chart.js 全域深色主題
+  // Chart.js 主題：字色／格線色跟著 CSS 變數走，換淺色深色都看得清
   if (window.Chart) {
-    Chart.defaults.color = '#8b98a8';
-    Chart.defaults.borderColor = '#2b3543';
-    Chart.defaults.font.family = '-apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif';
+    var cs = getComputedStyle(document.documentElement);
+    Chart.defaults.color = cs.getPropertyValue('--text-dim').trim() || '#667085';
+    Chart.defaults.borderColor = cs.getPropertyValue('--border').trim() || '#e3e8ef';
+    Chart.defaults.font.family = '-apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif';
+    Chart.defaults.font.size = 12;
     Chart.defaults.plugins.legend.labels.boxWidth = 12;
     Chart.defaults.maintainAspectRatio = false;
   }
