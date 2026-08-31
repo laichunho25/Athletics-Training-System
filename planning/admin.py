@@ -7,6 +7,7 @@ from planning.models import (
     Microcycle,
     Phase,
     ProjectAssignment,
+    SessionNote,
     SessionTemplate,
     TrainingSession,
 )
@@ -71,6 +72,15 @@ class TrainingSessionAdmin(admin.ModelAdmin):
     date_hierarchy = "date"
     search_fields = ("title", "description")
     inlines = [TrackSetInline, StrengthSetInline]
+
+
+@admin.register(SessionNote)
+class SessionNoteAdmin(admin.ModelAdmin):
+    """課表底下的共同記事（每一則只有作者本人改得動，這裡是管理員的後門）。"""
+
+    list_display = ("session", "kind", "author", "updated_at")
+    list_filter = ("kind", "author")
+    search_fields = ("body",)
 
 
 @admin.register(SessionTemplate)

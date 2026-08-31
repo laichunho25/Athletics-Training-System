@@ -313,3 +313,161 @@ class NeuromuscularTest(TimeStampedModel):
         if pct is None:
             return False
         return pct > 110 if self.lower_is_better else pct < 90
+
+
+# ------------------------------------------------------- 分區課表內容（活動）
+
+
+class BlockType(models.TextChoices):
+    """課表內容的四個層面。輸入時分區進行，輸出時依這個順序排。"""
+
+    WARMUP = "WARMUP", "熱身"
+    MAIN = "MAIN", "正課"
+    SUPPLEMENT = "SUPPLEMENT", "補充練習"
+    RECOVERY = "RECOVERY", "恢復練習"
+
+
+#: 課表內容區塊的固定顯示順序
+BLOCK_ORDER = [
+    BlockType.WARMUP,
+    BlockType.MAIN,
+    BlockType.SUPPLEMENT,
+    BlockType.RECOVERY,
+]
+
+#: 每一項活動都會出現的六個必要欄位（欄位名 → 顯示名）
+ACTIVITY_FIELDS = [
+    ("sets", "組數"),
+    ("reps", "次數"),
+    ("distance", "距離"),
+    ("weight", "重量"),
+    ("intensity", "強度"),
+    ("rest", "休息時間"),
+]
+
+
+class ActivityDefinition(TimeStampedModel):
+    """訓練活動名稱庫。
+
+    教練不用每次逐字打「Single Leg Hip Bridge」，從清單挑一個就會把預設的
+    組數/次數/距離/重量/強度/休息時間一起帶進課表，之後再改成當天的數字。
+    清單上沒有的活動，隨時按「新增活動」寫一個進去，下次就挑得到。
+    """
+
+    name = models.CharField("活動名稱", max_length=120, unique=True)
+    default_block = models.CharField(
+        "預設區塊", max_length=12, choices=BlockType.choices, default=BlockType.WARMUP
+    )
+    default_sets = models.CharField("預設組數", max_length=30, blank=True)
+    default_reps = models.CharField("預設次數", max_length=30, blank=True)
+    default_distance = models.CharField("預設距離", max_length=30, blank=True)
+    default_weight = models.CharField("預設重量", max_length=40, blank=True)
+    default_intensity = models.CharField("預設強度", max_length=40, blank=True)
+    default_rest = models.CharField("預設休息時間", max_length=80, blank=True)
+    default_key_points = models.TextField("預設訓練要點", blank=True)
+    note = models.CharField("說明", max_length=200, blank=True)
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity_definitions",
+        verbose_name="建立者",
+    )
+    is_builtin = models.BooleanField("系統內建", default=False)
+    use_count = models.PositiveIntegerField("使用次數", default=0)
+    is_active = models.BooleanField("可挑選", default=True)
+
+    class Meta:
+        verbose_name = "訓練活動"
+        verbose_name_plural = "訓練活動"
+        ordering = ["default_block", "-use_count", "name"]
+
+    def __str__(self):
+        return self.name
+
+    def defaults_payload(self):
+        """挑選時要帶進課表的預設值。"""
+        return {
+            "sets": self.default_sets,
+            "reps": self.default_reps,
+            "distance": self.default_distance,
+            "weight": self.default_weight,
+            "intensity": self.default_intensity,
+            "rest": self.default_rest,
+            "key_points": self.default_key_points,
+        }
+
+
+class SessionActivity(TimeStampedModel):
+    """課表裡的一項活動：熱身 / 正課 / 補充 / 恢復 其中一區的一列。
+
+    數值都用文字存，因為實際填的東西不一定是數字——重量可能是 body weight、
+    休息可能是 walk back、強度可能是 80%-90%、次數可能是「左/右腳 15 次」。
+    """
+
+    session = models.ForeignKey(
+        TrainingSession, on_delete=models.CASCADE, related_name="activities"
+    )
+    block = models.CharField("區塊", max_length=12, choices=BlockType.choices)
+    order = models.PositiveSmallIntegerField("排序", default=1)
+    definition = models.ForeignKey(
+        ActivityDefinition,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uses",
+        verbose_name="來源活動",
+    )
+    name = models.CharField("活動名稱", max_length=120)
+    sets = models.CharField("組數", max_length=30, blank=True)
+    reps = models.CharField("次數", max_length=30, blank=True)
+    distance = models.CharField("距離", max_length=30, blank=True)
+    weight = models.CharField("重量", max_length=40, blank=True)
+    intensity = models.CharField("強度", max_length=40, blank=True)
+    rest = models.CharField("休息時間", max_length=80, blank=True)
+    key_points = models.TextField("訓練要點", blank=True)
+    note = models.TextField("當日備注", blank=True)
+    satisfaction = models.PositiveSmallIntegerField(
+        "滿意度 (1-5)",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="完成後自評對這項訓練的滿意程度",
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="session_activities",
+        verbose_name="寫入者",
+    )
+
+    class Meta:
+        verbose_name = "課表活動"
+        verbose_name_plural = "課表活動"
+        ordering = ["session", "block", "order", "id"]
+        indexes = [models.Index(fields=["session", "block", "order"])]
+
+    def __str__(self):
+        return f"[{self.get_block_display()}] {self.name}"
+
+    @property
+    def summary(self):
+        """一行摘要：Single Leg Hip Bridge 15 次 × 3 組 @ body weight，休 30s"""
+        bits = [self.name]
+        for value, suffix in (
+            (self.distance, ""),
+            (self.reps, " 次"),
+            (self.sets, " 組"),
+        ):
+            if value:
+                bits.append(f"{value}{suffix}")
+        if self.weight:
+            bits.append(f"@ {self.weight}")
+        if self.intensity:
+            bits.append(f"強度 {self.intensity}")
+        if self.rest:
+            bits.append(f"休 {self.rest}")
+        return " ".join(bits)

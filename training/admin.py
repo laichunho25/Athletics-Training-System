@@ -1,10 +1,12 @@
 from django.contrib import admin
 
 from training.models import (
+    ActivityDefinition,
     Exercise,
     NeuromuscularTest,
     OneRepMax,
     RepSplit,
+    SessionActivity,
     StrengthSet,
     TrackSet,
 )
@@ -47,3 +49,24 @@ class OneRepMaxAdmin(admin.ModelAdmin):
 class NeuromuscularTestAdmin(admin.ModelAdmin):
     list_display = ("athlete", "date", "test_type", "value", "pct_of_baseline", "is_fatigued")
     list_filter = ("test_type", "athlete")
+
+
+@admin.register(ActivityDefinition)
+class ActivityDefinitionAdmin(admin.ModelAdmin):
+    """訓練活動名稱庫：排課表時可以挑的活動都在這裡。"""
+
+    list_display = ("name", "default_block", "default_sets", "default_reps",
+                    "default_distance", "default_weight", "default_intensity",
+                    "default_rest", "use_count", "is_builtin", "is_active")
+    list_filter = ("default_block", "is_builtin", "is_active")
+    search_fields = ("name", "note", "default_key_points")
+    list_editable = ("is_active",)
+
+
+@admin.register(SessionActivity)
+class SessionActivityAdmin(admin.ModelAdmin):
+    list_display = ("session", "block", "order", "name", "sets", "reps",
+                    "distance", "weight", "intensity", "rest", "satisfaction", "created_by")
+    list_filter = ("block", "created_by")
+    search_fields = ("name", "key_points", "note")
+    autocomplete_fields = ["definition"]

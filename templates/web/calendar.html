@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}訓練日曆{% endblock %}
 
 {% block content %}
@@ -46,27 +47,9 @@
     </span>
   </div>
 
-  <div class="cal">
-    <div class="dow">一</div><div class="dow">二</div><div class="dow">三</div>
-    <div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>
-    {% for week in weeks %}
-      {% for cell in week %}
-        <div class="day {% if not cell.in_month %}other{% endif %} {% if cell.is_today %}today{% endif %}">
-          <div class="daynum">
-            <span>{{ cell.date|date:"j" }}</span>
-            <button type="button" class="addday" title="在 {{ cell.date }} 新增 program"
-                    data-date="{{ cell.date|date:'Y-m-d' }}">＋</button>
-          </div>
-          {% for s in cell.sessions %}
-            <a class="ev t-{{ s.session_type|lower }} {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %}"
-               href="{% url 'web:session_detail' s.id %}"
-               title="{{ s.get_session_type_display }}｜{{ s.title }}｜{{ s.get_status_display }}｜負荷 {{ s.session_load }} AU">
-              {{ s.title }}
-            </a>
-          {% endfor %}
-        </div>
-      {% endfor %}
-    {% endfor %}
+  <div id="calwrap" data-version="{{ cal_version }}"
+       data-live-url="{% url 'web:calendar_live' %}?athlete={{ athlete.id }}&year={{ year }}&month={{ month }}">
+    {% include "web/_calendar_grid.html" %}
   </div>
 </div>
 
@@ -75,7 +58,7 @@
   <span class="badge b-green">已完成</span>
   <span class="badge b-yellow">部分完成</span>
   <span class="badge b-red">缺席</span>
-  <span>· 點日期上的 ＋ 新增 program，點課表可打卡記錄 RPE 與實際時長</span>
+  <span>· 點日期上的 ＋ 新增 program；<strong>把課表直接拖到另一天就是改日期</strong>；點課表可分區排熱身／正課／補充／恢復</span>
 </div>
 
 <!-- ------------------------------------------------- 新增 program 對話框 -->
@@ -124,9 +107,9 @@
       <input type="text" name="title" placeholder="留空會自動用類別名稱，例：加速度課 / 下肢最大力量">
     </div>
     <div class="field">
-      <label>內容</label>
-      <textarea name="description" rows="4"
-        placeholder="例：熱身 20 分 → 6 × 60m（95%）休 6 分 → 收操&#10;重量：背蹲舉 4×3 @85%、保加利亞分腿蹲 3×8"></textarea>
+      <label>概要</label>
+      <textarea name="description" rows="3"
+        placeholder="這裡先寫大方向就好；建立之後點進課表可以分熱身／正課／補充練習／恢復練習輸入每項活動"></textarea>
     </div>
 
     <button class="btn" type="submit">加入日曆</button>
@@ -143,14 +126,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'js/liveedit.js' %}"></script>
 <script>
-  // 點日期上的 ＋：帶著那一天的日期打開新增 program 的對話框
-  const dlg = document.getElementById('progDlg');
-  document.querySelectorAll('.addday').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.getElementById('progDate').value = btn.dataset.date;
-      dlg.showModal();
-    });
-  });
+  ATM.mountCalendar();
 </script>
 {% endblock %}

@@ -1,0 +1,452 @@
+{% load atm %}
+{% comment %}
+課表頁的全部內容。整頁載入和「有人改動 → 輪詢刷新」都渲染這一份，
+所以兩邊永遠長得一樣，不會出現只有其中一頁看得到新內容的情況。
+{% endcomment %}
+
+{% if blocked %}
+<div class="alert red">🚫 <strong>高強度已被封鎖：</strong>{{ block_reason }}
+  <form method="post" style="display:inline;margin-left:10px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="modify">
+    <button class="btn sm" type="submit">依傷患自動調整此課表</button>
+  </form>
+</div>
+{% endif %}
+{% if s.is_modified %}
+<div class="alert yellow">⚠️ 此課表已經過傷患調整。</div>
+{% endif %}
+
+<!-- ------------------------------------------------------------ 課表抬頭 -->
+<div class="card mb">
+  <div class="between">
+    <h2 style="margin:0">
+      <span class="cell big" data-edit="session:{{ s.id }}:title" data-kind="text"
+            data-value="{{ s.title }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.title }}</span>
+    </h2>
+    <span class="small c-dim">
+      {{ s.athlete.user.get_full_name|default:s.athlete.user.username }} ·
+      {% if s.created_by %}由 {{ s.created_by.get_full_name|default:s.created_by.username }} 寫入{% elif s.assigned_by %}教練派發：{{ s.assigned_by }}{% else %}運動員自訂{% endif %}
+    </span>
+  </div>
+
+  <div class="metagrid mt">
+    <div class="meta">
+      <span class="lbl">日期</span>
+      <span class="cell" data-edit="session:{{ s.id }}:date" data-kind="date"
+            data-value="{{ s.date|date:'Y-m-d' }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.date|date:"Y-m-d" }}</span>
+      <span class="small c-dim">（{{ s.date|date:"D" }}）</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">時段</span>
+      <span class="cell" data-edit="session:{{ s.id }}:time_slot" data-kind="select"
+            data-value="{{ s.time_slot }}" data-options="AM|上午,PM|下午"
+            data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.get_time_slot_display }}</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">類別</span>
+      <span class="cell" data-edit="session:{{ s.id }}:session_type" data-kind="select"
+            data-value="{{ s.session_type }}"
+            data-options="{% for v, l in session_types %}{{ v }}|{{ l }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.get_session_type_display }}</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">計劃時長</span>
+      <span class="cell" data-edit="session:{{ s.id }}:planned_duration_min" data-kind="number"
+            data-value="{{ s.planned_duration_min }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.planned_duration_min }}</span>
+      <span class="small c-dim">分</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">狀態</span>
+      <span class="cell" data-edit="session:{{ s.id }}:status" data-kind="select"
+            data-value="{{ s.status }}"
+            data-options="{% for v, l in status_choices %}{{ v }}|{{ l }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-can="{{ can_log|yesno:'1,0' }}">{{ s.get_status_display }}</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">完成度</span>
+      <span class="cell" data-edit="session:{{ s.id }}:completion_pct" data-kind="number"
+            data-value="{{ s.completion_pct }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.completion_pct }}</span>
+      <span class="small c-dim">%</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">實際時長</span>
+      <span class="cell" data-edit="session:{{ s.id }}:actual_duration_min" data-kind="number"
+            data-value="{{ s.actual_duration_min|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.actual_duration_min|default:"—" }}</span>
+      <span class="small c-dim">分</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">課後 RPE</span>
+      <span class="cell" data-edit="session:{{ s.id }}:session_rpe" data-kind="number"
+            data-value="{{ s.session_rpe|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.session_rpe|default:"—" }}</span>
+      <span class="small c-dim">/10</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">訓練負荷</span>
+      <span class="c-accent" id="session-load">{{ s.session_load }}</span>
+      <span class="small c-dim">AU</span>
+    </div>
+    <div class="meta">
+      <span class="lbl">訓練滿意度</span>
+      <span class="cell rating" data-edit="session:{{ s.id }}:satisfaction" data-kind="rating"
+            data-value="{{ s.satisfaction|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{% if s.satisfaction %}{{ s.satisfaction }} / 5{% else %}—{% endif %}</span>
+      {% if s.avg_activity_satisfaction %}<span class="small c-dim">各項平均 {{ s.avg_activity_satisfaction }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="field mt">
+    <label>課表概要</label>
+    <div class="cell block" data-edit="session:{{ s.id }}:description" data-kind="textarea"
+         data-value="{{ s.description }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.description|default:"（點一下寫概要）" }}</div>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------- 四個訓練區塊 -->
+{% for b in blocks %}
+<div class="card pad0 mb block-card" data-block="{{ b.value }}">
+  <div class="card-head">
+    <span>{{ b.label }} <span class="c-dim small">· {{ b.activities|length }} 項</span></span>
+    <span class="flex">
+      <button type="button" class="btn ghost sm addact" data-block="{{ b.value }}" data-label="{{ b.label }}">＋ 加入活動</button>
+    </span>
+  </div>
+
+  {% if b.activities %}
+  <table class="acttable">
+    <thead>
+      <tr>
+        <th style="width:34px">#</th>
+        <th>活動</th>
+        {% for name, label in activity_fields %}<th class="num">{{ label }}</th>{% endfor %}
+        <th class="num">滿意度</th>
+        <th style="width:96px">寫入者</th>
+        <th style="width:34px"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in b.activities %}
+      {% with a=row.a can=row.editable|yesno:"1,0" %}
+      <tr>
+        <td class="num">
+          <span class="cell" data-edit="activity:{{ a.id }}:order" data-kind="number"
+                data-value="{{ a.order }}" data-can="{{ can }}">{{ a.order }}</span>
+        </td>
+        <td>
+          <span class="cell strong" data-edit="activity:{{ a.id }}:name" data-kind="text"
+                data-value="{{ a.name }}" data-can="{{ can }}">{{ a.name }}</span>
+        </td>
+        {% for name, label in activity_fields %}
+        <td class="num">
+          <span class="cell" data-edit="activity:{{ a.id }}:{{ name }}" data-kind="text"
+                data-value="{{ a|get_field:name }}" data-can="{{ can }}">{{ a|get_field:name|default:"—" }}</span>
+        </td>
+        {% endfor %}
+        <td class="num">
+          <span class="cell rating" data-edit="activity:{{ a.id }}:satisfaction" data-kind="rating"
+                data-value="{{ a.satisfaction|default_if_none:'' }}"
+                data-can="{{ can }}">{{ a.satisfaction|default:"—" }}</span>
+        </td>
+        <td class="small c-dim">{% if a.created_by %}{{ a.created_by.get_full_name|default:a.created_by.username }}{% else %}—{% endif %}</td>
+        <td>
+          {% if row.editable %}
+          <form method="post" onsubmit="return confirm('刪除「{{ a.name }}」？')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_activity">
+            <input type="hidden" name="id" value="{{ a.id }}">
+            <button class="linkbtn" type="submit" title="刪除">✕</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      <tr class="sub">
+        <td></td>
+        <td colspan="{{ activity_fields|length|add:4 }}">
+          <span class="tag">訓練要點</span>
+          <span class="cell inlineblock" data-edit="activity:{{ a.id }}:key_points" data-kind="textarea"
+                data-value="{{ a.key_points }}" data-can="{{ can }}">{{ a.key_points|default:"—" }}</span>
+          <span class="tag">當日備注</span>
+          <span class="cell inlineblock" data-edit="activity:{{ a.id }}:note" data-kind="textarea"
+                data-value="{{ a.note }}" data-can="{{ can }}">{{ a.note|default:"—" }}</span>
+        </td>
+      </tr>
+      {% endwith %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="pad c-dim small">這一區還沒有內容，按右上角「＋ 加入活動」從活動清單挑一個。</div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<!-- ------------------------------------------------------------- 共同記事 -->
+<div class="card mb">
+  <div class="between mb">
+    <h2 style="margin:0">共同記事</h2>
+    <span class="small c-dim">教練、運動員、管理員寫在同一個版面；每一則只有作者本人改得動</span>
+  </div>
+
+  {% if notes %}
+  <div class="notes">
+    {% for row in notes %}
+      {% with n=row.n %}
+      <div class="note">
+        <div class="between">
+          <span class="small">
+            <span class="badge {% if n.kind == 'POINT' %}b-orange{% elif n.kind == 'FEEDBACK' %}b-green{% else %}b-blue{% endif %}">{{ n.get_kind_display }}</span>
+            <strong>{{ n.author.get_full_name|default:n.author.username }}</strong>
+            <span class="c-dim">{{ n.author.get_role_display }} · {{ n.updated_at|date:"m-d H:i" }}</span>
+          </span>
+          {% if row.editable %}
+          <form method="post" onsubmit="return confirm('刪除這則記事？')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_note">
+            <input type="hidden" name="id" value="{{ n.id }}">
+            <button class="linkbtn" type="submit" title="刪除">✕</button>
+          </form>
+          {% endif %}
+        </div>
+        <div class="cell block" data-edit="note:{{ n.id }}:body" data-kind="textarea"
+             data-value="{{ n.body }}" data-can="{{ row.editable|yesno:'1,0' }}">{{ n.body }}</div>
+      </div>
+      {% endwith %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="c-dim small mb">還沒有人寫。</div>
+  {% endif %}
+
+  <form method="post" class="mt">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_note">
+    <div class="row">
+      <div class="field" style="max-width:160px">
+        <label>類別</label>
+        <select name="kind">
+          {% for v, l in note_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1">
+        <label>寫點什麼</label>
+        <textarea name="body" rows="2" placeholder="今天的狀況、要提醒的地方、下一課的調整…"></textarea>
+      </div>
+    </div>
+    <button class="btn sm" type="submit">送出</button>
+  </form>
+</div>
+
+<!-- --------------------------------------------- 舊有的專項 / 力量明細表 -->
+{% if track_sets %}
+<div class="card pad0 mb">
+  <div class="card-head"><span>田徑專項組數</span><span class="small c-dim">數字都可以直接點下去改</span></div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>內容</th><th class="num">距離</th><th class="num">目標</th><th class="num">實際</th>
+          <th class="num">配速/100m</th><th class="num">%PB</th><th class="num">趟間休</th><th class="num">RPE</th><th>技術重點</th></tr>
+    </thead>
+    <tbody>
+    {% for t in track_sets %}
+      <tr>
+        <td class="num">{{ t.order }}</td>
+        <td><span class="cell" data-edit="trackset:{{ t.id }}:description" data-kind="text" data-value="{{ t.description }}">{{ t.description }}</span></td>
+        <td class="num"><span class="cell" data-edit="trackset:{{ t.id }}:distance_m" data-kind="number" data-value="{{ t.distance_m }}">{{ t.distance_m }}</span> m</td>
+        <td class="num"><span class="cell" data-edit="trackset:{{ t.id }}:target_time_sec" data-kind="number" data-value="{{ t.target_time_sec|default_if_none:'' }}">{{ t.target_time_sec|default:"—" }}</span></td>
+        <td class="num c-accent"><span class="cell" data-edit="trackset:{{ t.id }}:actual_time_sec" data-kind="number" data-value="{{ t.actual_time_sec|default_if_none:'' }}">{{ t.actual_time_sec|default:"—" }}</span></td>
+        <td class="num">{{ t.pace_per_100m|default:"—" }}</td>
+        <td class="num">{% if t.intensity_vs_pb %}{{ t.intensity_vs_pb }}%{% else %}—{% endif %}</td>
+        <td class="num"><span class="cell" data-edit="trackset:{{ t.id }}:rest_between_reps_sec" data-kind="number" data-value="{{ t.rest_between_reps_sec }}">{{ t.rest_between_reps_sec }}</span>s</td>
+        <td class="num"><span class="cell" data-edit="trackset:{{ t.id }}:rpe" data-kind="number" data-value="{{ t.rpe|default_if_none:'' }}">{{ t.rpe|default:"—" }}</span></td>
+        <td class="small"><span class="cell" data-edit="trackset:{{ t.id }}:technical_focus" data-kind="textarea" data-value="{{ t.technical_focus }}">{{ t.technical_focus|default:"—" }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if strength_sets %}
+<div class="card pad0 mb">
+  <div class="card-head"><span>力量訓練組數</span><span class="small c-dim">數字都可以直接點下去改</span></div>
+  <table>
+    <thead>
+      <tr><th>動作</th><th class="num">組</th><th class="num">次</th><th class="num">重量</th>
+          <th class="num">目標%1RM</th><th class="num">實際%1RM</th><th class="num">RIR</th>
+          <th class="num">RPE</th><th class="num">Tonnage</th><th>備註</th></tr>
+    </thead>
+    <tbody>
+    {% for x in strength_sets %}
+      <tr>
+        <td>{{ x.exercise.name_zh }}</td>
+        <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:set_number" data-kind="number" data-value="{{ x.set_number }}">{{ x.set_number }}</span></td>
+        <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:reps" data-kind="number" data-value="{{ x.reps }}">{{ x.reps }}</span></td>
+        <td class="num c-accent"><span class="cell" data-edit="strengthset:{{ x.id }}:weight_kg" data-kind="number" data-value="{{ x.weight_kg }}">{{ x.weight_kg }}</span> kg</td>
+        <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:target_1rm_pct" data-kind="number" data-value="{{ x.target_1rm_pct|default_if_none:'' }}">{{ x.target_1rm_pct|default:"—" }}</span></td>
+        <td class="num">{% if x.actual_1rm_pct %}{{ x.actual_1rm_pct }}%{% else %}—{% endif %}</td>
+        <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:rir" data-kind="number" data-value="{{ x.rir|default_if_none:'' }}">{{ x.rir|default:"—" }}</span></td>
+        <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:rpe" data-kind="number" data-value="{{ x.rpe|default_if_none:'' }}">{{ x.rpe|default:"—" }}</span></td>
+        <td class="num">{{ x.tonnage }}</td>
+        <td class="small"><span class="cell" data-edit="strengthset:{{ x.id }}:note" data-kind="text" data-value="{{ x.note }}">{{ x.note|default:"—" }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ------------------------------------------------------ 打卡 / 教練評語 -->
+<div class="grid grid-2">
+  <div class="card">
+    <h2>訓練打卡</h2>
+    {% if can_log %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="complete">
+      <div class="row">
+        <div class="field">
+          <label for="dur">實際時長（分鐘）</label>
+          <input type="number" id="dur" name="actual_duration_min" min="0" max="600"
+                 value="{{ s.actual_duration_min|default:s.planned_duration_min }}" required>
+        </div>
+        <div class="field">
+          <label for="rpe">課後 RPE (1–10)</label>
+          <input type="number" id="rpe" name="session_rpe" min="1" max="10"
+                 value="{{ s.session_rpe|default:7 }}" required>
+        </div>
+        <div class="field">
+          <label for="pct">完成度 (%)</label>
+          <input type="number" id="pct" name="completion_pct" min="0" max="100"
+                 value="{{ s.completion_pct|default:100 }}">
+        </div>
+        <div class="field">
+          <label for="sat">滿意度 (1–5)</label>
+          <select id="sat" name="satisfaction">
+            <option value="">—</option>
+            {% for i in "12345" %}
+              <option value="{{ i }}" {% if s.satisfaction|stringformat:"s" == i %}selected{% endif %}>{{ i }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fb">運動員反饋</label>
+        <textarea id="fb" name="athlete_feedback" rows="3"
+                  placeholder="感受、狀況、身體反應…">{{ s.athlete_feedback }}</textarea>
+      </div>
+      <button class="btn" type="submit">送出打卡</button>
+      <span class="small c-dim" style="margin-left:10px">負荷 = RPE × 時長，送出後即時重算 ACWR</span>
+    </form>
+    {% else %}
+      <div class="small c-dim mb">打卡欄位由運動員本人填寫。</div>
+      <div style="white-space:pre-wrap">{{ s.athlete_feedback|default:"運動員尚未填寫反饋。" }}</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>教練評語</h2>
+    {% if can_comment %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="coach_comment">
+        <div class="field">
+          <textarea name="coach_comment" rows="5" placeholder="技術修正、下次調整方向…">{{ s.coach_comment }}</textarea>
+        </div>
+        <button class="btn" type="submit">儲存評語</button>
+      </form>
+    {% else %}
+      <div style="white-space:pre-wrap">{{ s.coach_comment|default:"教練尚未留下評語。" }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ------------------------------------------------------- 加入活動對話框 -->
+<dialog id="actDlg" class="dlg">
+  <form method="post" id="actForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_activity">
+    <input type="hidden" name="block" id="actBlock">
+    <div class="between mb">
+      <h2 style="margin:0">加入活動 · <span id="actBlockLabel"></span></h2>
+      <button type="button" class="btn ghost sm" onclick="document.getElementById('actDlg').close()">關閉</button>
+    </div>
+
+    <div class="field">
+      <label>從活動清單挑一個（挑完會自動帶入預設值，仍可改）</label>
+      <select name="definition" id="actPick">
+        <option value="">— 自己打一個名稱 —</option>
+        {% for d in library %}
+          <option value="{{ d.id }}" data-block="{{ d.default_block }}">{{ d.get_default_block_display }}｜{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label>活動名稱</label>
+      <input type="text" name="name" id="actName" placeholder="例：Single Leg Hip Bridge">
+    </div>
+
+    <div class="row">
+      <div class="field"><label>組數</label><input type="text" name="sets" id="f_sets" placeholder="3 組"></div>
+      <div class="field"><label>次數</label><input type="text" name="reps" id="f_reps" placeholder="左/右腳 15 次"></div>
+      <div class="field"><label>距離</label><input type="text" name="distance" id="f_distance" placeholder="30 米"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>重量</label><input type="text" name="weight" id="f_weight" placeholder="body weight"></div>
+      <div class="field"><label>強度</label><input type="text" name="intensity" id="f_intensity" placeholder="80%–90%"></div>
+      <div class="field"><label>休息時間</label><input type="text" name="rest" id="f_rest" placeholder="每次 5 分鐘 / 每組 15 分鐘"></div>
+    </div>
+    <div class="field">
+      <label>訓練要點</label>
+      <textarea name="key_points" id="f_key_points" rows="2" placeholder="髖不塌、核心收緊…"></textarea>
+    </div>
+    <div class="field">
+      <label>當日備注</label>
+      <textarea name="note" rows="2" placeholder="今天場地濕、改在草地做…"></textarea>
+    </div>
+
+    <div class="flex">
+      <button class="btn" type="submit">加入課表</button>
+      <button class="btn ghost" type="button" id="openNewDef">＋ 新增一個活動到清單</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- --------------------------------------------------- 新增活動到清單對話框 -->
+<dialog id="defDlg" class="dlg">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="new_definition">
+    <div class="between mb">
+      <h2 style="margin:0">新增訓練活動</h2>
+      <button type="button" class="btn ghost sm" onclick="document.getElementById('defDlg').close()">關閉</button>
+    </div>
+    <div class="small c-dim mb">寫進清單之後，之後排課表時所有人都挑得到，不用再逐字打。</div>
+
+    <div class="row">
+      <div class="field" style="flex:2"><label>活動名稱</label><input type="text" name="name" required placeholder="例：A-Skip"></div>
+      <div class="field">
+        <label>預設區塊</label>
+        <select name="default_block">
+          {% for v, l in block_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>預設組數</label><input type="text" name="sets" placeholder="3 組"></div>
+      <div class="field"><label>預設次數</label><input type="text" name="reps" placeholder="15 次"></div>
+      <div class="field"><label>預設距離</label><input type="text" name="distance" placeholder="30 米"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>預設重量</label><input type="text" name="weight" placeholder="body weight"></div>
+      <div class="field"><label>預設強度</label><input type="text" name="intensity" placeholder="80%–90%"></div>
+      <div class="field"><label>預設休息時間</label><input type="text" name="rest" placeholder="30s / walk back"></div>
+    </div>
+    <div class="field">
+      <label>預設訓練要點</label>
+      <textarea name="key_points" rows="2"></textarea>
+    </div>
+    <label class="flex small"><input type="checkbox" name="also_add" value="1" checked> 同時加進這一堂課</label>
+    <button class="btn mt" type="submit">建立活動</button>
+  </form>
+</dialog>
+
+{{ library_data|json_script:"library-json" }}
