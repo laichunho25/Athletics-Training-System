@@ -7,8 +7,11 @@ from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.db.models import F
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_POST
 
 from accounts.models import AthleteProfile, CoachProfile, Event
 from analytics import services as an
@@ -18,6 +21,7 @@ from analytics.models import (
     MetricRecord,
     ensure_builtin_items,
 )
+from core import liveedit
 from core.glossary import all_terms, as_groups
 from core.models import Role, SessionStatus, SessionType, program_type_choices
 from core.permissions import athlete_ids_visible_to
@@ -34,13 +38,21 @@ from nutrition import services as nu
 from nutrition.models import NutritionTarget, RecoveryLog, RecoveryMethod
 from planning.models import (
     Microcycle,
+    NoteKind,
+    SessionNote,
     ProjectAssignment,
     TrainingSession,
     project_athletes,
     projects_for,
 )
 from programs.models import Project
-from training.models import Exercise
+from training.models import (
+    ACTIVITY_FIELDS,
+    ActivityDefinition,
+    BlockType,
+    Exercise,
+    SessionActivity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -385,6 +397,7 @@ def calendar_view(request):
             or DEFAULT_PROGRAM_TITLES[session_type],
             description=request.POST.get("description", ""),
             assigned_by=coach,
+            created_by=request.user,
             planned_duration_min=int(request.POST.get("planned_duration_min") or 90),
         )
         messages.success(
@@ -395,6 +408,20 @@ def calendar_view(request):
             f"{request.path}?athlete={athlete.id}&year={on_date.year}&month={on_date.month}"
         )
 
+    ctx = _calendar_context(athlete, request)
+    ctx.update(
+        {
+            "page": "calendar",
+            "athlete": athlete,
+            "athletes": _athlete_switcher(request),
+            "program_types": program_type_choices(),
+        }
+    )
+    return render(request, "web/calendar.html", ctx)
+
+
+def _calendar_context(athlete, request):
+    """組出月曆格子。calendar_view 和 calendar_live（輪詢刷新）共用同一份。"""
     today = date.today()
     year = int(request.GET.get("year", today.year))
     month = int(request.GET.get("month", today.month))
@@ -404,9 +431,11 @@ def calendar_view(request):
     grid_start = first - timedelta(days=first.weekday())
     grid_end = last + timedelta(days=(6 - last.weekday()))
 
-    sessions = TrainingSession.objects.filter(
-        athlete=athlete, date__gte=grid_start, date__lte=grid_end
-    ).order_by("date", "time_slot")
+    sessions = list(
+        TrainingSession.objects.filter(
+            athlete=athlete, date__gte=grid_start, date__lte=grid_end
+        ).order_by("date", "time_slot")
+    )
 
     by_day = {}
     for s in sessions:
@@ -429,39 +458,34 @@ def calendar_view(request):
 
     prev_m = first - timedelta(days=1)
     next_m = last + timedelta(days=1)
-
     macro = athlete.macrocycles.filter(is_active=True).first()
 
-    return render(
-        request,
-        "web/calendar.html",
-        {
-            "page": "calendar",
-            "athlete": athlete,
-            "athletes": _athlete_switcher(request),
-            "weeks": weeks,
-            "year": year,
-            "month": month,
-            "month_name": f"{year} 年 {month} 月",
-            "prev": {"year": prev_m.year, "month": prev_m.month},
-            "next": {"year": next_m.year, "month": next_m.month},
-            "macro": macro,
-            "phases": macro.phases.all() if macro else [],
-            "month_load": sum(s.session_load for s in sessions if first <= s.date <= last),
-            "month_count": sum(1 for s in sessions if first <= s.date <= last),
-            "program_types": program_type_choices(),
-            "today_iso": today.isoformat(),
-        },
-    )
+    return {
+        "weeks": weeks,
+        "year": year,
+        "month": month,
+        "month_name": f"{year} 年 {month} 月",
+        "prev": {"year": prev_m.year, "month": prev_m.month},
+        "next": {"year": next_m.year, "month": next_m.month},
+        "macro": macro,
+        "phases": macro.phases.all() if macro else [],
+        "month_load": sum(s.session_load for s in sessions if first <= s.date <= last),
+        "month_count": sum(1 for s in sessions if first <= s.date <= last),
+        "today_iso": today.isoformat(),
+        "cal_version": _stamp(sessions),
+        "can_move": {s.id: liveedit.can_edit(s, request.user, "date") for s in sessions},
+    }
+
+
+def _stamp(objects):
+    """一組物件的版本指紋：有人改過任何一筆，字串就會不一樣。"""
+    latest = max((o.updated_at for o in objects), default=None)
+    return f"{len(objects)}-{int(latest.timestamp() * 1000) if latest else 0}"
 
 
 @login_required
 def session_detail(request, pk):
-    session = get_object_or_404(
-        TrainingSession.objects.select_related("athlete", "assigned_by"), pk=pk
-    )
-    if session.athlete_id not in set(athlete_ids_visible_to(request.user)):
-        raise Http404("無權限存取此課表。")
+    session = _visible_session(request, pk)
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -472,6 +496,10 @@ def session_detail(request, pk):
                 completion_pct=int(request.POST.get("completion_pct", 100)),
                 feedback=request.POST.get("athlete_feedback", ""),
             )
+            satisfaction = request.POST.get("satisfaction", "").strip()
+            if satisfaction:
+                session.satisfaction = int(satisfaction)
+                session.save(update_fields=["satisfaction", "updated_at"])
             messages.success(request, f"已完成打卡，本次負荷 {session.session_load} AU。")
         elif action == "coach_comment":
             session.coach_comment = request.POST.get("coach_comment", "")
@@ -480,23 +508,255 @@ def session_detail(request, pk):
         elif action == "modify":
             changes = inj.apply_modifications(session)
             messages.info(request, f"已依傷患調整，共 {len(changes)} 項變更。")
+        elif action == "add_activity":
+            _add_activity(request, session)
+        elif action == "new_definition":
+            _new_definition(request, session)
+        elif action == "delete_activity":
+            _delete_row(request, SessionActivity, request.POST.get("id"), "活動")
+        elif action == "add_note":
+            _add_note(request, session)
+        elif action == "delete_note":
+            _delete_row(request, SessionNote, request.POST.get("id"), "記事")
         return redirect("web:session_detail", pk=pk)
 
-    blocked, reason = inj.should_block_high_intensity(session.athlete, session.date)
+    return render(request, "web/session_detail.html", _session_context(request, session))
 
-    return render(
-        request,
-        "web/session_detail.html",
-        {
-            "page": "calendar",
-            "s": session,
-            "track_sets": session.track_sets.all(),
-            "strength_sets": session.strength_sets.select_related("exercise"),
-            "blocked": blocked,
-            "block_reason": reason,
-            "is_coach": request.user.role in (Role.COACH, Role.ADMIN),
+
+def _visible_session(request, pk):
+    session = get_object_or_404(
+        TrainingSession.objects.select_related(
+            "athlete__user", "assigned_by__user", "created_by", "microcycle"
+        ),
+        pk=pk,
+    )
+    if session.athlete_id not in set(athlete_ids_visible_to(request.user)):
+        raise Http404("無權限存取此課表。")
+    return session
+
+
+def _session_context(request, session):
+    """課表頁的完整 context（整頁與輪詢刷新的片段共用同一份）。"""
+    blocked, reason = inj.should_block_high_intensity(session.athlete, session.date)
+    library = list(ActivityDefinition.objects.filter(is_active=True))
+
+    blocks = []
+    for value, label, activities in session.activities_by_block():
+        blocks.append(
+            {
+                "value": value,
+                "label": label,
+                "activities": [
+                    {"a": a, "editable": liveedit.can_edit(a, request.user, "name")}
+                    for a in activities
+                ],
+            }
+        )
+
+    notes = [
+        {"n": n, "editable": liveedit.can_edit(n, request.user, "body")}
+        for n in session.notes.select_related("author")
+    ]
+
+    return {
+        "page": "calendar",
+        "s": session,
+        "blocks": blocks,
+        "notes": notes,
+        "note_kinds": NoteKind.choices,
+        "block_choices": BlockType.choices,
+        "activity_fields": ACTIVITY_FIELDS,
+        "library": library,
+        # 給前端挑活動時自動帶入預設值用（模板以 json_script 輸出，不會被 HTML 咬到）
+        "library_data": [
+            dict(id=d.id, name=d.name, block=d.default_block, **d.defaults_payload())
+            for d in library
+        ],
+        "track_sets": session.track_sets.all(),
+        "strength_sets": session.strength_sets.select_related("exercise"),
+        "blocked": blocked,
+        "block_reason": reason,
+        "is_coach": request.user.role in (Role.COACH, Role.ADMIN),
+        "can_edit_plan": liveedit.can_edit(session, request.user, "title"),
+        "can_log": liveedit.can_edit(session, request.user, "session_rpe"),
+        "can_comment": liveedit.can_edit(session, request.user, "coach_comment"),
+        "version": session.content_version,
+        "session_types": program_type_choices(),
+        "status_choices": SessionStatus.choices,
+    }
+
+
+def _add_activity(request, session):
+    """在某一區（熱身 / 正課 / 補充 / 恢復）加一項活動。"""
+    block = request.POST.get("block")
+    if block not in BlockType.values:
+        messages.error(request, "不認得的課表區塊。")
+        return
+
+    definition = None
+    definition_id = request.POST.get("definition")
+    if definition_id:
+        definition = ActivityDefinition.objects.filter(pk=definition_id).first()
+
+    name = request.POST.get("name", "").strip() or (definition.name if definition else "")
+    if not name:
+        messages.error(request, "請挑一個活動，或自己打一個名稱。")
+        return
+
+    last = session.activities.filter(block=block).order_by("-order").first()
+    SessionActivity.objects.create(
+        session=session,
+        block=block,
+        order=(last.order + 1) if last else 1,
+        definition=definition,
+        name=name,
+        sets=request.POST.get("sets", "").strip(),
+        reps=request.POST.get("reps", "").strip(),
+        distance=request.POST.get("distance", "").strip(),
+        weight=request.POST.get("weight", "").strip(),
+        intensity=request.POST.get("intensity", "").strip(),
+        rest=request.POST.get("rest", "").strip(),
+        key_points=request.POST.get("key_points", "").strip(),
+        note=request.POST.get("note", "").strip(),
+        created_by=request.user,
+    )
+    if definition:
+        ActivityDefinition.objects.filter(pk=definition.pk).update(
+            use_count=F("use_count") + 1
+        )
+    messages.success(request, f"已加入「{name}」到{BlockType(block).label}。")
+
+
+def _new_definition(request, session):
+    """把一個新的訓練活動寫進名稱庫，之後所有課表都挑得到。"""
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, "請填活動名稱。")
+        return
+    block = request.POST.get("default_block")
+    if block not in BlockType.values:
+        block = BlockType.WARMUP
+
+    definition, created = ActivityDefinition.objects.get_or_create(
+        name=name,
+        defaults={
+            "default_block": block,
+            "default_sets": request.POST.get("sets", "").strip(),
+            "default_reps": request.POST.get("reps", "").strip(),
+            "default_distance": request.POST.get("distance", "").strip(),
+            "default_weight": request.POST.get("weight", "").strip(),
+            "default_intensity": request.POST.get("intensity", "").strip(),
+            "default_rest": request.POST.get("rest", "").strip(),
+            "default_key_points": request.POST.get("key_points", "").strip(),
+            "created_by": request.user,
         },
     )
+    if created:
+        messages.success(request, f"已新增訓練活動「{name}」，以後可以直接挑。")
+    else:
+        messages.info(request, f"「{name}」已經在活動清單裡了。")
+
+    if request.POST.get("also_add"):
+        post = request.POST.copy()
+        post["definition"] = str(definition.id)
+        post["block"] = definition.default_block
+        request.POST = post
+        _add_activity(request, session)
+
+
+def _add_note(request, session):
+    body = request.POST.get("body", "").strip()
+    if not body:
+        messages.error(request, "記事不能是空的。")
+        return
+    kind = request.POST.get("kind")
+    SessionNote.objects.create(
+        session=session,
+        author=request.user,
+        kind=kind if kind in NoteKind.values else NoteKind.NOTE,
+        body=body,
+    )
+    messages.success(request, "已寫入，同一版面的教練與運動員都看得到。")
+
+
+def _delete_row(request, model, pk, label):
+    obj = model.objects.filter(pk=pk).first()
+    if obj is None:
+        messages.error(request, f"這筆{label}已經不在了。")
+        return
+    if not liveedit.can_delete(obj, request.user):
+        messages.error(request, f"只能刪自己寫下的{label}。")
+        return
+    obj.delete()
+    messages.success(request, f"已刪除這筆{label}。")
+
+
+# --------------------------------------------------- 點格子即改 / 即時同步
+
+
+@login_required
+@require_POST
+def inline_edit(request):
+    """畫面上任何一格按下去改完之後的落點。
+
+    body: {"target": "activity:12:reps", "value": "15"}
+    回 {"ok": true, "display": "15", …}，前端拿 display 直接寫回那一格。
+    """
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "看不懂的請求格式。"}, status=400)
+
+    parts = str(payload.get("target", "")).split(":")
+    if len(parts) != 3:
+        return JsonResponse({"ok": False, "error": "看不懂要改哪一格。"}, status=400)
+    key, pk, field_name = parts
+
+    try:
+        obj, display = liveedit.apply_edit(
+            request.user, key, pk, field_name, payload.get("value", "")
+        )
+    except liveedit.EditDenied as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=403)
+    except liveedit.EditError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+    session = liveedit.session_of(obj)
+    return JsonResponse(
+        {
+            "ok": True,
+            "display": display,
+            "version": session.content_version,
+            "session_load": session.session_load,
+            "session_id": session.id,
+        }
+    )
+
+
+@login_required
+def session_live(request, pk):
+    """輪詢用：版本沒變只回 changed=false，變了才把整段課表內容重畫送回去。"""
+    session = _visible_session(request, pk)
+    version = session.content_version
+    if request.GET.get("v") == version:
+        return JsonResponse({"changed": False, "version": version})
+    html = render_to_string(
+        "web/_session_body.html", _session_context(request, session), request=request
+    )
+    return JsonResponse({"changed": True, "version": version, "html": html})
+
+
+@login_required
+def calendar_live(request):
+    """輪詢用：日曆上有人改過（含把課表拖到別的日期）就把整個月的格子送回去。"""
+    athlete = _current_athlete(request)
+    if athlete is None:
+        return JsonResponse({"changed": False, "version": ""})
+    ctx = _calendar_context(athlete, request)
+    if request.GET.get("v") == ctx["cal_version"]:
+        return JsonResponse({"changed": False, "version": ctx["cal_version"]})
+    html = render_to_string("web/_calendar_grid.html", ctx, request=request)
+    return JsonResponse({"changed": True, "version": ctx["cal_version"], "html": html})
 
 
 # ------------------------------------------------------------------ 分析

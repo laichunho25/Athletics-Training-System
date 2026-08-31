@@ -249,6 +249,21 @@ class TrainingSession(TimeStampedModel):
     is_modified = models.BooleanField("傷患調整後課表", default=False)
     athlete_feedback = models.TextField("運動員反饋", blank=True)
     coach_comment = models.TextField("教練評語", blank=True)
+    satisfaction = models.PositiveSmallIntegerField(
+        "訓練滿意度 (1-5)",
+        null=True,
+        blank=True,
+        help_text="完成訓練後自評：這一課練得滿不滿意",
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_sessions",
+        verbose_name="建立者",
+        help_text="誰把這堂課寫進日曆的；只有他自己（和管理員）能改課表本身",
+    )
 
     class Meta:
         verbose_name = "訓練課"
@@ -281,6 +296,46 @@ class TrainingSession(TimeStampedModel):
     def total_tonnage_kg(self):
         return sum(ss.tonnage for ss in self.strength_sets.all())
 
+    def activities_by_block(self):
+        """回傳 [(區塊 value, 區塊名稱, [活動…]), …]，永遠四區都在（空的也在）。"""
+        from training.models import BLOCK_ORDER, BlockType
+
+        buckets = {b.value: [] for b in BLOCK_ORDER}
+        for a in self.activities.select_related("created_by", "definition"):
+            buckets.setdefault(a.block, []).append(a)
+        return [
+            (b.value, BlockType(b).label, buckets.get(b.value, []))
+            for b in BLOCK_ORDER
+        ]
+
+    @property
+    def activity_count(self):
+        return self.activities.count()
+
+    @property
+    def avg_activity_satisfaction(self):
+        agg = self.activities.aggregate(avg=models.Avg("satisfaction"))["avg"]
+        return round(float(agg), 1) if agg else None
+
+    @property
+    def content_version(self):
+        """課表內容的版本指紋：任何一格改動都會變，前端用它判斷要不要刷新。"""
+        from training.models import SessionActivity
+
+        stamps = [self.updated_at]
+        for qs in (
+            SessionActivity.objects.filter(session=self),
+            SessionNote.objects.filter(session=self),
+        ):
+            agg = qs.aggregate(last=models.Max("updated_at"), n=models.Count("id"))
+            if agg["last"]:
+                stamps.append(agg["last"])
+            stamps.append(agg["n"])
+        return "-".join(
+            str(int(s.timestamp() * 1000)) if hasattr(s, "timestamp") else str(s)
+            for s in stamps
+        )
+
     def mark_complete(self, duration_min, rpe, completion_pct=100, feedback=""):
         self.actual_duration_min = duration_min
         self.session_rpe = rpe
@@ -292,6 +347,40 @@ class TrainingSession(TimeStampedModel):
             self.athlete_feedback = feedback
         self.save()
         return self
+
+
+class NoteKind(models.TextChoices):
+    POINT = "POINT", "訓練要點"
+    NOTE = "NOTE", "當日備注"
+    FEEDBACK = "FEEDBACK", "訓練反饋"
+
+
+class SessionNote(TimeStampedModel):
+    """課表底下的共同記事：教練、運動員、管理員都寫在同一個版面。
+
+    大家看得到彼此寫了什麼，但每一則只有作者本人（和管理員）改得動——
+    權限判斷統一在 core.liveedit.can_edit 裡做。
+    """
+
+    session = models.ForeignKey(
+        TrainingSession, on_delete=models.CASCADE, related_name="notes"
+    )
+    author = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="session_notes",
+        verbose_name="寫入者",
+    )
+    kind = models.CharField(
+        "類別", max_length=10, choices=NoteKind.choices, default=NoteKind.NOTE
+    )
+    body = models.TextField("內容")
+
+    class Meta:
+        verbose_name = "課表記事"
+        verbose_name_plural = "課表記事"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.author} · {self.get_kind_display()}"
 
 
 class SessionTemplate(TimeStampedModel):

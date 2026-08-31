@@ -1,0 +1,30 @@
+{% load atm %}
+{% comment %}
+月曆格子本身。整頁載入與輪詢刷新共用；課表可以直接拖到別的日期。
+{% endcomment %}
+<div class="cal" id="calgrid">
+  <div class="dow">一</div><div class="dow">二</div><div class="dow">三</div>
+  <div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>
+  {% for week in weeks %}
+    {% for cell in week %}
+      <div class="day {% if not cell.in_month %}other{% endif %} {% if cell.is_today %}today{% endif %}"
+           data-date="{{ cell.date|date:'Y-m-d' }}">
+        <div class="daynum">
+          <span>{{ cell.date|date:"j" }}</span>
+          <button type="button" class="addday" title="在 {{ cell.date }} 新增 program"
+                  data-date="{{ cell.date|date:'Y-m-d' }}">＋</button>
+        </div>
+        {% for s in cell.sessions %}
+          {% with movable=can_move|lookup:s.id %}
+          <a class="ev t-{{ s.session_type|lower }} {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %} {% if movable %}movable{% endif %}"
+             href="{% url 'web:session_detail' s.id %}"
+             {% if movable %}draggable="true" data-session="{{ s.id }}"{% endif %}
+             title="{{ s.get_session_type_display }}｜{{ s.title }}｜{{ s.get_status_display }}｜負荷 {{ s.session_load }} AU{% if movable %}｜可以直接拖到別的日期{% endif %}">
+            {{ s.title }}
+          </a>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endfor %}
+</div>
