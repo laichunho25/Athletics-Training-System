@@ -22,6 +22,10 @@ python manage.py runserver          # 固定跑在 8200 埠（避開其他專案
 > 所以 ATM 在 `manage.py` 內把預設埠改成 **8200**。
 > Windows 可直接雙擊 `run_atm.bat` 啟動並自動開瀏覽器。
 
+> **要把改動送上線**：雙擊 `ship.bat`（或 `py ship.py 這次改了什麼`）。
+> 它會跑檢查與全套測試，過了才 commit 並推上 `main`，Render 隨即自動部署。
+> 細節見 [DEPLOY.md](DEPLOY.md) 的「日後要更新網站：一句指令」。
+
 | 位置 | 網址 |
 |---|---|
 | **公開首頁** | http://127.0.0.1:8200/ |

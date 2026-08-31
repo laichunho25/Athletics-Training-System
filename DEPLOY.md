@@ -244,6 +244,42 @@ curl -I http://www.hohosports.com/                     # 應回 301 → https
 
 ---
 
+## 日後要更新網站：一句指令
+
+改完東西之後，Windows 直接雙擊 **`ship.bat`**，或在專案資料夾裡跑：
+
+```bat
+ship                        :: 用預設訊息（日期時間）commit 並上線
+ship 加了運動員列表          :: 用自己的訊息
+ship --dry-run              :: 只演一次，不 commit 也不推
+ship --skip-tests 緊急修正   :: 跳過測試（不建議，趕時間才用）
+```
+
+不是用 cmd 的話（PowerShell、Git Bash、Mac）跑同一支腳本：
+
+```bash
+py ship.py 加了運動員列表
+```
+
+它會依序做四件事，任何一步失敗就停下來、不會推上去：
+
+1. `manage.py check` 系統檢查
+2. `manage.py test` 全套測試（約 30 秒）
+3. `git add -A` ＋ commit（會先列出這次改到哪些檔案）
+4. `git push origin HEAD:main`
+
+`render.yaml` 裡 `branch: main`，Render 一收到 main 的新 commit 就自動跑
+`build.sh`（collectstatic → migrate → loaddata → create_admin → 健檢），
+大約 3~5 分鐘後 https://www.hohosports.com/ 就是新版本。
+部署進度在 https://dashboard.render.com/ 看。
+
+> 目前在哪個分支都可以跑——腳本推的是 `HEAD:main`，
+> 也就是「把手上這版送成線上的 main」，推完會順手把本機的 main 拉齊。
+> 如果推送被擋（線上的 main 有你本機沒有的 commit），
+> 先 `git pull --rebase origin main` 再 ship 一次。
+
+---
+
 ## 已完成的正式環境設定
 
 | 項目 | 做法 |
