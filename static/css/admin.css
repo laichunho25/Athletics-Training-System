@@ -1,0 +1,467 @@
+/* ============================================== ATM 後台（Django admin）外觀
+   跟系統前台同一套設計語言：深色左側導航 + 淺色工作區、橘色主色、
+   無襯線中文字體、8px 間距網格、緊湊表格。
+   做法是先改寫 Django admin 自己的 CSS 變數，再補少量版面規則，
+   盡量不動 Django 的結構，升級時比較不會壞。
+   ========================================================================= */
+
+/* -------------------------------------------------------------- 變數改寫 */
+html[data-theme="light"],
+:root {
+  --atm-accent: #ff6b35;
+  --atm-nav-bg: #101a2b;
+  --atm-nav-bg-2: #17253c;
+  --atm-nav-text: #cbd5e1;
+  --atm-nav-dim: #7d8ea6;
+  --atm-surface-2: #f2f5f9;
+  --atm-shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+  --atm-shadow-2: 0 6px 20px rgba(15, 23, 42, .10);
+  --atm-radius: 8px;
+  --atm-radius-sm: 6px;
+
+  /* Django 的主色系 */
+  --primary: #ff6b35;
+  --secondary: #101a2b;
+  --accent: #ff6b35;
+  --primary-fg: #fff;
+
+  --body-fg: #1f2937;
+  --body-bg: #f5f7fa;
+  --body-quiet-color: #64748b;
+  --body-medium-color: #475569;
+  --body-loud-color: #0f172a;
+
+  --header-color: #cbd5e1;
+  --header-branding-color: #fff;
+  --header-bg: var(--atm-nav-bg);
+  --header-link-color: #fff;
+
+  --breadcrumbs-fg: #64748b;
+  --breadcrumbs-link-fg: #64748b;
+  --breadcrumbs-bg: #ffffff;
+
+  --link-fg: #2563eb;
+  --link-hover-color: #ff6b35;
+  --link-selected-fg: #ff6b35;
+
+  --hairline-color: #e2e8f0;
+  --border-color: #e2e8f0;
+
+  --error-fg: #dc2626;
+
+  --message-success-bg: #ecfdf5;
+  --message-warning-bg: #fffbeb;
+  --message-error-bg: #fef2f2;
+  --message-info-bg: #eff6ff;
+
+  --darkened-bg: #f2f5f9;
+  --selected-bg: #eef2f7;
+  --selected-row: #fff4ef;
+
+  --button-fg: #fff;
+  --button-bg: #ff6b35;
+  --button-hover-bg: #f2592a;
+  --default-button-bg: #ff6b35;
+  --default-button-hover-bg: #f2592a;
+  --close-button-bg: #64748b;
+  --close-button-hover-bg: #475569;
+  --delete-button-bg: #dc2626;
+  --delete-button-hover-bg: #b91c1c;
+
+  --object-tools-fg: #fff;
+  --object-tools-bg: #101a2b;
+  --object-tools-hover-bg: #1f2d45;
+
+  --font-family-primary:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "PingFang SC",
+      "Microsoft JhengHei", "Noto Sans TC", "Source Han Sans TC", sans-serif;
+}
+
+html[data-theme="dark"] {
+  --atm-nav-bg: #131a24;
+  --atm-nav-bg-2: #1c2532;
+  --atm-nav-text: #c3ccd8;
+  --atm-nav-dim: #7d8896;
+  --atm-surface-2: #1f2733;
+  --atm-shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --atm-shadow-2: 0 8px 24px rgba(0, 0, 0, .45);
+
+  --primary: #ff6b35;
+  --secondary: #131a24;
+  --primary-fg: #fff;
+
+  --body-fg: #e6edf3;
+  --body-bg: #0f1419;
+  --body-quiet-color: #8b98a8;
+  --body-medium-color: #b3becb;
+  --body-loud-color: #ffffff;
+
+  --header-bg: #131a24;
+  --header-color: #c3ccd8;
+  --header-branding-color: #fff;
+
+  --breadcrumbs-fg: #8b98a8;
+  --breadcrumbs-link-fg: #8b98a8;
+  --breadcrumbs-bg: #171d26;
+
+  --link-fg: #58a6ff;
+  --link-hover-color: #ff6b35;
+  --link-selected-fg: #ff6b35;
+
+  --hairline-color: #2b3543;
+  --border-color: #2b3543;
+
+  --darkened-bg: #1f2733;
+  --selected-bg: #253040;
+  --selected-row: #2a2018;
+
+  --object-tools-bg: #1f2733;
+  --object-tools-hover-bg: #2b3543;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --atm-nav-bg: #131a24;
+    --atm-nav-bg-2: #1c2532;
+    --atm-surface-2: #1f2733;
+
+    --primary: #ff6b35;
+    --secondary: #131a24;
+    --body-fg: #e6edf3;
+    --body-bg: #0f1419;
+    --body-quiet-color: #8b98a8;
+    --header-bg: #131a24;
+    --breadcrumbs-bg: #171d26;
+    --breadcrumbs-fg: #8b98a8;
+    --breadcrumbs-link-fg: #8b98a8;
+    --link-fg: #58a6ff;
+    --hairline-color: #2b3543;
+    --border-color: #2b3543;
+    --darkened-bg: #1f2733;
+    --selected-bg: #253040;
+    --selected-row: #2a2018;
+    --object-tools-bg: #1f2733;
+    --object-tools-hover-bg: #2b3543;
+  }
+}
+
+body {
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------- 頂部全局操作欄 */
+#header {
+  position: sticky; top: 0; z-index: 60;
+  height: 56px; padding: 0 24px;
+  display: flex; align-items: center; gap: 16px;
+  background: var(--atm-nav-bg);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+#branding { flex: 1; min-width: 0; }
+#site-name { margin: 0; font-size: 17px; line-height: 1.2; }
+#site-name a { display: flex; align-items: baseline; gap: 10px; color: #fff; }
+#site-name a:hover { color: #fff; }
+.atm-mark { font-weight: 700; letter-spacing: .5px; }
+.atm-mark i { color: var(--atm-accent); font-style: normal; margin: 0 1px; }
+.atm-sub { font-size: 12px; color: var(--atm-nav-dim); font-weight: 500; }
+
+#user-tools {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; text-transform: none; letter-spacing: 0;
+  color: var(--atm-nav-text); padding: 0; margin: 0;
+}
+.atm-who { font-weight: 600; color: #fff; margin-right: 4px; }
+#user-tools a,
+#user-tools button,
+#user-tools .theme-toggle {
+  color: var(--atm-nav-text); border: 1px solid rgba(255, 255, 255, .14);
+  background: transparent; border-radius: var(--atm-radius-sm);
+  padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+  text-decoration: none; line-height: 1.4;
+}
+#user-tools a:hover,
+#user-tools button:hover,
+#user-tools .theme-toggle:hover { background: var(--atm-nav-bg-2); color: #fff; border-color: rgba(255, 255, 255, .3); }
+#user-tools .theme-toggle { display: inline-flex; align-items: center; justify-content: center; padding: 5px 8px; }
+#logout-form { display: inline; margin: 0; padding: 0; }
+
+/* ------------------------------------------------------------- 面包屑 */
+div.breadcrumbs {
+  background: var(--breadcrumbs-bg);
+  color: var(--breadcrumbs-fg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 24px; font-size: 13px;
+}
+div.breadcrumbs a { color: var(--breadcrumbs-link-fg); }
+div.breadcrumbs a:hover, div.breadcrumbs a:focus { color: var(--atm-accent); }
+
+/* --------------------------------------------------------- 左側主導航 */
+/* 寬度沿用 Django 的 275px（收合動畫與 .content 的寬度都是照這個算的） */
+#nav-sidebar {
+  background: var(--atm-nav-bg);
+  border-right: 1px solid rgba(255, 255, 255, .06);
+  padding: 12px 8px 24px;
+}
+
+#nav-sidebar #nav-filter {
+  width: calc(100% - 16px); margin: 0 8px 12px;
+  background: var(--atm-nav-bg-2); border: 1px solid rgba(255, 255, 255, .12);
+  color: #fff; border-radius: var(--atm-radius-sm); padding: 7px 10px; font-size: 13px;
+}
+#nav-sidebar #nav-filter::placeholder { color: var(--atm-nav-dim); }
+#nav-sidebar #nav-filter:focus { outline: none; border-color: var(--atm-accent); }
+
+#nav-sidebar .module { background: transparent; border: 0; margin: 0 0 16px; box-shadow: none; }
+#nav-sidebar .module table { border-collapse: collapse; }
+#nav-sidebar .module caption,
+#nav-sidebar .module th[scope="row"] { background: transparent; }
+#nav-sidebar .module caption {
+  padding: 6px 12px; background: transparent;
+  font-size: 11px; letter-spacing: 1px; font-weight: 600; text-transform: none;
+}
+#nav-sidebar .module caption a.section,
+#nav-sidebar .module caption a.section:link,
+#nav-sidebar .module caption a.section:visited { color: var(--atm-nav-dim); font-weight: 600; }
+#nav-sidebar .module caption a.section:hover { color: #fff; }
+
+#nav-sidebar th[scope="row"] { padding: 0; border: 0; }
+#nav-sidebar th[scope="row"] a,
+#nav-sidebar th[scope="row"] a:link,
+#nav-sidebar th[scope="row"] a:visited {
+  display: block; padding: 8px 12px; margin-bottom: 2px;
+  border-radius: var(--atm-radius-sm);
+  color: var(--atm-nav-text); font-size: 14px; font-weight: 500;
+}
+#nav-sidebar th[scope="row"] a:hover { background: var(--atm-nav-bg-2); color: #fff; }
+#nav-sidebar .current-model { background: transparent; }
+#nav-sidebar .current-model th[scope="row"] a,
+#nav-sidebar .current-model th[scope="row"] a:link,
+#nav-sidebar .current-model th[scope="row"] a:visited {
+  background: var(--atm-accent); color: #fff; font-weight: 600;
+}
+/* 側欄的「新增」只在滑過那一列時才亮出來，平常不搶視線 */
+#nav-sidebar td { border: 0; padding: 0 8px 0 0; vertical-align: middle; }
+#nav-sidebar td a.addlink,
+#nav-sidebar td a.addlink:link,
+#nav-sidebar td a.addlink:visited {
+  color: var(--atm-nav-dim); font-size: 12px; opacity: 0;
+  padding: 4px 6px 4px 20px; background-position: 4px center;
+  border-radius: var(--atm-radius-sm);
+}
+#nav-sidebar tr:hover td a.addlink { opacity: 1; }
+#nav-sidebar td a.addlink:hover { color: #fff; background-color: var(--atm-nav-bg-2); }
+
+.toggle-nav-sidebar {
+  background: var(--atm-nav-bg); border-right: 1px solid rgba(255, 255, 255, .06);
+  color: var(--atm-nav-dim); width: 24px;
+}
+.toggle-nav-sidebar:hover { background: var(--atm-nav-bg-2); color: #fff; }
+
+/* ------------------------------------------------------------- 工作區 */
+.main { background: var(--body-bg); }
+#content { padding: 24px; }
+#content > h1 { font-size: 22px; font-weight: 600; margin-bottom: 16px; color: var(--body-loud-color); }
+#content h2 { font-size: 16px; }
+#content-related { padding-top: 24px; }
+
+/* 模組卡片 */
+.module {
+  background: var(--body-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--atm-radius);
+  box-shadow: var(--atm-shadow-1);
+  overflow: hidden;
+  margin-bottom: 16px;
+  padding: 0;
+}
+.module > h2, .module caption, .inline-group h2 {
+  background: var(--darkened-bg); color: var(--body-medium-color);
+  font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: none;
+  padding: 12px 16px; border-bottom: 1px solid var(--border-color);
+}
+.module h3 { font-size: 13px; padding: 8px 16px 0; }
+.module p, .module ul { padding-left: 16px; padding-right: 16px; }
+
+/* 後台首頁：把各區塊排成卡片牆 */
+.dashboard #content-main {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
+}
+.dashboard #content-main .module { margin-bottom: 0; background: #fff; }
+html[data-theme="dark"] .dashboard #content-main .module { background: #171d26; }
+.dashboard .module table { width: 100%; }
+.dashboard .module th[scope="row"] { padding: 10px 16px; font-weight: 500; }
+.dashboard .module td { padding: 10px 12px; }
+.dashboard #content-related .module { background: transparent; }
+
+/* ------------------------------------------------------------ 表格 */
+#changelist table, .module table { border-collapse: collapse; }
+thead th, thead th.sorted, thead th a:link, thead th a:visited {
+  color: var(--body-quiet-color);
+}
+#changelist table thead th {
+  background: var(--darkened-bg);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px; font-weight: 600; padding: 10px 12px; white-space: nowrap;
+}
+#changelist table tbody td, #changelist table tbody th {
+  padding: 10px 12px; font-size: 13px;
+  border-bottom: 1px solid var(--hairline-color);
+}
+#changelist tbody tr:hover > * { background: var(--darkened-bg); }
+#changelist-form .results { border: 0; }
+.results { overflow-x: auto; }
+#changelist .results table { background: #fff; }
+html[data-theme="dark"] #changelist .results table { background: #171d26; }
+
+/* 列表頁的外框：搜尋、結果、分頁包成一張卡 */
+#changelist {
+  background: #fff; border: 1px solid var(--border-color);
+  border-radius: var(--atm-radius); box-shadow: var(--atm-shadow-1); overflow: hidden;
+}
+html[data-theme="dark"] #changelist { background: #171d26; }
+#changelist #toolbar {
+  background: transparent; border: 0; border-bottom: 1px solid var(--border-color); padding: 12px 16px;
+}
+#changelist #toolbar form input[type="text"] {
+  border: 1px solid var(--border-color); border-radius: var(--atm-radius-sm);
+  padding: 7px 11px; font-size: 14px; min-width: 220px;
+}
+#changelist .actions {
+  background: var(--darkened-bg); border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px; font-size: 13px;
+}
+.paginator {
+  padding: 12px 16px; border-top: 1px solid var(--border-color);
+  background: var(--darkened-bg); font-size: 13px;
+}
+.paginator a:link, .paginator a:visited {
+  background: transparent; border: 1px solid var(--border-color);
+  border-radius: var(--atm-radius-sm); color: var(--body-fg); padding: 4px 10px;
+}
+.paginator a:hover { background: var(--atm-accent); border-color: var(--atm-accent); color: #fff; }
+.paginator .this-page {
+  background: var(--atm-accent); color: #fff; border-radius: var(--atm-radius-sm);
+  padding: 4px 10px; font-weight: 600;
+}
+
+/* 右側篩選面板 */
+#changelist-filter {
+  background: #fff; border: 1px solid var(--border-color);
+  border-radius: var(--atm-radius); box-shadow: var(--atm-shadow-1);
+  width: 220px; margin-left: 16px; overflow: hidden;
+}
+html[data-theme="dark"] #changelist-filter { background: #171d26; }
+#changelist-filter h2 {
+  background: var(--darkened-bg); color: var(--body-medium-color);
+  font-size: 12px; font-weight: 600; padding: 10px 14px; text-transform: none;
+  border-bottom: 1px solid var(--border-color);
+}
+#changelist-filter h3 { font-size: 12px; color: var(--body-quiet-color); padding: 10px 14px 4px; }
+#changelist-filter li { padding: 0 8px; }
+#changelist-filter a { display: block; padding: 5px 8px; border-radius: var(--atm-radius-sm); font-size: 13px; }
+#changelist-filter a:hover { background: var(--darkened-bg); }
+#changelist-filter li.selected a {
+  background: color-mix(in srgb, var(--atm-accent) 12%, transparent);
+  color: var(--atm-accent); font-weight: 600; border-left: 0;
+}
+
+/* ------------------------------------------------------------ 表單 */
+fieldset.module { padding-bottom: 8px; }
+.form-row { padding: 12px 16px; border-bottom: 1px solid var(--hairline-color); }
+.form-row:last-child { border-bottom: 0; }
+.aligned label { color: var(--body-quiet-color); font-size: 13px; font-weight: 500; padding-top: 8px; }
+input[type="text"], input[type="password"], input[type="email"], input[type="url"],
+input[type="number"], input[type="tel"], input[type="search"], textarea, select, .vTextField {
+  border: 1px solid #cbd5e1; border-radius: var(--atm-radius-sm);
+  padding: 7px 11px; font-size: 14px; font-family: inherit;
+  background: #fff; color: var(--body-fg);
+}
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] input[type="email"],
+html[data-theme="dark"] input[type="url"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] input[type="search"],
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] .vTextField {
+  background: #0f1419; border-color: #3a4658; color: var(--body-fg);
+}
+input:focus, textarea:focus, select:focus, .vTextField:focus {
+  outline: none; border-color: var(--atm-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--atm-accent) 18%, transparent);
+}
+.help, .form-row .help, div.help { color: var(--body-quiet-color); font-size: 12px; }
+
+/* 送出列：釘在底部，長表單不用捲到最後才找得到儲存 */
+.submit-row {
+  position: sticky; bottom: 0; z-index: 20;
+  background: #fff; border: 1px solid var(--border-color);
+  border-radius: var(--atm-radius); box-shadow: var(--atm-shadow-2);
+  padding: 12px 16px; margin-top: 16px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+html[data-theme="dark"] .submit-row { background: #171d26; }
+.submit-row a.deletelink { border-radius: var(--atm-radius-sm); }
+
+/* ------------------------------------------------------------ 按鈕 */
+.button, input[type="submit"], input[type="button"], .submit-row input, a.button {
+  border-radius: var(--atm-radius-sm); padding: 7px 16px;
+  font-size: 14px; font-weight: 500; font-family: inherit;
+  border: 1px solid transparent; cursor: pointer;
+}
+.button:hover, input[type="submit"]:hover, input[type="button"]:hover { filter: brightness(1.06); }
+.button.default, input[type="submit"].default, .submit-row input.default { font-weight: 600; }
+.object-tools { margin-top: -4px; }
+.object-tools a, .object-tools a:link, .object-tools a:visited {
+  border-radius: var(--atm-radius-sm); text-transform: none; letter-spacing: 0;
+  font-size: 13px; font-weight: 500; padding: 6px 14px;
+}
+.object-tools a.addlink { background: var(--atm-accent); }
+.object-tools a.addlink:hover { background: #f2592a; }
+
+/* ------------------------------------------------------- 訊息與提示 */
+.messagelist { padding: 0 24px; margin: 16px 0 0; }
+.messagelist li {
+  border-radius: var(--atm-radius); border: 1px solid var(--border-color);
+  padding: 10px 16px 10px 40px; font-size: 13px; box-shadow: none;
+}
+.messagelist li.success { border-color: #86efac; }
+.messagelist li.warning { border-color: #fcd34d; }
+.messagelist li.error { border-color: #fca5a5; }
+.errornote, ul.errorlist li {
+  border-radius: var(--atm-radius-sm); font-size: 13px;
+}
+
+/* ------------------------------------------------------------ 登入頁 */
+body.login { background: var(--body-bg); }
+.login #container {
+  border: 1px solid var(--border-color); border-radius: var(--atm-radius);
+  box-shadow: var(--atm-shadow-2); background: #fff; width: 380px; overflow: hidden;
+}
+html[data-theme="dark"] .login #container { background: #171d26; }
+.login #header { height: auto; padding: 20px 24px; justify-content: center; text-align: center; }
+.login #site-name a { justify-content: center; flex-direction: column; gap: 2px; }
+.login #content { padding: 24px; }
+.login .form-row { padding: 8px 0; border: 0; }
+.login .submit-row { position: static; border: 0; box-shadow: none; padding: 12px 0 0; }
+.login .submit-row input[type="submit"] { width: 100%; }
+
+/* ------------------------------------------------------------ 頁尾 */
+#footer { padding: 0; }
+#atm-admin-foot {
+  padding: 24px; color: var(--body-quiet-color); font-size: 12px; text-align: center;
+}
+
+/* ------------------------------------------------------------ 響應式 */
+@media (max-width: 767px) {
+  #header { padding: 0 16px; height: auto; flex-wrap: wrap; gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+  #user-tools { width: 100%; }
+  #content { padding: 16px; }
+  #changelist-filter { width: auto; margin: 16px 0 0; }
+}

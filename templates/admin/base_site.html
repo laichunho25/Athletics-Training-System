@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% comment %}
+ATM 後台（Django admin）的外觀改寫：
+只覆寫「標頭、使用者工具、樣式檔」三處，其餘沿用 Django 內建樣板，
+之後升級 Django 也不會因為樣板抄太多而卡住。
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"ATM 後台" }}{% endblock %}
+
+{# 放在 extrahead：這樣才會排在各頁自己的 changelists.css / forms.css 後面 #}
+{% block extrahead %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">
+    <span class="atm-mark">ATM<i>·</i>田徑</span>
+    <span class="atm-sub">後台管理</span>
+  </a>
+</div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block welcome-msg %}
+<span class="atm-who">{% firstof user.get_full_name user.get_short_name user.get_username %}</span>
+{% endblock %}
+
+{% block userlinks %}
+  <a href="{{ site_url|default:'/' }}">回到系統</a>
+  {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">修改密碼</a>{% endif %}
+  <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+    {% csrf_token %}
+    <button type="submit">登出</button>
+  </form>
+  {% include "admin/color_theme_toggle.html" %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block footer %}
+<div id="atm-admin-foot">ATM 田徑訓練管理系統 · 後台</div>
+{% endblock %}
