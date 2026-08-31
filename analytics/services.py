@@ -560,7 +560,7 @@ def metric_points(athlete, item, days=365):
     return list(
         MetricRecord.objects.filter(athlete=athlete, item=item, date__gte=since)
         .select_related("session")
-        .order_by("date", "id")
+        .order_by("date", "set_no", "id")
     )
 
 
@@ -582,9 +582,22 @@ def metric_analysis(athlete, item, days=365):
                 "value": float(r.value),
                 "session": r.session.title if r.session_id else "",
                 "context": r.context,
+                "set_no": r.set_no,
+                "weight": float(r.weight_kg) if r.weight_kg is not None else None,
+                "reps": r.reps,
+                "rest_sec": r.rest_sec,
+                "tonnage": r.tonnage,
+                "completed": r.completed,
+                "label": (f"{r.date} 第{r.set_no}組" if r.set_no else str(r.date)),
             }
             for r in records
         ],
+        "set_count": 0,
+        "completed_count": 0,
+        "failed_count": 0,
+        "completion_pct": None,
+        "total_tonnage": None,
+        "avg_rest_sec": None,
         "best": None,
         "latest": None,
         "first": None,
@@ -595,6 +608,20 @@ def metric_analysis(athlete, item, days=365):
         "change_pct": None,
         "advice": "",
     }
+    result["set_count"] = len(records)
+    result["completed_count"] = sum(1 for r in records if r.completed)
+    result["failed_count"] = result["set_count"] - result["completed_count"]
+    if records:
+        result["completion_pct"] = round(
+            result["completed_count"] / result["set_count"] * 100, 1
+        )
+    tonnages = [r.tonnage for r in records if r.tonnage is not None]
+    if tonnages:
+        result["total_tonnage"] = round(sum(tonnages), 1)
+    rests = [r.rest_sec for r in records if r.rest_sec is not None]
+    if rests:
+        result["avg_rest_sec"] = round(statistics.mean(rests))
+
     if not values:
         result["advice"] = "尚無紀錄。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。"
         return result
@@ -637,6 +664,13 @@ def metric_analysis(athlete, item, days=365):
 
     if result["best"] and spread / (abs(statistics.mean(values)) or 1) > 0.15:
         result["advice"] += " 另外波動偏大，記錄時記得註明情境（風速、組次、疲勞度）。"
+
+    if result["failed_count"]:
+        result["advice"] += (
+            f" 有 {result['failed_count']} 組沒有成功完成"
+            f"（完成率 {result['completion_pct']}%），"
+            "重量或組數可能開太高，下一輪先降 5–10% 再往上疊。"
+        )
 
     return result
 

@@ -4,6 +4,7 @@ import calendar as pycalendar
 import json
 import logging
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -814,18 +815,68 @@ def analytics_view(request):
                 session = TrainingSession.objects.filter(
                     pk=session_id, athlete=athlete
                 ).first()
-            record = MetricRecord.objects.create(
-                athlete=athlete,
-                item=item,
-                session=session,
-                date=request.POST.get("date") or date.today(),
-                value=request.POST["value"],
-                context=request.POST.get("context", ""),
-                note=request.POST.get("note", ""),
-            )
-            messages.success(
-                request, f"已記錄 {item.name} {record.value}{item.unit}（{record.date}）。"
-            )
+            # 一次可以送多組——同一堂課的不同組，重量／次數／休息時間都不一樣，
+            # 所以表單是一列一組，每一列各存成一筆紀錄。
+            on_date = request.POST.get("date") or date.today()
+            context = request.POST.get("context", "")
+            note = request.POST.get("note", "")
+            values = request.POST.getlist("value")
+            weights = request.POST.getlist("weight")
+            reps_list = request.POST.getlist("reps")
+            rests = request.POST.getlist("rest_sec")
+            dones = request.POST.getlist("completed")
+            multi = len(values) > 1
+
+            def _num(seq, i, cast):
+                raw = (seq[i] if i < len(seq) else "").strip()
+                if not raw:
+                    return None
+                try:
+                    return cast(raw)
+                except (TypeError, ValueError):
+                    return None
+
+            created = []
+            for i, raw_value in enumerate(values):
+                raw_value = raw_value.strip()
+                if not raw_value:
+                    continue  # 空白列＝使用者加了組卻沒填，跳過
+                try:
+                    value = Decimal(raw_value)
+                except (InvalidOperation, ValueError):
+                    messages.error(request, f"第 {i + 1} 組的數值不是有效數字。")
+                    continue
+                created.append(
+                    MetricRecord.objects.create(
+                        athlete=athlete,
+                        item=item,
+                        session=session,
+                        date=on_date,
+                        value=value,
+                        set_no=(i + 1) if multi else None,
+                        weight_kg=_num(weights, i, Decimal),
+                        reps=_num(reps_list, i, int),
+                        rest_sec=_num(rests, i, int),
+                        completed=(dones[i] if i < len(dones) else "1") != "0",
+                        context=context,
+                        note=note,
+                    )
+                )
+
+            if not created:
+                messages.error(request, "沒有記錄到任何一組，請至少填一個數值。")
+            elif len(created) == 1:
+                r = created[0]
+                messages.success(
+                    request, f"已記錄 {item.name} {r.value}{item.unit}（{r.date}）。"
+                )
+            else:
+                failed = sum(1 for r in created if not r.completed)
+                messages.success(
+                    request,
+                    f"已記錄 {item.name} {len(created)} 組（{created[0].date}）"
+                    + (f"，其中 {failed} 組未成功完成。" if failed else "。"),
+                )
             return redirect(f"{back}&item={item.id}")
 
         if action == "delete_record":

@@ -161,6 +161,20 @@ class MetricRecord(TimeStampedModel):
     )
     date = models.DateField("日期")
     value = models.DecimalField("數值", max_digits=10, decimal_places=2)
+    # 同一堂課的不同組，重量／次數／休息時間都可能不一樣，所以一組就是一筆紀錄。
+    set_no = models.PositiveSmallIntegerField(
+        "組別", null=True, blank=True, help_text="第幾組；單筆成績（例如比賽）可留空"
+    )
+    weight_kg = models.DecimalField(
+        "重量 (kg)", max_digits=6, decimal_places=1, null=True, blank=True
+    )
+    reps = models.PositiveSmallIntegerField("次數", null=True, blank=True)
+    rest_sec = models.PositiveIntegerField(
+        "休息時間 (秒)", null=True, blank=True, help_text="這一組做完之後休息幾秒"
+    )
+    completed = models.BooleanField(
+        "成功完成", default=True, help_text="這一組有沒有照課表完成（沒完成請取消勾選）"
+    )
     context = models.CharField(
         "情境", max_length=120, blank=True, help_text="例：順風 1.2、賽前熱身、第 3 組"
     )
@@ -174,6 +188,17 @@ class MetricRecord(TimeStampedModel):
 
     def __str__(self):
         return f"{self.athlete} {self.item.name} {self.value}{self.item.unit} ({self.date})"
+
+    @property
+    def set_label(self):
+        return f"第 {self.set_no} 組" if self.set_no else ""
+
+    @property
+    def tonnage(self):
+        """這一組的噸位（重量 × 次數），沒填就是 None。"""
+        if self.weight_kg is None or self.reps is None:
+            return None
+        return float(self.weight_kg) * self.reps
 
 
 def ensure_builtin_items():

@@ -339,3 +339,23 @@ details > summary::-webkit-details-marker { display: none; }
 }
 #atm-toast.show { opacity: 1; transform: translateY(0); }
 #atm-toast.err { border-color: var(--red); }
+
+/* -------------------------------------------- 數據分析：逐組輸入 + 明細分析 */
+/* 新增紀錄時一列就是一組，每組的重量／次數／休息時間分開填 */
+.setgrid { margin-bottom: 12px; }
+.setgrid th { padding: 6px 8px; }
+.setgrid td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.setgrid tbody tr:hover { background: transparent; }
+.setgrid input, .setgrid select { padding: 6px 8px; font-size: 13px; }
+.setgrid .setno { color: var(--text-dim); font-size: 12px; text-align: center; }
+
+/* 紀錄明細（左）與紀錄分析圖（右）並排，窄螢幕自動疊起來 */
+.detailsplit { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); }
+.detailsplit > .detailchart { border-left: 1px solid var(--border); }
+.detailtable { overflow-x: auto; }
+.detailtable table { min-width: 620px; }
+tr.failedrow > td { background: #f8514910; }
+@media (max-width: 1100px) {
+  .detailsplit { grid-template-columns: 1fr; }
+  .detailsplit > .detailchart { border-left: none; border-top: 1px solid var(--border); }
+}
