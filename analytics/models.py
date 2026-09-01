@@ -1,7 +1,7 @@
 from django.db import models
 
 from accounts.models import AthleteProfile
-from core.models import TimeStampedModel
+from core.models import SessionType, TimeStampedModel
 
 
 class RiskFlag(models.TextChoices):
@@ -80,6 +80,37 @@ class MetricDomain(models.TextChoices):
     STRENGTH = "STRENGTH", "重量訓練紀錄"
 
 
+#: 訓練日曆上的課別 ←→ 數據分析的紀錄範疇。
+#:
+#: 日曆上建了一堂課，做完之後要登數據時，只會看到「這個課別該有的」項目；
+#: 反過來在數據分析登紀錄時，「對應 program」的下拉也只列得出這些課別的課。
+#: 兩邊寫的是同一批 MetricRecord，所以資料互通，不用重打第二次。
+SESSION_TYPE_DOMAINS = {
+    SessionType.TRACK.value: [MetricDomain.TRACK],
+    SessionType.STRENGTH.value: [MetricDomain.STRENGTH],
+    # 治療康復 / 恢復訓練那天可能是跑的、也可能是舉的，兩邊都讓他選
+    SessionType.REHAB.value: [MetricDomain.TRACK, MetricDomain.STRENGTH],
+    SessionType.RECOVERY.value: [MetricDomain.TRACK, MetricDomain.STRENGTH],
+    SessionType.COMPETITION.value: [MetricDomain.COMPETITION],
+}
+
+
+def domains_for_session_type(session_type):
+    """這個課別可以登哪些範疇的數據（沒對應的課別回傳空清單）。"""
+    return list(SESSION_TYPE_DOMAINS.get(session_type, []))
+
+
+def session_types_for_domain(domain):
+    """這個範疇的紀錄，可以掛在哪些課別的 program 底下。"""
+    return [t for t, ds in SESSION_TYPE_DOMAINS.items() if domain in ds]
+
+
+def domain_pairs_for_session_type(session_type):
+    """給畫面用的 (value, label) 清單。"""
+    labels = dict(MetricDomain.choices)
+    return [(d.value, labels[d.value]) for d in domains_for_session_type(session_type)]
+
+
 #: (範疇, 項目名稱, 單位, 數值越大越好)
 BUILTIN_METRIC_ITEMS = [
     (MetricDomain.COMPETITION, "100m 成績", "秒", False),
@@ -103,6 +134,14 @@ BUILTIN_METRIC_ITEMS = [
     (MetricDomain.STRENGTH, "臥推 1RM", "kg", True),
     (MetricDomain.STRENGTH, "硬舉 1RM", "kg", True),
     (MetricDomain.STRENGTH, "高翻 1RM", "kg", True),
+    (MetricDomain.STRENGTH, "前蹲舉 Front Squat", "kg", True),
+    (MetricDomain.STRENGTH, "臀推 Hip Thrust", "kg", True),
+    (MetricDomain.STRENGTH, "羅馬尼亞硬舉 RDL", "kg", True),
+    (MetricDomain.STRENGTH, "保加利亞分腿蹲", "kg", True),
+    (MetricDomain.STRENGTH, "引體向上（加重）", "kg", True),
+    (MetricDomain.STRENGTH, "坐姿划船", "kg", True),
+    (MetricDomain.STRENGTH, "肩推", "kg", True),
+    (MetricDomain.STRENGTH, "平板支撐 Plank", "秒", True),
     (MetricDomain.STRENGTH, "課堂總噸位", "kg", True),
     (MetricDomain.STRENGTH, "反向跳 CMJ", "cm", True),
     (MetricDomain.STRENGTH, "立定跳遠", "cm", True),
@@ -212,3 +251,35 @@ def ensure_builtin_items():
     if missing:
         MetricItem.objects.bulk_create(missing, ignore_conflicts=True)
     return len(missing)
+
+
+#: 課表活動要自動變成數據項目時，依範疇給一個合理的預設單位
+DOMAIN_DEFAULT_UNIT = {
+    MetricDomain.COMPETITION.value: "秒",
+    MetricDomain.TRACK.value: "秒",
+    MetricDomain.STRENGTH.value: "kg",
+}
+
+
+def item_for_name(domain, name, unit=None, user=None):
+    """依名稱取得（必要時建立）一個數據項目。
+
+    課表上寫了「槓鈴深蹲」，登數據時就直接用同一個名字當項目——
+    教練不用先到數據分析頁開項目、運動員也不用把動作名再打一次。
+    """
+    name = (name or "").strip()
+    if not name:
+        return None
+    if unit is None:
+        unit = DOMAIN_DEFAULT_UNIT.get(domain, "")
+    item, _created = MetricItem.objects.get_or_create(
+        domain=domain,
+        name=name,
+        defaults={
+            "unit": unit,
+            # 計時類（秒）越小越好，重量／距離類越大越好
+            "higher_is_better": unit not in ("秒", "名"),
+            "created_by": user,
+        },
+    )
+    return item

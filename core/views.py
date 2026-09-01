@@ -22,11 +22,17 @@ from analytics.models import (
     MetricDomain,
     MetricItem,
     MetricRecord,
+    domain_pairs_for_session_type,
+    domains_for_session_type,
     ensure_builtin_items,
+    item_for_name,
+    session_types_for_domain,
 )
+from analytics.recording import RecordError, create_records
 from core import liveedit
 from core.glossary import all_terms, as_groups
 from core.models import (
+    PHASE_GUIDE,
     AthleteStatus,
     PhaseType,
     Role,
@@ -64,6 +70,7 @@ from programs.services import ImportError_ as ProgramImportError
 from programs.services import annotate_matches, find_existing_athlete, import_application
 from training.models import (
     ACTIVITY_FIELDS,
+    ActivityCategory,
     ActivityDefinition,
     BlockType,
     Exercise,
@@ -1015,6 +1022,7 @@ DEFAULT_PROGRAM_TITLES = {
     SessionType.STRENGTH: "重量訓練",
     SessionType.RECOVERY: "恢復訓練",
     SessionType.REHAB: "治療康復",
+    SessionType.COMPETITION: "比賽",
     SessionType.OTHER: "其他安排",
 }
 
@@ -1179,6 +1187,10 @@ def session_detail(request, pk):
             _add_note(request, session)
         elif action == "delete_note":
             _delete_row(request, SessionNote, request.POST.get("id"), "記事")
+        elif action == "add_metric":
+            _add_metric(request, session)
+        elif action == "delete_metric":
+            _delete_metric(request, session)
         return redirect("web:session_detail", pk=pk)
 
     return render(request, "web/session_detail.html", _session_context(request, session))
@@ -1199,7 +1211,11 @@ def _visible_session(request, pk):
 def _session_context(request, session):
     """課表頁的完整 context（整頁與輪詢刷新的片段共用同一份）。"""
     blocked, reason = inj.should_block_high_intensity(session.athlete, session.date)
-    library = list(ActivityDefinition.objects.filter(is_active=True))
+    library = list(
+        ActivityDefinition.objects.filter(is_active=True).order_by(
+            "category", "-use_count", "name"
+        )
+    )
 
     blocks = []
     for value, label, activities in session.activities_by_block():
@@ -1230,9 +1246,17 @@ def _session_context(request, session):
         "library": library,
         # 給前端挑活動時自動帶入預設值用（模板以 json_script 輸出，不會被 HTML 咬到）
         "library_data": [
-            dict(id=d.id, name=d.name, block=d.default_block, **d.defaults_payload())
+            dict(
+                id=d.id,
+                name=d.name,
+                name_en=d.name_en,
+                block=d.default_block,
+                category=d.category,
+                **d.defaults_payload(),
+            )
             for d in library
         ],
+        "activity_categories": ActivityCategory.choices,
         "track_sets": session.track_sets.all(),
         "strength_sets": session.strength_sets.select_related("exercise"),
         "blocked": blocked,
@@ -1244,7 +1268,118 @@ def _session_context(request, session):
         "version": session.content_version,
         "session_types": program_type_choices(),
         "status_choices": SessionStatus.choices,
+        # 這堂課對應的數據紀錄（跟數據分析頁是同一張表）
+        **_session_metric_context(session),
     }
+
+
+# ------------------------------------ 課表 ←→ 數據紀錄（兩邊寫的是同一張表）
+
+
+def _session_metric_context(session):
+    """課表頁的「本課數據紀錄」區塊。
+
+    課別決定看得到哪些範疇：田徑場訓練 → 田徑練習紀錄、重量訓練 → 重量紀錄、
+    比賽 → 比賽數據，治療康復與恢復訓練兩邊都可以選。
+    """
+    domains = domains_for_session_type(session.session_type)
+    records = list(
+        session.metric_records.select_related("item").order_by(
+            "item__name", "set_no", "id"
+        )
+    )
+
+    grouped = {}
+    for r in records:
+        grouped.setdefault(r.item_id, {"item": r.item, "records": []})["records"].append(r)
+
+    groups = []
+    for entry in grouped.values():
+        item = entry["item"]
+        rows = entry["records"]
+        values = [float(r.value) for r in rows]
+        tonnages = [r.tonnage for r in rows if r.tonnage is not None]
+        groups.append(
+            {
+                "item": item,
+                "records": rows,
+                "count": len(rows),
+                "best": (max if item.higher_is_better else min)(values),
+                "high": max(values),
+                "low": min(values),
+                "failed": sum(1 for r in rows if not r.completed),
+                "tonnage": round(sum(tonnages), 1) if tonnages else None,
+                "unit_is_weight": (item.unit or "").strip().lower() == "kg",
+            }
+        )
+    groups.sort(key=lambda g: g["item"].name)
+
+    return {
+        "metric_domains": domain_pairs_for_session_type(session.session_type),
+        "metric_items": (
+            MetricItem.objects.filter(domain__in=domains, is_active=True)
+            if domains
+            else MetricItem.objects.none()
+        ),
+        "metric_groups": groups,
+        "metric_record_count": len(records),
+    }
+
+
+def _add_metric(request, session):
+    """在課表頁直接登這堂課的數據——存進去的就是數據分析那張 MetricRecord。"""
+    domains = domains_for_session_type(session.session_type)
+    if not domains:
+        messages.error(
+            request,
+            f"「{session.get_session_type_display()}」這個課別沒有對應的數據紀錄範疇。",
+        )
+        return
+
+    domain = request.POST.get("domain") or domains[0]
+    if domain not in domains:
+        messages.error(request, "這個課別不能登這個範疇的數據。")
+        return
+
+    item = None
+    item_id = request.POST.get("item_id")
+    if item_id:
+        item = MetricItem.objects.filter(pk=item_id, domain=domain).first()
+    if item is None:
+        # 課表上已經寫了動作名稱，登數據時直接沿用同一個名字當項目
+        item = item_for_name(domain, request.POST.get("item_name", ""), user=request.user)
+    if item is None:
+        messages.error(request, "請挑一個數據項目，或直接打一個名稱。")
+        return
+
+    try:
+        _created, msg = create_records(
+            athlete=session.athlete,
+            item=item,
+            session=session,
+            post=request.POST,
+            on_date=request.POST.get("date") or session.date,
+        )
+    except RecordError as exc:
+        messages.error(request, str(exc))
+        return
+    messages.success(request, f"{msg}同一筆在「數據分析 → {item.get_domain_display()}」也看得到。")
+
+
+def _delete_metric(request, session):
+    record = MetricRecord.objects.filter(
+        pk=request.POST.get("record_id"), session=session
+    ).first()
+    if record is None:
+        messages.error(request, "這筆紀錄已經不在了。")
+        return
+    if not liveedit.can_edit(session, request.user, "session_rpe") and not liveedit.is_admin(
+        request.user
+    ):
+        messages.error(request, "只有這名運動員本人（或管理員）能刪這筆數據。")
+        return
+    record.delete()
+    messages.info(request, "已刪除一筆數據紀錄。")
 
 
 def _add_activity(request, session):
@@ -1298,10 +1433,16 @@ def _new_definition(request, session):
     if block not in BlockType.values:
         block = BlockType.WARMUP
 
+    category = request.POST.get("category")
+    if category not in ActivityCategory.values:
+        category = ActivityCategory.WARMUP
+
     definition, created = ActivityDefinition.objects.get_or_create(
         name=name,
         defaults={
             "default_block": block,
+            "category": category,
+            "name_en": request.POST.get("name_en", "").strip(),
             "default_sets": request.POST.get("sets", "").strip(),
             "default_reps": request.POST.get("reps", "").strip(),
             "default_distance": request.POST.get("distance", "").strip(),
@@ -1475,75 +1616,20 @@ def analytics_view(request):
                 session = TrainingSession.objects.filter(
                     pk=session_id, athlete=athlete
                 ).first()
-            # 一次可以送多組——同一堂課的不同組，重量／次數／休息時間都不一樣，
-            # 所以表單是一列一組，每一列各存成一筆紀錄。
-            on_date = request.POST.get("date") or date.today()
-            context = request.POST.get("context", "")
-            note = request.POST.get("note", "")
-            values = request.POST.getlist("value")
-            weights = request.POST.getlist("weight")
-            reps_list = request.POST.getlist("reps")
-            rests = request.POST.getlist("rest_sec")
-            dones = request.POST.getlist("completed")
-            multi = len(values) > 1
-
-            def _num(seq, i, cast):
-                raw = (seq[i] if i < len(seq) else "").strip()
-                if not raw:
-                    return None
-                try:
-                    return cast(raw)
-                except (TypeError, ValueError):
-                    return None
-
-            # 單位本身就是 kg 的項目（背蹲舉、臥推…），表單只留「數值」一格，
-            # 重量就是那個數值，這裡自動補上去，噸位與圖表照樣算得出來。
-            unit_is_weight = (item.unit or "").strip().lower() == "kg"
-
-            created = []
-            for i, raw_value in enumerate(values):
-                raw_value = raw_value.strip()
-                if not raw_value:
-                    continue  # 空白列＝使用者加了組卻沒填，跳過
-                try:
-                    value = Decimal(raw_value)
-                except (InvalidOperation, ValueError):
-                    messages.error(request, f"第 {i + 1} 組的數值不是有效數字。")
-                    continue
-                weight = _num(weights, i, Decimal)
-                if weight is None and unit_is_weight:
-                    weight = value
-                created.append(
-                    MetricRecord.objects.create(
-                        athlete=athlete,
-                        item=item,
-                        session=session,
-                        date=on_date,
-                        value=value,
-                        set_no=(i + 1) if multi else None,
-                        weight_kg=weight,
-                        reps=_num(reps_list, i, int),
-                        rest_sec=_num(rests, i, int),
-                        completed=(dones[i] if i < len(dones) else "1") != "0",
-                        context=context,
-                        note=note,
-                    )
+            try:
+                # 一次可以送多組——同一堂課的不同組，重量／次數／休息時間都不一樣，
+                # 所以表單是一列一組，每一列各存成一筆紀錄。
+                _created, msg = create_records(
+                    athlete=athlete,
+                    item=item,
+                    session=session,
+                    post=request.POST,
+                    on_date=request.POST.get("date") or date.today(),
                 )
-
-            if not created:
-                messages.error(request, "沒有記錄到任何一組，請至少填一個數值。")
-            elif len(created) == 1:
-                r = created[0]
-                messages.success(
-                    request, f"已記錄 {item.name} {r.value}{item.unit}（{r.date}）。"
-                )
+            except RecordError as exc:
+                messages.error(request, str(exc))
             else:
-                failed = sum(1 for r in created if not r.completed)
-                messages.success(
-                    request,
-                    f"已記錄 {item.name} {len(created)} 組（{created[0].date}）"
-                    + (f"，其中 {failed} 組未成功完成。" if failed else "。"),
-                )
+                messages.success(request, msg)
             return redirect(f"{back}&item={item.id}")
 
         if action == "delete_record":
@@ -1579,10 +1665,17 @@ def analytics_view(request):
 
     analysis = an.metric_analysis(athlete, item) if item else None
 
-    # 給「這筆數據來自哪一堂 program」的下拉選單
+    # 給「這筆數據來自哪一堂 program」的下拉選單。
+    # 只列得出對得上這個範疇的課別——重量紀錄不會掛到田徑場的課上去。
+    linkable_types = session_types_for_domain(domain)
     recent_sessions = athlete.sessions.filter(
-        date__gte=date.today() - timedelta(days=60)
-    ).order_by("-date")[:40]
+        date__gte=date.today() - timedelta(days=90), session_type__in=linkable_types
+    ).order_by("-date")[:60]
+
+    # ---- 整體 / 分年份 / 分時期 比較 ----
+    compare = request.GET.get("compare", "all")
+    comparison = an.metric_comparison(athlete, item, compare) if item else None
+    tops = an.top_movements(athlete, domain)
 
     return render(
         request,
@@ -1616,7 +1709,28 @@ def analytics_view(request):
             "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
             "chart_points": json.dumps(analysis["points"] if analysis else []),
             "recent_sessions": recent_sessions,
+            "linkable_type_labels": [
+                dict(SessionType.choices)[t] for t in linkable_types
+            ],
             "today_iso": date.today().isoformat(),
+            # 最常做的動作 + 整體／年份／時期比較
+            "tops": tops,
+            "compare": comparison["mode"] if comparison else "all",
+            "compare_modes": an.COMPARE_MODES,
+            "comparison": comparison,
+            "phase_guide": PHASE_GUIDE,
+            "cmp_labels": json.dumps(
+                [g["label"] for g in comparison["groups"]] if comparison else []
+            ),
+            "cmp_best": json.dumps(
+                [g["best"] for g in comparison["groups"]] if comparison else []
+            ),
+            "cmp_avg": json.dumps(
+                [g["average"] for g in comparison["groups"]] if comparison else []
+            ),
+            "cmp_count": json.dumps(
+                [g["count"] for g in comparison["groups"]] if comparison else []
+            ),
         },
     )
 

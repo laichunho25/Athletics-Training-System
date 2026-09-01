@@ -739,3 +739,166 @@ def metric_overview(athlete, domain, days=365):
         )
     rows.sort(key=lambda r: (-r["count"], r["item"].name))
     return rows
+
+
+# ------------------------------------------------- 分組比較（整體／年份／時期）
+
+
+#: 比較的三種切法
+COMPARE_MODES = [
+    ("all", "整體"),
+    ("year", "分年份"),
+    ("phase", "分時期"),
+]
+
+
+def phase_lookup(athlete):
+    """回傳一個 date → Phase 的查表函式（一次撈完，不要逐筆查資料庫）。"""
+    from planning.models import Phase
+
+    phases = list(
+        Phase.objects.filter(macrocycle__athlete=athlete)
+        .select_related("macrocycle")
+        .order_by("start_date")
+    )
+
+    def lookup(on_date):
+        for phase in phases:
+            if phase.start_date <= on_date <= phase.end_date:
+                return phase
+        return None
+
+    return lookup
+
+
+def _group_stats(key, label, records, item, sublabel=""):
+    """一組紀錄的摘要：最佳、平均、最近、噸位、完成率、期間內的變化。"""
+    values = [float(r.value) for r in records]
+    better = max if item.higher_is_better else min
+    dates = [r.date for r in records]
+    tonnages = [r.tonnage for r in records if r.tonnage is not None]
+    completed = sum(1 for r in records if r.completed)
+    first_v, last_v = values[0], values[-1]
+    change_pct = None
+    if first_v:
+        raw = (last_v - first_v) / abs(first_v) * 100
+        change_pct = round(raw if item.higher_is_better else -raw, 1)
+    return {
+        "key": key,
+        "label": label,
+        "sublabel": sublabel,
+        "count": len(values),
+        "days": len(set(dates)),
+        "first_date": min(dates),
+        "last_date": max(dates),
+        "best": better(values),
+        "worst": (min if item.higher_is_better else max)(values),
+        "average": round(statistics.mean(values), 2),
+        "latest": last_v,
+        "total_tonnage": round(sum(tonnages), 1) if tonnages else None,
+        "total_reps": sum(r.reps for r in records if r.reps is not None) or None,
+        "completion_pct": round(completed / len(records) * 100, 1),
+        "failed": len(records) - completed,
+        "change_pct": change_pct,
+        "improving": None if change_pct is None else change_pct > 0,
+    }
+
+
+def metric_comparison(athlete, item, mode="all", days=1825):
+    """把一個項目的紀錄依「整體 / 年份 / 時期」分組比較。
+
+    分時期用的是這名運動員自己備戰計劃裡的分期（planning.Phase）——
+    同一個動作在一般準備期和比賽期本來就不該是同一個數字，分開看才有意義。
+    """
+    from core.models import PhaseType, phase_guide
+
+    if mode not in {m for m, _ in COMPARE_MODES}:
+        mode = "all"
+
+    records = metric_points(athlete, item, days)
+    result = {
+        "mode": mode,
+        "mode_label": dict(COMPARE_MODES)[mode],
+        "item": item,
+        "groups": [],
+        "best_group": None,
+        "count": len(records),
+    }
+    if not records:
+        return result
+
+    buckets = {}
+    order = {}
+    if mode == "year":
+        for r in records:
+            key = str(r.date.year)
+            buckets.setdefault(key, []).append(r)
+            order[key] = key
+    elif mode == "phase":
+        lookup = phase_lookup(athlete)
+        for r in records:
+            phase = lookup(r.date)
+            key = phase.phase_type if phase else "NONE"
+            buckets.setdefault(key, []).append(r)
+        # 依教科書上的時期順序排，未分期放最後
+        order = {t.value: f"{i}" for i, t in enumerate(PhaseType)}
+        order["NONE"] = "9"
+    else:
+        buckets["all"] = list(records)
+        order["all"] = "0"
+
+    labels = dict(PhaseType.choices)
+    for key, rows in buckets.items():
+        if mode == "phase":
+            label = labels.get(key, "未分期")
+            guide = phase_guide(key)
+            sublabel = guide.get("feature", "這些日期不在任何一個分期裡")
+        elif mode == "year":
+            label = f"{key} 年"
+            sublabel = ""
+        else:
+            label = "整體"
+            sublabel = f"{records[0].date} 至 {records[-1].date}"
+        result["groups"].append(_group_stats(key, label, rows, item, sublabel))
+
+    result["groups"].sort(key=lambda g: order.get(g["key"], g["key"]))
+
+    bests = [g["best"] for g in result["groups"]]
+    overall_best = (max if item.higher_is_better else min)(bests)
+    for g in result["groups"]:
+        g["is_best"] = g["best"] == overall_best
+        if g["is_best"] and result["best_group"] is None:
+            result["best_group"] = g
+    return result
+
+
+def top_movements(athlete, domain, days=365, limit=8):
+    """這個範疇裡做得最多的項目排行（重量訓練頁的「最常做的動作」）。
+
+    以「練過幾天」排序而不是「幾組」——一堂課做十組深蹲不代表常做深蹲，
+    十天各做三組才是。
+    """
+    from analytics.models import MetricRecord
+
+    since = date.today() - timedelta(days=days)
+    records = (
+        MetricRecord.objects.filter(
+            athlete=athlete, item__domain=domain, date__gte=since, item__is_active=True
+        )
+        .select_related("item")
+        .order_by("date", "id")
+    )
+
+    by_item = {}
+    for r in records:
+        by_item.setdefault(r.item_id, {"item": r.item, "records": []})["records"].append(r)
+
+    rows = []
+    for entry in by_item.values():
+        item = entry["item"]
+        stats = _group_stats("item", item.name, entry["records"], item)
+        stats["item"] = item
+        rows.append(stats)
+
+    rows.sort(key=lambda r: (-r["days"], -r["count"], r["label"]))
+    return rows[:limit]

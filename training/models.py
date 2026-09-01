@@ -346,6 +346,19 @@ ACTIVITY_FIELDS = [
 ]
 
 
+class ActivityCategory(models.TextChoices):
+    """活動庫的分類。挑活動時先收窄到某一類，比在一長串裡面找快。"""
+
+    WARMUP = "WARMUP", "熱身"
+    TRACK = "TRACK", "田徑專項"
+    UPPER = "UPPER", "上肢力量"
+    LOWER = "LOWER", "下肢力量"
+    CORE = "CORE", "核心"
+    PLYO = "PLYO", "增強式／爆發力"
+    ACCESSORY = "ACCESSORY", "輔助／預防傷害"
+    RECOVERY = "RECOVERY", "恢復／放鬆"
+
+
 class ActivityDefinition(TimeStampedModel):
     """訓練活動名稱庫。
 
@@ -355,6 +368,14 @@ class ActivityDefinition(TimeStampedModel):
     """
 
     name = models.CharField("活動名稱", max_length=120, unique=True)
+    name_en = models.CharField(
+        "英文名稱", max_length=120, blank=True,
+        help_text="健身房器材與課表上常寫英文，兩個名字都留著才找得到",
+    )
+    category = models.CharField(
+        "分類", max_length=12, choices=ActivityCategory.choices,
+        default=ActivityCategory.WARMUP,
+    )
     default_block = models.CharField(
         "預設區塊", max_length=12, choices=BlockType.choices, default=BlockType.WARMUP
     )
@@ -381,10 +402,15 @@ class ActivityDefinition(TimeStampedModel):
     class Meta:
         verbose_name = "訓練活動"
         verbose_name_plural = "訓練活動"
-        ordering = ["default_block", "-use_count", "name"]
+        ordering = ["category", "default_block", "-use_count", "name"]
 
     def __str__(self):
         return self.name
+
+    @property
+    def display_name(self):
+        """中文（英文）——挑活動的下拉裡兩個名字一起顯示。"""
+        return f"{self.name}（{self.name_en}）" if self.name_en else self.name
 
     def defaults_payload(self):
         """挑選時要帶進課表的預設值。"""

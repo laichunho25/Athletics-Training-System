@@ -179,6 +179,155 @@
 </div>
 {% endfor %}
 
+<!-- ------------------------------------------------------------ 本課數據紀錄 -->
+<div class="card pad0 mb" id="metriccard">
+  <div class="card-head">
+    <span>本課數據紀錄
+      <span class="c-dim small">· {{ metric_record_count }} 筆</span></span>
+    <span class="small c-dim">
+      {% if metric_domains %}
+        課別「{{ s.get_session_type_display }}」對應
+        {% for value, label in metric_domains %}<strong>{{ label }}</strong>{% if not forloop.last %} / {% endif %}{% endfor %}
+        · 這裡登的就是數據分析那一份，不用再輸入一次
+      {% else %}
+        這個課別沒有對應的數據紀錄範疇（田徑場訓練 / 重量訓練 / 治療康復 / 恢復訓練 / 比賽才有）
+      {% endif %}
+    </span>
+  </div>
+
+  {% if metric_groups %}
+    <div class="daylist">
+    {% for g in metric_groups %}
+      <details class="dayrow" open>
+        <summary>
+          <span class="daydate">{{ g.item.name }}</span>
+          <span class="daysets">{{ g.count }} 組</span>
+          <span class="dayhl">
+            <span class="hi">{% if g.unit_is_weight %}最重{% else %}最佳{% endif %}
+              <strong>{{ g.best }}</strong>{{ g.item.unit }}</span>
+            <span class="lo">{% if g.unit_is_weight %}最輕{% else %}最低{% endif %}
+              <strong>{{ g.low }}</strong>{{ g.item.unit }}</span>
+          </span>
+          <span class="daymeta">
+            {% if g.failed %}<span class="badge b-red">{{ g.failed }} 組未完成</span>{% endif %}
+            {% if g.tonnage %}噸位 {{ g.tonnage }} kg{% endif %}
+            · <span class="badge b-dim">{{ g.item.get_domain_display }}</span>
+          </span>
+        </summary>
+        <table>
+          <thead>
+            <tr><th class="num">組</th><th class="num">數值</th><th class="num">重量</th>
+                <th class="num">次數</th><th class="num">休息</th><th>完成</th>
+                <th>情境</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for r in g.records %}
+            <tr{% if not r.completed %} class="failedrow"{% endif %}>
+              <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
+              <td class="num"><strong>{{ r.value }}</strong> {{ g.item.unit }}</td>
+              <td class="num">{% if r.weight_kg != None %}{{ r.weight_kg }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
+              <td class="num">{% if r.reps != None %}{{ r.reps }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
+              <td class="num">{% if r.rest_sec != None %}{{ r.rest_sec }}s{% else %}<span class="c-dim">—</span>{% endif %}</td>
+              <td>{% if r.completed %}<span class="badge b-green">完成</span>{% else %}<span class="badge b-red">未完成</span>{% endif %}</td>
+              <td class="small c-dim">{{ r.context|default:"—" }}</td>
+              <td>
+                <form method="post" style="display:inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_metric">
+                  <input type="hidden" name="record_id" value="{{ r.id }}">
+                  <button class="linkbtn" type="submit" title="刪除">×</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if metric_domains %}
+  <form method="post" style="padding:14px 18px;border-top:1px solid var(--border)" id="metricForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_metric">
+    <div class="row">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" name="date" value="{{ s.date|date:'Y-m-d' }}" required>
+      </div>
+      {% if metric_domains|length > 1 %}
+      <div class="field">
+        <label>範疇</label>
+        <select name="domain" id="metricDomain">
+          {% for value, label in metric_domains %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      {% else %}
+        {% for value, label in metric_domains %}<input type="hidden" name="domain" value="{{ value }}">{% endfor %}
+      {% endif %}
+      <div class="field" style="flex:1">
+        <label>數據項目</label>
+        <select name="item_id" id="metricItem">
+          <option value="">— 用右邊的名稱新開一個項目 —</option>
+          {% for it in metric_items %}
+            <option value="{{ it.id }}" data-domain="{{ it.domain }}">{{ it.get_domain_display }}｜{{ it.display }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1">
+        <label>或直接打項目名稱</label>
+        <input type="text" name="item_name" id="metricName" list="actnames"
+               placeholder="例：槓鈴深蹲、30m 衝刺">
+        <datalist id="actnames">
+          {% for b in blocks %}{% for row in b.activities %}
+            <option value="{{ row.a.name }}"></option>
+          {% endfor %}{% endfor %}
+        </datalist>
+      </div>
+    </div>
+
+    <table class="setgrid">
+      <thead>
+        <tr>
+          <th style="width:52px">組</th><th>數值</th><th>重量 (kg)</th>
+          <th>次數</th><th>休息 (秒)</th><th style="width:118px">成功完成</th>
+          <th style="width:34px"></th>
+        </tr>
+      </thead>
+      <tbody id="metricRows">
+        <tr>
+          <td class="setno num">1</td>
+          <td><input type="number" step="0.01" name="value" required></td>
+          <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
+          <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
+          <td><input type="number" step="5" min="0" name="rest_sec" placeholder="—"></td>
+          <td>
+            <select name="completed">
+              <option value="1">✅ 完成</option>
+              <option value="0">❌ 未完成</option>
+            </select>
+          </td>
+          <td><button type="button" class="linkbtn rmset" title="刪掉這一組">×</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex mb">
+      <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組</button>
+      <span class="small c-dim">每一組各存成一筆；項目名稱沿用課表上的活動名，兩邊就是同一個動作</span>
+    </div>
+    <div class="field">
+      <label>情境（這次所有組共用）</label>
+      <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+    </div>
+    <div class="flex">
+      <button class="btn" type="submit">登記數據</button>
+      <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}{% for value, label in metric_domains %}{% if forloop.first %}&domain={{ value }}{% endif %}{% endfor %}">到數據分析看趨勢 →</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
 <!-- ------------------------------------------------------------- 共同記事 -->
 <div class="card mb">
   <div class="between mb">
@@ -373,8 +522,12 @@
       <label>從活動清單挑一個（挑完會自動帶入預設值，仍可改）</label>
       <select name="definition" id="actPick">
         <option value="">— 自己打一個名稱 —</option>
-        {% for d in library %}
-          <option value="{{ d.id }}" data-block="{{ d.default_block }}">{{ d.get_default_block_display }}｜{{ d.name }}</option>
+        {% for value, label in activity_categories %}
+          <optgroup label="{{ label }}">
+            {% for d in library %}{% if d.category == value %}
+              <option value="{{ d.id }}" data-block="{{ d.default_block }}">{{ d.display_name }}</option>
+            {% endif %}{% endfor %}
+          </optgroup>
         {% endfor %}
       </select>
     </div>
@@ -422,7 +575,14 @@
     <div class="small c-dim mb">寫進清單之後，之後排課表時所有人都挑得到，不用再逐字打。</div>
 
     <div class="row">
-      <div class="field" style="flex:2"><label>活動名稱</label><input type="text" name="name" required placeholder="例：A-Skip"></div>
+      <div class="field" style="flex:2"><label>活動名稱</label><input type="text" name="name" required placeholder="例：槓鈴深蹲"></div>
+      <div class="field" style="flex:2"><label>英文名稱</label><input type="text" name="name_en" placeholder="例：Squat (Barbell)"></div>
+      <div class="field">
+        <label>分類</label>
+        <select name="category">
+          {% for v, l in activity_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+      </div>
       <div class="field">
         <label>預設區塊</label>
         <select name="default_block">

@@ -21,7 +21,39 @@
   {% endfor %}
 </div>
 
-<div class="grid grid-2 mb" style="grid-template-columns:minmax(260px,340px) 1fr">
+<div class="grid grid-2 mb" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
+ <div>
+  <!-- ------------------------------------------------------ 最常做的動作 -->
+  <div class="card pad0 mb">
+    <div class="card-head">
+      <span>最常做的動作</span>
+      <span class="small c-dim">近 365 天 · 依練過幾天排</span>
+    </div>
+    <div class="itemlist">
+      {% for t in tops %}
+        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ t.item.id }}&compare={{ compare }}"
+           class="{% if item and t.item.id == item.id %}active{% endif %}">
+          <span>
+            <span class="rank">{{ forloop.counter }}</span>
+            {{ t.item.name }}
+            <span class="meta">{{ t.days }} 天 / {{ t.count }} 組</span>
+          </span>
+          <span class="meta">
+            最佳 {{ t.best }}{{ t.item.unit }}
+            {% if t.change_pct != None %}
+              · <span class="{% if t.improving %}c-green{% else %}c-red{% endif %}">{% if t.change_pct > 0 %}+{% endif %}{{ t.change_pct }}%</span>
+            {% endif %}
+          </span>
+        </a>
+      {% empty %}
+        <div class="empty">這個範疇還沒有任何紀錄</div>
+      {% endfor %}
+    </div>
+    <div class="small c-dim" style="padding:10px 16px 12px;border-top:1px solid var(--border)">
+      點一個動作就能看到它每一次的紀錄內容與比較。
+    </div>
+  </div>
+
   <!-- ---------------------------------------------------------- 項目清單 -->
   <div class="card pad0">
     <div class="card-head">
@@ -30,7 +62,7 @@
     </div>
     <div class="itemlist">
       {% for row in overview %}
-        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}"
+        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
            class="{% if item and row.item.id == item.id %}active{% endif %}">
           <span>
             {{ row.item.name }}
@@ -75,6 +107,7 @@
       </details>
     </div>
   </div>
+ </div>
 
   <!-- -------------------------------------------------------- 項目分析 -->
   <div class="card pad0">
@@ -121,6 +154,68 @@
       </div>
     </div>
 
+
+    <!-- ------------------------------ 整體 / 分年份 / 分時期 比較 -->
+    <div class="card-head" style="border-top:1px solid var(--border)">
+      <span>比較</span>
+      <span class="tabs sub">
+        {% for value, label in compare_modes %}
+          <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ item.id }}&compare={{ value }}"
+             class="{% if value == compare %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </span>
+    </div>
+
+    {% if comparison.groups %}
+    <div class="cmpsplit">
+      <div>
+        <table class="cmptable">
+          <thead>
+            <tr>
+              <th>{{ comparison.mode_label }}</th>
+              <th class="num">組數</th><th class="num">天數</th>
+              <th class="num">最佳</th><th class="num">平均</th>
+              <th class="num">最近</th><th class="num">期內變化</th>
+              <th class="num">完成率</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for g in comparison.groups %}
+            <tr{% if g.is_best %} class="bestrow"{% endif %}>
+              <td>
+                <strong>{{ g.label }}</strong>
+                {% if g.is_best %}<span class="badge b-orange">最佳</span>{% endif %}
+                <div class="small c-dim">{{ g.first_date }} → {{ g.last_date }}</div>
+                {% if g.sublabel %}<div class="small c-dim">{{ g.sublabel }}</div>{% endif %}
+              </td>
+              <td class="num">{{ g.count }}</td>
+              <td class="num">{{ g.days }}</td>
+              <td class="num c-accent"><strong>{{ g.best }}</strong></td>
+              <td class="num">{{ g.average }}</td>
+              <td class="num">{{ g.latest }}</td>
+              <td class="num {% if g.improving %}c-green{% elif g.improving is False %}c-red{% endif %}">
+                {% if g.change_pct != None %}{% if g.change_pct > 0 %}+{% endif %}{{ g.change_pct }}%{% else %}—{% endif %}
+              </td>
+              <td class="num">{{ g.completion_pct }}%</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% if compare == 'phase' %}
+        <div class="small c-dim" style="padding:0 18px 14px">
+          時期取自這名運動員備戰計劃裡的分期；不在任何分期內的日期會歸到「未分期」。
+          一般準備期本來就量大強度低、比賽期量少強度高，跨時期比數字前先看清楚各期的定位。
+        </div>
+        {% endif %}
+      </div>
+      <div class="cmpchart">
+        <div class="chart-box"><canvas id="cmpChart"></canvas></div>
+      </div>
+    </div>
+    {% else %}
+      <div class="empty">還沒有足夠的紀錄可以比較。</div>
+    {% endif %}
+
     <!-- 新增紀錄 -->
     <div class="card-head" style="border-top:1px solid var(--border)">
       <span>新增一筆紀錄</span>
@@ -140,7 +235,9 @@
           <input type="date" name="date" value="{{ today_iso }}" required>
         </div>
         <div class="field" style="grid-column:span 2">
-          <label>對應 program</label>
+          <label>對應 program
+            <span class="small c-dim">（只列得出{% for l in linkable_type_labels %}{{ l }}{% if not forloop.last %}／{% endif %}{% endfor %}的課）</span>
+          </label>
           <select name="session">
             <option value="">（不對應課表）</option>
             {% for s in recent_sessions %}
@@ -465,6 +562,33 @@ new Chart(document.getElementById('restChart'), {
       y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
             title: { display: true, text: '秒' } }
     }
+  }
+});
+{% endif %}
+
+{% if item and comparison.groups %}
+// ---- 比較圖：每一組的最佳與平均並排，看得出哪一年／哪一期做得最好 ----
+new Chart(document.getElementById('cmpChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ cmp_labels|safe }},
+    datasets: [
+      { label: '最佳', data: {{ cmp_best|safe }},
+        backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1 },
+      { label: '平均', data: {{ cmp_avg|safe }},
+        backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1 }
+    ]
+  },
+  options: {
+    scales: { y: { reverse: {% if item.higher_is_better %}false{% else %}true{% endif %},
+                   title: { display: true,
+                            text: '{{ item.unit }}{% if not item.higher_is_better %}（軸已反轉）{% endif %}' } } },
+    plugins: { tooltip: { callbacks: {
+      afterBody: (items) => {
+        const counts = {{ cmp_count|safe }};
+        return '共 ' + counts[items[0].dataIndex] + ' 組';
+      }
+    } } }
   }
 });
 {% endif %}

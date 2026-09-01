@@ -22,5 +22,59 @@
 <script src="{% static 'js/liveedit.js' %}"></script>
 <script>
   ATM.mountSession();
+
+  // 「本課數據紀錄」的多組輸入。整段課表會被輪詢刷新換掉，
+  // 所以事件掛在 document 上而不是那幾個節點本身。
+  (function () {
+    function rows() { return document.getElementById('metricRows'); }
+
+    function renumber(body) {
+      [...body.rows].forEach(function (tr, i) {
+        tr.querySelector('.setno').textContent = i + 1;
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      if (event.target.id === 'addMetricSet') {
+        var body = rows();
+        if (!body) { return; }
+        var row = body.rows[0].cloneNode(true);
+        row.querySelectorAll('input').forEach(function (inp) {
+          inp.value = '';
+          inp.removeAttribute('required');
+        });
+        row.querySelector('select').selectedIndex = 0;
+        body.appendChild(row);
+        renumber(body);
+        row.querySelector('input').focus();
+        return;
+      }
+
+      var rm = event.target.closest('#metricRows .rmset');
+      if (rm) {
+        var body2 = rows();
+        if (body2.rows.length === 1) {
+          body2.rows[0].querySelectorAll('input').forEach(function (i) { i.value = ''; });
+          return;
+        }
+        rm.closest('tr').remove();
+        renumber(body2);
+      }
+    });
+
+    // 挑了現成項目就不用再打名稱，反之亦然——避免兩個都填時搞不清用哪個
+    document.addEventListener('change', function (event) {
+      if (event.target.id === 'metricItem' && event.target.value) {
+        var name = document.getElementById('metricName');
+        if (name) { name.value = ''; }
+      }
+    });
+    document.addEventListener('input', function (event) {
+      if (event.target.id === 'metricName' && event.target.value) {
+        var pick = document.getElementById('metricItem');
+        if (pick) { pick.value = ''; }
+      }
+    });
+  })();
 </script>
 {% endblock %}

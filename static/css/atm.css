@@ -653,3 +653,26 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); 
 .dayrow table { min-width: 560px; }
 .dayrow[open] { background: var(--surface-2); }
 .dayrow[open] table { background: var(--surface); }
+
+/* ------------------------------ 最常做的動作 / 整體·年份·時期 比較 */
+.itemlist .rank {
+  display: inline-block; min-width: 18px; margin-right: 4px;
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.itemlist a.active .rank { color: var(--accent); }
+
+.tabs.sub { margin: 0; gap: 14px; border-bottom: none; }
+.tabs.sub a { padding: 2px 2px; font-size: 13px; }
+
+.cmpsplit { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, 1fr); }
+.cmpsplit > .cmpchart { border-left: 1px solid var(--border); }
+.cmptable th, .cmptable td { vertical-align: top; }
+.cmptable tr.bestrow > td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .cmpsplit { grid-template-columns: 1fr; }
+  .cmpsplit > .cmpchart { border-left: none; border-top: 1px solid var(--border); }
+}

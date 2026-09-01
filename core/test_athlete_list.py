@@ -216,7 +216,7 @@ class PlanEditTests(TestCase):
             reverse("web:dashboard"), {"athlete": self.athlete.id}
         ).content.decode()
         self.assertIn("學界錦標賽", body)
-        self.assertIn("專項期", body)
+        self.assertIn("專項準備期", body)
         self.assertIn("專項速度", body)
         self.assertIn('id="targetDlg"', body)
         self.assertIn('id="phaseDlg"', body)
