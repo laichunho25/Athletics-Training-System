@@ -1221,6 +1221,9 @@ def _session_context(request, session):
         )
     )
 
+    # 活動名稱要中英對照；自己打的名稱對得上活動庫就借它的英文名
+    english = {d.name: d.name_en for d in library if d.name_en}
+
     blocks = []
     for value, label, activities in session.activities_by_block():
         blocks.append(
@@ -1228,7 +1231,13 @@ def _session_context(request, session):
                 "value": value,
                 "label": label,
                 "activities": [
-                    {"a": a, "editable": liveedit.can_edit(a, request.user, "name")}
+                    {
+                        "a": a,
+                        "editable": liveedit.can_edit(a, request.user, "name"),
+                        "name_en": (
+                            a.definition.name_en if a.definition_id else ""
+                        ) or english.get(a.name, ""),
+                    }
                     for a in activities
                 ],
             }
@@ -1653,13 +1662,35 @@ def analytics_view(request):
                     definition.name,
                     user=request.user,
                     category=metric_category_for_activity(definition.category),
+                    name_en=definition.name_en,
                 )
-                messages.success(request, f"已把「{item.name}」加進項目清單。")
+                messages.success(request, f"已把「{item.display_name}」加進項目清單。")
                 return redirect(f"{back}&item={item.id}")
+
+            # 直接打名稱：打得中活動庫的話，英文名與分類照活動庫帶
+            match = None
+            if name:
+                match = (
+                    ActivityDefinition.objects.filter(name__iexact=name).first()
+                    or ActivityDefinition.objects.filter(name_en__iexact=name).first()
+                )
             if not name:
                 messages.error(request, "請填項目名稱。")
             elif domain not in MetricDomain.values:
                 messages.error(request, "不認得的範疇。")
+            elif "unit" not in request.POST:
+                # 只打了名稱（沒展開自訂表單）：單位與方向照範疇的預設值給
+                item = item_for_name(
+                    domain,
+                    match.name if match else name,
+                    user=request.user,
+                    category=(
+                        metric_category_for_activity(match.category) if match else None
+                    ),
+                    name_en=match.name_en if match else "",
+                )
+                messages.success(request, f"已把「{item.display_name}」加進項目清單。")
+                return redirect(f"{back}&item={item.id}")
             else:
                 item, created = MetricItem.objects.get_or_create(
                     domain=domain,
@@ -1667,18 +1698,24 @@ def analytics_view(request):
                     defaults={
                         "unit": request.POST.get("unit", "").strip(),
                         "higher_is_better": bool(request.POST.get("higher_is_better")),
+                        "name_en": (
+                            request.POST.get("name_en", "").strip()
+                            or (match.name_en if match else "")
+                        ),
                         "category": (
                             request.POST.get("category")
                             if request.POST.get("category") in MetricCategory.values
+                            else metric_category_for_activity(match.category)
+                            if match
                             else MetricCategory.OTHER
                         ),
                         "created_by": request.user,
                     },
                 )
                 if created:
-                    messages.success(request, f"已新增項目「{item.name}」。")
+                    messages.success(request, f"已新增項目「{item.display_name}」。")
                 else:
-                    messages.info(request, f"「{item.name}」已經在清單裡了。")
+                    messages.info(request, f"「{item.display_name}」已經在清單裡了。")
                 back += f"&item={item.id}"
             return redirect(back)
 

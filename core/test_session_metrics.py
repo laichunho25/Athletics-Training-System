@@ -319,3 +319,50 @@ class DisplayNameTests(TestCase):
         })
         page = self.client.get(reverse("web:session_detail", args=[s.id]))
         self.assertContains(page, "平板支撐（Plank）")
+
+
+class ItemPickerTests(TestCase):
+    """加入項目的入口要一眼看得到，而且打名字也能加。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a7")
+        self.client.force_login(self.athlete.user)
+        self.definition = ActivityDefinition.objects.create(
+            name="槓鈴深蹲", name_en="Back Squat", category=ActivityCategory.LOWER
+        )
+
+    def url(self):
+        return (
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}"
+        )
+
+    def test_library_picker_is_on_the_page_with_its_options(self):
+        body = self.client.get(self.url()).content.decode()
+        # 挑項目的卡片排在項目清單前面，不用捲到最下面才找得到
+        self.assertIn("加入要追蹤的項目", body)
+        self.assertLess(body.index("加入要追蹤的項目"), body.index("最常做的動作"))
+        self.assertIn("槓鈴深蹲（Back Squat）", body)
+
+    def test_typing_a_library_name_brings_its_english_name_and_category(self):
+        self.client.post(self.url(), {
+            "action": "add_item",
+            "domain": MetricDomain.STRENGTH,
+            "name": "槓鈴深蹲",
+        })
+        item = MetricItem.objects.get(
+            domain=MetricDomain.STRENGTH, name="槓鈴深蹲"
+        )
+        self.assertEqual(item.name_en, "Back Squat")
+        self.assertEqual(item.category, MetricCategory.LOWER)
+
+    def test_session_activity_row_shows_the_english_name(self):
+        s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
+        self.client.post(reverse("web:session_detail", args=[s.id]), {
+            "action": "add_activity",
+            "block": "MAIN",
+            "name": "槓鈴深蹲",
+        })
+        page = self.client.get(reverse("web:session_detail", args=[s.id]))
+        self.assertContains(page, "Back Squat")

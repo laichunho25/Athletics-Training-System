@@ -24,6 +24,95 @@
 <div class="grid grid-2 mb" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
  <div>
   {% if not is_competition %}
+  <!-- ------------------------------------------------ 從活動庫加入項目 -->
+  <div class="card pad0 mb">
+    <div class="card-head">
+      <span>加入要追蹤的項目</span>
+      <span class="small c-dim">活動庫共 {{ activity_library|length }} 個動作</span>
+    </div>
+    <div style="padding:14px 18px">
+      <form method="post" class="mb">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_item">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        <div class="field">
+          <label>① 從訓練活動庫挑（挑好按「加進清單」）</label>
+          <select name="definition" size="8" style="height:auto">
+            {% for value, label in activity_categories %}
+              <optgroup label="{{ label }}">
+                {% for d in activity_library %}{% if d.category == value %}
+                  <option value="{{ d.id }}">{{ d.display_name }}</option>
+                {% endif %}{% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex">
+          <button class="btn sm" type="submit">加進清單</button>
+          <span class="small c-dim">加進來之後就能在下面的項目清單點開記錄。</span>
+        </div>
+      </form>
+
+      <form method="post" class="mb">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_item">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        <div class="field">
+          <label>② 或直接打名稱（打得中活動庫就會自動帶入英文名與分類）</label>
+          <input type="text" name="name" list="libitems" required
+                 placeholder="例：槓鈴深蹲 / Back Squat">
+          <datalist id="libitems">
+            {% for d in activity_library %}
+              <option value="{{ d.name }}">{{ d.name_en }}</option>
+            {% endfor %}
+          </datalist>
+        </div>
+        <div class="flex">
+          <button class="btn sm ghost" type="submit">加進清單</button>
+        </div>
+      </form>
+
+      <details>
+        <summary class="small c-accent" style="cursor:pointer">③ 活動庫沒有？自己定義一個項目</summary>
+        <form method="post" class="mt">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_item">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <div class="field">
+            <label>項目名稱</label>
+            <input type="text" name="name" placeholder="例：120m 計時、單腳跳距離" required>
+          </div>
+          <div class="field">
+            <label>英文名稱</label>
+            <input type="text" name="name_en" placeholder="例：120m Time Trial">
+          </div>
+          <div class="field">
+            <label>動作分類</label>
+            <select name="category">
+              {% for v, l in metric_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>單位</label>
+              <input type="text" name="unit" placeholder="秒 / m / kg / cm">
+            </div>
+            <div class="field">
+              <label>方向</label>
+              <select name="higher_is_better">
+                <option value="1">數值越大越好（距離、重量）</option>
+                <option value="">數值越小越好（計時、名次）</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn sm" type="submit">新增項目</button>
+        </form>
+      </details>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not is_competition %}
   <!-- ------------------------------------------------------ 最常做的動作 -->
   <div class="card pad0 mb">
     <div class="card-head">
@@ -120,72 +209,11 @@
         {% endfor %}
       {% empty %}
         {% if not is_competition %}
-          <div class="empty">還沒有登過數據。下面從訓練活動庫挑一個動作就可以開始記錄。</div>
+          <div class="empty">還沒有項目。用上面的「加入要追蹤的項目」挑一個動作就可以開始記錄。</div>
         {% endif %}
       {% endfor %}
     </div>
 
-    {% if not is_competition %}
-    <div style="padding:14px 18px;border-top:1px solid var(--border)">
-      <form method="post" class="mb">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="add_item">
-        <input type="hidden" name="domain" value="{{ domain }}">
-        <div class="field">
-          <label>從訓練活動庫挑一個動作</label>
-          <select name="definition">
-            <option value="">— 挑一個動作加進清單 —</option>
-            {% for value, label in activity_categories %}
-              <optgroup label="{{ label }}">
-                {% for d in activity_library %}{% if d.category == value %}
-                  <option value="{{ d.id }}">{{ d.display_name }}</option>
-                {% endif %}{% endfor %}
-              </optgroup>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="flex">
-          <button class="btn sm" type="submit">加進清單</button>
-          <span class="small c-dim">
-            挑好按這裡；課表上加過的活動也會自動出現在上面的清單。
-          </span>
-        </div>
-      </form>
-
-      <details>
-        <summary class="small c-accent" style="cursor:pointer">＋ 活動庫沒有？自己新增一個項目</summary>
-        <form method="post" class="mt">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="add_item">
-          <input type="hidden" name="domain" value="{{ domain }}">
-          <div class="field">
-            <label>項目名稱</label>
-            <input type="text" name="name" placeholder="例：120m 計時、單腳跳距離" required>
-          </div>
-          <div class="field">
-            <label>動作分類</label>
-            <select name="category">
-              {% for v, l in metric_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label>單位</label>
-              <input type="text" name="unit" placeholder="秒 / m / kg / cm">
-            </div>
-            <div class="field">
-              <label>方向</label>
-              <select name="higher_is_better">
-                <option value="1">數值越大越好（距離、重量）</option>
-                <option value="">數值越小越好（計時、名次）</option>
-              </select>
-            </div>
-          </div>
-          <button class="btn sm" type="submit">新增項目</button>
-        </form>
-      </details>
-    </div>
-    {% endif %}
   </div>
  </div>
 

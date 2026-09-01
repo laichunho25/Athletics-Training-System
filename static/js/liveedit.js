@@ -292,7 +292,7 @@
       if (add) {
         document.getElementById('actBlock').value = add.dataset.block;
         document.getElementById('actBlockLabel').textContent = add.dataset.label;
-        document.getElementById('actPick').value = '';
+        document.getElementById('actPick').selectedIndex = -1;
         resetActivityForm();
         document.getElementById('actDlg').showModal();
         return;
@@ -307,6 +307,13 @@
         var pick = document.getElementById('actPick');
         var found = pick && definitionById(pick.value);
         if (found) { addActivityName(found.name, found); }
+        return;
+      }
+      // 在清單裡雙擊也直接加，少按一次
+      if (event.target.tagName === 'OPTION' && event.detail === 2
+          && event.target.parentNode.closest('#actPick')) {
+        var picked = definitionById(event.target.value);
+        if (picked) { addActivityName(picked.name, picked); }
         return;
       }
       if (event.target.id === 'actSearchAdd') {

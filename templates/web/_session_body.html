@@ -134,6 +134,7 @@
         <td>
           <span class="cell strong" data-edit="activity:{{ a.id }}:name" data-kind="text"
                 data-value="{{ a.name }}" data-can="{{ can }}">{{ a.name }}</span>
+          {% if row.name_en %}<div class="small c-dim">{{ row.name_en }}</div>{% endif %}
         </td>
         {% for name, label in activity_fields %}
         <td class="num">
@@ -522,9 +523,8 @@
 
     <div class="row">
       <div class="field" style="flex:1">
-        <label>從訓練活動庫挑（挑一個會帶入預設值，挑多個就一次加多項）</label>
-        <select id="actPick">
-          <option value="">— 挑一個加進下面的名單 —</option>
+        <label>從訓練活動庫挑（點一個再按「加進名單」，可以連續加多項）</label>
+        <select id="actPick" size="8" style="height:auto">
           {% for value, label in activity_categories %}
             <optgroup label="{{ label }}">
               {% for d in library %}{% if d.category == value %}
