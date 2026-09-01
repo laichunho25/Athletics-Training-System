@@ -52,12 +52,91 @@ class MultiSetRecordTests(TestCase):
         self.client.post(url, {
             "action": "add_record", "domain": MetricDomain.STRENGTH,
             "item_id": self.item.id, "date": date.today().isoformat(),
-            "value": "80", "weight": "", "reps": "", "rest_sec": "", "completed": "1",
+            "value": "80", "reps": "", "rest_sec": "", "completed": "1",
         })
         rec = MetricRecord.objects.get()
         self.assertIsNone(rec.set_no)
-        self.assertIsNone(rec.weight_kg)
         self.assertTrue(rec.completed)
+
+    def test_kg_item_takes_weight_from_the_value(self):
+        """單位是 kg 的項目，表單只問一次數值，重量自動跟著它走。"""
+        url = reverse("web:analytics")
+        item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="kg").first()
+
+        self.client.post(url, {
+            "action": "add_record", "domain": MetricDomain.STRENGTH,
+            "item_id": item.id, "date": date.today().isoformat(),
+            "value": "80", "reps": "5", "rest_sec": "", "completed": "1",
+        })
+
+        rec = MetricRecord.objects.get()
+        self.assertEqual(float(rec.weight_kg), 80.0)
+        self.assertEqual(rec.tonnage, 400.0)
+
+        page = self.client.get(f"{url}?domain={MetricDomain.STRENGTH}&item={item.id}")
+        body = page.content.decode()
+        self.assertNotIn('name="weight"', body)   # 重複的重量欄已經拿掉
+
+    def test_non_kg_item_still_has_its_own_weight_field(self):
+        item = MetricItem.objects.filter(domain=MetricDomain.TRACK, unit="秒").first()
+        url = reverse("web:analytics")
+
+        self.client.post(url, {
+            "action": "add_record", "domain": MetricDomain.TRACK,
+            "item_id": item.id, "date": date.today().isoformat(),
+            "value": "7.2", "weight": "", "reps": "", "rest_sec": "", "completed": "1",
+        })
+
+        self.assertIsNone(MetricRecord.objects.get().weight_kg)
+        body = self.client.get(f"{url}?domain={MetricDomain.TRACK}&item={item.id}").content.decode()
+        self.assertIn('name="weight"', body)
+
+
+class DailyDetailTests(TestCase):
+    """紀錄明細以「一天一列」呈現，列上是當日最重／最輕，點開才看每一組。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a2")
+        self.item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="kg").first()
+        self.client.force_login(self.athlete.user)
+        self.url = reverse("web:analytics")
+
+    def _add(self, on_date, values):
+        self.client.post(self.url, {
+            "action": "add_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, "date": on_date.isoformat(),
+            "value": values, "reps": ["5"] * len(values),
+            "completed": ["1"] * len(values),
+        })
+
+    def test_days_carry_high_and_low_of_that_day(self):
+        from analytics.services import metric_analysis
+
+        self._add(date(2026, 6, 1), ["100", "110", "95"])
+        self._add(date(2026, 6, 8), ["120", "105"])
+
+        days = metric_analysis(self.athlete, self.item)["days"]
+
+        self.assertEqual([d["date"] for d in days], [date(2026, 6, 8), date(2026, 6, 1)])
+        self.assertEqual(days[0]["count"], 2)
+        self.assertEqual((days[0]["high"], days[0]["low"]), (120.0, 105.0))
+        self.assertEqual((days[1]["high"], days[1]["low"]), (110.0, 95.0))
+        self.assertTrue(days[0]["unit_is_weight"])
+        self.assertEqual([float(r.value) for r in days[1]["records"]], [100.0, 110.0, 95.0])
+
+    def test_detail_page_lists_one_row_per_day(self):
+        self._add(date(2026, 6, 1), ["100", "110"])
+        self._add(date(2026, 6, 8), ["120"])
+
+        body = self.client.get(
+            f"{self.url}?domain={MetricDomain.STRENGTH}&item={self.item.id}"
+        ).content.decode()
+
+        self.assertEqual(body.count('<details class="dayrow">'), 2)
+        self.assertIn("最重", body)
+        self.assertIn("最輕", body)
+        self.assertIn("2026-06-08", body)
 
     def test_blank_rows_are_skipped(self):
         url = reverse("web:analytics")

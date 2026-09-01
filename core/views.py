@@ -1496,6 +1496,10 @@ def analytics_view(request):
                 except (TypeError, ValueError):
                     return None
 
+            # 單位本身就是 kg 的項目（背蹲舉、臥推…），表單只留「數值」一格，
+            # 重量就是那個數值，這裡自動補上去，噸位與圖表照樣算得出來。
+            unit_is_weight = (item.unit or "").strip().lower() == "kg"
+
             created = []
             for i, raw_value in enumerate(values):
                 raw_value = raw_value.strip()
@@ -1506,6 +1510,9 @@ def analytics_view(request):
                 except (InvalidOperation, ValueError):
                     messages.error(request, f"第 {i + 1} 組的數值不是有效數字。")
                     continue
+                weight = _num(weights, i, Decimal)
+                if weight is None and unit_is_weight:
+                    weight = value
                 created.append(
                     MetricRecord.objects.create(
                         athlete=athlete,
@@ -1514,7 +1521,7 @@ def analytics_view(request):
                         date=on_date,
                         value=value,
                         set_no=(i + 1) if multi else None,
-                        weight_kg=_num(weights, i, Decimal),
+                        weight_kg=weight,
                         reps=_num(reps_list, i, int),
                         rest_sec=_num(rests, i, int),
                         completed=(dones[i] if i < len(dones) else "1") != "0",
@@ -1605,6 +1612,8 @@ def analytics_view(request):
             "overview": overview,
             "item": item,
             "analysis": analysis,
+            # 單位就是 kg 的項目（背蹲舉 1RM…），數值＝重量，表單不再重複問一次
+            "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
             "chart_points": json.dumps(analysis["points"] if analysis else []),
             "recent_sessions": recent_sessions,
             "today_iso": date.today().isoformat(),

@@ -564,6 +564,41 @@ def metric_points(athlete, item, days=365):
     )
 
 
+def metric_days(records, item):
+    """把紀錄按日期收成一天一列——列上顯示當日最重與最輕，展開才看每一組。
+
+    紀錄明細一組一列的話，重訓一堂課十幾組會把表拉得很長；
+    以「一天一個單位」收起來，先看得到當日的高低點，需要細節再點開。
+    """
+    by_date = {}
+    for record in records:
+        by_date.setdefault(record.date, []).append(record)
+
+    unit_is_weight = (item.unit or "").strip().lower() == "kg"
+    result = []
+    for on_date in sorted(by_date, reverse=True):  # 新的一天放最上面
+        rows = sorted(by_date[on_date], key=lambda r: (r.set_no or 0, r.id))
+        values = [float(r.value) for r in rows]
+        tonnages = [r.tonnage for r in rows if r.tonnage is not None]
+        result.append(
+            {
+                "date": on_date,
+                "records": rows,
+                "count": len(rows),
+                "high": max(values),          # 當日最重／最高
+                "low": min(values),           # 當日最輕／最低
+                "best": (max if item.higher_is_better else min)(values),
+                "unit_is_weight": unit_is_weight,
+                "failed": sum(1 for r in rows if not r.completed),
+                "total_reps": sum(r.reps for r in rows if r.reps is not None) or None,
+                "tonnage": round(sum(tonnages), 1) if tonnages else None,
+                "context": next((r.context for r in rows if r.context), ""),
+                "session": next((r.session for r in rows if r.session_id), None),
+            }
+        )
+    return result
+
+
 def metric_analysis(athlete, item, days=365):
     """依紀錄自動產生分析：最佳、最近、趨勢、與最佳的差距、建議。
 
@@ -592,6 +627,7 @@ def metric_analysis(athlete, item, days=365):
             }
             for r in records
         ],
+        "days": [],
         "set_count": 0,
         "completed_count": 0,
         "failed_count": 0,
@@ -608,6 +644,7 @@ def metric_analysis(athlete, item, days=365):
         "change_pct": None,
         "advice": "",
     }
+    result["days"] = metric_days(records, item)
     result["set_count"] = len(records)
     result["completed_count"] = sum(1 for r in records if r.completed)
     result["failed_count"] = result["set_count"] - result["completed_count"]
