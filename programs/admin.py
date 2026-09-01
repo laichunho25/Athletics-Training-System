@@ -39,7 +39,10 @@ class ProjectAdmin(admin.ModelAdmin):
     inlines = [ApplicationInline]
     actions = ["open_enrollment", "close_enrollment"]
     fieldsets = (
-        ("基本資料", {"fields": ("title", "subtitle", "slug", "organiser", "description")}),
+        (
+            "基本資料",
+            {"fields": ("title", "subtitle", "slug", "organiser", "default_school_or_club", "description")},
+        ),
         (
             "時間與規模",
             {

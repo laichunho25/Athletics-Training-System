@@ -70,6 +70,9 @@ class ApplicationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.project = project
 
+        if project and project.default_school_or_club and not self.is_bound:
+            self.fields["school_or_club"].initial = project.default_school_or_club
+
         self.fields["primary_event"].queryset = Event.objects.all()
         self.fields["primary_event"].empty_label = "（未定 / 不適用）"
         self.fields["email"].help_text = "確認信與課堂通知會寄到這裡"

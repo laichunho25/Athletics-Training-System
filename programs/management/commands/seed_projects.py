@@ -63,6 +63,7 @@ PROJECTS = [
             "title": "PolyU Athletics Team - S&C session for Athletics",
             "subtitle": "理大田徑隊專項力量與體能課（第一期：徑賽組）",
             "organiser": "PolyU Athletics Team",
+            "default_school_or_club": "The Hong Kong Polytechnic University",
             "description": (
                 "為理大田徑隊而設的專項力量與體能課程，於理工大學校園內進行。"
                 "訓練以膕繩肌、臀部與核心力量為核心，並兼顧整體力量的提升，"

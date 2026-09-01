@@ -230,6 +230,17 @@ class SubmitApplicationTests(TestCase):
         self.assertNotIn("guardian_phone", html)
         self.assertNotIn("監護人", html)
 
+    def test_project_can_override_the_school_default(self):
+        """PolyU 這類非 DBSAC 主辦的項目，報名表要預填自己的機構名。"""
+        project = make_project(
+            slug="polyu-test", default_school_or_club="The Hong Kong Polytechnic University"
+        )
+        response = self.client.get(reverse("programs:apply", args=[project.slug]))
+        self.assertEqual(
+            response.context["form"]["school_or_club"].value(),
+            "The Hong Kong Polytechnic University",
+        )
+
     def test_school_field_defaults_to_dbsac(self):
         html = self.client.get(self.url).content.decode()
         self.assertIn("學校 / 體育會", html)
@@ -350,6 +361,9 @@ class SeedProjectsTests(TestCase):
         self.assertEqual(float(project.price_hkd), 0.0)
         self.assertEqual(project.trainer, "Lai Chun Ho")
         self.assertIn("X202", project.venue_address)
+        self.assertEqual(
+            project.default_school_or_club, "The Hong Kong Polytechnic University"
+        )
         self.assertIn("6531 2212", project.contact_note)
 
     def test_polyu_project_is_listed_and_open_for_applications(self):

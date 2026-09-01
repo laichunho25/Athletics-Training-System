@@ -38,6 +38,12 @@ class Project(TimeStampedModel):
     title = models.CharField("項目名稱", max_length=150)
     subtitle = models.CharField("副標", max_length=200, blank=True)
     organiser = models.CharField("主辦", max_length=100, blank=True, default="DBSAC")
+    default_school_or_club = models.CharField(
+        "預設學校 / 體育會",
+        max_length=100,
+        blank=True,
+        help_text="報名表「學校 / 體育會」的預設值，留空＝沿用 DBSAC；報名者仍可自行修改",
+    )
     description = models.TextField("項目說明", help_text="開頭段落，說明這個項目的背景與目的")
 
     # ---- 時間與規模 ----
