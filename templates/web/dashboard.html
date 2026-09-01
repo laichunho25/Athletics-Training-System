@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}運動員狀態總覽{% endblock %}
 
 {% block content %}
@@ -420,6 +421,19 @@
     <div class="alert blue small">
       <b>用手機截圖也可以：</b>在相簿長按截圖 → iPhone 用「實時文字」、Android 用 Google Lens
       選取全部文字 → 複製 → 貼到下面。項目名與數值分兩行也讀得懂，「標準／多／高」等評價字會自動略過。
+      手機不方便的話，也可以直接在下面上傳截圖，讓瀏覽器自己辨識。
+    </div>
+
+    <div class="field">
+      <label>或：上傳截圖自動辨識</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="file" id="ocrFile" accept="image/*">
+        <button type="button" class="btn ghost sm" id="ocrRun">辨識圖片文字</button>
+      </div>
+      <div class="small c-dim" id="ocrStatus" style="margin-top:6px">
+        圖片不會上傳，整個辨識都在你的瀏覽器裡跑。第一次要下載約 10MB 中文辨識模型（之後會快取），
+        辨識大約 5–15 秒。結果會填到下面，<b>請自己核對數字再儲存</b>。
+      </div>
     </div>
 
     <div class="field">
@@ -432,7 +446,7 @@
 
     <div class="field">
       <label>貼上內容</label>
-      <textarea name="text" rows="12" required
+      <textarea name="text" id="bodyPasteText" rows="12" required
                 placeholder="體重&#10;69.20 kg&#10;體脂肪率&#10;標準&#10;16.30 %&#10;肌肉量&#10;54.90 kg&#10;…"></textarea>
     </div>
     <button class="btn" type="submit">讀取並更新</button>
@@ -666,6 +680,7 @@ new Chart(document.getElementById('bodyChart'), {
 {% endif %}
 
 {% if can_edit_plan %}
+<script src="{% static 'js/body-ocr.js' %}" defer></script>
 <script>
   // 目標賽事：選「新增一個賽事」才展開下面的欄位
   function toggleNewComp() {

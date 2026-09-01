@@ -8,7 +8,12 @@
        體脂肪率,16.30 %
        肌肉量,54.90 kg
 
-   手機的「實時文字」／Google Lens 會把項目名與數值拆成兩行，這種也讀得懂：
+   手機的「實時文字」／Google Lens、瀏覽器 OCR 會把項目名與數值拆成兩行，
+   或是擠在同一行沒有逗號，這兩種也讀得懂：
+
+       體重 69.20 kg
+       體脂肪率 標準 - 16.30 %
+
 
        體重
        69.20 kg
@@ -128,7 +133,8 @@ def _to_date(raw):
     if not text:
         return None
     # 先試「2026年06月07日」這種寫法
-    cjk = re.match(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
+    # 用 search：OCR 常把標題與日期併成一行（例：「體組成 2026年06月07日」）
+    cjk = re.search(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", text)
     if cjk:
         y, m, d = (int(g) for g in cjk.groups())
         return date(y, m, d)
@@ -150,6 +156,30 @@ def _to_time(raw):
         return None
     hour, minute = int(match.group(1)), int(match.group(2))
     return f"{hour:02d}:{minute:02d}" if 0 <= hour < 24 and minute < 60 else None
+
+
+def _split_label_value(cell):
+    """OCR 出來常是「體重 69.20 kg」這種沒有分隔符的一行——切成項目名與數值。
+
+    以第一個數字為界，前面是項目名；認不出項目名就回 None。
+    """
+    text = str(cell or "").strip()
+    match = _NUMBER.search(text)
+    if not match or match.start() == 0:
+        return None
+    label, value = text[: match.start()], text[match.start():]
+    for candidate in (label, _strip_ratings(label)):
+        norm = _norm_key(candidate)
+        if norm in FIELD_ALIASES or norm in (DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS):
+            return (candidate, value)
+    return None
+
+
+def _strip_ratings(text):
+    """把項目名後面跟著的「標準」「多」「高」等評價字去掉。"""
+    for word in RATING_WORDS:
+        text = text.replace(word, "")
+    return text.strip(" -—·")
 
 
 def _is_rating_only(cell):
@@ -271,6 +301,10 @@ def parse_body_composition(text, default_date=None):
                     DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS
                 ):
                     pending = cell
+                    continue
+                # 項目名與數值擠在同一行、中間沒有逗號
+                pair = _split_label_value(cell)
+                if pair and _assign(record, *pair):
                     continue
                 key = cell
 

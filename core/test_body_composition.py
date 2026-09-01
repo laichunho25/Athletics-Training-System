@@ -107,6 +107,30 @@ class BodyImportParserTests(TestCase):
         self.assertEqual(row["bmr_kcal"], 1608)
         self.assertEqual(row["muscle_leg_r"], 8.85)
 
+    def test_reads_ocr_text_with_label_and_value_on_one_line(self):
+        """瀏覽器 OCR 出來的樣子：項目名與數值同一行，中間只有空白。"""
+        text = "\n".join(
+            [
+                "體組成 2026年06月07日",
+                "體重 69.20 kg",
+                "體脂肪率 標準 - 16.30 %",
+                "肌肉量 標準 54.90 kg",
+                "BMI 23.4",
+                "基礎代謝量 多 1608 kcal",
+                "今日心情很好",
+            ]
+        )
+        records, _ = parse_body_composition(text)
+
+        self.assertEqual(len(records), 1)
+        row = records[0]
+        self.assertEqual(row["date"], date(2026, 6, 7))
+        self.assertEqual(row["weight_kg"], 69.20)
+        self.assertEqual(row["body_fat_pct"], 16.30)
+        self.assertEqual(row["muscle_mass_kg"], 54.90)
+        self.assertEqual(row["bmi"], 23.4)
+        self.assertEqual(row["bmr_kcal"], 1608)
+
     def test_row_without_weight_is_dropped(self):
         records, _ = parse_body_composition("日期,體脂肪率\n2026/06/07,16.3\n")
         self.assertEqual(records, [])
@@ -244,3 +268,6 @@ class BodyMetricViewTests(TestCase):
         self.assertIn("基本指標與體組成", html)
         self.assertIn("匯入檔案", html)
         self.assertIn("貼上磅的文字", html)
+        # 免費的瀏覽器端截圖辨識
+        self.assertIn("辨識圖片文字", html)
+        self.assertIn("body-ocr", html)
