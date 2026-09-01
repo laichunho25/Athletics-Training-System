@@ -59,6 +59,8 @@ from planning.models import (
     projects_for,
 )
 from programs.models import Project
+from programs.services import ImportError_ as ProgramImportError
+from programs.services import import_application
 from training.models import (
     ACTIVITY_FIELDS,
     ActivityDefinition,
@@ -672,6 +674,9 @@ def plan_detail(request, pk):
     if not projects_for(request.user).filter(pk=pk).exists():
         raise Http404("這個項目沒有分配給你。")
 
+    if request.method == "POST":
+        return _plan_detail_import(request, project)
+
     visible = set(athlete_ids_visible_to(request.user))
     athletes = [a for a in project_athletes(project) if a.id in visible]
     rows = [_athlete_row(a) for a in athletes]
@@ -691,6 +696,37 @@ def plan_detail(request, pk):
             "today": date.today(),
         },
     )
+
+
+def _plan_detail_import(request, project):
+    """在計劃頁直接把選取的報名表載入成 ATM 運動員檔案（等同後台的「匯入 ATM」）。"""
+    if not _is_admin(request.user):
+        messages.error(request, "只有管理員可以匯入報名表。")
+        return redirect("web:plan_detail", pk=project.pk)
+
+    applications = project.applications.filter(
+        athlete__isnull=True, id__in=request.POST.getlist("application_ids")
+    )
+    if not applications:
+        messages.warning(request, "沒有選取任何未匯入的報名表。")
+        return redirect("web:plan_detail", pk=project.pk)
+
+    created = 0
+    for application in applications:
+        try:
+            import_application(application)
+        except ProgramImportError as exc:
+            messages.error(request, f"{application.name_en}：{exc}")
+            continue
+        created += 1
+
+    if created:
+        messages.success(
+            request,
+            f"已把 {created} 份報名載入「{project.title}」，"
+            "帳號密碼為隨機值，請用後台的『重設密碼』給對方。",
+        )
+    return redirect("web:plan_detail", pk=project.pk)
 
 
 # ------------------------------------------------------------------ 日曆

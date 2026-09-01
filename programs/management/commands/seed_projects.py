@@ -1,5 +1,5 @@
 """
-建立第一個報名項目：DBSAC Special Strength & Conditioning Sessions。
+建立公開報名項目：DBSAC 專項力量課、PolyU 田徑隊 S&C 課。
 
 以 slug 為鍵 upsert，可重複執行；已存在的項目只更新內容，
 不會覆蓋你在後台改過的「狀態 / 報名期限」以外的手動調整——
@@ -56,7 +56,44 @@ PROJECTS = [
             "closes_at": hk(date(2026, 9, 3)),
             "display_order": 0,
         },
-    }
+    },
+    {
+        "slug": "polyu-sc-2026",
+        "defaults": {
+            "title": "PolyU Athletics Team - S&C session for Athletics",
+            "subtitle": "理大田徑隊專項力量與體能課（第一期：徑賽組）",
+            "organiser": "PolyU Athletics Team",
+            "description": (
+                "為理大田徑隊而設的專項力量與體能課程，於理工大學校園內進行。"
+                "訓練以膕繩肌、臀部與核心力量為核心，並兼顧整體力量的提升，"
+                "把重量室裡練到的力量轉化成跑道上的表現。第一期以徑賽項目"
+                "（短跑、跨欄及中距離）運動員為主。"
+            ),
+            "schedule_text": "每週二，2026 年 9 月 1 日至 11 月 24 日",
+            "start_date": date(2026, 9, 1),
+            "end_date": date(2026, 11, 24),
+            "session_count": 13,
+            "group_note": "共約 13 堂，每堂 5–8 人",
+            "capacity_per_session": 8,
+            "capacity_total": 8,
+            "trainer": "Lai Chun Ho",
+            "recommended_for": "徑賽運動員（短跑、跨欄及中距離）為第一期對象",
+            "focus": (
+                "發展膕繩肌、臀部與核心力量，並提升整體力量以改善運動表現。"
+            ),
+            "venue_name": "The Hong Kong Polytechnic University",
+            "venue_address": "PolyU Campus X202（理工大學校園 X202 室）",
+            "venue_note": "港鐵紅磡站 D1 出口步行約 5 分鐘",
+            "price_hkd": 0,
+            "price_note": "免費",
+            "important_note": (
+                "名額有限，請準時出席；如未能出席請提前通知教練，方便安排候補同學補上。"
+            ),
+            "contact_note": "請 WhatsApp Lai Chun Ho +852 6531 2212 報名",
+            "status": ProjectStatus.OPEN,
+            "display_order": 1,
+        },
+    },
 ]
 
 

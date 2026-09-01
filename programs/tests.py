@@ -338,6 +338,28 @@ class SeedProjectsTests(TestCase):
         self.assertEqual(float(project.price_hkd), 320.0)
         self.assertIn("退款", project.important_note)
 
+    def test_creates_the_polyu_project(self):
+        call_command("seed_projects")
+        project = Project.objects.get(slug="polyu-sc-2026")
+        self.assertEqual(project.title, "PolyU Athletics Team - S&C session for Athletics")
+        self.assertEqual(project.status, ProjectStatus.OPEN)
+        self.assertEqual(project.start_date, date(2026, 9, 1))
+        self.assertEqual(project.end_date, date(2026, 11, 24))
+        self.assertEqual(project.session_count, 13)
+        self.assertEqual(project.capacity_per_session, 8)
+        self.assertEqual(float(project.price_hkd), 0.0)
+        self.assertEqual(project.trainer, "Lai Chun Ho")
+        self.assertIn("X202", project.venue_address)
+        self.assertIn("6531 2212", project.contact_note)
+
+    def test_polyu_project_is_listed_and_open_for_applications(self):
+        call_command("seed_projects")
+        listing = self.client.get(reverse("programs:list"))
+        self.assertContains(listing, "PolyU Athletics Team")
+        detail = self.client.get(reverse("programs:detail", args=["polyu-sc-2026"]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.context["accepting"])
+
     def test_rerun_does_not_duplicate_or_overwrite(self):
         call_command("seed_projects")
         Project.objects.filter(slug="dbsac-sc-2026").update(title="教練改過的名稱")

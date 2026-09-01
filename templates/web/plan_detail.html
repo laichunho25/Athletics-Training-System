@@ -72,16 +72,23 @@
 </div>
 
 {% if is_admin and not_imported %}
-<div class="card pad0">
+<form method="post" class="card pad0">
+  {% csrf_token %}
   <div class="card-head">
     <span>尚未匯入 ATM 的報名表（{{ not_imported|length }} 份）</span>
-    <span class="small c-dim">到後台的報名表用「匯入 ATM」動作轉成運動員檔案</span>
+    <span class="small c-dim">勾選後按「載入計劃」，即會建立運動員檔案並出現在上方名單</span>
   </div>
   <table>
-    <thead><tr><th>姓名</th><th>學校 / 體育會</th><th>項目分類</th><th>狀態</th><th class="num">報名日期</th></tr></thead>
+    <thead>
+      <tr>
+        <th style="width:2rem"><input type="checkbox" id="pick-all"></th>
+        <th>姓名</th><th>學校 / 體育會</th><th>項目分類</th><th>狀態</th><th class="num">報名日期</th>
+      </tr>
+    </thead>
     <tbody>
     {% for a in not_imported %}
       <tr>
+        <td><input type="checkbox" class="pick" name="application_ids" value="{{ a.pk }}"></td>
         <td>{{ a.full_name }}</td>
         <td>{{ a.school_or_club }}</td>
         <td>{{ a.get_event_category_display }}</td>
@@ -91,6 +98,15 @@
     {% endfor %}
     </tbody>
   </table>
-</div>
+  <div class="card-head">
+    <span class="small c-dim">載入後系統會建立帳號（密碼為隨機值，需到後台重設）</span>
+    <button class="btn sm" type="submit">載入計劃</button>
+  </div>
+</form>
+<script>
+  document.getElementById('pick-all').addEventListener('change', function (e) {
+    document.querySelectorAll('.pick').forEach(function (box) { box.checked = e.target.checked; });
+  });
+</script>
 {% endif %}
 {% endblock %}
