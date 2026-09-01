@@ -136,6 +136,156 @@
   <div class="chart-box tall"><canvas id="loadChart"></canvas></div>
 </div>
 
+<!-- --------------------------------------------------- 一般資料 / 體組成 -->
+<div class="card pad0 mt" id="body">
+  <div class="card-head">
+    <span>基本指標與體組成</span>
+    {% if can_edit_plan %}
+    <span class="flex">
+      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.showModal()">匯入檔案</button>
+      <button type="button" class="btn sm" onclick="bodyDlg.showModal()">新增／更新紀錄</button>
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- 一般資料 -->
+  <div class="pad">
+    <div class="small c-dim mb">一般資料</div>
+    <div class="metagrid">
+      <div class="meta"><span class="lbl">身高</span><b>{{ athlete.height_cm }} cm</b></div>
+      <div class="meta"><span class="lbl">體重</span><b>{{ athlete.current_weight_kg }} kg</b></div>
+      <div class="meta"><span class="lbl">性別</span><b>{{ athlete.get_sex_display }}</b></div>
+      <div class="meta"><span class="lbl">出生年月日</span><b>{{ athlete.birth_date|date:"Y-m-d" }}（{{ athlete.age }} 歲）</b></div>
+      <div class="meta"><span class="lbl">BMI</span><b>{{ athlete.bmi|default:"—" }}</b></div>
+      <div class="meta"><span class="lbl">主項</span><b>{{ athlete.primary_event.name_zh }}</b></div>
+      <div class="meta"><span class="lbl">學校／體育會</span><b>{{ athlete.school_or_club|default:"—" }}</b></div>
+      <div class="meta"><span class="lbl">每週訓練日</span><b>{{ athlete.training_days_per_week }} 日</b></div>
+    </div>
+  </div>
+
+  {% if body_latest %}
+  <!-- 最新一次體組成 -->
+  <div class="pad" style="border-top:1px solid var(--border)">
+    <div class="between mb">
+      <div class="small c-dim">
+        最新體組成 · {{ body_latest.date }}{% if body_latest.measured_at %} {{ body_latest.measured_at|time:"H:i" }}{% endif %}
+        {% if body_latest.device %} · {{ body_latest.device }}{% endif %}
+        <span class="badge b-dim">{{ body_latest.get_source_display }}</span>
+      </div>
+      {% if body_deltas %}
+      <div class="small">
+        對比 {{ body_previous.date }}：
+        {% for dlt in body_deltas %}
+          <span class="{{ dlt.color }}">{{ dlt.label }} {{ dlt.diff }}</span>{% if not forloop.last %} · {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="bodygrid">
+      <div class="bodycell"><span>體重</span><b>{{ body_latest.weight_kg }} <em>kg</em></b></div>
+      <div class="bodycell"><span>體脂肪率</span><b>{{ body_latest.body_fat_pct|default:"—" }} <em>%</em></b></div>
+      <div class="bodycell"><span>肌肉量</span><b>{{ body_latest.muscle_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>BMI</span><b>{{ body_latest.bmi_value|default:"—" }}</b></div>
+      <div class="bodycell"><span>脂肪重</span><b>{{ body_latest.fat_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>去脂體重</span><b>{{ body_latest.lean_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>內臟脂肪等級</span><b>{{ body_latest.visceral_fat_level|default:"—" }}</b></div>
+      <div class="bodycell"><span>推定骨量</span><b>{{ body_latest.bone_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>體水分率</span><b>{{ body_latest.body_water_pct|default:"—" }} <em>%</em></b></div>
+      <div class="bodycell"><span>基礎代謝量</span><b>{{ body_latest.bmr_kcal|default:"—" }} <em>kcal</em></b></div>
+      <div class="bodycell"><span>肌肉質量指數</span><b>{{ body_latest.muscle_quality_score|default:"—" }}</b></div>
+      <div class="bodycell"><span>體內年齡</span><b>{{ body_latest.metabolic_age|default:"—" }} <em>歲</em></b></div>
+    </div>
+
+    {% if body_latest.mba_rating or body_latest.note %}
+      <div class="small c-dim mt">
+        {% if body_latest.mba_rating %}MBA 判定：{{ body_latest.mba_rating }}{% endif %}
+        {% if body_latest.note %}{% if body_latest.mba_rating %} · {% endif %}{{ body_latest.note }}{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if body_latest.has_segments %}
+  <div class="detailtable">
+    <table>
+      <thead><tr><th>部位</th><th class="num">肌肉量 (kg)</th><th class="num">脂肪率 (%)</th><th class="num">肌肉品質點數</th></tr></thead>
+      <tbody>
+      {% for seg in body_latest.segments %}
+        <tr>
+          <td>{{ seg.part }}</td>
+          <td class="num">{{ seg.muscle|default:"—" }}</td>
+          <td class="num">{{ seg.fat|default:"—" }}</td>
+          <td class="num">{{ seg.quality|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% else %}
+    <div class="empty">
+      尚未有體組成紀錄。
+      {% if can_edit_plan %}可以用上面的「匯入檔案」讀入體脂磅匯出的 CSV，或手動新增一筆。{% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% if body_history|length > 1 %}
+<!-- 體組成走勢 -->
+<div class="card pad0 mt">
+  <div class="card-head"><span>身體變化走勢（最近 {{ body_history|length }} 次量測）</span></div>
+  <div class="chart-box tall"><canvas id="bodyChart"></canvas></div>
+</div>
+{% endif %}
+
+{% if body_history %}
+<!-- 量測紀錄 -->
+<div class="card pad0 mt">
+  <div class="card-head"><span>體組成紀錄 (Record History)</span></div>
+  <div class="detailtable">
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th><th class="num">體重 (kg)</th><th class="num">體脂肪率 (%)</th>
+          <th class="num">肌肉量 (kg)</th><th class="num">BMI</th><th class="num">內臟脂肪</th>
+          <th class="num">體水分率 (%)</th><th class="num">基礎代謝 (kcal)</th>
+          <th>來源</th>{% if can_edit_plan %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for log in body_history %}
+        <tr>
+          <td class="num">{{ log.date }}{% if log.measured_at %} <span class="c-dim small">{{ log.measured_at|time:"H:i" }}</span>{% endif %}</td>
+          <td class="num">{{ log.weight_kg }}</td>
+          <td class="num">{{ log.body_fat_pct|default:"—" }}</td>
+          <td class="num">{{ log.muscle_mass_kg|default:"—" }}</td>
+          <td class="num">{{ log.bmi_value|default:"—" }}</td>
+          <td class="num">{{ log.visceral_fat_level|default:"—" }}</td>
+          <td class="num">{{ log.body_water_pct|default:"—" }}</td>
+          <td class="num">{{ log.bmr_kcal|default:"—" }}</td>
+          <td class="small c-dim">
+            {{ log.get_source_display }}{% if log.source_file %}<br>{{ log.source_file }}{% endif %}
+          </td>
+          {% if can_edit_plan %}
+          <td class="num">
+            <form method="post" action="{% url 'web:athlete_body_metric' athlete.id %}"
+                  onsubmit="return confirm('刪除 {{ log.date }} 的體組成紀錄？')">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="log_id" value="{{ log.id }}">
+              <button class="linkbtn" type="submit" title="刪除">×</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="mt"></div>
 <!-- ----------------------------------------------------------- 個人最佳 -->
 <div class="card pad0">
   <div class="card-head"><span>個人最佳成績 (PB)</span></div>
@@ -166,6 +316,122 @@
   [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
 </div>
 {% if can_edit_plan %}
+<!-- ------------------------------------------------- 體組成 輸入／匯入 -->
+<dialog id="bodyDlg" class="dlg">
+  <form method="post" action="{% url 'web:athlete_body_metric' athlete.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save">
+    <div class="between mb">
+      <h2>新增／更新體組成紀錄</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyDlg.close()">關閉</button>
+    </div>
+    <div class="alert blue small">同一個日期已經有紀錄的話，會直接覆蓋那一筆。只填量得到的欄位就好。</div>
+
+    <div class="row">
+      <div class="field"><label>日期</label>
+        <input type="date" name="date" value="{{ body_today_iso }}" required></div>
+      <div class="field"><label>量測時間</label>
+        <input type="time" name="measured_at"></div>
+      <div class="field"><label>量測機型</label>
+        <input type="text" name="device" maxlength="40" placeholder="例：RD-545AS"></div>
+    </div>
+
+    <div class="small c-dim mb">全身數據</div>
+    <div class="row">
+      <div class="field"><label>體重 (kg) *</label>
+        <input type="number" name="weight_kg" step="0.1" min="20" max="250" required></div>
+      <div class="field"><label>體脂肪率 (%)</label>
+        <input type="number" name="body_fat_pct" step="0.1" min="1" max="70"></div>
+      <div class="field"><label>肌肉量 (kg)</label>
+        <input type="number" name="muscle_mass_kg" step="0.01" min="1" max="150"></div>
+      <div class="field"><label>BMI</label>
+        <input type="number" name="bmi" step="0.1" min="8" max="60"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>肌肉量判定指數</label>
+        <input type="number" name="muscle_mass_index" step="1"></div>
+      <div class="field"><label>肌肉質量指數</label>
+        <input type="number" name="muscle_quality_score" step="1"></div>
+      <div class="field"><label>內臟脂肪等級</label>
+        <input type="number" name="visceral_fat_level" step="0.1" min="0" max="60"></div>
+      <div class="field"><label>推定骨量 (kg)</label>
+        <input type="number" name="bone_mass_kg" step="0.01" min="0" max="10"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>體水分率 (%)</label>
+        <input type="number" name="body_water_pct" step="0.1" min="20" max="90"></div>
+      <div class="field"><label>基礎代謝量 (kcal)</label>
+        <input type="number" name="bmr_kcal" step="1" min="500" max="5000"></div>
+      <div class="field"><label>體內年齡 (歲)</label>
+        <input type="number" name="metabolic_age" step="1" min="5" max="120"></div>
+      <div class="field"><label>MBA 判定</label>
+        <input type="text" name="mba_rating" maxlength="20" placeholder="例：業餘"></div>
+    </div>
+
+    <details class="mb">
+      <summary class="small c-accent" style="cursor:pointer;margin-bottom:12px">部位數據（右／左上肢、右／左腳、軀幹）</summary>
+      <div class="small c-dim mb">部位肌肉量 (kg)</div>
+      <div class="row">
+        <div class="field"><label>右上肢</label><input type="number" name="muscle_arm_r" step="0.01"></div>
+        <div class="field"><label>左上肢</label><input type="number" name="muscle_arm_l" step="0.01"></div>
+        <div class="field"><label>右腳</label><input type="number" name="muscle_leg_r" step="0.01"></div>
+        <div class="field"><label>左腳</label><input type="number" name="muscle_leg_l" step="0.01"></div>
+        <div class="field"><label>軀幹</label><input type="number" name="muscle_trunk" step="0.01"></div>
+      </div>
+      <div class="small c-dim mb">部位脂肪率 (%)</div>
+      <div class="row">
+        <div class="field"><label>右上肢</label><input type="number" name="fat_arm_r" step="0.1"></div>
+        <div class="field"><label>左上肢</label><input type="number" name="fat_arm_l" step="0.1"></div>
+        <div class="field"><label>右腳</label><input type="number" name="fat_leg_r" step="0.1"></div>
+        <div class="field"><label>左腳</label><input type="number" name="fat_leg_l" step="0.1"></div>
+        <div class="field"><label>軀幹</label><input type="number" name="fat_trunk" step="0.1"></div>
+      </div>
+      <div class="small c-dim mb">部位肌肉品質點數</div>
+      <div class="row">
+        <div class="field"><label>右上肢</label><input type="number" name="mq_arm_r" step="1"></div>
+        <div class="field"><label>左上肢</label><input type="number" name="mq_arm_l" step="1"></div>
+        <div class="field"><label>右腳</label><input type="number" name="mq_leg_r" step="1"></div>
+        <div class="field"><label>左腳</label><input type="number" name="mq_leg_l" step="1"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>靜息心率</label><input type="number" name="resting_hr" step="1"></div>
+        <div class="field"><label>HRV (ms)</label><input type="number" name="hrv" step="1"></div>
+      </div>
+    </details>
+
+    <div class="field">
+      <label>備註</label>
+      <textarea name="note" rows="2" placeholder="例：訓練前空腹量測"></textarea>
+    </div>
+    <button class="btn" type="submit">儲存體組成紀錄</button>
+  </form>
+</dialog>
+
+<dialog id="bodyImportDlg" class="dlg">
+  <form method="post" action="{% url 'web:athlete_body_metric' athlete.id %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="import">
+    <div class="between mb">
+      <h2>匯入體組成檔案</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.close()">關閉</button>
+    </div>
+
+    <div class="field">
+      <label>檔案（CSV / TSV / TXT）</label>
+      <input type="file" name="file" accept=".csv,.tsv,.txt,text/csv,text/plain" required>
+    </div>
+
+    <div class="alert blue small">
+      兩種格式都讀得懂：<br>
+      ① 一行一個項目 —— <code>體重,69.20 kg</code>、<code>體脂肪率,16.30 %</code>…（磅的 App 那一頁直接貼出來）<br>
+      ② 表格 —— 第一行是欄名（日期、體重、體脂肪率、肌肉量…），其餘每行一次量測，可一次匯入多天。<br>
+      單位、「標準／多／高」等評價字會自動略過；同一天已有紀錄會被覆蓋。<br>
+      範例檔：<code>docs/body_composition_sample.csv</code>
+    </div>
+    <button class="btn" type="submit">上傳並更新</button>
+  </form>
+</dialog>
+
 <!-- --------------------------------------------- 目標賽事 / 分期 對話框 -->
 <dialog id="targetDlg" class="dlg">
   <form method="post" action="{% url 'web:athlete_plan_edit' athlete.id %}">
@@ -342,6 +608,30 @@ new Chart(document.getElementById('loadChart'), {
   }
 });
 </script>
+
+{% if body_history|length > 1 %}
+<script>
+// 體組成走勢：體重／肌肉量走左軸（kg），百分比類走右軸
+new Chart(document.getElementById('bodyChart'), {
+  type: 'line',
+  data: {
+    labels: {{ body_chart.labels|safe }},
+    datasets: {{ body_chart.series|safe }}.map(s => ({
+      label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color,
+      yAxisID: s.axis, tension: .3, spanGaps: true, pointRadius: 3
+    }))
+  },
+  options: {
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      y:  { position: 'left',  title: { display: true, text: 'kg' } },
+      y1: { position: 'right', title: { display: true, text: '%' },
+            grid: { drawOnChartArea: false } }
+    }
+  }
+});
+</script>
+{% endif %}
 
 {% if can_edit_plan %}
 <script>

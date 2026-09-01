@@ -15,7 +15,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from accounts.models import AthleteProfile, CoachProfile, Event
+from accounts.body_import import parse_body_composition
+from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event
 from analytics import services as an
 from analytics.models import (
     MetricDomain,
@@ -201,8 +202,239 @@ def dashboard(request):
             "chart_load": json.dumps([p["total_load"] for p in prog]),
             "chart_acwr": json.dumps([p["acwr"] for p in prog]),
             "injuries": athlete.active_injuries,
+            **_body_context(athlete),
         },
     )
+
+
+# ------------------------------------------------------------ 體組成 / 體測
+
+#: 體組成表單上可以填的數值欄位 → 是不是整數
+BODY_NUMBER_FIELDS = {
+    "weight_kg": False,
+    "body_fat_pct": False,
+    "muscle_mass_kg": False,
+    "muscle_mass_index": True,
+    "bmi": False,
+    "muscle_quality_score": True,
+    "visceral_fat_level": False,
+    "bone_mass_kg": False,
+    "body_water_pct": False,
+    "bmr_kcal": True,
+    "metabolic_age": True,
+    "muscle_arm_r": False,
+    "muscle_arm_l": False,
+    "muscle_leg_r": False,
+    "muscle_leg_l": False,
+    "muscle_trunk": False,
+    "fat_arm_r": False,
+    "fat_arm_l": False,
+    "fat_leg_r": False,
+    "fat_leg_l": False,
+    "fat_trunk": False,
+    "mq_arm_r": True,
+    "mq_arm_l": True,
+    "mq_leg_r": True,
+    "mq_leg_l": True,
+    "resting_hr": True,
+    "hrv": True,
+}
+
+#: 走勢圖上畫哪幾條線：(欄位, 圖例, 顏色, 用哪一個 y 軸)
+BODY_CHART_SERIES = [
+    ("weight_kg", "體重 (kg)", "#ff6b35", "y"),
+    ("muscle_mass_kg", "肌肉量 (kg)", "#3fb950", "y"),
+    ("body_fat_pct", "體脂肪率 (%)", "#58a6ff", "y1"),
+    ("body_water_pct", "體水分率 (%)", "#a371f7", "y1"),
+]
+
+#: 「與上一次比較」要看的欄位：(欄位, 中文, 小數位, 變多算不算好事)
+BODY_DELTA_FIELDS = [
+    ("weight_kg", "體重", 1, None),
+    ("body_fat_pct", "體脂肪率", 1, False),
+    ("muscle_mass_kg", "肌肉量", 2, True),
+    ("visceral_fat_level", "內臟脂肪等級", 1, False),
+]
+
+
+def _body_context(athlete):
+    """狀態總覽頁「一般資料 + 體組成」區塊的資料。"""
+    history = list(athlete.body_metrics.order_by("-date")[:24])
+    latest = history[0] if history else None
+    previous = history[1] if len(history) > 1 else None
+
+    # 走勢圖由舊排到新；缺值留 None，讓 Chart.js 用 spanGaps 接起來
+    rows = list(reversed(history))
+    chart = {
+        "labels": json.dumps([r.date.strftime("%m/%d") for r in rows]),
+        "series": json.dumps(
+            [
+                {
+                    "label": label,
+                    "color": color,
+                    "axis": axis,
+                    "data": [
+                        float(getattr(r, field)) if getattr(r, field) is not None else None
+                        for r in rows
+                    ],
+                }
+                for field, label, color, axis in BODY_CHART_SERIES
+                if any(getattr(r, field) is not None for r in rows)
+            ]
+        ),
+    }
+
+    return {
+        "body_latest": latest,
+        "body_previous": previous,
+        "body_deltas": _body_deltas(latest, previous),
+        "body_history": history,
+        "body_chart": chart,
+        "body_today_iso": date.today().isoformat(),
+    }
+
+
+def _body_deltas(latest, previous):
+    """最新一筆跟上一筆的差；沒有上一筆就沒得比。"""
+    if latest is None or previous is None:
+        return []
+    rows = []
+    for field, label, digits, higher_is_better in BODY_DELTA_FIELDS:
+        now, before = getattr(latest, field), getattr(previous, field)
+        if now is None or before is None:
+            continue
+        diff = round(float(now) - float(before), digits)
+        if higher_is_better is None or diff == 0:
+            color = "c-dim"
+        else:
+            color = "c-green" if (diff > 0) == higher_is_better else "c-red"
+        rows.append(
+            {
+                "label": label,
+                "diff": f"{diff:+.{digits}f}",
+                "color": color,
+                "since": previous.date,
+            }
+        )
+    return rows
+
+
+def _body_value(raw, as_int):
+    """表單上的一格：留空＝None，填了就必須是數字。"""
+    text = (raw or "").strip()
+    if not text:
+        return None
+    try:
+        number = Decimal(text)
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"「{text}」不是有效的數字。")
+    return int(number.to_integral_value()) if as_int else number
+
+
+def _body_date(raw):
+    try:
+        return date.fromisoformat((raw or "").strip())
+    except ValueError:
+        return None
+
+
+def _body_save(request, athlete):
+    """手動輸入一筆體組成紀錄（同一天再存一次＝覆蓋原本那筆）。"""
+    on_date = _body_date(request.POST.get("date")) or date.today()
+    values = {
+        field: _body_value(request.POST.get(field), as_int)
+        for field, as_int in BODY_NUMBER_FIELDS.items()
+    }
+    if values["weight_kg"] is None:
+        raise ValueError("體重是必填的。")
+    values["device"] = request.POST.get("device", "").strip()[:40]
+    values["mba_rating"] = request.POST.get("mba_rating", "").strip()[:20]
+    values["note"] = request.POST.get("note", "").strip()
+    values["measured_at"] = request.POST.get("measured_at") or None
+    values["source"] = BodyMetricLog.Source.MANUAL
+    values["source_file"] = ""
+
+    _, created = BodyMetricLog.objects.update_or_create(
+        athlete=athlete, date=on_date, defaults=values
+    )
+    messages.success(request, f"已{'新增' if created else '更新'} {on_date} 的體組成紀錄。")
+
+
+def _body_import(request, athlete):
+    """上傳體組成磅匯出的檔案，直接更新最新的身體狀態。"""
+    upload = request.FILES.get("file")
+    if upload is None:
+        raise ValueError("請先選一個檔案。")
+    if upload.size > 2 * 1024 * 1024:
+        raise ValueError("檔案太大了（上限 2 MB）。")
+
+    raw = upload.read()
+    for encoding in ("utf-8-sig", "utf-16", "big5", "cp950", "gbk"):
+        try:
+            text = raw.decode(encoding)
+            break
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    else:
+        raise ValueError("讀不懂這個檔案的編碼，請另存成 UTF-8 的 CSV。")
+
+    records, unknown = parse_body_composition(text, default_date=date.today())
+    if not records:
+        raise ValueError(
+            "檔案裡找不到可用的體組成資料（至少要有日期與體重）。"
+            "可以用磅的 App 匯出 CSV，或把「項目,數值」一行一項貼成 CSV。"
+        )
+
+    created = updated = 0
+    for record in records:
+        on_date = record.pop("date")
+        record["source"] = BodyMetricLog.Source.IMPORT
+        record["source_file"] = upload.name[:120]
+        _, was_created = BodyMetricLog.objects.update_or_create(
+            athlete=athlete, date=on_date, defaults=record
+        )
+        created += was_created
+        updated += not was_created
+
+    parts = []
+    if created:
+        parts.append(f"新增 {created} 筆")
+    if updated:
+        parts.append(f"更新 {updated} 筆")
+    messages.success(request, f"已從「{upload.name}」{'、'.join(parts)}體組成紀錄。")
+    if unknown:
+        messages.warning(request, "有幾個欄位看不懂、已略過：" + "、".join(unknown[:8]))
+
+
+@login_required
+@require_POST
+def athlete_body_metric(request, pk):
+    """狀態總覽頁的體組成區塊：手動輸入、檔案匯入、刪除一筆。"""
+    athlete = get_object_or_404(AthleteProfile, pk=pk)
+    if athlete.id not in set(athlete_ids_visible_to(request.user)):
+        raise Http404("看不到這名運動員。")
+
+    back = f"{reverse('web:dashboard')}?athlete={athlete.id}"
+    if not _can_edit_plan(request.user, athlete):
+        messages.error(request, "只有這名運動員本人、他的教練或管理員可以改體組成紀錄。")
+        return redirect(back)
+
+    action = request.POST.get("action")
+    try:
+        if action == "save":
+            _body_save(request, athlete)
+        elif action == "import":
+            _body_import(request, athlete)
+        elif action == "delete":
+            deleted, _ = BodyMetricLog.objects.filter(
+                athlete=athlete, pk=request.POST.get("log_id")
+            ).delete()
+            messages.success(request, "已刪除該筆體組成紀錄。" if deleted else "找不到那筆紀錄。")
+        else:
+            messages.error(request, "不認得的動作。")
+    except ValueError as exc:
+        messages.error(request, f"沒有存起來：{exc}")
+    return redirect(back)
 
 
 @login_required

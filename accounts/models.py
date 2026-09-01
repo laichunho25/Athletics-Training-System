@@ -122,6 +122,10 @@ class AthleteProfile(TimeStampedModel):
         )
 
     @property
+    def latest_body_metric(self):
+        return self.body_metrics.order_by("-date").first()
+
+    @property
     def current_weight_kg(self):
         """優先取最新的體測紀錄，否則用 profile 上的值。"""
         latest = self.body_metrics.order_by("-date").first()
@@ -179,22 +183,142 @@ class PersonalBest(TimeStampedModel):
 
 
 class BodyMetricLog(TimeStampedModel):
+    """一次體組成量測（InBody / Tanita 之類的身體組成磅）。
+
+    最少只要有日期與體重就成立；其餘欄位量得到就填，量不到留空——
+    不同型號的磅給的欄位不一樣，總覽頁只顯示有值的那幾格。
+    """
+
+    class Source(models.TextChoices):
+        MANUAL = "MANUAL", "手動輸入"
+        IMPORT = "IMPORT", "檔案匯入"
+
     athlete = models.ForeignKey(
         AthleteProfile, on_delete=models.CASCADE, related_name="body_metrics"
     )
     date = models.DateField("日期")
+    measured_at = models.TimeField("量測時間", null=True, blank=True)
+    device = models.CharField("量測機型", max_length=40, blank=True, help_text="例：RD-545AS")
+
+    # ------------------------------------------------------------ 全身數據
     weight_kg = models.DecimalField("體重 (kg)", max_digits=5, decimal_places=1)
     body_fat_pct = models.DecimalField(
-        "體脂率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+        "體脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
     )
+    muscle_mass_kg = models.DecimalField(
+        "肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    muscle_mass_index = models.SmallIntegerField("肌肉量判定指數", null=True, blank=True)
+    bmi = models.DecimalField("BMI", max_digits=4, decimal_places=1, null=True, blank=True)
+    muscle_quality_score = models.SmallIntegerField("肌肉質量指數", null=True, blank=True)
+    visceral_fat_level = models.DecimalField(
+        "內臟脂肪等級", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    bone_mass_kg = models.DecimalField(
+        "推定骨量 (kg)", max_digits=4, decimal_places=2, null=True, blank=True
+    )
+    body_water_pct = models.DecimalField(
+        "體水分率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    bmr_kcal = models.PositiveIntegerField("基礎代謝量 (kcal)", null=True, blank=True)
+    metabolic_age = models.PositiveSmallIntegerField("體內年齡 (歲)", null=True, blank=True)
+
+    # -------------------------------------------------------- 部位肌肉量
+    muscle_arm_r = models.DecimalField(
+        "右上肢肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    muscle_arm_l = models.DecimalField(
+        "左上肢肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    muscle_leg_r = models.DecimalField(
+        "右腳肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    muscle_leg_l = models.DecimalField(
+        "左腳肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    muscle_trunk = models.DecimalField(
+        "軀幹部位肌肉量 (kg)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # -------------------------------------------------------- 部位脂肪率
+    fat_arm_r = models.DecimalField(
+        "右上肢脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    fat_arm_l = models.DecimalField(
+        "左上肢脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    fat_leg_r = models.DecimalField(
+        "右腳脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    fat_leg_l = models.DecimalField(
+        "左腳脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    fat_trunk = models.DecimalField(
+        "軀幹部位脂肪率 (%)", max_digits=4, decimal_places=1, null=True, blank=True
+    )
+
+    # ---------------------------------------------------- 部位肌肉品質點數
+    mq_arm_r = models.SmallIntegerField("右上肢肌肉品質點數", null=True, blank=True)
+    mq_arm_l = models.SmallIntegerField("左上肢肌肉品質點數", null=True, blank=True)
+    mq_leg_r = models.SmallIntegerField("右腳肌肉品質點數", null=True, blank=True)
+    mq_leg_l = models.SmallIntegerField("左腳肌肉品質點數", null=True, blank=True)
+    mba_rating = models.CharField("MBA 判定", max_length=20, blank=True)
+
+    # -------------------------------------------------------------- 其他
     resting_hr = models.PositiveSmallIntegerField("靜息心率", null=True, blank=True)
     hrv = models.PositiveSmallIntegerField("HRV (ms)", null=True, blank=True)
+    note = models.TextField("備註", blank=True)
+    source = models.CharField(
+        "來源", max_length=10, choices=Source.choices, default=Source.MANUAL
+    )
+    source_file = models.CharField("匯入檔名", max_length=120, blank=True)
 
     class Meta:
-        verbose_name = "體測紀錄"
-        verbose_name_plural = "體測紀錄"
+        verbose_name = "體組成紀錄"
+        verbose_name_plural = "體組成紀錄"
         unique_together = ("athlete", "date")
         ordering = ["-date"]
 
     def __str__(self):
         return f"{self.athlete} {self.date} {self.weight_kg}kg"
+
+    # ------------------------------------------------------------ 衍生數值
+
+    @property
+    def bmi_value(self):
+        """磅有給就用磅的，沒有就用身高換算。"""
+        if self.bmi is not None:
+            return float(self.bmi)
+        h = float(self.athlete.height_cm) / 100
+        return round(float(self.weight_kg) / (h * h), 1) if h else None
+
+    @property
+    def fat_mass_kg(self):
+        if self.body_fat_pct is None:
+            return None
+        return round(float(self.weight_kg) * float(self.body_fat_pct) / 100, 1)
+
+    @property
+    def lean_mass_kg(self):
+        fat = self.fat_mass_kg
+        return round(float(self.weight_kg) - fat, 1) if fat is not None else None
+
+    @property
+    def segments(self):
+        """部位資料整理成表格用的列：(部位, 肌肉量, 脂肪率, 肌肉品質點數)。"""
+        rows = [
+            ("右上肢", self.muscle_arm_r, self.fat_arm_r, self.mq_arm_r),
+            ("左上肢", self.muscle_arm_l, self.fat_arm_l, self.mq_arm_l),
+            ("右腳", self.muscle_leg_r, self.fat_leg_r, self.mq_leg_r),
+            ("左腳", self.muscle_leg_l, self.fat_leg_l, self.mq_leg_l),
+            ("軀幹", self.muscle_trunk, self.fat_trunk, None),
+        ]
+        return [
+            {"part": part, "muscle": muscle, "fat": fat, "quality": quality}
+            for part, muscle, fat, quality in rows
+            if muscle is not None or fat is not None or quality is not None
+        ]
+
+    @property
+    def has_segments(self):
+        return bool(self.segments)

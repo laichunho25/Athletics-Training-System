@@ -11,6 +11,7 @@ urlpatterns = [
     path("athletes/", views.athlete_list, name="athlete_list"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("athlete/<int:pk>/plan/", views.athlete_plan_edit, name="athlete_plan_edit"),
+    path("athlete/<int:pk>/body/", views.athlete_body_metric, name="athlete_body_metric"),
     path("team/", views.coach_dashboard, name="coach_dashboard"),
     path("plan/", views.plan_view, name="plan"),
     path("plan/<int:pk>/", views.plan_detail, name="plan_detail"),

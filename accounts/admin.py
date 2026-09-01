@@ -62,9 +62,19 @@ class PersonalBestInline(admin.TabularInline):
 class BodyMetricLogInline(admin.TabularInline):
     model = BodyMetricLog
     extra = 0
-    fields = ("date", "weight_kg", "body_fat_pct", "resting_hr", "hrv")
-    verbose_name = "體測紀錄"
-    verbose_name_plural = "體測紀錄"
+    fields = (
+        "date",
+        "weight_kg",
+        "body_fat_pct",
+        "muscle_mass_kg",
+        "body_water_pct",
+        "visceral_fat_level",
+        "bmr_kcal",
+        "source",
+    )
+    ordering = ("-date",)
+    verbose_name = "體組成紀錄"
+    verbose_name_plural = "體組成紀錄"
 
 
 class ProjectApplicationInline(admin.TabularInline):
