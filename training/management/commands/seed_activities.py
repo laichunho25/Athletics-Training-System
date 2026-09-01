@@ -297,15 +297,16 @@ class Command(BaseCommand):
                 f"活動清單：新增 {created} 項、補齊 {updated} 項、"
                 f"更名 {renamed} 項，"
                 f"目前共 {ActivityDefinition.objects.count()} 項；"
-                f"另對齊 {synced} 個數據項目的分類。"
+                f"另對齊 {synced} 個數據項目的分類／英文名。"
             )
         )
 
     def _sync_metric_categories(self):
-        """數據項目的分類跟著活動庫走。
+        """數據項目的分類與英文名跟著活動庫走。
 
         課表上加過的活動會在數據分析開同名項目，兩邊的分類要一致，
-        重量訓練紀錄的項目清單才分得出上身／下身／核心。
+        重量訓練紀錄的項目清單才分得出上身／下身／核心；
+        英文名同步過去，畫面上才每個項目都有中英文對照。
         """
         from analytics.models import (
             MetricCategory,
@@ -313,16 +314,23 @@ class Command(BaseCommand):
             metric_category_for_activity,
         )
 
-        by_name = dict(
-            ActivityDefinition.objects.values_list("name", "category")
-        )
+        by_name = {
+            row["name"]: row
+            for row in ActivityDefinition.objects.values("name", "name_en", "category")
+        }
         synced = 0
-        for item in MetricItem.objects.filter(category=MetricCategory.OTHER):
-            activity_category = by_name.get(item.name)
-            if activity_category is None:
+        for item in MetricItem.objects.all():
+            row = by_name.get(item.name)
+            if row is None:
                 continue
-            category = metric_category_for_activity(activity_category)
-            if category != item.category:
-                MetricItem.objects.filter(pk=item.pk).update(category=category)
+            changes = {}
+            if item.category == MetricCategory.OTHER:
+                category = metric_category_for_activity(row["category"])
+                if category != item.category:
+                    changes["category"] = category
+            if not item.name_en and row["name_en"]:
+                changes["name_en"] = row["name_en"]
+            if changes:
+                MetricItem.objects.filter(pk=item.pk).update(**changes)
                 synced += 1
         return synced

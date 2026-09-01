@@ -1459,6 +1459,7 @@ def _add_activity(request, session):
             name,
             row_def.category if row_def else "",
             user=request.user,
+            name_en=row_def.name_en if row_def else "",
         ):
             linked.append(name)
 
@@ -1689,6 +1690,11 @@ def analytics_view(request):
                 session = TrainingSession.objects.filter(
                     pk=session_id, athlete=athlete
                 ).first()
+            competition = None
+            if request.POST.get("competition"):
+                competition = Competition.objects.filter(
+                    pk=request.POST["competition"]
+                ).first()
             try:
                 # 一次可以送多組——同一堂課的不同組，重量／次數／休息時間都不一樣，
                 # 所以表單是一列一組，每一列各存成一筆紀錄。
@@ -1698,6 +1704,7 @@ def analytics_view(request):
                     session=session,
                     post=request.POST,
                     on_date=request.POST.get("date") or date.today(),
+                    competition=competition,
                 )
             except RecordError as exc:
                 messages.error(request, str(exc))
@@ -1731,13 +1738,25 @@ def analytics_view(request):
     if requested_item:
         item = MetricItem.objects.filter(pk=requested_item, domain=domain).first()
 
-    # 清單只留有紀錄的項目（外加目前選中的那一個），沒挑出來的不佔版面
+    # 練習／重量：清單只留有紀錄的項目，沒挑出來的不佔版面。
+    # 比賽數據不一樣——項目就是那幾個比賽項目，全部列出來直接挑著登。
+    is_competition = domain == MetricDomain.COMPETITION
     overview = an.metric_overview(
-        athlete, domain, used_only=True, keep_ids=[item.id] if item else None
+        athlete,
+        domain,
+        used_only=not is_competition,
+        keep_ids=[item.id] if item else None,
     )
     if item is None:
-        item = overview[0]["item"] if overview else None
-    overview_groups = an.overview_by_category(overview)
+        with_records = [r["item"] for r in overview if r["count"]]
+        item = with_records[0] if with_records else (
+            overview[0]["item"] if overview else None
+        )
+    overview_groups = [] if is_competition else an.overview_by_category(overview)
+
+    # 比賽數據以「一場比賽」為單位分析；其餘範疇看的是最常做的動作
+    meets = an.competition_report(athlete) if is_competition else []
+    competitions = Competition.objects.order_by("-date")[:60] if is_competition else []
 
     analysis = an.metric_analysis(athlete, item) if item else None
 
@@ -1751,7 +1770,7 @@ def analytics_view(request):
     # ---- 整體 / 分年份 / 分時期 比較 ----
     compare = request.GET.get("compare", "all")
     comparison = an.metric_comparison(athlete, item, compare) if item else None
-    tops = an.top_movements(athlete, domain)
+    tops = [] if is_competition else an.top_movements(athlete, domain)
 
     return render(
         request,
@@ -1780,6 +1799,9 @@ def analytics_view(request):
             "domain_label": dict(MetricDomain.choices)[domain],
             "overview": overview,
             "overview_groups": overview_groups,
+            "is_competition": is_competition,
+            "meets": meets,
+            "competitions": competitions,
             "metric_categories": MetricCategory.choices,
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": ActivityDefinition.objects.filter(

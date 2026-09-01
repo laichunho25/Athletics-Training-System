@@ -23,6 +23,7 @@
 
 <div class="grid grid-2 mb" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
  <div>
+  {% if not is_competition %}
   <!-- ------------------------------------------------------ 最常做的動作 -->
   <div class="card pad0 mb">
     <div class="card-head">
@@ -35,7 +36,7 @@
            class="{% if item and t.item.id == item.id %}active{% endif %}">
           <span>
             <span class="rank">{{ forloop.counter }}</span>
-            {{ t.item.name }}
+            {{ t.item.display_name }}
             <span class="meta">{{ t.days }} 天 / {{ t.count }} 組</span>
           </span>
           <span class="meta">
@@ -53,21 +54,62 @@
       點一個動作就能看到它每一次的紀錄內容與比較。
     </div>
   </div>
+  {% endif %}
+
+  {% if is_competition %}
+  <!-- -------------------------------------------------------- 賽事清單 -->
+  <div class="card pad0 mb">
+    <div class="card-head">
+      <span>比賽紀錄</span>
+      <span class="small c-dim">{{ meets|length }} 場</span>
+    </div>
+    <div class="itemlist">
+      {% for m in meets %}
+        <a href="#meet-{{ m.key }}">
+          <span>
+            {{ m.label }}
+            <span class="meta">{{ m.date }}{% if m.level %} · {{ m.level }}{% endif %}</span>
+          </span>
+          <span class="meta">
+            {{ m.item_count }} 項
+            {% if m.pb_count %}· <span class="c-green">{{ m.pb_count }} PB</span>{% endif %}
+          </span>
+        </a>
+      {% empty %}
+        <div class="empty">還沒有比賽紀錄。挑一個比賽項目，把成績登進來。</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ---------------------------------------------------------- 項目清單 -->
   <div class="card pad0">
     <div class="card-head">
       <span>{{ domain_label }}</span>
-      <span class="small c-dim">{{ overview|length }} 個項目 · 依動作分類</span>
+      <span class="small c-dim">{{ overview|length }} 個項目{% if not is_competition %} · 依動作分類{% endif %}</span>
     </div>
     <div class="itemlist">
+      {% if is_competition %}
+        {% for row in overview %}
+          <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
+             class="{% if item and row.item.id == item.id %}active{% endif %}">
+            <span>
+              {{ row.item.display_name }}
+              {% if row.item.unit %}<span class="meta">（{{ row.item.unit }}）</span>{% endif %}
+            </span>
+            <span class="meta">
+              {% if row.count %}{{ row.latest }} · {{ row.count }} 筆{% else %}未記錄{% endif %}
+            </span>
+          </a>
+        {% endfor %}
+      {% endif %}
       {% for group in overview_groups %}
         <div class="itemcat">{{ group.label }}<span>{{ group.rows|length }}</span></div>
         {% for row in group.rows %}
           <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
              class="{% if item and row.item.id == item.id %}active{% endif %}">
             <span>
-              {{ row.item.name }}
+              {{ row.item.display_name }}
               {% if row.item.unit %}<span class="meta">（{{ row.item.unit }}）</span>{% endif %}
               {% if not row.item.is_builtin %}<span class="badge b-dim">自訂</span>{% endif %}
             </span>
@@ -77,10 +119,13 @@
           </a>
         {% endfor %}
       {% empty %}
-        <div class="empty">還沒有登過數據。下面從訓練活動庫挑一個動作就可以開始記錄。</div>
+        {% if not is_competition %}
+          <div class="empty">還沒有登過數據。下面從訓練活動庫挑一個動作就可以開始記錄。</div>
+        {% endif %}
       {% endfor %}
     </div>
 
+    {% if not is_competition %}
     <div style="padding:14px 18px;border-top:1px solid var(--border)">
       <form method="post" class="mb">
         {% csrf_token %}
@@ -88,7 +133,7 @@
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
           <label>從訓練活動庫挑一個動作</label>
-          <select name="definition" onchange="this.form.submit()">
+          <select name="definition">
             <option value="">— 挑一個動作加進清單 —</option>
             {% for value, label in activity_categories %}
               <optgroup label="{{ label }}">
@@ -99,8 +144,11 @@
             {% endfor %}
           </select>
         </div>
-        <div class="small c-dim">
-          挑出來的動作才會顯示在上面的清單；課表上加過的活動也會自動出現在這裡。
+        <div class="flex">
+          <button class="btn sm" type="submit">加進清單</button>
+          <span class="small c-dim">
+            挑好按這裡；課表上加過的活動也會自動出現在上面的清單。
+          </span>
         </div>
       </form>
 
@@ -137,6 +185,7 @@
         </form>
       </details>
     </div>
+    {% endif %}
   </div>
  </div>
 
@@ -144,7 +193,7 @@
   <div class="card pad0">
     {% if item %}
     <div class="card-head">
-      <span>{{ item.name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
+      <span>{{ item.display_name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
       <span class="small c-dim">
         {% if item.higher_is_better %}越大越好{% else %}越小越好{% endif %} · {{ analysis.count }} 筆紀錄
       </span>
@@ -263,6 +312,17 @@
           <label>日期</label>
           <input type="date" name="date" value="{{ today_iso }}" required>
         </div>
+        {% if is_competition %}
+        <div class="field" style="flex:1">
+          <label>哪一場比賽</label>
+          <select name="competition">
+            <option value="">（未指定賽事）</option>
+            {% for c in competitions %}
+              <option value="{{ c.id }}">{{ c.date }} · {{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
         <div class="field" style="grid-column:span 2">
           <label>對應 program
             <span class="small c-dim">（只列得出{% for l in linkable_type_labels %}{{ l }}{% if not forloop.last %}／{% endif %}{% endfor %}的課）</span>
@@ -422,10 +482,79 @@
       </div>
     </div>
     {% else %}
-    <div class="empty">左邊從訓練活動庫挑一個動作，或按「自己新增一個項目」，就可以開始記錄。</div>
+    <div class="empty">
+      {% if is_competition %}
+        左邊挑一個比賽項目，就可以把該場比賽的成績登進來。
+      {% else %}
+        左邊從訓練活動庫挑一個動作，或按「自己新增一個項目」，就可以開始記錄。
+      {% endif %}
+    </div>
     {% endif %}
   </div>
 </div>
+
+{% if is_competition %}
+<!-- ==================================================== 比賽分析（逐場） -->
+<h2>比賽分析</h2>
+<div class="small c-dim mb">
+  一場比賽一張表：當場成績、比上一場進步多少、離個人最佳還差多少。
+</div>
+
+{% for m in meets %}
+  <div class="card pad0 mb" id="meet-{{ m.key }}">
+    <div class="card-head">
+      <span>{{ m.label }}
+        <span class="c-dim small">· {{ m.date }}</span>
+        {% if m.level %}<span class="badge b-dim">{{ m.level }}</span>{% endif %}
+      </span>
+      <span class="small c-dim">
+        {{ m.item_count }} 個項目
+        {% if m.pb_count %}· <span class="badge b-green">{{ m.pb_count }} 項個人最佳</span>{% endif %}
+      </span>
+    </div>
+    <div style="padding:12px 18px 0">
+      <div class="alert {% if m.pb_count %}green{% else %}blue{% endif %}" style="margin:0">
+        {{ m.summary }}
+      </div>
+    </div>
+    <div class="cmptablewrap" style="margin-top:12px">
+      <table class="cmptable">
+        <thead>
+          <tr>
+            <th>項目</th><th class="num">成績</th><th class="num">上一場</th>
+            <th class="num">較上一場</th><th class="num">個人最佳</th>
+            <th class="num">差距</th><th class="num">當場筆數</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in m.rows %}
+          <tr{% if row.is_pb %} class="bestrow"{% endif %}>
+            <td>
+              <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}">
+                {{ row.item.display_name }}
+              </a>
+              {% if row.is_pb %}<span class="badge b-orange">PB</span>{% endif %}
+            </td>
+            <td class="num c-accent"><strong>{{ row.mark }}</strong> {{ row.item.unit }}</td>
+            <td class="num">{% if row.prev != None %}{{ row.prev }}{% else %}—{% endif %}</td>
+            <td class="num {% if row.improved %}c-green{% elif row.improved is False %}c-red{% endif %}">
+              {% if row.delta != None %}{% if row.delta > 0 %}+{% endif %}{{ row.delta }}{% else %}—{% endif %}
+            </td>
+            <td class="num">{{ row.pb }}</td>
+            <td class="num">{% if row.gap_to_pb != None %}{{ row.gap_to_pb }}{% else %}—{% endif %}</td>
+            <td class="num">{{ row.count }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% empty %}
+  <div class="card empty mb">
+    還沒有比賽數據。在上面挑一個比賽項目，選好是哪一場比賽，把成績登進來就會出現分析。
+  </div>
+{% endfor %}
+{% endif %}
 
 <!-- ==================================================== 二、訓練負荷監控 -->
 <h2>訓練負荷監控</h2>
@@ -518,7 +647,7 @@ new Chart(document.getElementById('metricChart'), {
   data: {
     labels: pts.map(p => p.date),
     datasets: [{
-      label: '{{ item.name }}{% if item.unit %} ({{ item.unit }}){% endif %}',
+      label: '{{ item.display_name }}{% if item.unit %} ({{ item.unit }}){% endif %}',
       data: pts.map(p => p.value),
       borderColor: ACC, backgroundColor: ACC + '33',
       fill: true, pointRadius: 4, tension: .2

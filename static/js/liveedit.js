@@ -300,14 +300,22 @@
       if (event.target.id === 'openNewDef') {
         document.getElementById('actDlg').close();
         document.getElementById('defDlg').showModal();
+        return;
       }
-    });
-
-    document.addEventListener('change', function (event) {
-      if (event.target.id === 'actPick' && event.target.value) {
-        var found = definitionById(event.target.value);
+      // 挑清單不會自己動；按「加進名單」才加，所以挑錯還可以重挑
+      if (event.target.id === 'actPickAdd') {
+        var pick = document.getElementById('actPick');
+        var found = pick && definitionById(pick.value);
         if (found) { addActivityName(found.name, found); }
-        event.target.value = '';
+        return;
+      }
+      if (event.target.id === 'actSearchAdd') {
+        var search = document.getElementById('actSearch');
+        var typed = search ? search.value.trim() : '';
+        if (typed) {
+          addActivityName(typed, definitionByName(typed));
+          search.value = '';
+        }
       }
     });
 

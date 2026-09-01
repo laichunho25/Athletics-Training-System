@@ -142,41 +142,45 @@ def metric_category_for_activity(category):
     return ACTIVITY_CATEGORY_TO_METRIC.get(category, MetricCategory.OTHER.value)
 
 
-#: (範疇, 項目名稱, 單位, 數值越大越好, 分類)
+#: (範疇, 中文名稱, 英文名稱, 單位, 數值越大越好, 分類)
 BUILTIN_METRIC_ITEMS = [
-    (MetricDomain.COMPETITION, "100m 成績", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "200m 成績", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "400m 成績", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "800m 成績", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "跳遠成績", "m", True, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "跳高成績", "m", True, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "鉛球成績", "m", True, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "起跑反應時間", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.COMPETITION, "名次", "名", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "30m 衝刺", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "60m 衝刺", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "150m 計時", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "300m 計時", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "最高速度", "m/s", True, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "課堂總距離", "m", True, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "平均每 100m 配速", "秒", False, MetricCategory.OTHER),
-    (MetricDomain.TRACK, "課後 RPE", "分", False, MetricCategory.OTHER),
-    (MetricDomain.STRENGTH, "背蹲舉 1RM", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "臥推 1RM", "kg", True, MetricCategory.UPPER),
-    (MetricDomain.STRENGTH, "硬舉 1RM", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "高翻 1RM", "kg", True, MetricCategory.FULL),
-    (MetricDomain.STRENGTH, "前蹲舉 Front Squat", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "臀推 Hip Thrust", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "羅馬尼亞硬舉 RDL", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "保加利亞分腿蹲", "kg", True, MetricCategory.LOWER),
-    (MetricDomain.STRENGTH, "引體向上（加重）", "kg", True, MetricCategory.UPPER),
-    (MetricDomain.STRENGTH, "坐姿划船", "kg", True, MetricCategory.UPPER),
-    (MetricDomain.STRENGTH, "肩推", "kg", True, MetricCategory.UPPER),
-    (MetricDomain.STRENGTH, "平板支撐 Plank", "秒", True, MetricCategory.CORE),
-    (MetricDomain.STRENGTH, "課堂總噸位", "kg", True, MetricCategory.FULL),
-    (MetricDomain.STRENGTH, "反向跳 CMJ", "cm", True, MetricCategory.PLYO),
-    (MetricDomain.STRENGTH, "立定跳遠", "cm", True, MetricCategory.PLYO),
+    (MetricDomain.COMPETITION, "100m 成績", "100m Result", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "200m 成績", "200m Result", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "400m 成績", "400m Result", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "800m 成績", "800m Result", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "跳遠成績", "Long Jump", "m", True, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "跳高成績", "High Jump", "m", True, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "鉛球成績", "Shot Put", "m", True, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "起跑反應時間", "Reaction Time", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.COMPETITION, "名次", "Placing", "名", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "30m 衝刺", "30m Sprint", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "60m 衝刺", "60m Sprint", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "150m 計時", "150m Time Trial", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "300m 計時", "300m Time Trial", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "最高速度", "Top Speed", "m/s", True, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "課堂總距離", "Session Volume", "m", True, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "平均每 100m 配速", "Pace per 100m", "秒", False, MetricCategory.OTHER),
+    (MetricDomain.TRACK, "課後 RPE", "Session RPE", "分", False, MetricCategory.OTHER),
+    (MetricDomain.STRENGTH, "背蹲舉 1RM", "Back Squat 1RM", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "臥推 1RM", "Bench Press 1RM", "kg", True, MetricCategory.UPPER),
+    (MetricDomain.STRENGTH, "硬舉 1RM", "Deadlift 1RM", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "高翻 1RM", "Power Clean 1RM", "kg", True, MetricCategory.FULL),
+    (MetricDomain.STRENGTH, "前蹲舉", "Front Squat", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "臀推", "Hip Thrust", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "羅馬尼亞硬舉", "Romanian Deadlift (RDL)", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "保加利亞分腿蹲", "Bulgarian Split Squat", "kg", True, MetricCategory.LOWER),
+    (MetricDomain.STRENGTH, "引體向上（加重）", "Weighted Pull-up", "kg", True, MetricCategory.UPPER),
+    (MetricDomain.STRENGTH, "坐姿划船", "Seated Row", "kg", True, MetricCategory.UPPER),
+    (MetricDomain.STRENGTH, "肩推", "Shoulder Press", "kg", True, MetricCategory.UPPER),
+    (MetricDomain.STRENGTH, "平板支撐", "Plank", "秒", True, MetricCategory.CORE),
+    (MetricDomain.STRENGTH, "課堂總噸位", "Session Tonnage", "kg", True, MetricCategory.FULL),
+    (MetricDomain.STRENGTH, "反向跳", "Countermovement Jump", "cm", True, MetricCategory.PLYO),
+    (MetricDomain.STRENGTH, "立定跳遠", "Standing Long Jump", "cm", True, MetricCategory.PLYO),
 ]
+
+
+#: 舊資料庫裡「中文 英文」混在一起的項目名稱 → 純中文名稱（英文改放 name_en）
+BUILTIN_RENAMES = {"前蹲舉 Front Squat": "前蹲舉", "臀推 Hip Thrust": "臀推", "羅馬尼亞硬舉 RDL": "羅馬尼亞硬舉", "平板支撐 Plank": "平板支撐", "反向跳 CMJ": "反向跳"}
 
 
 class MetricItem(models.Model):
@@ -184,6 +188,10 @@ class MetricItem(models.Model):
 
     domain = models.CharField("範疇", max_length=15, choices=MetricDomain.choices)
     name = models.CharField("項目名稱", max_length=60)
+    name_en = models.CharField(
+        "英文名稱", max_length=80, blank=True,
+        help_text="清單與紀錄都以「中文（English）」顯示，兩個名字都找得到",
+    )
     category = models.CharField(
         "動作分類", max_length=10, choices=MetricCategory.choices,
         default=MetricCategory.OTHER,
@@ -214,8 +222,14 @@ class MetricItem(models.Model):
         return f"{self.name}（{self.unit}）" if self.unit else self.name
 
     @property
+    def display_name(self):
+        """中文（English）——所有畫面都用這個名字顯示。"""
+        return f"{self.name}（{self.name_en}）" if self.name_en else self.name
+
+    @property
     def display(self):
-        return str(self)
+        unit = f"（{self.unit}）" if self.unit else ""
+        return f"{self.display_name}{unit}"
 
 
 class MetricRecord(TimeStampedModel):
@@ -233,6 +247,15 @@ class MetricRecord(TimeStampedModel):
         related_name="metric_records",
         verbose_name="對應 program",
         help_text="留空表示不是從日曆的課表產生（例如比賽）",
+    )
+    competition = models.ForeignKey(
+        "planning.Competition",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="metric_records",
+        verbose_name="賽事",
+        help_text="比賽數據登在哪一場比賽底下；練習紀錄留空",
     )
     date = models.DateField("日期")
     value = models.DecimalField("數值", max_digits=10, decimal_places=2)
@@ -278,30 +301,42 @@ class MetricRecord(TimeStampedModel):
 
 def ensure_builtin_items():
     """把內建項目補齊（第一次開啟數據分析頁時呼叫，重複執行安全）。"""
+    # 舊資料的名稱把中英文混在同一欄，先改成純中文（英文改放 name_en）
+    for old_name, new_name in BUILTIN_RENAMES.items():
+        stale = MetricItem.objects.filter(name=old_name)
+        for obj in stale:
+            if MetricItem.objects.filter(domain=obj.domain, name=new_name).exists():
+                continue  # 已經有新名字的項目，舊的留著不動免得撞 unique
+            MetricItem.objects.filter(pk=obj.pk).update(name=new_name)
+
     existing = set(MetricItem.objects.values_list("domain", "name"))
     missing = [
         MetricItem(
-            domain=d, name=n, unit=u, higher_is_better=hib,
+            domain=d, name=n, name_en=en, unit=u, higher_is_better=hib,
             category=cat, is_builtin=True,
         )
-        for d, n, u, hib, cat in BUILTIN_METRIC_ITEMS
+        for d, n, en, u, hib, cat in BUILTIN_METRIC_ITEMS
         if (d.value, n) not in existing
     ]
     if missing:
         MetricItem.objects.bulk_create(missing, ignore_conflicts=True)
-    # 舊資料庫裡已經存在的內建項目還沒有分類，順手補上
-    uncategorised = {
-        (d.value, n): cat
-        for d, n, _u, _hib, cat in BUILTIN_METRIC_ITEMS
-        if cat != MetricCategory.OTHER
+
+    # 舊資料庫裡已經存在的內建項目還沒有英文名／分類，順手補上
+    wanted = {
+        (d.value, n): (en, cat) for d, n, en, _u, _hib, cat in BUILTIN_METRIC_ITEMS
     }
-    stale = MetricItem.objects.filter(
-        is_builtin=True, category=MetricCategory.OTHER
-    ).only("id", "domain", "name")
-    for obj in stale:
-        cat = uncategorised.get((obj.domain, obj.name))
-        if cat:
-            MetricItem.objects.filter(pk=obj.pk).update(category=cat)
+    for obj in MetricItem.objects.filter(is_builtin=True):
+        target = wanted.get((obj.domain, obj.name))
+        if target is None:
+            continue
+        en, cat = target
+        changes = {}
+        if not obj.name_en:
+            changes["name_en"] = en
+        if obj.category == MetricCategory.OTHER and cat != MetricCategory.OTHER:
+            changes["category"] = cat
+        if changes:
+            MetricItem.objects.filter(pk=obj.pk).update(**changes)
     return len(missing)
 
 
@@ -313,7 +348,7 @@ DOMAIN_DEFAULT_UNIT = {
 }
 
 
-def item_for_name(domain, name, unit=None, user=None, category=None):
+def item_for_name(domain, name, unit=None, user=None, category=None, name_en=""):
     """依名稱取得（必要時建立）一個數據項目。
 
     課表上寫了「槓鈴深蹲」，登數據時就直接用同一個名字當項目——
@@ -332,13 +367,21 @@ def item_for_name(domain, name, unit=None, user=None, category=None):
             # 計時類（秒）越小越好，重量／距離類越大越好
             "higher_is_better": unit not in ("秒", "名"),
             "category": category or MetricCategory.OTHER,
+            "name_en": name_en or "",
             "created_by": user,
         },
     )
-    # 先前自動建的項目沒分類，之後從活動庫挑到同一個名字就補上去
-    if not created and category and item.category == MetricCategory.OTHER:
-        item.category = category
-        item.save(update_fields=["category"])
+    # 先前自動建的項目沒分類／沒英文名，之後從活動庫挑到同一個名字就補上去
+    if not created:
+        changes = []
+        if category and item.category == MetricCategory.OTHER:
+            item.category = category
+            changes.append("category")
+        if name_en and not item.name_en:
+            item.name_en = name_en
+            changes.append("name_en")
+        if changes:
+            item.save(update_fields=changes)
     return item
 
 
@@ -362,7 +405,7 @@ def domain_for_activity(session_type, activity_category):
     return prefer.value if prefer in domains else domains[0].value
 
 
-def item_for_activity(session_type, name, activity_category="", user=None):
+def item_for_activity(session_type, name, activity_category="", user=None, name_en=""):
     """課表上的一項活動 → 數據分析裡的同名項目（沒有就建一個）。
 
     在日曆寫課表時就順手把項目開好，之後登數據不用再到數據分析頁新增一次。
@@ -377,4 +420,5 @@ def item_for_activity(session_type, name, activity_category="", user=None):
         unit=unit,
         user=user,
         category=metric_category_for_activity(activity_category),
+        name_en=name_en,
     )

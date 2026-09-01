@@ -200,7 +200,7 @@
     {% for g in metric_groups %}
       <details class="dayrow" open>
         <summary>
-          <span class="daydate">{{ g.item.name }}</span>
+          <span class="daydate">{{ g.item.display_name }}</span>
           <span class="daysets">{{ g.count }} 組</span>
           <span class="dayhl">
             <span class="hi">{% if g.unit_is_weight %}最重{% else %}最佳{% endif %}
@@ -533,15 +533,17 @@
             </optgroup>
           {% endfor %}
         </select>
+        <button type="button" class="btn ghost sm" id="actPickAdd" style="margin-top:6px">加進名單</button>
       </div>
       <div class="field" style="flex:1">
-        <label>或打名稱搜活動庫（按 Enter 加入）</label>
+        <label>或打名稱搜活動庫</label>
         <input type="text" id="actSearch" list="libnames" placeholder="打「深蹲」就會跳出活動庫的選項">
         <datalist id="libnames">
           {% for d in library %}
             <option value="{{ d.name }}">{{ d.name_en }}</option>
           {% endfor %}
         </datalist>
+        <button type="button" class="btn ghost sm" id="actSearchAdd" style="margin-top:6px">加進名單</button>
       </div>
     </div>
 

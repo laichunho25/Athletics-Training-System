@@ -33,7 +33,7 @@ def session_allows(session, item):
     return item.domain in domains_for_session_type(session.session_type)
 
 
-def create_records(*, athlete, item, session, post, on_date):
+def create_records(*, athlete, item, session, post, on_date, competition=None):
     """把表單上的每一列（每一組）各存成一筆紀錄。
 
     回傳 (建立的紀錄, 提示訊息)；一列都沒填就丟 RecordError。
@@ -74,6 +74,7 @@ def create_records(*, athlete, item, session, post, on_date):
                 athlete=athlete,
                 item=item,
                 session=session,
+                competition=competition,
                 date=on_date,
                 value=value,
                 set_no=(i + 1) if multi else None,

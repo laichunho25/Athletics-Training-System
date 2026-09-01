@@ -12,6 +12,7 @@ from analytics.models import (
     ensure_builtin_items,
 )
 from core.models import SessionType
+from planning.models import Competition
 from training.models import ActivityCategory, ActivityDefinition
 from core.test_factories import make_athlete, make_session
 
@@ -222,3 +223,99 @@ class ActivityLibraryTests(TestCase):
                 domain=MetricDomain.TRACK, name="150m 計時"
             ).exists()
         )
+
+
+class CompetitionAnalysisTests(TestCase):
+    """比賽數據：以每一場比賽為單位看成績，不擺動作清單那一套。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a5")
+        self.client.force_login(self.athlete.user)
+        self.item = MetricItem.objects.filter(
+            domain=MetricDomain.COMPETITION
+        ).first()
+        self.spring = Competition.objects.create(
+            name="春季分齡賽", date=date(2026, 3, 1)
+        )
+        self.summer = Competition.objects.create(
+            name="夏季錦標賽", date=date(2026, 6, 1)
+        )
+        for meet, value in [(self.spring, 12.4), (self.summer, 12.1)]:
+            MetricRecord.objects.create(
+                athlete=self.athlete, item=self.item, date=meet.date,
+                value=value, competition=meet,
+            )
+
+    def page(self):
+        return self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.COMPETITION}"
+        ).content.decode()
+
+    def test_meets_are_listed_newest_first_with_their_marks(self):
+        body = self.page()
+        self.assertIn("比賽分析", body)
+        self.assertIn("夏季錦標賽", body)
+        self.assertIn("春季分齡賽", body)
+        self.assertLess(body.index("夏季錦標賽"), body.index("春季分齡賽"))
+
+    def test_competition_tab_drops_the_movement_cards(self):
+        body = self.page()
+        self.assertNotIn("最常做的動作", body)
+        self.assertNotIn("從訓練活動庫挑一個動作", body)
+
+    def test_record_can_be_pinned_to_a_meet(self):
+        autumn = Competition.objects.create(name="秋季賽", date=date(2026, 9, 1))
+        self.client.post(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.COMPETITION}&item={self.item.id}",
+            {
+                "action": "add_record",
+                "item_id": self.item.id,
+                "date": autumn.date.isoformat(),
+                "value": ["11.9"],
+                "competition": autumn.id,
+            },
+        )
+        rec = MetricRecord.objects.get(competition=autumn)
+        self.assertEqual(float(rec.value), 11.9)
+
+
+class DisplayNameTests(TestCase):
+    """項目名稱一律中英文對照——清單、紀錄、課表都一樣。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a6")
+        self.client.force_login(self.athlete.user)
+        self.item = MetricItem.objects.get(
+            domain=MetricDomain.STRENGTH, name="平板支撐"
+        )
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=TODAY, value=60
+        )
+
+    def test_builtin_items_carry_an_english_name(self):
+        self.assertEqual(self.item.name_en, "Plank")
+        self.assertEqual(self.item.display_name, "平板支撐（Plank）")
+
+    def test_analytics_list_shows_both_languages(self):
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}&item={self.item.id}"
+        )
+        self.assertContains(page, "平板支撐（Plank）")
+
+    def test_session_page_shows_both_languages(self):
+        s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
+        self.client.post(reverse("web:session_detail", args=[s.id]), {
+            "action": "add_metric",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "date": TODAY.isoformat(),
+            "value": ["55"],
+            "completed": ["1"],
+        })
+        page = self.client.get(reverse("web:session_detail", args=[s.id]))
+        self.assertContains(page, "平板支撐（Plank）")

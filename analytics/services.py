@@ -929,3 +929,115 @@ def top_movements(athlete, domain, days=365, limit=8):
 
     rows.sort(key=lambda r: (-r["days"], -r["count"], r["label"]))
     return rows[:limit]
+
+
+# ---------------------------------------------------------------- 比賽分析
+
+
+def competition_report(athlete, days=1825):
+    """把比賽數據依「一場比賽」整理起來，並跟個人最佳與上一場比較。
+
+    比賽的看法跟練習不一樣：教練關心的是「這場比出什麼、比上一場進步了沒、
+    離個人最佳還差多少」，所以這裡以賽事為單位，而不是以動作為單位。
+    """
+    from analytics.models import MetricDomain, MetricRecord
+
+    since = date.today() - timedelta(days=days)
+    records = list(
+        MetricRecord.objects.filter(
+            athlete=athlete, item__domain=MetricDomain.COMPETITION, date__gte=since
+        )
+        .select_related("item", "competition", "session")
+        .order_by("date", "id")
+    )
+    if not records:
+        return []
+
+    # 個人最佳（同一個項目全部紀錄裡最好的一筆）
+    bests = {}
+    for r in records:
+        value = float(r.value)
+        best = bests.get(r.item_id)
+        if best is None or (value > best if r.item.higher_is_better else value < best):
+            bests[r.item_id] = value
+
+    # 依賽事分組；沒指定賽事的就用日期當一場
+    meets = {}
+    for r in records:
+        if r.competition_id:
+            key = ("comp", r.competition_id)
+            label = r.competition.name
+            on_date = r.competition.date
+            level = r.competition.get_level_display()
+        else:
+            key = ("date", r.date)
+            label = r.session.title if r.session else f"{r.date} 的比賽紀錄"
+            on_date = r.date
+            level = ""
+        meet = meets.setdefault(
+            key,
+            {
+                "key": f"{key[0]}-{key[1]}",
+                "competition": r.competition,
+                "label": label,
+                "date": on_date,
+                "level": level,
+                "items": {},
+            },
+        )
+        meet["items"].setdefault(r.item_id, {"item": r.item, "records": []})[
+            "records"
+        ].append(r)
+
+    ordered = sorted(meets.values(), key=lambda m: m["date"])
+
+    # 逐場算出每個項目的成績、與上一場的差距、與個人最佳的差距
+    previous = {}
+    for meet in ordered:
+        rows, pb_count = [], 0
+        for entry in meet["items"].values():
+            item = entry["item"]
+            values = [float(r.value) for r in entry["records"]]
+            mark = (max if item.higher_is_better else min)(values)
+            prev = previous.get(item.id)
+            delta = round(mark - prev, 2) if prev is not None else None
+            improved = None
+            if delta is not None and delta != 0:
+                improved = (delta > 0) if item.higher_is_better else (delta < 0)
+            pb = bests.get(item.id)
+            is_pb = pb is not None and abs(mark - pb) < 1e-9
+            pb_count += int(is_pb)
+            rows.append(
+                {
+                    "item": item,
+                    "mark": round(mark, 2),
+                    "count": len(values),
+                    "records": entry["records"],
+                    "prev": prev,
+                    "delta": delta,
+                    "improved": improved,
+                    "pb": pb,
+                    "gap_to_pb": (
+                        round(abs(mark - pb), 2) if pb is not None and not is_pb else None
+                    ),
+                    "is_pb": is_pb,
+                }
+            )
+            previous[item.id] = mark
+        rows.sort(key=lambda row: row["item"].name)
+        meet["rows"] = rows
+        meet["pb_count"] = pb_count
+        meet["item_count"] = len(rows)
+        improved_rows = [r for r in rows if r["improved"] is True]
+        if pb_count:
+            meet["summary"] = f"這一場刷新了 {pb_count} 項個人最佳。"
+        elif improved_rows:
+            meet["summary"] = f"{len(improved_rows)} 項比上一場進步，尚未破個人最佳。"
+        elif any(r["prev"] is not None for r in rows):
+            meet["summary"] = "成績未超越上一場，可回頭看賽前減量與熱身安排。"
+        else:
+            meet["summary"] = "這是這些項目的第一場紀錄，之後就有得比。"
+        del meet["items"]
+
+    ordered.reverse()  # 最近的一場排最前
+    return ordered
