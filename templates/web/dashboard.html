@@ -142,6 +142,7 @@
     <span>基本指標與體組成</span>
     {% if can_edit_plan %}
     <span class="flex">
+      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.showModal()">貼上文字</button>
       <button type="button" class="btn ghost sm" onclick="bodyImportDlg.showModal()">匯入檔案</button>
       <button type="button" class="btn sm" onclick="bodyDlg.showModal()">新增／更新紀錄</button>
     </span>
@@ -404,6 +405,37 @@
       <textarea name="note" rows="2" placeholder="例：訓練前空腹量測"></textarea>
     </div>
     <button class="btn" type="submit">儲存體組成紀錄</button>
+  </form>
+</dialog>
+
+<dialog id="bodyPasteDlg" class="dlg">
+  <form method="post" action="{% url 'web:athlete_body_metric' athlete.id %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="paste">
+    <div class="between mb">
+      <h2>貼上磅的文字</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.close()">關閉</button>
+    </div>
+
+    <div class="alert blue small">
+      <b>用手機截圖也可以：</b>在相簿長按截圖 → iPhone 用「實時文字」、Android 用 Google Lens
+      選取全部文字 → 複製 → 貼到下面。項目名與數值分兩行也讀得懂，「標準／多／高」等評價字會自動略過。
+    </div>
+
+    <div class="field">
+      <label>量測日期</label>
+      <input type="date" name="date" value="{{ body_today_iso }}">
+      <div class="small c-dim" style="margin-top:4px">
+        貼上的文字裡若已有日期，可以把這格清空，改用文字裡的日期。
+      </div>
+    </div>
+
+    <div class="field">
+      <label>貼上內容</label>
+      <textarea name="text" rows="12" required
+                placeholder="體重&#10;69.20 kg&#10;體脂肪率&#10;標準&#10;16.30 %&#10;肌肉量&#10;54.90 kg&#10;…"></textarea>
+    </div>
+    <button class="btn" type="submit">讀取並更新</button>
   </form>
 </dialog>
 

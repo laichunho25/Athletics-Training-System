@@ -66,6 +66,47 @@ class BodyImportParserTests(TestCase):
         self.assertEqual(records[1]["weight_kg"], 69.2)
         self.assertIn("心情", unknown)
 
+    def test_reads_screenshot_text_with_label_and_value_on_separate_lines(self):
+        """手機「實時文字」複製出來的樣子：項目名、評價字、數值各自一行。"""
+        text = "\n".join(
+            [
+                "體組成",
+                "2026年06月07日 (週日)",
+                "RD-545AS",
+                "時間",
+                "09:37",
+                "體重",
+                "69.20 kg",
+                "體脂肪率",
+                "標準 -",
+                "16.30 %",
+                "肌肉量",
+                "標準",
+                "54.90 kg",
+                "BMI",
+                "標準",
+                "23.4",
+                "基礎代謝量",
+                "多",
+                "1608 kcal",
+                "右腳肌肉量",
+                "標準",
+                "8.85 kg",
+            ]
+        )
+        records, _ = parse_body_composition(text)
+
+        self.assertEqual(len(records), 1)
+        row = records[0]
+        self.assertEqual(row["date"], date(2026, 6, 7))
+        self.assertEqual(row["measured_at"], "09:37")
+        self.assertEqual(row["weight_kg"], 69.20)
+        self.assertEqual(row["body_fat_pct"], 16.30)
+        self.assertEqual(row["muscle_mass_kg"], 54.90)
+        self.assertEqual(row["bmi"], 23.4)
+        self.assertEqual(row["bmr_kcal"], 1608)
+        self.assertEqual(row["muscle_leg_r"], 8.85)
+
     def test_row_without_weight_is_dropped(self):
         records, _ = parse_body_composition("日期,體脂肪率\n2026/06/07,16.3\n")
         self.assertEqual(records, [])
@@ -131,6 +172,35 @@ class BodyMetricViewTests(TestCase):
         # 體重欄位一更新，總覽頁上的「目前體重」就跟著走
         self.assertEqual(float(self.athlete.current_weight_kg), 69.2)
 
+    def test_paste_text_creates_record_on_chosen_date(self):
+        self._login_coach()
+        pasted = "體重\n69.20 kg\n體脂肪率\n標準\n16.30 %\n肌肉量\n54.90 kg"
+
+        self.client.post(
+            self.url, {"action": "paste", "date": "2026-06-07", "text": pasted}
+        )
+
+        log = BodyMetricLog.objects.get(athlete=self.athlete, date=date(2026, 6, 7))
+        self.assertEqual(float(log.weight_kg), 69.2)
+        self.assertEqual(float(log.body_fat_pct), 16.3)
+        self.assertEqual(float(log.muscle_mass_kg), 54.9)
+        self.assertEqual(log.source, BodyMetricLog.Source.IMPORT)
+
+    def test_paste_without_date_uses_the_date_in_the_text(self):
+        self._login_coach()
+        pasted = "2026年06月07日 (週日)\n體重\n69.20 kg"
+
+        self.client.post(self.url, {"action": "paste", "date": "", "text": pasted})
+
+        self.assertTrue(
+            BodyMetricLog.objects.filter(athlete=self.athlete, date=date(2026, 6, 7)).exists()
+        )
+
+    def test_paste_without_usable_numbers_is_rejected(self):
+        self._login_coach()
+        self.client.post(self.url, {"action": "paste", "text": "今日天氣不錯"})
+        self.assertFalse(BodyMetricLog.objects.filter(athlete=self.athlete).exists())
+
     def test_other_coach_cannot_write(self):
         other = make_coach(username="coach2", squad="別隊")
         self.client.login(username=other.user.username, password="test-pw-12345")
@@ -173,3 +243,4 @@ class BodyMetricViewTests(TestCase):
         html = self.client.get(reverse("web:dashboard")).content.decode()
         self.assertIn("基本指標與體組成", html)
         self.assertIn("匯入檔案", html)
+        self.assertIn("貼上磅的文字", html)

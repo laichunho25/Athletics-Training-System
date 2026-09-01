@@ -360,6 +360,38 @@ def _body_save(request, athlete):
     messages.success(request, f"已{'新增' if created else '更新'} {on_date} 的體組成紀錄。")
 
 
+def _body_store(request, athlete, text, label, source_file="", on_date=None):
+    """把解析出來的體組成資料寫進去（檔案匯入與貼上文字共用）。"""
+    records, unknown = parse_body_composition(text, default_date=on_date or date.today())
+    if not records:
+        raise ValueError(
+            f"{label}裡找不到可用的體組成資料（至少要有體重）。"
+            "可以用磅的 App 匯出 CSV，或把「項目 數值」一行一項貼進來。"
+        )
+
+    created = updated = 0
+    for record in records:
+        record_date = record.pop("date")
+        if on_date is not None:
+            record_date = on_date
+        record["source"] = BodyMetricLog.Source.IMPORT
+        record["source_file"] = source_file[:120]
+        _, was_created = BodyMetricLog.objects.update_or_create(
+            athlete=athlete, date=record_date, defaults=record
+        )
+        created += was_created
+        updated += not was_created
+
+    parts = []
+    if created:
+        parts.append(f"新增 {created} 筆")
+    if updated:
+        parts.append(f"更新 {updated} 筆")
+    messages.success(request, f"已從{label}{'、'.join(parts)}體組成紀錄。")
+    if unknown:
+        messages.warning(request, "有幾個項目看不懂、已略過：" + "、".join(unknown[:8]))
+
+
 def _body_import(request, athlete):
     """上傳體組成磅匯出的檔案，直接更新最新的身體狀態。"""
     upload = request.FILES.get("file")
@@ -378,32 +410,24 @@ def _body_import(request, athlete):
     else:
         raise ValueError("讀不懂這個檔案的編碼，請另存成 UTF-8 的 CSV。")
 
-    records, unknown = parse_body_composition(text, default_date=date.today())
-    if not records:
-        raise ValueError(
-            "檔案裡找不到可用的體組成資料（至少要有日期與體重）。"
-            "可以用磅的 App 匯出 CSV，或把「項目,數值」一行一項貼成 CSV。"
-        )
+    _body_store(request, athlete, text, f"「{upload.name}」", source_file=upload.name)
 
-    created = updated = 0
-    for record in records:
-        on_date = record.pop("date")
-        record["source"] = BodyMetricLog.Source.IMPORT
-        record["source_file"] = upload.name[:120]
-        _, was_created = BodyMetricLog.objects.update_or_create(
-            athlete=athlete, date=on_date, defaults=record
-        )
-        created += was_created
-        updated += not was_created
 
-    parts = []
-    if created:
-        parts.append(f"新增 {created} 筆")
-    if updated:
-        parts.append(f"更新 {updated} 筆")
-    messages.success(request, f"已從「{upload.name}」{'、'.join(parts)}體組成紀錄。")
-    if unknown:
-        messages.warning(request, "有幾個欄位看不懂、已略過：" + "、".join(unknown[:8]))
+def _body_paste(request, athlete):
+    """把磅 App／截圖辨識出來的文字直接貼進來。
+
+    手機把截圖的文字複製出來（iOS 實時文字、Android Google Lens）之後貼上，
+    等於用圖片匯入，但辨識交給手機做，準確度比自己跑 OCR 高。
+    """
+    text = request.POST.get("text", "").strip()
+    if not text:
+        raise ValueError("請先把磅上的文字貼進來。")
+    if len(text) > 20000:
+        raise ValueError("貼進來的文字太長了（上限 2 萬字）。")
+
+    # 貼上的內容常常沒有日期（App 的日期在另一個畫面），所以讓使用者自己指定
+    on_date = _body_date(request.POST.get("date")) if request.POST.get("date") else None
+    _body_store(request, athlete, text, "貼上的文字", source_file="貼上文字", on_date=on_date)
 
 
 @login_required
@@ -425,6 +449,8 @@ def athlete_body_metric(request, pk):
             _body_save(request, athlete)
         elif action == "import":
             _body_import(request, athlete)
+        elif action == "paste":
+            _body_paste(request, athlete)
         elif action == "delete":
             deleted, _ = BodyMetricLog.objects.filter(
                 athlete=athlete, pk=request.POST.get("log_id")

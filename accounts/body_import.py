@@ -8,6 +8,14 @@
        體脂肪率,16.30 %
        肌肉量,54.90 kg
 
+   手機的「實時文字」／Google Lens 會把項目名與數值拆成兩行，這種也讀得懂：
+
+       體重
+       69.20 kg
+       體脂肪率
+       標準
+       16.30 %
+
 2. 橫式（HealthPlanet / InBody 匯出的表格）——第一行是欄名，其餘每行一次量測：
 
        日期,體重,體脂肪率,肌肉量
@@ -144,6 +152,16 @@ def _to_time(raw):
     return f"{hour:02d}:{minute:02d}" if 0 <= hour < 24 and minute < 60 else None
 
 
+def _is_rating_only(cell):
+    """整格只是「標準」「多」「高」這種評價字（沒有數字）——OCR 常會單獨成一行。"""
+    text = str(cell or "").strip()
+    if not text or _NUMBER.search(text):
+        return False
+    for word in RATING_WORDS:
+        text = text.replace(word, "")
+    return text.strip(" -—·") == ""
+
+
 def _rows(text):
     """把檔案切成一列一列的欄位（自動判斷逗號 / tab / 全形逗號）。"""
     text = text.replace("﻿", "").replace("，", ",").replace("\t", ",")
@@ -228,16 +246,41 @@ def parse_body_composition(text, default_date=None):
     else:
         # 直式：一行一個項目，全部併成同一筆紀錄
         record = {}
+        pending = None  # 項目名單獨佔一行時，先記著，等下一行的數值
         for row in rows:
-            key, value = row[0], next((c for c in row[1:] if c), "")
-            if _assign(record, key, value):
+            cells = [c for c in row if c]
+            if not cells:
                 continue
+
+            if len(cells) >= 2:
+                # 同一行就有項目與數值（中間可能還夾著「標準」之類的評價字）
+                pending = None
+                key, value = cells[0], " ".join(cells[1:])
+                if _assign(record, key, value):
+                    continue
+            else:
+                cell = cells[0]
+                # 評價字自己一行：跳過，項目名還在等它後面那個數值
+                if pending and _is_rating_only(cell):
+                    continue
+                if pending and _assign(record, pending, cell):
+                    pending = None
+                    continue
+                # 認得的項目名，數值在下一行
+                if _norm_key(cell) in FIELD_ALIASES or _norm_key(cell) in (
+                    DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS
+                ):
+                    pending = cell
+                    continue
+                key = cell
+
             # App 的畫面會把量測日期單獨放一行（例：「2026年06月07日 (週日)」）
             on_date = _to_date(key)
             if on_date:
                 record["date"] = on_date
+                pending = None
                 continue
-            if key and len(row) >= 2 and key not in unknown:
+            if key and key not in unknown:
                 unknown.append(key)
         if record:
             records.append(record)
