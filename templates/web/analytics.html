@@ -58,29 +58,54 @@
   <div class="card pad0">
     <div class="card-head">
       <span>{{ domain_label }}</span>
-      <span class="small c-dim">{{ overview|length }} 個項目</span>
+      <span class="small c-dim">{{ overview|length }} 個項目 · 依動作分類</span>
     </div>
     <div class="itemlist">
-      {% for row in overview %}
-        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
-           class="{% if item and row.item.id == item.id %}active{% endif %}">
-          <span>
-            {{ row.item.name }}
-            {% if row.item.unit %}<span class="meta">（{{ row.item.unit }}）</span>{% endif %}
-            {% if not row.item.is_builtin %}<span class="badge b-dim">自訂</span>{% endif %}
-          </span>
-          <span class="meta">
-            {% if row.count %}{{ row.latest }} · {{ row.count }} 筆{% else %}—{% endif %}
-          </span>
-        </a>
+      {% for group in overview_groups %}
+        <div class="itemcat">{{ group.label }}<span>{{ group.rows|length }}</span></div>
+        {% for row in group.rows %}
+          <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
+             class="{% if item and row.item.id == item.id %}active{% endif %}">
+            <span>
+              {{ row.item.name }}
+              {% if row.item.unit %}<span class="meta">（{{ row.item.unit }}）</span>{% endif %}
+              {% if not row.item.is_builtin %}<span class="badge b-dim">自訂</span>{% endif %}
+            </span>
+            <span class="meta">
+              {% if row.count %}{{ row.latest }} · {{ row.count }} 筆{% else %}未記錄{% endif %}
+            </span>
+          </a>
+        {% endfor %}
       {% empty %}
-        <div class="empty">這個範疇還沒有項目</div>
+        <div class="empty">還沒有登過數據。下面從訓練活動庫挑一個動作就可以開始記錄。</div>
       {% endfor %}
     </div>
 
     <div style="padding:14px 18px;border-top:1px solid var(--border)">
+      <form method="post" class="mb">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_item">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        <div class="field">
+          <label>從訓練活動庫挑一個動作</label>
+          <select name="definition" onchange="this.form.submit()">
+            <option value="">— 挑一個動作加進清單 —</option>
+            {% for value, label in activity_categories %}
+              <optgroup label="{{ label }}">
+                {% for d in activity_library %}{% if d.category == value %}
+                  <option value="{{ d.id }}">{{ d.display_name }}</option>
+                {% endif %}{% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="small c-dim">
+          挑出來的動作才會顯示在上面的清單；課表上加過的活動也會自動出現在這裡。
+        </div>
+      </form>
+
       <details>
-        <summary class="small c-accent" style="cursor:pointer">＋ 新增項目</summary>
+        <summary class="small c-accent" style="cursor:pointer">＋ 活動庫沒有？自己新增一個項目</summary>
         <form method="post" class="mt">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_item">
@@ -88,6 +113,12 @@
           <div class="field">
             <label>項目名稱</label>
             <input type="text" name="name" placeholder="例：120m 計時、單腳跳距離" required>
+          </div>
+          <div class="field">
+            <label>動作分類</label>
+            <select name="category">
+              {% for v, l in metric_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+            </select>
           </div>
           <div class="row">
             <div class="field">
@@ -167,8 +198,15 @@
     </div>
 
     {% if comparison.groups %}
-    <div class="cmpsplit">
-      <div>
+    <div class="cmpwrap">
+      <div class="chart-box"><canvas id="cmpChart"></canvas></div>
+      {% if compare == 'phase' %}
+      <div class="small c-dim cmpnote">
+        時期取自這名運動員備戰計劃裡的分期；不在任何分期內的日期會歸到「未分期」。
+        一般準備期本來就量大強度低、比賽期量少強度高，跨時期比數字前先看清楚各期的定位。
+      </div>
+      {% endif %}
+      <div class="cmptablewrap">
         <table class="cmptable">
           <thead>
             <tr>
@@ -201,15 +239,6 @@
           {% endfor %}
           </tbody>
         </table>
-        {% if compare == 'phase' %}
-        <div class="small c-dim" style="padding:0 18px 14px">
-          時期取自這名運動員備戰計劃裡的分期；不在任何分期內的日期會歸到「未分期」。
-          一般準備期本來就量大強度低、比賽期量少強度高，跨時期比數字前先看清楚各期的定位。
-        </div>
-        {% endif %}
-      </div>
-      <div class="cmpchart">
-        <div class="chart-box"><canvas id="cmpChart"></canvas></div>
       </div>
     </div>
     {% else %}
@@ -393,7 +422,7 @@
       </div>
     </div>
     {% else %}
-    <div class="empty">左邊先新增一個項目，才能開始記錄。</div>
+    <div class="empty">左邊從訓練活動庫挑一個動作，或按「自己新增一個項目」，就可以開始記錄。</div>
     {% endif %}
   </div>
 </div>

@@ -3,6 +3,7 @@
 import calendar as pycalendar
 import json
 import logging
+import re
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -19,13 +20,16 @@ from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event
 from analytics import services as an
 from analytics.models import (
+    MetricCategory,
     MetricDomain,
     MetricItem,
     MetricRecord,
     domain_pairs_for_session_type,
     domains_for_session_type,
     ensure_builtin_items,
+    item_for_activity,
     item_for_name,
+    metric_category_for_activity,
     session_types_for_domain,
 )
 from analytics.recording import RecordError, create_records
@@ -1383,7 +1387,12 @@ def _delete_metric(request, session):
 
 
 def _add_activity(request, session):
-    """在某一區（熱身 / 正課 / 補充 / 恢復）加一項活動。"""
+    """在某一區（熱身 / 正課 / 補充 / 恢復）加活動。
+
+    可以一次加多項：「活動名稱」欄每行一個名字，名字對得上活動庫的就把
+    預設組數/次數/休息一起帶進來。加進來的動作同時會在數據分析開好同名項目，
+    課做完直接登數據，不用再去數據分析新增一次。
+    """
     block = request.POST.get("block")
     if block not in BlockType.values:
         messages.error(request, "不認得的課表區塊。")
@@ -1394,33 +1403,77 @@ def _add_activity(request, session):
     if definition_id:
         definition = ActivityDefinition.objects.filter(pk=definition_id).first()
 
-    name = request.POST.get("name", "").strip() or (definition.name if definition else "")
-    if not name:
+    # 一行一項；用頓號或逗號分隔也接受
+    names = [
+        part.strip()
+        for part in re.split(r"[\n、,]", request.POST.get("name", ""))
+        if part.strip()
+    ]
+    if not names and definition:
+        names = [definition.name]
+    if not names:
         messages.error(request, "請挑一個活動，或自己打一個名稱。")
         return
 
+    single = len(names) == 1
     last = session.activities.filter(block=block).order_by("-order").first()
-    SessionActivity.objects.create(
-        session=session,
-        block=block,
-        order=(last.order + 1) if last else 1,
-        definition=definition,
-        name=name,
-        sets=request.POST.get("sets", "").strip(),
-        reps=request.POST.get("reps", "").strip(),
-        distance=request.POST.get("distance", "").strip(),
-        weight=request.POST.get("weight", "").strip(),
-        intensity=request.POST.get("intensity", "").strip(),
-        rest=request.POST.get("rest", "").strip(),
-        key_points=request.POST.get("key_points", "").strip(),
-        note=request.POST.get("note", "").strip(),
-        created_by=request.user,
-    )
-    if definition:
-        ActivityDefinition.objects.filter(pk=definition.pk).update(
-            use_count=F("use_count") + 1
+    order = (last.order + 1) if last else 1
+
+    added, linked = [], []
+    for name in names:
+        # 名字對得上活動庫就掛上去（統計用得到），自己打的名字也照樣加得進來
+        row_def = definition or _definition_for_name(name)
+        defaults = row_def.defaults_payload() if row_def else {}
+
+        def field(key):
+            # 一次加多項時，逐項的細節照活動庫的預設值走
+            if single:
+                return request.POST.get(key, "").strip()
+            return defaults.get(key, "")
+
+        SessionActivity.objects.create(
+            session=session,
+            block=block,
+            order=order,
+            definition=row_def,
+            name=name,
+            sets=field("sets"),
+            reps=field("reps"),
+            distance=field("distance"),
+            weight=field("weight"),
+            intensity=field("intensity"),
+            rest=field("rest"),
+            key_points=field("key_points"),
+            note=request.POST.get("note", "").strip() if single else "",
+            created_by=request.user,
         )
-    messages.success(request, f"已加入「{name}」到{BlockType(block).label}。")
+        order += 1
+        added.append(name)
+        if row_def is not None:
+            ActivityDefinition.objects.filter(pk=row_def.pk).update(
+                use_count=F("use_count") + 1
+            )
+        # 課表寫了什麼動作，數據分析就有同名項目可以登
+        if item_for_activity(
+            session.session_type,
+            name,
+            row_def.category if row_def else "",
+            user=request.user,
+        ):
+            linked.append(name)
+
+    msg = f"已加入 {'、'.join(added)} 到{BlockType(block).label}。"
+    if linked:
+        msg += f"（{len(linked)} 項已同步到數據分析的項目清單）"
+    messages.success(request, msg)
+
+
+def _definition_for_name(name):
+    """用中文或英文名字在活動庫裡找一項活動。"""
+    return (
+        ActivityDefinition.objects.filter(name__iexact=name).first()
+        or ActivityDefinition.objects.filter(name_en__iexact=name).first()
+    )
 
 
 def _new_definition(request, session):
@@ -1587,6 +1640,21 @@ def analytics_view(request):
         if action == "add_item":
             name = request.POST.get("name", "").strip()
             domain = request.POST.get("domain")
+            # 從訓練活動庫挑：名稱、分類、單位都照活動庫帶過來
+            definition = None
+            if request.POST.get("definition"):
+                definition = ActivityDefinition.objects.filter(
+                    pk=request.POST["definition"]
+                ).first()
+            if definition is not None and domain in MetricDomain.values:
+                item = item_for_name(
+                    domain,
+                    definition.name,
+                    user=request.user,
+                    category=metric_category_for_activity(definition.category),
+                )
+                messages.success(request, f"已把「{item.name}」加進項目清單。")
+                return redirect(f"{back}&item={item.id}")
             if not name:
                 messages.error(request, "請填項目名稱。")
             elif domain not in MetricDomain.values:
@@ -1598,6 +1666,11 @@ def analytics_view(request):
                     defaults={
                         "unit": request.POST.get("unit", "").strip(),
                         "higher_is_better": bool(request.POST.get("higher_is_better")),
+                        "category": (
+                            request.POST.get("category")
+                            if request.POST.get("category") in MetricCategory.values
+                            else MetricCategory.OTHER
+                        ),
                         "created_by": request.user,
                     },
                 )
@@ -1653,15 +1726,18 @@ def analytics_view(request):
     domain = request.GET.get("domain")
     if domain not in MetricDomain.values:
         domain = MetricDomain.COMPETITION
-    overview = an.metric_overview(athlete, domain)
-
     requested_item = request.GET.get("item")
     item = None
     if requested_item:
         item = MetricItem.objects.filter(pk=requested_item, domain=domain).first()
+
+    # 清單只留有紀錄的項目（外加目前選中的那一個），沒挑出來的不佔版面
+    overview = an.metric_overview(
+        athlete, domain, used_only=True, keep_ids=[item.id] if item else None
+    )
     if item is None:
-        with_records = [r["item"] for r in overview if r["count"]]
-        item = with_records[0] if with_records else (overview[0]["item"] if overview else None)
+        item = overview[0]["item"] if overview else None
+    overview_groups = an.overview_by_category(overview)
 
     analysis = an.metric_analysis(athlete, item) if item else None
 
@@ -1703,6 +1779,13 @@ def analytics_view(request):
             "domain": domain,
             "domain_label": dict(MetricDomain.choices)[domain],
             "overview": overview,
+            "overview_groups": overview_groups,
+            "metric_categories": MetricCategory.choices,
+            # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
+            "activity_library": ActivityDefinition.objects.filter(
+                is_active=True
+            ).order_by("category", "-use_count", "name"),
+            "activity_categories": ActivityCategory.choices,
             "item": item,
             "analysis": analysis,
             # 單位就是 kg 的項目（背蹲舉 1RM…），數值＝重量，表單不再重複問一次

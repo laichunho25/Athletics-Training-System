@@ -712,11 +712,19 @@ def metric_analysis(athlete, item, days=365):
     return result
 
 
-def metric_overview(athlete, domain, days=365):
+def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
     """一個範疇底下所有項目的摘要，給數據分析頁的項目清單用。"""
     from analytics.models import MetricItem, MetricRecord
 
     items = MetricItem.objects.filter(domain=domain, is_active=True)
+    if used_only:
+        # 沒登過數據的項目不佔版面；要開新項目就從活動庫或「新增項目」挑
+        used = set(
+            MetricRecord.objects.filter(athlete=athlete, item__domain=domain)
+            .values_list("item_id", flat=True)
+        )
+        used.update(keep_ids or [])
+        items = items.filter(id__in=used)
     since = date.today() - timedelta(days=days)
     rows = []
     for item in items:
@@ -739,6 +747,25 @@ def metric_overview(athlete, domain, days=365):
         )
     rows.sort(key=lambda r: (-r["count"], r["item"].name))
     return rows
+
+
+def overview_by_category(rows):
+    """項目清單依動作分類分組；空的分類不顯示。"""
+    from analytics.models import MetricCategory
+
+    labels = dict(MetricCategory.choices)
+    buckets = {}
+    for row in rows:
+        buckets.setdefault(row["item"].category, []).append(row)
+    groups = []
+    for value, label in MetricCategory.choices:
+        if buckets.get(value):
+            groups.append({"value": value, "label": label, "rows": buckets[value]})
+    # 資料庫裡若有不認得的分類，照樣列出來，不要讓項目憑空消失
+    for value, rows_ in buckets.items():
+        if value not in labels:
+            groups.append({"value": value, "label": "其他", "rows": rows_})
+    return groups
 
 
 # ------------------------------------------------- 分組比較（整體／年份／時期）

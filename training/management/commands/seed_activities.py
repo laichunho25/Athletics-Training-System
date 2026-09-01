@@ -290,10 +290,39 @@ class Command(BaseCommand):
                     obj.save(update_fields=changed + ["updated_at"])
                     updated += 1
 
+        synced = self._sync_metric_categories()
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"活動清單：新增 {created} 項、補齊 {updated} 項、"
                 f"更名 {renamed} 項，"
-                f"目前共 {ActivityDefinition.objects.count()} 項。"
+                f"目前共 {ActivityDefinition.objects.count()} 項；"
+                f"另對齊 {synced} 個數據項目的分類。"
             )
         )
+
+    def _sync_metric_categories(self):
+        """數據項目的分類跟著活動庫走。
+
+        課表上加過的活動會在數據分析開同名項目，兩邊的分類要一致，
+        重量訓練紀錄的項目清單才分得出上身／下身／核心。
+        """
+        from analytics.models import (
+            MetricCategory,
+            MetricItem,
+            metric_category_for_activity,
+        )
+
+        by_name = dict(
+            ActivityDefinition.objects.values_list("name", "category")
+        )
+        synced = 0
+        for item in MetricItem.objects.filter(category=MetricCategory.OTHER):
+            activity_category = by_name.get(item.name)
+            if activity_category is None:
+                continue
+            category = metric_category_for_activity(activity_category)
+            if category != item.category:
+                MetricItem.objects.filter(pk=item.pk).update(category=category)
+                synced += 1
+        return synced

@@ -4,8 +4,15 @@ from datetime import date
 from django.test import TestCase
 from django.urls import reverse
 
-from analytics.models import MetricDomain, MetricItem, MetricRecord, ensure_builtin_items
+from analytics.models import (
+    MetricCategory,
+    MetricDomain,
+    MetricItem,
+    MetricRecord,
+    ensure_builtin_items,
+)
 from core.models import SessionType
+from training.models import ActivityCategory, ActivityDefinition
 from core.test_factories import make_athlete, make_session
 
 TODAY = date(2026, 6, 1)
@@ -107,3 +114,111 @@ class ComparisonTests(TestCase):
             f"{reverse('web:analytics')}?athlete={self.athlete.id}&domain={MetricDomain.STRENGTH}"
         )
         self.assertContains(page, "最常做的動作")
+
+
+class ItemListTests(TestCase):
+    """項目清單：只列挑出來／登過的，並依動作分類分組。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a3")
+        self.client.force_login(self.athlete.user)
+        self.squat = MetricItem.objects.get(
+            domain=MetricDomain.STRENGTH, name="背蹲舉 1RM"
+        )
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.squat, date=TODAY, value=120, weight_kg=120
+        )
+
+    def page(self):
+        return self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}"
+        ).content.decode()
+
+    def test_only_items_with_records_are_listed(self):
+        body = self.page()
+        self.assertIn("背蹲舉 1RM", body)
+        self.assertNotIn("反向跳 CMJ", body)  # 沒挑也沒登過就不佔版面
+
+    def test_items_are_grouped_by_category(self):
+        body = self.page()
+        # 分類標題（不是「新增項目」表單裡那個下拉的選項）
+        self.assertIn('class="itemcat">下身動作（Lower Body Movement）', body)
+        self.assertNotIn('class="itemcat">核心肌群', body)  # 這一組還沒有項目
+
+    def test_picking_from_the_activity_library_adds_an_item(self):
+        definition = ActivityDefinition.objects.create(
+            name="啞鈴肩推", name_en="Shoulder Press (Dumbbell)",
+            category=ActivityCategory.UPPER,
+        )
+        r = self.client.post(reverse("web:analytics"), {
+            "action": "add_item",
+            "domain": MetricDomain.STRENGTH,
+            "definition": definition.id,
+        })
+        item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="啞鈴肩推")
+        self.assertEqual(item.category, MetricCategory.UPPER)
+        self.assertIn(f"item={item.id}", r["Location"])
+        self.assertIn("啞鈴肩推", self.page())  # 挑出來的就算還沒紀錄也留在清單
+
+
+class ActivityLibraryTests(TestCase):
+    """課表加活動：可挑活動庫、可一次加多個，並自動開好數據項目。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a4")
+        self.client.force_login(self.athlete.user)
+        self.session = make_session(
+            self.athlete, TODAY, session_type=SessionType.STRENGTH
+        )
+        self.squat = ActivityDefinition.objects.create(
+            name="槓鈴深蹲", name_en="Squat (Barbell)",
+            category=ActivityCategory.LOWER, default_sets="4 組", default_reps="5 次",
+        )
+        self.plank = ActivityDefinition.objects.create(
+            name="平板支撐", name_en="Plank", category=ActivityCategory.CORE,
+        )
+
+    def url(self):
+        return reverse("web:session_detail", args=[self.session.id])
+
+    def test_picking_one_activity_brings_its_defaults_and_opens_a_metric_item(self):
+        self.client.post(self.url(), {
+            "action": "add_activity", "block": "MAIN",
+            "definition": self.squat.id, "name": "槓鈴深蹲",
+            "sets": "4 組", "reps": "5 次",
+        })
+        activity = self.session.activities.get()
+        self.assertEqual(activity.definition_id, self.squat.id)
+        self.assertEqual(activity.sets, "4 組")
+        item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="槓鈴深蹲")
+        self.assertEqual(item.category, MetricCategory.LOWER)
+
+    def test_many_activities_in_one_go(self):
+        self.client.post(self.url(), {
+            "action": "add_activity", "block": "MAIN",
+            "name": "槓鈴深蹲\n平板支撐\n自己想的動作",
+        })
+        names = list(self.session.activities.order_by("order").values_list("name", flat=True))
+        self.assertEqual(names, ["槓鈴深蹲", "平板支撐", "自己想的動作"])
+        # 名字對得上活動庫的，預設值一起帶進來
+        self.assertEqual(self.session.activities.get(name="槓鈴深蹲").reps, "5 次")
+        self.assertEqual(
+            set(MetricItem.objects.filter(
+                domain=MetricDomain.STRENGTH, name__in=names
+            ).values_list("name", flat=True)),
+            set(names),
+        )
+
+    def test_track_session_activities_open_track_items(self):
+        session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        self.client.post(reverse("web:session_detail", args=[session.id]), {
+            "action": "add_activity", "block": "MAIN", "name": "150m 計時",
+        })
+        self.assertTrue(
+            MetricItem.objects.filter(
+                domain=MetricDomain.TRACK, name="150m 計時"
+            ).exists()
+        )

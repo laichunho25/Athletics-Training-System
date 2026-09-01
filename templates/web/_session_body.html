@@ -518,23 +518,41 @@
       <button type="button" class="btn ghost sm" onclick="document.getElementById('actDlg').close()">關閉</button>
     </div>
 
-    <div class="field">
-      <label>從活動清單挑一個（挑完會自動帶入預設值，仍可改）</label>
-      <select name="definition" id="actPick">
-        <option value="">— 自己打一個名稱 —</option>
-        {% for value, label in activity_categories %}
-          <optgroup label="{{ label }}">
-            {% for d in library %}{% if d.category == value %}
-              <option value="{{ d.id }}" data-block="{{ d.default_block }}">{{ d.display_name }}</option>
-            {% endif %}{% endfor %}
-          </optgroup>
-        {% endfor %}
-      </select>
+    <input type="hidden" name="definition" id="actDefId">
+
+    <div class="row">
+      <div class="field" style="flex:1">
+        <label>從訓練活動庫挑（挑一個會帶入預設值，挑多個就一次加多項）</label>
+        <select id="actPick">
+          <option value="">— 挑一個加進下面的名單 —</option>
+          {% for value, label in activity_categories %}
+            <optgroup label="{{ label }}">
+              {% for d in library %}{% if d.category == value %}
+                <option value="{{ d.id }}">{{ d.display_name }}</option>
+              {% endif %}{% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1">
+        <label>或打名稱搜活動庫（按 Enter 加入）</label>
+        <input type="text" id="actSearch" list="libnames" placeholder="打「深蹲」就會跳出活動庫的選項">
+        <datalist id="libnames">
+          {% for d in library %}
+            <option value="{{ d.name }}">{{ d.name_en }}</option>
+          {% endfor %}
+        </datalist>
+      </div>
     </div>
 
     <div class="field">
-      <label>活動名稱</label>
-      <input type="text" name="name" id="actName" placeholder="例：Single Leg Hip Bridge">
+      <label>活動名稱（一行一項，可以一次加入多個）</label>
+      <textarea name="name" id="actName" rows="3"
+                placeholder="槓鈴深蹲&#10;臀推（自體重量）&#10;平板支撐"></textarea>
+      <div class="small c-dim" style="margin-top:4px">
+        名稱對得上活動庫的，會自動帶入該活動的預設組數／次數／休息；
+        加進來的動作同時會在數據分析開好同名項目。
+      </div>
     </div>
 
     <div class="row">

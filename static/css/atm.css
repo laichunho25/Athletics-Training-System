@@ -476,7 +476,7 @@ input:focus, select:focus, textarea:focus {
 .tabs a.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 
 /* 數據項目清單 */
-.itemlist { max-height: 420px; overflow-y: auto; }
+.itemlist { max-height: 520px; overflow-y: auto; }
 .itemlist a {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
   padding: 9px 16px; border-bottom: 1px solid var(--border); color: var(--text);
@@ -665,14 +665,22 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); 
 .tabs.sub { margin: 0; gap: 14px; border-bottom: none; }
 .tabs.sub a { padding: 2px 2px; font-size: 13px; }
 
-.cmpsplit { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, 1fr); }
-.cmpsplit > .cmpchart { border-left: 1px solid var(--border); }
+/* 比較：圖在上、表在下，兩邊留白一致，寬螢幕也不會一邊空一大塊 */
+.cmpwrap > .chart-box { height: 240px; padding: 14px 18px; }
+.cmpnote { padding: 0 18px 12px; }
+.cmptablewrap { overflow-x: auto; border-top: 1px solid var(--border); }
+.cmptable { min-width: 640px; }
 .cmptable th, .cmptable td { vertical-align: top; }
 .cmptable tr.bestrow > td {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-@media (max-width: 1100px) {
-  .cmpsplit { grid-template-columns: 1fr; }
-  .cmpsplit > .cmpchart { border-left: none; border-top: 1px solid var(--border); }
+/* 項目清單的分類標題 */
+.itemcat {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 16px; background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  position: sticky; top: 0;
 }
+.itemcat span { font-variant-numeric: tabular-nums; opacity: .8; }

@@ -217,23 +217,62 @@
     try { return tag ? JSON.parse(tag.textContent) : []; } catch (e) { return []; }
   }
 
-  function fillFromDefinition(id) {
-    var found = library().filter(function (d) { return String(d.id) === String(id); })[0];
-    var fields = ['sets', 'reps', 'distance', 'weight', 'intensity', 'rest', 'key_points'];
-    var nameInput = document.getElementById('actName');
-    if (!found) {
-      if (nameInput) { nameInput.value = ''; }
-      fields.forEach(function (f) {
-        var el = document.getElementById('f_' + f);
-        if (el) { el.value = ''; }
-      });
-      return;
-    }
-    if (nameInput) { nameInput.value = found.name; }
-    fields.forEach(function (f) {
+  var DETAIL_FIELDS = ['sets', 'reps', 'distance', 'weight', 'intensity', 'rest', 'key_points'];
+
+  function clearDetails() {
+    DETAIL_FIELDS.forEach(function (f) {
       var el = document.getElementById('f_' + f);
-      if (el) { el.value = found[f] || ''; }
+      if (el) { el.value = ''; }
     });
+  }
+
+  function resetActivityForm() {
+    var box = document.getElementById('actName');
+    if (box) { box.value = ''; }
+    var defId = document.getElementById('actDefId');
+    if (defId) { defId.value = ''; }
+    var search = document.getElementById('actSearch');
+    if (search) { search.value = ''; }
+    clearDetails();
+  }
+
+  function nameLines(box) {
+    return box.value.split('\n').map(function (l) { return l.trim(); })
+                    .filter(function (l) { return l; });
+  }
+
+  // 挑一個活動＝把名字加到名單；只有一項時順便帶入它的預設值，
+  // 加到第二項之後細節就各自照活動庫走，表單上的欄位留空避免誤導。
+  function addActivityName(name, found) {
+    var box = document.getElementById('actName');
+    if (!box || !name) { return; }
+    var lines = nameLines(box);
+    if (lines.indexOf(name) === -1) { lines.push(name); }
+    box.value = lines.join('\n');
+
+    var defId = document.getElementById('actDefId');
+    if (lines.length === 1 && found) {
+      if (defId) { defId.value = found.id; }
+      DETAIL_FIELDS.forEach(function (f) {
+        var el = document.getElementById('f_' + f);
+        if (el) { el.value = found[f] || ''; }
+      });
+    } else {
+      if (defId) { defId.value = ''; }
+      clearDetails();
+    }
+  }
+
+  function definitionById(id) {
+    return library().filter(function (d) { return String(d.id) === String(id); })[0];
+  }
+
+  function definitionByName(name) {
+    var key = name.toLowerCase();
+    return library().filter(function (d) {
+      return d.name.toLowerCase() === key
+        || (d.name_en || '').toLowerCase() === key;
+    })[0];
   }
 
   // --------------------------------------------------------------- 掛載
@@ -254,7 +293,7 @@
         document.getElementById('actBlock').value = add.dataset.block;
         document.getElementById('actBlockLabel').textContent = add.dataset.label;
         document.getElementById('actPick').value = '';
-        fillFromDefinition('');
+        resetActivityForm();
         document.getElementById('actDlg').showModal();
         return;
       }
@@ -265,7 +304,21 @@
     });
 
     document.addEventListener('change', function (event) {
-      if (event.target.id === 'actPick') { fillFromDefinition(event.target.value); }
+      if (event.target.id === 'actPick' && event.target.value) {
+        var found = definitionById(event.target.value);
+        if (found) { addActivityName(found.name, found); }
+        event.target.value = '';
+      }
+    });
+
+    // 打名字搜活動庫：Enter（或從 datalist 挑一個）就加進名單
+    document.addEventListener('keydown', function (event) {
+      if (event.target.id === 'actSearch' && event.key === 'Enter') {
+        event.preventDefault();
+        var typed = event.target.value.trim();
+        if (typed) { addActivityName(typed, definitionByName(typed)); }
+        event.target.value = '';
+      }
     });
 
     setInterval(function () { poll(region); }, POLL_MS);
