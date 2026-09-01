@@ -525,11 +525,11 @@
       <div class="field" style="flex:1">
         <label>從訓練活動庫挑（點一個再按「加進名單」，可以連續加多項）</label>
         <select id="actPick" size="8" style="height:auto">
-          {% for value, label in activity_categories %}
-            <optgroup label="{{ label }}">
-              {% for d in library %}{% if d.category == value %}
+          {% for g in activity_groups %}
+            <optgroup label="{{ g.label }}">
+              {% for d in g.rows %}
                 <option value="{{ d.id }}">{{ d.display_name }}</option>
-              {% endif %}{% endfor %}
+              {% endfor %}
             </optgroup>
           {% endfor %}
         </select>

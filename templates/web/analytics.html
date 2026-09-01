@@ -37,12 +37,15 @@
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
           <label>① 從訓練活動庫挑（挑好按「加進清單」）</label>
-          <select name="definition" size="8" style="height:auto">
-            {% for value, label in activity_categories %}
-              <optgroup label="{{ label }}">
-                {% for d in activity_library %}{% if d.category == value %}
+          {% if not activity_library %}
+            <div class="empty">活動庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
+          {% endif %}
+          <select name="definition" size="8" style="height:auto" required>
+            {% for g in activity_groups %}
+              <optgroup label="{{ g.label }}">
+                {% for d in g.rows %}
                   <option value="{{ d.id }}">{{ d.display_name }}</option>
-                {% endif %}{% endfor %}
+                {% endfor %}
               </optgroup>
             {% endfor %}
           </select>
@@ -224,6 +227,19 @@
       <span>{{ item.display_name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
       <span class="small c-dim">
         {% if item.higher_is_better %}越大越好{% else %}越小越好{% endif %} · {{ analysis.count }} 筆紀錄
+        <form method="post" style="display:inline;margin-left:10px"
+              onsubmit="if (!confirm(this.dataset.warn)) { return false; } this.confirm.value = '1'; return true;"
+              data-warn="{% if item_record_count %}「{{ item.display_name }}」底下有 {{ item_record_count }} 筆紀錄，刪除後這些紀錄也會一起不見，確定嗎？{% else %}確定要把「{{ item.display_name }}」從清單刪掉嗎？{% endif %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_item">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+          <input type="hidden" name="confirm" value="">
+          <button class="linkbtn c-red" type="submit"
+                  title="{% if item_record_count %}會一併刪掉 {{ item_record_count }} 筆紀錄{% else %}沒有紀錄，直接刪掉{% endif %}">
+            刪除項目{% if item_record_count %}（{{ item_record_count }} 筆紀錄）{% endif %}
+          </button>
+        </form>
       </span>
     </div>
 

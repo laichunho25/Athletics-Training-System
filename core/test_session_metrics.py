@@ -366,3 +366,100 @@ class ItemPickerTests(TestCase):
         })
         page = self.client.get(reverse("web:session_detail", args=[s.id]))
         self.assertContains(page, "Back Squat")
+
+
+class DeleteItemTests(TestCase):
+    """自己刪項目；底下有紀錄要先提示。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a8")
+        self.client.force_login(self.athlete.user)
+        self.custom = MetricItem.objects.create(
+            domain=MetricDomain.STRENGTH, name="單腳跳距離", name_en="Single Leg Hop",
+            unit="m", higher_is_better=True, category=MetricCategory.PLYO,
+        )
+
+    def url(self):
+        return (
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}"
+        )
+
+    def post_delete(self, item, **extra):
+        return self.client.post(self.url(), {
+            "action": "delete_item",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": item.id,
+            **extra,
+        }, follow=True)
+
+    def test_item_without_records_is_deleted(self):
+        self.post_delete(self.custom, confirm="1")
+        self.assertFalse(MetricItem.objects.filter(pk=self.custom.pk).exists())
+
+    def test_item_with_records_needs_a_confirmation(self):
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.custom, date=TODAY, value=3.1
+        )
+        page = self.post_delete(self.custom)  # 沒帶 confirm
+        self.assertTrue(MetricItem.objects.filter(pk=self.custom.pk).exists())
+        self.assertContains(page, "還有 1 筆紀錄")
+
+        page = self.post_delete(self.custom, confirm="1")
+        self.assertFalse(MetricItem.objects.filter(pk=self.custom.pk).exists())
+        self.assertEqual(MetricRecord.objects.filter(item_id=self.custom.pk).count(), 0)
+
+    def test_deleting_a_builtin_item_clears_only_my_records(self):
+        builtin = MetricItem.objects.get(
+            domain=MetricDomain.STRENGTH, name="背蹲舉 1RM"
+        )
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=builtin, date=TODAY, value=120, weight_kg=120
+        )
+        page = self.post_delete(builtin, confirm="1")
+        self.assertTrue(MetricItem.objects.filter(pk=builtin.pk).exists())
+        self.assertEqual(MetricRecord.objects.filter(item=builtin).count(), 0)
+        self.assertContains(page, "系統內建項目")
+
+    def test_the_delete_button_warns_about_the_records(self):
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.custom, date=TODAY, value=3.1
+        )
+        page = self.client.get(f"{self.url()}&item={self.custom.id}")
+        self.assertContains(page, "刪除項目（1 筆紀錄）")
+
+
+class LibrarySeedTests(TestCase):
+    """活動庫是空的話自動載入預設清單——不然下拉只有點不到的分類標題。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a9")
+        self.client.force_login(self.athlete.user)
+
+    def test_empty_library_is_seeded_on_the_analytics_page(self):
+        ActivityDefinition.objects.all().delete()
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}"
+        )
+        self.assertTrue(ActivityDefinition.objects.exists())
+        self.assertGreater(len(page.context["activity_groups"]), 0)
+
+    def test_no_empty_optgroup_is_rendered(self):
+        ActivityDefinition.objects.all().delete()
+        ActivityDefinition.objects.create(
+            name="槓鈴深蹲", name_en="Back Squat", category=ActivityCategory.LOWER
+        )
+        body = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}"
+        ).content.decode()
+        labels = [g["label"] for g in
+                  self.client.get(
+                      f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+                      f"&domain={MetricDomain.STRENGTH}"
+                  ).context["activity_groups"]]
+        self.assertEqual(len(labels), 1)
+        self.assertEqual(body.count("<optgroup"), 1)

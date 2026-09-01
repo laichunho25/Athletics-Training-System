@@ -80,6 +80,7 @@ from training.models import (
     Exercise,
     SessionActivity,
 )
+from training.library import ensure_activity_library, library_groups
 
 logger = logging.getLogger(__name__)
 
@@ -1215,6 +1216,7 @@ def _visible_session(request, pk):
 def _session_context(request, session):
     """課表頁的完整 context（整頁與輪詢刷新的片段共用同一份）。"""
     blocked, reason = inj.should_block_high_intensity(session.athlete, session.date)
+    ensure_activity_library()
     library = list(
         ActivityDefinition.objects.filter(is_active=True).order_by(
             "category", "-use_count", "name"
@@ -1269,6 +1271,7 @@ def _session_context(request, session):
             )
             for d in library
         ],
+        "activity_groups": library_groups(library),
         "activity_categories": ActivityCategory.choices,
         "track_sets": session.track_sets.all(),
         "strength_sets": session.strength_sets.select_related("exercise"),
@@ -1641,6 +1644,7 @@ def analytics_view(request):
         return render(request, "web/no_athlete.html", {"page": "analytics"})
 
     ensure_builtin_items()
+    ensure_activity_library()
 
     # ---- 新增項目 / 新增紀錄 ----
     if request.method == "POST":
@@ -1717,6 +1721,35 @@ def analytics_view(request):
                 else:
                     messages.info(request, f"「{item.display_name}」已經在清單裡了。")
                 back += f"&item={item.id}"
+            return redirect(back)
+
+        if action == "delete_item":
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            mine = MetricRecord.objects.filter(athlete=athlete, item=item)
+            count = mine.count()
+            if count and not request.POST.get("confirm"):
+                messages.error(
+                    request,
+                    f"「{item.display_name}」底下還有 {count} 筆紀錄，"
+                    "要先確認才刪得掉。",
+                )
+                return redirect(f"{back}&item={item.id}")
+            if item.is_builtin:
+                # 內建項目留著（刪了下次開頁又會補回來），只清這名運動員的紀錄；
+                # 沒有紀錄的項目本來就不會出現在清單裡
+                mine.delete()
+                messages.success(
+                    request,
+                    f"已清掉「{item.display_name}」的 {count} 筆紀錄；"
+                    "這是系統內建項目，重新記錄就會再出現。",
+                )
+            else:
+                item.delete()
+                messages.success(
+                    request,
+                    f"已刪除項目「{item.display_name}」"
+                    + (f"，連同 {count} 筆紀錄。" if count else "。"),
+                )
             return redirect(back)
 
         if action == "add_record":
@@ -1808,6 +1841,11 @@ def analytics_view(request):
     compare = request.GET.get("compare", "all")
     comparison = an.metric_comparison(athlete, item, compare) if item else None
     tops = [] if is_competition else an.top_movements(athlete, domain)
+    activity_library = list(
+        ActivityDefinition.objects.filter(is_active=True).order_by(
+            "category", "-use_count", "name"
+        )
+    )
 
     return render(
         request,
@@ -1841,11 +1879,15 @@ def analytics_view(request):
             "competitions": competitions,
             "metric_categories": MetricCategory.choices,
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
-            "activity_library": ActivityDefinition.objects.filter(
-                is_active=True
-            ).order_by("category", "-use_count", "name"),
+            "activity_library": activity_library,
+            "activity_groups": library_groups(activity_library),
             "activity_categories": ActivityCategory.choices,
             "item": item,
+            "item_record_count": (
+                MetricRecord.objects.filter(athlete=athlete, item=item).count()
+                if item
+                else 0
+            ),
             "analysis": analysis,
             # 單位就是 kg 的項目（背蹲舉 1RM…），數值＝重量，表單不再重複問一次
             "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
