@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Min, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -60,7 +60,7 @@ from planning.models import (
 )
 from programs.models import Project
 from programs.services import ImportError_ as ProgramImportError
-from programs.services import import_application
+from programs.services import annotate_matches, find_existing_athlete, import_application
 from training.models import (
     ACTIVITY_FIELDS,
     ActivityDefinition,
@@ -254,7 +254,7 @@ def coach_dashboard(request):
 #: 列表可以排序的欄位 → 實際的 order_by（預設方向＝由小到大 / A→Z）
 ATHLETE_SORTS = {
     "name": ["user__first_name", "user__last_name", "user__username"],
-    "project": ["application__project__title", "user__username"],
+    "project": ["project_title", "user__username"],
     "event": ["primary_event__category", "primary_event__distance_m", "primary_event__code"],
     "age": ["-birth_date"],  # 生日越晚＝年紀越小
     "status": ["status", "-injury_count", "user__username"],
@@ -296,11 +296,14 @@ def athlete_list(request):
     """
     qs = (
         AthleteProfile.objects.filter(id__in=athlete_ids_visible_to(request.user))
-        .select_related("user", "primary_event", "coach__user", "application__project")
+        .select_related("user", "primary_event", "coach__user")
+        .prefetch_related("applications__project")
         .annotate(
             injury_count=Count(
                 "injuries", filter=~Q(injuries__status="RESOLVED"), distinct=True
-            )
+            ),
+            # 一名運動員可以報多個項目，排序時取字母序最前的那個
+            project_title=Min("applications__project__title"),
         )
     )
 
@@ -313,14 +316,14 @@ def athlete_list(request):
             | Q(primary_event__name_zh__icontains=q)
             | Q(primary_event__code__icontains=q)
             | Q(school_or_club__icontains=q)
-            | Q(application__project__title__icontains=q)
+            | Q(applications__project__title__icontains=q)
         )
 
     project = request.GET.get("project", "")
     if project == "none":
-        qs = qs.filter(application__isnull=True)
+        qs = qs.filter(applications__isnull=True)
     elif project:
-        qs = qs.filter(application__project_id=project)
+        qs = qs.filter(applications__project_id=project)
 
     event = request.GET.get("event", "")
     if event:
@@ -337,7 +340,9 @@ def athlete_list(request):
         sort = "name"
     direction = "desc" if request.GET.get("dir") == "desc" else "asc"
     ordering = ATHLETE_SORTS[sort]
-    athletes = list(qs.order_by(*(_flip(ordering) if direction == "desc" else ordering)))
+    athletes = list(
+        qs.distinct().order_by(*(_flip(ordering) if direction == "desc" else ordering))
+    )
 
     visible_projects = (
         Project.objects.filter(applications__athlete__in=athletes).distinct().order_by("title")
@@ -692,7 +697,9 @@ def plan_detail(request, pk):
             "assignments": project.assignments.select_related("coach__user"),
             "high_risk": [r for r in rows if r["risk_flag"] == "HIGH"],
             "injured": [r for r in rows if r["injuries"]],
-            "not_imported": project.applications.filter(athlete__isnull=True),
+            "not_imported": annotate_matches(
+                project.applications.filter(athlete__isnull=True)
+            ),
             "today": date.today(),
         },
     )
@@ -711,20 +718,33 @@ def _plan_detail_import(request, project):
         messages.warning(request, "沒有選取任何未匯入的報名表。")
         return redirect("web:plan_detail", pk=project.pk)
 
-    created = 0
+    created = linked = 0
     for application in applications:
+        match = find_existing_athlete(application)
         try:
             import_application(application)
         except ProgramImportError as exc:
             messages.error(request, f"{application.name_en}：{exc}")
             continue
-        created += 1
+        if match:
+            linked += 1
+        else:
+            created += 1
 
     if created:
         messages.success(
             request,
             f"已把 {created} 份報名載入「{project.title}」，"
             "帳號密碼為隨機值，請用後台的『重設密碼』給對方。",
+        )
+    if linked:
+        messages.success(
+            request,
+            f"其中 {linked} 位是已註冊運動員，已把「{project.title}」加進原有檔案，"
+            "沿用舊有紀錄，沒有另開帳號。"
+            if created
+            else f"{linked} 位已註冊運動員已把「{project.title}」加進原有檔案，"
+            "沿用舊有紀錄，沒有另開帳號。",
         )
     return redirect("web:plan_detail", pk=project.pk)
 

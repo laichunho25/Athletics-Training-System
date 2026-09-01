@@ -479,7 +479,7 @@ def project_athletes(project):
     from accounts.models import AthleteProfile
 
     return (
-        AthleteProfile.objects.filter(application__project=project)
+        AthleteProfile.objects.filter(applications__project=project)
         .select_related("user", "primary_event", "coach__user")
         .distinct()
     )

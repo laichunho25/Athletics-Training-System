@@ -8,14 +8,46 @@ from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 
 from programs.models import Application, ApplicationStatus, Project, ProjectStatus
-from programs.services import ImportError_, import_application
+from programs.services import (
+    ImportError_,
+    describe_match,
+    find_existing_athlete,
+    find_existing_athletes,
+    import_application,
+)
+
+
+def registered_badge(application, matches=None):
+    """報名名單上的「已註冊運動員」標記：匯入前是比對結果，匯入後是實際檔案。"""
+    if application.athlete_id:
+        if not application.is_returning_athlete:
+            return format_html('<span style="color:#1b7f3b">{}</span>', "新運動員")
+        url = reverse("admin:accounts_athleteprofile_change", args=[application.athlete_id])
+        return format_html(
+            '<a href="{}" style="color:#0b5cad;font-weight:600">已註冊運動員</a>'
+            '<div style="color:#666;font-size:11px">沿用原有檔案</div>',
+            url,
+        )
+
+    match = matches.get(application.pk) if matches is not None else find_existing_athlete(application)
+    if not match:
+        return format_html('<span style="color:#999">{}</span>', "—")
+    url = reverse("admin:accounts_athleteprofile_change", args=[match.athlete.pk])
+    return format_html(
+        '<a href="{}" style="color:#b26a00;font-weight:600">已註冊運動員</a>'
+        '<div style="color:#666;font-size:11px">{}｜{}</div>',
+        url, match.athlete, describe_match(match),
+    )
 
 
 class ApplicationInline(admin.TabularInline):
     model = Application
     extra = 0
     can_delete = False
-    fields = ("name_en", "school_or_club", "event_category", "status", "flags", "created_at")
+    fields = (
+        "name_en", "school_or_club", "event_category", "status", "registered", "flags",
+        "created_at",
+    )
     readonly_fields = fields
     show_change_link = True
 
@@ -23,6 +55,10 @@ class ApplicationInline(admin.TabularInline):
         return "、".join(obj.health_flags) or "—"
 
     flags.short_description = "需留意"
+
+    @admin.display(description="重複登記")
+    def registered(self, obj):
+        return registered_badge(obj)
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -106,7 +142,7 @@ class ProjectAdmin(admin.ModelAdmin):
 class ApplicationAdmin(admin.ModelAdmin):
     list_display = (
         "name_en", "project", "school_or_club", "event_category",
-        "age_display", "flags", "status", "imported", "created_at",
+        "age_display", "registered", "flags", "status", "imported", "created_at",
     )
     list_filter = (
         "project", "status", "event_category", "has_track_training",
@@ -164,6 +200,16 @@ class ApplicationAdmin(admin.ModelAdmin):
         ),
     )
 
+    def get_queryset(self, request):
+        """列表頁一次比對完未匯入的報名表，避免每一列各查一次資料庫。"""
+        qs = super().get_queryset(request).select_related("project", "athlete__user")
+        self._matches = find_existing_athletes(Application.objects.filter(athlete__isnull=True))
+        return qs
+
+    @admin.display(description="重複登記")
+    def registered(self, obj):
+        return registered_badge(obj, getattr(self, "_matches", None))
+
     @admin.display(description="年齡")
     def age_display(self, obj):
         return f"{obj.age} 歲{'（未成年）' if obj.is_minor else ''}"
@@ -207,6 +253,26 @@ class ApplicationAdmin(admin.ModelAdmin):
         if obj.athlete_id:
             url = reverse("admin:accounts_athleteprofile_change", args=[obj.athlete_id])
             rows.append(("ATM 檔案", format_html('<a href="{}">{}</a>', url, obj.athlete)))
+            others = obj.athlete.applications.exclude(pk=obj.pk).select_related("project")
+            if others:
+                rows.append(
+                    ("其他計劃", "、".join(a.project.title for a in others)),
+                )
+        else:
+            match = find_existing_athlete(obj)
+            if match:
+                url = reverse(
+                    "admin:accounts_athleteprofile_change", args=[match.athlete.pk]
+                )
+                rows.append(
+                    (
+                        "已註冊運動員",
+                        format_html(
+                            '<a href="{}">{}</a>（{}）——匯入時會沿用這份檔案，不會另開帳號',
+                            url, match.athlete, describe_match(match),
+                        ),
+                    )
+                )
         # 值來自報名者輸入，一律走 format_html 轉義（已是 SafeString 的連結不受影響）
         body = format_html_join(
             "",
@@ -223,18 +289,27 @@ class ApplicationAdmin(admin.ModelAdmin):
             if application.is_imported:
                 skipped += 1
                 continue
+            match = find_existing_athlete(application)
             try:
                 athlete = import_application(application)
             except ImportError_ as exc:
                 self.message_user(request, f"{application.name_en}：{exc}", messages.ERROR)
                 continue
             created += 1
-            self.message_user(
-                request,
-                f"已建立運動員 {athlete}（帳號 {athlete.user.username}，"
-                f"密碼為隨機值，請用後台的『重設密碼』給對方）。",
-                messages.SUCCESS,
-            )
+            if match:
+                self.message_user(
+                    request,
+                    f"{application.name_en} 是已註冊運動員（{describe_match(match)}），"
+                    f"已把「{application.project.title}」加到原有檔案 {athlete}，不另開帳號。",
+                    messages.SUCCESS,
+                )
+            else:
+                self.message_user(
+                    request,
+                    f"已建立運動員 {athlete}（帳號 {athlete.user.username}，"
+                    f"密碼為隨機值，請用後台的『重設密碼』給對方）。",
+                    messages.SUCCESS,
+                )
         if skipped:
             self.message_user(request, f"{skipped} 份報名先前已匯入，略過。", messages.WARNING)
         if not created and not skipped:
@@ -276,6 +351,7 @@ class ApplicationAdmin(admin.ModelAdmin):
             ("醫生許可", lambda a: "是" if a.doctor_clearance else "否"),
             ("備註", lambda a: a.remarks),
             ("已匯入 ATM", lambda a: "是" if a.is_imported else "否"),
+            ("已註冊運動員", lambda a: "是" if a.is_returning_athlete else "否"),
         ]
         response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
         response["Content-Disposition"] = 'attachment; filename="applications.csv"'

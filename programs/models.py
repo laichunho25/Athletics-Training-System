@@ -226,13 +226,14 @@ class Application(TimeStampedModel):
         "處理狀態", max_length=10, choices=ApplicationStatus.choices, default=ApplicationStatus.NEW
     )
     internal_note = models.TextField("內部備註", blank=True, help_text="只有後台看得到")
-    athlete = models.OneToOneField(
+    athlete = models.ForeignKey(
         AthleteProfile,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="application",
+        related_name="applications",
         verbose_name="已匯入的運動員",
+        help_text="同一名運動員可以報多個項目，全部報名表都指向同一份檔案",
     )
     imported_at = models.DateTimeField("匯入 ATM 時間", null=True, blank=True)
 
@@ -269,6 +270,38 @@ class Application(TimeStampedModel):
     @property
     def is_imported(self):
         return self.athlete_id is not None
+
+    # ---- 重複登記檢查 ----
+
+    @property
+    def existing_athlete(self):
+        """尚未匯入時：用全名／出生日期／電郵找出已在其他計劃登記過的檔案。"""
+        from programs.services import find_existing_athlete
+
+        if self.athlete_id:
+            return None
+        match = find_existing_athlete(self)
+        return match.athlete if match else None
+
+    @property
+    def match_summary(self):
+        """已註冊運動員的比對理由，例：「電郵、出生日期相符」。"""
+        from programs.services import describe_match, find_existing_athlete
+
+        if self.athlete_id:
+            return ""
+        match = find_existing_athlete(self)
+        return describe_match(match) if match else ""
+
+    @property
+    def is_returning_athlete(self):
+        """這份報名屬於「已註冊運動員」——匯入前是比對出來的，匯入後看檔案是否本來就在。"""
+        if self.athlete_id:
+            athlete = self.athlete
+            if athlete.created_at < self.created_at:
+                return True
+            return athlete.applications.exclude(pk=self.pk).exists()
+        return self.existing_athlete is not None
 
     @property
     def health_flags(self):

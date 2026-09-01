@@ -16,6 +16,7 @@ from accounts.models import (
     PersonalBest,
     User,
 )
+from programs.models import Application
 
 
 @admin.register(User)
@@ -66,6 +67,22 @@ class BodyMetricLogInline(admin.TabularInline):
     verbose_name_plural = "體測紀錄"
 
 
+class ProjectApplicationInline(admin.TabularInline):
+    """這名運動員參加過的報名項目——已註冊運動員報新項目時，這裡會多一列。"""
+
+    model = Application
+    extra = 0
+    can_delete = False
+    fields = ("project", "status", "school_or_club", "created_at", "imported_at")
+    readonly_fields = fields
+    show_change_link = True
+    verbose_name = "報名項目"
+    verbose_name_plural = "參加中的項目"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(AthleteProfile)
 class AthleteProfileAdmin(admin.ModelAdmin):
     list_display = (
@@ -75,7 +92,7 @@ class AthleteProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ["user", "primary_event"]
     filter_horizontal = ("secondary_events",)
-    inlines = [PersonalBestInline, BodyMetricLogInline]
+    inlines = [ProjectApplicationInline, PersonalBestInline, BodyMetricLogInline]
     fieldsets = (
         ("帳號與教練", {"fields": ("user", "coach", "status")}),
         ("基本資料", {"fields": (("birth_date", "sex"), ("height_cm", "weight_kg"), "school_or_club")}),

@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from accounts.models import AthleteProfile, User
 from core.models import EventCategory, Role, Sex
-from core.test_factories import make_coach, make_event
+from core.test_factories import make_admin, make_coach, make_event
 from programs import services
 from programs.models import Application, ApplicationStatus, Project, ProjectStatus
 
@@ -439,3 +439,109 @@ class AdminActionTests(TestCase):
             reverse("admin:programs_project_change", args=[self.project.pk])
         )
         self.assertEqual(r.status_code, 200)
+
+
+class ExistingAthleteCheckTests(TestCase):
+    """報名時比對全名／出生日期／電郵，找出已在其他計劃登記過的運動員。"""
+
+    def setUp(self):
+        make_event()  # 100M
+        self.first_project = make_project()
+        self.second_project = make_project(slug="second", title="第二個項目")
+        self.client.post(reverse("programs:apply", args=[self.first_project.slug]), VALID_FORM)
+        self.first = Application.objects.get()
+        self.athlete = services.import_application(self.first)
+
+    def apply_to_second(self, **overrides):
+        data = dict(VALID_FORM, **overrides)
+        self.client.post(reverse("programs:apply", args=[self.second_project.slug]), data)
+        return Application.objects.get(project=self.second_project)
+
+    def test_same_person_is_recognised_across_projects(self):
+        second = self.apply_to_second()
+        match = services.find_existing_athlete(second)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.athlete, self.athlete)
+        self.assertEqual(sorted(match.fields), ["birth_date", "email", "name"])
+        self.assertTrue(second.is_returning_athlete)
+
+    def test_name_and_birth_date_match_is_enough_when_the_email_changed(self):
+        second = self.apply_to_second(email="taiman2@example.com")
+        match = services.find_existing_athlete(second)
+        self.assertEqual(match.athlete, self.athlete)
+        self.assertEqual(sorted(match.fields), ["birth_date", "name"])
+
+    def test_shared_family_email_alone_is_not_treated_as_the_same_person(self):
+        """兄弟共用家長信箱：只有電郵相同，姓名與生日都不同，不能當成同一個人。"""
+        second = self.apply_to_second(name_en="Chan Siu Man", name_zh="陳小文",
+                                      birth_date="2009-08-01")
+        self.assertIsNone(services.find_existing_athlete(second))
+        self.assertFalse(second.is_returning_athlete)
+
+    def test_a_brand_new_applicant_has_no_match(self):
+        second = self.apply_to_second(name_en="Wong Ka Ho", name_zh="黃家豪",
+                                      birth_date="2007-01-20", email="kaho@example.com")
+        self.assertIsNone(services.find_existing_athlete(second))
+
+    def test_importing_a_returning_athlete_reuses_the_existing_profile(self):
+        second = self.apply_to_second()
+        athlete = services.import_application(second)
+        second.refresh_from_db()
+
+        self.assertEqual(athlete.pk, self.athlete.pk)
+        self.assertEqual(User.objects.filter(role=Role.ATHLETE).count(), 1)
+        self.assertEqual(AthleteProfile.objects.count(), 1)
+        self.assertEqual(second.athlete, self.athlete)
+        self.assertIsNotNone(second.imported_at)
+        # 原有檔案上會同時掛著兩個項目
+        self.assertEqual(
+            sorted(a.project.title for a in athlete.applications.all()),
+            sorted([self.first_project.title, self.second_project.title]),
+        )
+
+    def test_linking_keeps_coach_data_and_records_the_new_project(self):
+        coach = make_coach()
+        self.athlete.coach = coach
+        self.athlete.status = "NIGGLE"
+        self.athlete.save()
+
+        second = self.apply_to_second(height_cm="178.0", weight_kg="70.0",
+                                      school_or_club="PolyU")
+        athlete = services.import_application(second)
+
+        self.assertEqual(athlete.coach, coach)  # 教練是 ATM 裡設定的，不被報名表蓋掉
+        self.assertEqual(athlete.status, "NIGGLE")
+        self.assertEqual(float(athlete.height_cm), 178.0)  # 身高體重以新報名表為準
+        self.assertEqual(athlete.school_or_club, "PolyU")
+        self.assertIn(self.second_project.title, athlete.notes)
+        self.assertIn(self.first_project.title, athlete.notes)  # 原有紀錄保留
+
+    def test_a_different_primary_event_becomes_a_secondary_event(self):
+        event = make_event(code="400M", name="400 公尺", distance=400)
+        second = self.apply_to_second(primary_event=event.pk)
+        athlete = services.import_application(second)
+        self.assertEqual(athlete.primary_event.code, "100M")
+        self.assertIn(event, athlete.secondary_events.all())
+
+    def test_first_application_is_not_flagged_as_returning(self):
+        self.first.refresh_from_db()
+        self.assertFalse(self.first.is_returning_athlete)
+
+    def test_plan_page_shows_the_returning_athlete_badge(self):
+        self.apply_to_second()
+        self.client.force_login(make_admin())
+        response = self.client.get(reverse("web:plan_detail", args=[self.second_project.pk]))
+        self.assertContains(response, "已註冊運動員")
+
+    def test_loading_a_returning_athlete_from_the_plan_page_does_not_add_an_account(self):
+        second = self.apply_to_second()
+        self.client.force_login(make_admin())
+        response = self.client.post(
+            reverse("web:plan_detail", args=[self.second_project.pk]),
+            {"application_ids": [second.pk]},
+            follow=True,
+        )
+        self.assertEqual(AthleteProfile.objects.count(), 1)
+        self.assertContains(response, "已註冊運動員")
+        second.refresh_from_db()
+        self.assertEqual(second.athlete, self.athlete)

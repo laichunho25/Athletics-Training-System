@@ -82,11 +82,11 @@
           {% if a.school_or_club %}<div class="small c-dim">{{ a.school_or_club }}</div>{% endif %}
         </td>
         <td>
-          {% if a.application.project %}
-            <a href="{% url 'web:plan_detail' a.application.project.id %}">{{ a.application.project.title }}</a>
-          {% else %}
+          {% for app in a.applications.all %}
+            <div><a href="{% url 'web:plan_detail' app.project.id %}">{{ app.project.title }}</a></div>
+          {% empty %}
             <span class="c-dim">—</span>
-          {% endif %}
+          {% endfor %}
         </td>
         <td>{{ a.primary_event.name_zh }} <span class="small c-dim">{{ a.primary_event.code }}</span></td>
         <td class="num">{{ a.age }}</td>
