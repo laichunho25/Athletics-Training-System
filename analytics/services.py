@@ -629,6 +629,7 @@ def metric_analysis(athlete, item, days=365):
                 "intensity": r.intensity,
                 "reps": r.reps,
                 "rest_sec": r.rest_sec,
+                "rest_min": r.rest_min,
                 "tonnage": r.tonnage,
                 "completed": r.completed,
                 "label": (f"{r.date} 第{r.set_no}組" if r.set_no else str(r.date)),
@@ -642,6 +643,7 @@ def metric_analysis(athlete, item, days=365):
         "completion_pct": None,
         "total_tonnage": None,
         "avg_rest_sec": None,
+        "avg_rest_min": None,
         "best": None,
         "latest": None,
         "first": None,
@@ -666,6 +668,7 @@ def metric_analysis(athlete, item, days=365):
     rests = [r.rest_sec for r in records if r.rest_sec is not None]
     if rests:
         result["avg_rest_sec"] = round(statistics.mean(rests))
+        result["avg_rest_min"] = round(result["avg_rest_sec"] / 60, 2)
 
     if not values:
         result["advice"] = "尚無紀錄。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。"

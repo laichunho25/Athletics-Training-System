@@ -1865,9 +1865,10 @@ def analytics_view(request):
                 if "weight" in post:
                     record.weight_kg = _metric_value(post.get("weight"))
                 record.reps = _metric_int(post.get("reps"))
-                rest = _metric_int(post.get("rest_sec"))
-                factor = 60 if post.get("rest_unit") == "min" else 1
-                record.rest_sec = None if rest is None else rest * factor
+                # 休息時間預設以分鐘填（可填 1.5），只有明說 sec 才當秒
+                rest = _metric_value(post.get("rest_sec"))
+                factor = 1 if post.get("rest_unit") == "sec" else 60
+                record.rest_sec = None if rest is None else round(float(rest) * factor)
             except ValueError:
                 messages.error(request, "數值要填數字，或留空。")
             else:

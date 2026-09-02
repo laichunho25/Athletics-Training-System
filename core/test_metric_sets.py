@@ -26,7 +26,8 @@ class MultiSetRecordTests(TestCase):
             "value": ["100", "105", "110"],
             "weight": ["100", "105", "110"],
             "reps": ["5", "5", "3"],
-            "rest_sec": ["120", "150", "180"],
+            # 休息時間預設以分鐘填（1.5 這種小數也可以），存進去一律是秒
+            "rest_sec": ["2", "2.5", "3"],
             "completed": ["1", "1", "0"],
             "context": "深蹲日",
         })
@@ -46,6 +47,7 @@ class MultiSetRecordTests(TestCase):
         self.assertIn("setChart", body)
         self.assertIn("未完成", body)
         self.assertIn("66.7%", body)  # 完成率 2/3
+        self.assertIn('<option value="min" selected>分鐘</option>', body)
 
     def test_single_set_keeps_no_set_no(self):
         url = reverse("web:analytics")

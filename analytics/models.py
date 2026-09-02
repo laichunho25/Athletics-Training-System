@@ -309,6 +309,13 @@ class MetricRecord(TimeStampedModel):
         return f"第 {self.set_no} 組" if self.set_no else ""
 
     @property
+    def rest_min(self):
+        """休息時間換成分鐘（表單以分鐘為預設單位，最多兩位小數）。"""
+        if self.rest_sec is None:
+            return None
+        return round(self.rest_sec / 60, 2)
+
+    @property
     def rest_display(self):
         """休息時間：超過一分鐘就寫成「N 分 N 秒」，短的直接寫秒。"""
         if self.rest_sec is None:

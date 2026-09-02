@@ -394,7 +394,7 @@
             {% if is_track %}<th>強度要求</th>
             {% elif not unit_is_weight %}<th>重量 (kg)</th>{% endif %}
             <th>次數</th>
-            <th>休息</th>
+            <th>休息（分）</th>
             <th style="width:118px">成功完成</th>
             <th style="width:34px"></th>
           </tr>
@@ -410,7 +410,7 @@
               <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
             {% endif %}
             <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
-            <td><input type="number" step="5" min="0" name="rest_sec" placeholder="—"></td>
+            <td><input type="number" step="0.5" min="0" name="rest_sec" placeholder="—"></td>
             <td>
               <select name="completed">
                 <option value="1">✅ 完成</option>
@@ -426,8 +426,8 @@
         <button type="button" class="btn ghost sm" id="addSet">＋ 再加一組</button>
         <label class="unitpick">休息時間單位
           <select name="rest_unit">
+            <option value="min" selected>分鐘</option>
             <option value="sec">秒</option>
-            <option value="min">分鐘</option>
           </select>
         </label>
         <span class="small c-dim">每一組各存成一筆紀錄，右邊的圖會逐組畫出來</span>
@@ -449,7 +449,7 @@
           · 完成率 <strong class="{% if analysis.completion_pct >= 90 %}c-green{% elif analysis.completion_pct >= 70 %}c-yellow{% else %}c-red{% endif %}">{{ analysis.completion_pct }}%</strong>
         {% endif %}
         {% if analysis.total_tonnage %} · 總噸位 {{ analysis.total_tonnage }} kg{% endif %}
-        {% if analysis.avg_rest_sec %} · 平均休息 {{ analysis.avg_rest_sec }} 秒{% endif %}
+        {% if analysis.avg_rest_min %} · 平均休息 {{ analysis.avg_rest_min }} 分{% endif %}
       </span>
     </div>
     <div class="detailsplit">
@@ -489,7 +489,7 @@
                   <th class="num">完成數值（{{ item.unit|default:"秒" }}）</th>
                   {% if is_track %}<th class="num">強度要求</th>
                   {% elif not unit_is_weight %}<th class="num">重量</th>{% endif %}
-                  <th class="num">次數</th><th class="num" title="休息時間（秒）">休息</th>
+                  <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
                   <th title="這一組有沒有照課表完成">完成</th>
                   <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
                 </tr>
@@ -527,9 +527,9 @@
                            placeholder="—" title="次數">
                   </td>
                   <td class="num">
-                    <input class="editnum sm" type="number" step="5" min="0" name="rest_sec"
-                           form="editrec{{ r.id }}" value="{{ r.rest_sec|default_if_none:'' }}"
-                           placeholder="—" title="休息時間（秒）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
+                    <input class="editnum sm" type="number" step="0.5" min="0" name="rest_sec"
+                           form="editrec{{ r.id }}" value="{{ r.rest_min|default_if_none:'' }}"
+                           placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
                   </td>
                   <td>
                     <select name="completed" form="editrec{{ r.id }}" class="editsel"
@@ -556,6 +556,7 @@
                       <input type="hidden" name="action" value="edit_record">
                       <input type="hidden" name="domain" value="{{ domain }}">
                       <input type="hidden" name="record_id" value="{{ r.id }}">
+                      <input type="hidden" name="rest_unit" value="min">
                       <button class="linkbtn" type="submit" title="存回這兩個數值">✓</button>
                     </form>
                     <form method="post" style="display:inline">
@@ -832,6 +833,8 @@ new Chart(document.getElementById('metricChart'), {
   const num = (xs) => xs.filter(v => v !== null && v !== undefined);
   const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
   const round2 = (v) => (v === null ? null : Math.round(v * 100) / 100);
+  // 休息時間資料庫存的是秒，畫圖與提示一律換成分鐘
+  const toMin = (sec) => (sec === null || sec === undefined ? null : round2(sec / 60));
 
   // 新的一天排最上面，跟左邊的紀錄明細同一個順序
   dates.slice().reverse().forEach((d) => {
@@ -847,7 +850,7 @@ new Chart(document.getElementById('metricChart'), {
     p.target !== null ? '目標 ' + p.target + UNIT : null,
     (!IS_TRACK && p.weight !== null) ? '重量 ' + p.weight + ' kg' : null,
     p.reps ? p.reps + ' 次' : null,
-    p.rest_sec ? '休息 ' + p.rest_sec + ' 秒' : null,
+    p.rest_sec ? '休息 ' + toMin(p.rest_sec) + ' 分' : null,
     p.tonnage ? '噸位 ' + p.tonnage + ' kg' : null,
     p.session, p.context
   ].filter(Boolean);
@@ -877,7 +880,7 @@ new Chart(document.getElementById('metricChart'), {
     const rest = [
       { type: 'bar', label: '次數', data: rows.map(p => p.reps),
         backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-      { type: 'line', label: '休息 (秒)', data: rows.map(p => p.rest_sec),
+      { type: 'line', label: '休息 (分)', data: rows.map(p => toMin(p.rest_sec)),
         borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
         tension: .25, spanGaps: true, yAxisID: 'y1' }
     ];
@@ -910,7 +913,7 @@ new Chart(document.getElementById('metricChart'), {
       spec.note = day + ' 這一天共 ' + rows.length + ' 組，完成 ' + done + ' 組。'
         + '上圖：每一組的完成數值（未完成畫成紅色）'
         + (IS_TRACK ? '與目標，強度要求在滑過去的提示裡' : '、目標與重量')
-        + '；下圖：次數與休息時間。';
+        + '；下圖：次數與休息時間（分鐘）。';
       return spec;
     },
 
@@ -918,14 +921,14 @@ new Chart(document.getElementById('metricChart'), {
       const n = parseInt(daysSel.value, 10);
       const chosen = n ? dates.slice(-n) : dates;
       const value = byDay(chosen, 'value', '');
-      const rest = byDay(chosen, 'rest_sec', ' 休息');
+      const rest = byDay(chosen, 'rest_min', ' 休息');
       return {
         labels: value.labels,
         main: value.sets,
         rest: rest.sets.map(d => Object.assign({}, d, { yAxisID: 'y1' })),
         note: '拿 ' + chosen.length + ' 天（' + short(chosen[0]) + ' → '
           + short(chosen[chosen.length - 1]) + '）的同一組別對照，線往'
-          + (REVERSE ? '下' : '上') + '走就是這一組愈做愈好；下圖是各天的休息時間。'
+          + (REVERSE ? '下' : '上') + '走就是這一組愈做愈好；下圖是各天的休息時間（分鐘）。'
       };
     },
 
@@ -963,8 +966,8 @@ new Chart(document.getElementById('metricChart'), {
           { type: 'bar', label: '平均次數',
             data: keys.map(k => round2(mean(num(groups[k].map(p => p.reps))))),
             backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-          { type: 'line', label: '平均休息 (秒)',
-            data: keys.map(k => round2(mean(num(groups[k].map(p => p.rest_sec))))),
+          { type: 'line', label: '平均休息 (分)',
+            data: keys.map(k => toMin(mean(num(groups[k].map(p => p.rest_sec))))),
             borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
             tension: .25, spanGaps: true, yAxisID: 'y1' }
         ],
@@ -1042,7 +1045,7 @@ new Chart(document.getElementById('metricChart'), {
           y: { display: spec.rest.some(d => d.yAxisID === 'y'), position: 'left',
                beginAtZero: true, title: { display: true, text: '次' } },
           y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
-                title: { display: true, text: '秒' } }
+                title: { display: true, text: '分' } }
         }
       }
     });
