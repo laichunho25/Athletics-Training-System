@@ -331,8 +331,11 @@ class LandingContentTests(TestCase):
         self.assertIn("--infield:#4f8b4a", css)
         # 儀表板外觀：深色機艙底 + 訊號橙重點色 + 等寬數字
         self.assertIn("color-scheme:dark", css)
-        self.assertIn("--bg-1:#080b10", css)
+        self.assertIn("--bg-1:#04070f", css)
         self.assertIn("--accent:#ff6b35", css)
+        self.assertIn("--accent-2:#ff2e7e", css)
+        self.assertIn("--accent-3:#22d3ee", css)
+        self.assertIn("--neon:linear-gradient(", css)
         self.assertIn("--mono:", css)
         self.assertRegex(css, r"body\{[^}]*background:")
         # 舊的紅色／草綠版面用色已全部退場

@@ -1,8 +1,10 @@
 /* 報名頁 —— 沿用 landing.css 的遙測語言：深色面板、髮絲線、直角、等寬數字 */
 
 /* ---------------------------------------------------------------- 頁首 */
-.page-head{background:var(--white);border-bottom:1px solid var(--rule);
-  border-top:2px solid var(--accent);padding:64px 0 48px}
+.page-head{background:linear-gradient(180deg,var(--panel-2) 0%,var(--white) 100%);
+  border-bottom:1px solid var(--rule);
+  border-top:2px solid transparent;border-image:var(--neon) 1;
+  padding:64px 0 48px}
 .page-head h1{margin-bottom:20px;max-width:16em}
 .page-head .lead{max-width:640px}
 .head-act{display:flex;align-items:center;gap:28px;margin-top:32px;flex-wrap:wrap}
@@ -16,7 +18,7 @@
   padding:32px 0 32px 18px;border-bottom:1px solid var(--rule);align-items:start;
   border-left:2px solid transparent;transition:border-color .16s,background .16s;
 }
-.prog:hover{border-left-color:var(--accent);background:rgba(255,255,255,.02)}
+.prog:hover{border-left-color:var(--accent-2);background:rgba(34,211,238,.04)}
 .prog-meta{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding-top:4px}
 .prog h2{font-size:23px}
 .prog h2 a{text-decoration:none;border-bottom:1px solid transparent}
@@ -31,7 +33,7 @@
   padding:4px 9px;border:1px solid currentColor;font-family:var(--mono)}
 .tag::before{content:"";width:6px;height:6px;border-radius:50%;
   background:currentColor;box-shadow:0 0 6px currentColor}
-.tag.open{color:#35d07f}
+.tag.open{color:var(--accent-3)}
 .tag.closed{color:var(--mute)}
 
 /* 事實清單 */
@@ -49,7 +51,7 @@
 .dim{color:var(--mute);font-size:13.5px}
 
 /* ---------------------------------------------------------------- 提示框 */
-.notice{border-left:3px solid var(--accent);background:var(--white);
+.notice{border-left:3px solid var(--accent-2);background:var(--white);
   border-top:1px solid var(--rule);border-right:1px solid var(--rule);
   border-bottom:1px solid var(--rule);padding:24px 28px;margin-top:40px}
 .notice p:not(.kicker){color:var(--body);font-size:14.5px}
@@ -79,12 +81,13 @@
 
 .inp{
   width:100%;font:inherit;font-size:15px;color:var(--ink);
-  background:#080b10;border:1px solid var(--rule);border-radius:0;
+  background:var(--bg-1);border:1px solid var(--rule);border-radius:0;
   padding:11px 13px;appearance:none;
 }
-.inp:hover{border-color:#2c3a4b}
+.inp:hover{border-color:#2a3c5c}
 input[type="number"].inp,input[type="date"].inp{font-family:var(--mono)}
-.inp:focus{outline:0;border-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.inp:focus{outline:0;border-color:var(--accent-3);
+  box-shadow:inset 0 -2px 0 var(--accent-3),0 0 16px rgba(34,211,238,.18)}
 textarea.inp{line-height:1.7;resize:vertical}
 select.inp{background-image:none}
 
