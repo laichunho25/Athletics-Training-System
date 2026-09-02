@@ -342,6 +342,32 @@ class LandingContentTests(TestCase):
         for gone in ("#c0392b", "#8d2418", "#6d1a10", "#8a5a24", "#2f6b52"):
             self.assertNotIn(gone, css)
 
+    def test_public_pages_offer_a_light_theme(self):
+        """訪客可以在頁首切換深／淺色，選擇跟系統內部共用 atm-theme。"""
+        css = (Path(settings.BASE_DIR) / "static" / "css" / "landing.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(':root[data-theme="light"]{', css)
+        self.assertIn("color-scheme:light", css)
+        self.assertIn("--bg-1:#eef1f7", css)
+        self.assertIn(".themebtn", css)
+        # 深色時顯示太陽（切去淺色），淺色時顯示月亮
+        self.assertIn(':root[data-theme="dark"] .light-only{display:none}', css)
+        self.assertIn(':root:not([data-theme="dark"]) .dark-only{display:none}', css)
+
+        js = (Path(settings.BASE_DIR) / "static" / "js" / "site-theme.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("atm-theme", js)
+        self.assertIn("data-theme-toggle", js)
+
+        for name in ("web:landing", "programs:list"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn('data-theme="dark"', html)
+            self.assertIn("data-theme-toggle", html)
+            self.assertIn("site-theme", html)  # 上線時檔名會帶雜湊
+            self.assertIn("atm-theme", html)
+
     def test_track_canvas_is_a_regulation_400m_stadium(self):
         """跑道畫布依規格繪製，並標出各項目起跑線與過程標記。"""
         js = (Path(settings.BASE_DIR) / "static" / "js" / "track-hero.js").read_text(

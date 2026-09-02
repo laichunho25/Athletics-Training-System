@@ -516,3 +516,83 @@ footer a:hover{color:var(--accent-3)}
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
 }
+
+/* ================================================================ 淺色主題
+ * 訪客可以在頁首切換。淺色是「白天的維修區資料板」：紙白底、藍灰髮絲線，
+ * 霓虹光譜照樣在——只是把輝光收細、青與洋紅壓深一階才夠對比。
+ * 跑道畫布、結尾區與頁尾一律維持深色：它們是螢幕，不是紙。
+ */
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg-1:#eef1f7;
+  --bg-2:#e8edf5;
+  --bg-3:#e1e8f2;
+  --paper:#f4f7fb;
+  --white:#ffffff;
+  --panel-2:#f5f8fc;
+
+  --ink:#0d1524;
+  --body:#3d4b60;
+  --mute:#6b7b91;
+  --rule:#d5dde9;
+  --rule2:rgba(0,0,0,.14);
+
+  --accent:#ee5a20;
+  --accent-2:#e11d74;
+  --accent-3:#0e8fab;
+  --accent-ink:#ffffff;
+  --accent-soft:rgba(238,90,32,.10);
+
+  --grid-line:rgba(30,80,140,.055);
+}
+:root[data-theme="light"] body{
+  background:
+    linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px),
+    radial-gradient(80% 60% at 8% -6%,rgba(255,107,53,.13) 0%,transparent 62%),
+    radial-gradient(70% 60% at 100% 12%,rgba(255,46,126,.09) 0%,transparent 60%),
+    radial-gradient(90% 70% at 88% 96%,rgba(14,143,171,.10) 0%,transparent 62%),
+    linear-gradient(168deg,var(--bg-1) 0%,var(--bg-2) 52%,var(--bg-3) 100%);
+  background-size:32px 32px,32px 32px,auto,auto,auto,auto;
+  background-attachment:fixed;
+}
+:root[data-theme="light"] .top{background:rgba(255,255,255,.86)}
+:root[data-theme="light"] .top nav .signin{color:#fff}
+:root[data-theme="light"] .hero{
+  background:
+    radial-gradient(78% 120% at 14% 4%,rgba(255,107,53,.16) 0%,transparent 60%),
+    radial-gradient(60% 100% at 96% 88%,rgba(14,143,171,.14) 0%,transparent 62%),
+    linear-gradient(150deg,#ffffff 0%,#eff3f9 55%,#e6ecf5 100%);
+}
+/* 淺色底要反過來由深到亮；結尾區仍是深底，沿用原本的白→橙漸層 */
+:root[data-theme="light"] .hero h1{
+  background:linear-gradient(96deg,var(--ink) 0%,#7a2c12 26%,var(--accent) 58%,var(--accent-2) 100%);
+  -webkit-background-clip:text;background-clip:text;
+}
+:root[data-theme="light"] .hero-foot{background:rgba(255,255,255,.72)}
+:root[data-theme="light"] .kicker.on-dark{color:var(--mute)}
+:root[data-theme="light"] .arrow.on-dark{color:var(--accent)}
+:root[data-theme="light"] .phase,
+:root[data-theme="light"] .step,
+:root[data-theme="light"] .term{box-shadow:0 1px 2px rgba(13,21,36,.05)}
+:root[data-theme="light"] .phase:hover{
+  box-shadow:0 0 0 1px rgba(238,90,32,.25),0 14px 34px rgba(225,29,116,.12)}
+/* 結尾區與頁尾維持深色機艙，字色不跟著淺色主題走 */
+:root[data-theme="light"] .cta{color:#fff}
+:root[data-theme="light"] .cta .kicker{color:#ff8f5a}
+:root[data-theme="light"] .cta p{color:rgba(255,255,255,.72)}
+
+/* ------------------------------------------------------ 主題切換鍵 */
+.themebtn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;padding:0;cursor:pointer;
+  font:inherit;font-size:15px;line-height:1;
+  color:var(--body);background:var(--panel-2);
+  border:1px solid var(--rule);border-radius:3px;
+  transition:color .16s,border-color .16s,box-shadow .16s;
+}
+.themebtn:hover{color:var(--accent-3);border-color:var(--accent-3);
+  box-shadow:0 0 14px rgba(34,211,238,.22)}
+.themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:root[data-theme="dark"] .light-only{display:none}
+:root:not([data-theme="dark"]) .dark-only{display:none}

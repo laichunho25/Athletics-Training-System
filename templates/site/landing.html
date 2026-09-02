@@ -1,12 +1,23 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#04070f">
   <title>ATM · 田徑訓練紀錄與分析系統</title>
   <meta name="description" content="ATM 為每一位運動員量身建立訓練紀錄與分析：課後強度、負荷趨勢、恢復與傷勢，全部留在同一份檔案裡。附短跑訓練專業用詞中英對照表。">
+  <script>
+    // 先套用上次選的主題，避免載入時閃一下白底
+    (function (d) {
+      try { d.dataset.theme = localStorage.getItem('atm-theme') || 'dark'; }
+      catch (e) { d.dataset.theme = 'dark'; }
+      if (d.dataset.theme !== 'dark') {
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', '#eef1f7');
+      }
+    })(document.documentElement);
+  </script>
   <link rel="stylesheet" href="{% static 'css/landing.css' %}">
 </head>
 <body>
@@ -19,6 +30,11 @@
       <a href="#terms">專業用詞</a>
       <a href="#system">紀錄與分析</a>
       <a href="{% url 'programs:list' %}">項目報名</a>
+      <button type="button" class="themebtn" data-theme-toggle
+              aria-label="切換淺色／深色主題" title="切換淺色／深色主題">
+        <span class="dark-only" aria-hidden="true">☀</span>
+        <span class="light-only" aria-hidden="true">☾</span>
+      </button>
       {% if user.is_authenticated %}
         <a class="signin" href="{% url 'web:home' %}">進入系統</a>
       {% else %}
@@ -315,5 +331,6 @@
 
 <script src="{% static 'js/track-hero.js' %}" defer></script>
 <script src="{% static 'js/glossary.js' %}" defer></script>
+<script src="{% static 'js/site-theme.js' %}" defer></script>
 </body>
 </html>
