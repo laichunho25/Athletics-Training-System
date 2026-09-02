@@ -37,6 +37,7 @@ from analytics.models import (
     metric_category_for_activity,
     session_types_for_domain,
     track_item_for,
+    track_method_choices,
 )
 from analytics.recording import (
     RecordError,
@@ -2039,7 +2040,7 @@ def analytics_view(request):
             # 每一筆紀錄都可以註記當天的狀態（傷害治療期…），分析前先看這一欄
             "metric_statuses": TrainingStatus.choices,
             # 田徑練習：先挑方式、再填距離
-            "track_methods": TrackMethod.choices,
+            "track_methods": track_method_choices(),
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": activity_library,
             "activity_groups": library_groups(activity_library),

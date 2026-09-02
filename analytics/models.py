@@ -199,6 +199,12 @@ TRACK_METHOD_EN = {
 }
 
 
+def track_method_choices():
+    """挑方式的下拉選單：照這裡其他選項的樣子做中英對照（節奏跑（Tempo Run））。"""
+    return [(v, f"{l}（{TRACK_METHOD_EN[v]}）" if TRACK_METHOD_EN.get(v) else l)
+            for v, l in TrackMethod.choices]
+
+
 def track_item_name(method, distance_m):
     """方式 ＋ 距離 → 項目名稱（例：150m 反覆跑；沒填距離就只有方式）。"""
     label = dict(TrackMethod.choices).get(method, "")
