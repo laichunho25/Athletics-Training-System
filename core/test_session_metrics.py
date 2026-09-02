@@ -785,3 +785,59 @@ class StatusAwareAdviceTests(TestCase):
         )
         groups = page.context["comparison"]["groups"]
         self.assertEqual({g["label"] for g in groups}, {"比賽調整期", "傷害治療期"})
+
+
+class BulkSaveIsNotBlockedByTheBrowserTests(TestCase):
+    """「儲存全部更改」按了要送得出去。
+
+    休息時間換成分鐘會出現 1.67 這種值，配上 step="0.5" 就是不合法的欄位；
+    那一列收在 <details> 裡沒展開時，瀏覽器沒辦法把游標移過去提示，
+    整張表單就靜靜地送不出去——所以編輯欄一律 step="any"，表單也不做前端驗證。
+    """
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a15")
+        self.client.force_login(self.athlete.user)
+        self.item = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="150m 反覆跑", unit="秒",
+            higher_is_better=False,
+        )
+        self.rec = MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=TODAY,
+            value="19.5", rest_sec=100,      # 100 秒 = 1.67 分
+        )
+
+    def test_analytics_edit_cells_accept_any_step(self):
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&item={self.item.id}"
+        )
+        html = page.content.decode()
+        self.assertIn('id="recEdit" novalidate', html)
+        self.assertIn(f'name="rest_sec_{self.rec.id}"', html)
+        for name in ("value", "target_value", "rest_sec"):
+            cell = html.split(f'name="{name}_{self.rec.id}"')[0]
+            self.assertIn('step="any"', cell.rsplit("<input", 1)[1])
+
+    def test_session_edit_cells_accept_any_step(self):
+        session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        MetricRecord.objects.filter(pk=self.rec.pk).update(session=session)
+        page = self.client.get(reverse("web:session_detail", args=[session.id]))
+        html = page.content.decode()
+        self.assertIn('id="metricEdit" novalidate', html)
+        self.assertNotIn('step="0.5" form="metricEdit"', html)
+        self.assertNotIn('step="0.01" form="metricEdit"', html)
+
+    def test_an_odd_rest_value_still_saves(self):
+        self.client.post(reverse("web:analytics"), {
+            "action": "edit_record",
+            "domain": MetricDomain.TRACK,
+            "item_id": self.item.id,
+            "rest_unit": "min",
+            f"value_{self.rec.id}": "19.2",
+            f"rest_sec_{self.rec.id}": "1.67",
+        })
+        self.rec.refresh_from_db()
+        self.assertEqual(float(self.rec.value), 19.2)
+        self.assertEqual(self.rec.rest_sec, 100)

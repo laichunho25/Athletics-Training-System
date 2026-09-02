@@ -200,7 +200,7 @@
     <!-- 登進去之後在同一張表上直接改：每一格都是輸入框，
          按某一列的 ✓ 只存那一列，按下面的「儲存全部更改」一次過確認全部。
          改的是數據分析那張 MetricRecord，所以那邊的紀錄明細同步更新。 -->
-    <form method="post" id="metricEdit">
+    <form method="post" id="metricEdit" novalidate>
       {% csrf_token %}
       <input type="hidden" name="action" value="edit_metric">
       <input type="hidden" name="rest_unit" value="min">
@@ -252,12 +252,12 @@
             <tr{% if not r.completed %} class="failedrow"{% endif %}>
               <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
               <td class="num">
-                <input class="editnum" type="number" step="0.01" form="metricEdit"
+                <input class="editnum" type="number" step="any" form="metricEdit"
                        name="target_value_{{ r.id }}" value="{{ r.target_value|default_if_none:'' }}"
                        placeholder="—" title="目標數值（{{ g.item.unit|default:'秒' }}）">
               </td>
               <td class="num">
-                <input class="editnum" type="number" step="0.01" form="metricEdit"
+                <input class="editnum" type="number" step="any" form="metricEdit"
                        name="value_{{ r.id }}" value="{{ r.value|default_if_none:'' }}"
                        placeholder="—" title="完成數值（{{ g.item.unit|default:'秒' }}）">
               </td>
@@ -269,7 +269,7 @@
                 </td>
               {% else %}
                 <td class="num">
-                  <input class="editnum" type="number" step="0.5" min="0" form="metricEdit"
+                  <input class="editnum" type="number" step="any" min="0" form="metricEdit"
                          name="weight_{{ r.id }}" value="{{ r.weight_kg|default_if_none:'' }}"
                          placeholder="—" title="重量 (kg)">
                 </td>
@@ -280,7 +280,7 @@
                        placeholder="—" title="次數">
               </td>
               <td class="num">
-                <input class="editnum sm" type="number" step="0.5" min="0" form="metricEdit"
+                <input class="editnum sm" type="number" step="any" min="0" form="metricEdit"
                        name="rest_sec_{{ r.id }}" value="{{ r.rest_min|default_if_none:'' }}"
                        placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
               </td>
