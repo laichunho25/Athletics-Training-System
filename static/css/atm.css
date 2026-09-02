@@ -745,17 +745,14 @@ details > summary::-webkit-details-marker { display: none; }
             color: var(--text-dim); white-space: nowrap; }
 .unitpick select { padding: 3px 6px; font-size: 11.5px; width: auto; }
 
-.detailsplit { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); }
-.detailsplit > .detailchart { border-left: 1px solid var(--border); }
+/* 紀錄明細在上、紀錄分析圖在下——圖佔滿整個寬度，秒數的差別看得比較清楚 */
+.detailsplit { display: block; }
+.detailsplit > .detailchart { border-top: 1px solid var(--border); }
 .detailtable { overflow-x: auto; }
 .detailtable table { min-width: 860px; }
+.detailchart .chart-box { height: 300px; }
 tr.failedrow > td { background: color-mix(in srgb, var(--red) 10%, transparent); }
 tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
-@media (max-width: 1100px) {
-  .detailsplit { grid-template-columns: 1fr; }
-  .detailsplit > .detailchart { border-left: none; border-top: 1px solid var(--border); }
-}
-
 /* ------------------------------------------------------------ 響應式 */
 .only-mobile { display: none; }
 

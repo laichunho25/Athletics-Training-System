@@ -603,6 +603,14 @@
                 <option value="0">全部日期</option>
               </select>
             </label>
+            <label class="unitpick">{{ item.unit|default:"數值" }}軸比例
+              <select id="chartZoom">
+                <option value="tight" selected>貼齊數據（差別最明顯）</option>
+                <option value="pad">留一點邊</option>
+                <option value="auto">自動</option>
+                <option value="zero">從 0 開始</option>
+              </select>
+            </label>
           </div>
           <div class="chart-box"><canvas id="setChart"></canvas></div>
           <div class="chart-box"><canvas id="restChart"></canvas></div>
@@ -812,6 +820,7 @@ new Chart(document.getElementById('metricChart'), {
   const modeSel = document.getElementById('chartMode');
   const daySel = document.getElementById('chartDay');
   const daysSel = document.getElementById('chartDays');
+  const zoomSel = document.getElementById('chartZoom');
   const dayPick = document.getElementById('dayPick');
   const daysPick = document.getElementById('daysPick');
   const noteBox = document.getElementById('chartNote');
@@ -971,6 +980,24 @@ new Chart(document.getElementById('metricChart'), {
     }
   };
 
+  function scaleBounds(vals, mode) {
+    if (mode === 'auto' || !vals.length) { return {}; }
+    if (mode === 'zero') { return { min: 0 }; }
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo;
+    const pad = span
+      ? span * (mode === 'tight' ? 0.08 : 0.35)
+      : Math.max(Math.abs(hi) * 0.05, 0.1);
+    const trim = (v) => Math.round(v * 1000) / 1000;
+    return { min: trim(lo - pad), max: trim(hi + pad) };
+  }
+
+  const ZOOM_NOTE = {
+    tight: ' Y 軸貼著數據範圍（不是從 0 起），看的是彼此之間的差別。',
+    pad: ' Y 軸在數據上下各留一點空間。',
+    auto: '',
+    zero: ' Y 軸從 0 起，差別會看起來比較小。'
+  };
+
   const axisTitle = UNIT + (REVERSE ? '（軸已反轉：越上面越好）' : '');
   let mainChart = null, restChart = null;
 
@@ -978,7 +1005,17 @@ new Chart(document.getElementById('metricChart'), {
     dayPick.hidden = modeSel.value !== 'day';
     daysPick.hidden = modeSel.value !== 'days';
     const spec = SPECS[modeSel.value]();
-    noteBox.textContent = spec.note;
+    noteBox.textContent = spec.note + ZOOM_NOTE[zoomSel.value];
+
+    // 主圖左邊那條軸上有哪些數字，就照著它算比例
+    const yVals = [];
+    spec.main.forEach((d) => {
+      if ((d.yAxisID || 'y') !== 'y') { return; }
+      d.data.forEach((v) => {
+        if (typeof v === 'number' && isFinite(v)) { yVals.push(v); }
+      });
+    });
+    const bounds = scaleBounds(yVals, zoomSel.value);
     if (mainChart) { mainChart.destroy(); }
     if (restChart) { restChart.destroy(); }
 
@@ -986,7 +1023,10 @@ new Chart(document.getElementById('metricChart'), {
       data: { labels: spec.labels, datasets: spec.main },
       options: {
         scales: {
-          y: { reverse: REVERSE, title: { display: true, text: axisTitle || '數值' } },
+          y: Object.assign(
+            { reverse: REVERSE, title: { display: true, text: axisTitle || '數值' } },
+            bounds
+          ),
           y1: { display: spec.main.some(d => d.yAxisID === 'y1'), position: 'right',
                 beginAtZero: true, grid: { drawOnChartArea: false },
                 title: { display: true, text: 'kg' } }
@@ -1011,6 +1051,7 @@ new Chart(document.getElementById('metricChart'), {
   modeSel.addEventListener('change', render);
   daySel.addEventListener('change', render);
   daysSel.addEventListener('change', render);
+  zoomSel.addEventListener('change', render);
   render();
 })();
 {% endif %}
