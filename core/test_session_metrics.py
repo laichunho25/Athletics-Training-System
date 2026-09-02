@@ -340,9 +340,9 @@ class ItemPickerTests(TestCase):
 
     def test_library_picker_is_on_the_page_with_its_options(self):
         body = self.client.get(self.url()).content.decode()
-        # 挑項目的卡片排在項目清單前面，不用捲到最下面才找得到
+        # 挑項目的卡片放在左欄最下面：先看紀錄，要加項目才捲到底
         self.assertIn("加入要追蹤的項目", body)
-        self.assertLess(body.index("加入要追蹤的項目"), body.index("最常做的動作"))
+        self.assertGreater(body.index("加入要追蹤的項目"), body.index("最常做的動作"))
         self.assertIn("槓鈴深蹲（Back Squat）", body)
 
     def test_typing_a_library_name_brings_its_english_name_and_category(self):
@@ -427,7 +427,7 @@ class DeleteItemTests(TestCase):
             athlete=self.athlete, item=self.custom, date=TODAY, value=3.1
         )
         page = self.client.get(f"{self.url()}&item={self.custom.id}")
-        self.assertContains(page, "刪除項目（1 筆紀錄）")
+        self.assertContains(page, "會一併刪掉 1 筆紀錄")
 
 
 class LibrarySeedTests(TestCase):
@@ -528,3 +528,27 @@ class TargetAndCompletedValueTests(TestCase):
         )
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "還沒填完成數值")
+
+    def test_the_whole_record_can_be_edited_in_analytics(self):
+        """紀錄明細每一格都改得動——重量、次數、休息、完成、情境都算。"""
+        self.post(value="19.5", reps="2", rest_sec="60")
+        rec = MetricRecord.objects.get()
+        self.client.post(reverse("web:analytics"), {
+            "action": "edit_record",
+            "domain": MetricDomain.TRACK,
+            "record_id": rec.id,
+            "target_value": "19",
+            "value": "18.8",
+            "weight": "5",
+            "reps": "3",
+            "rest_sec": "4",
+            "rest_unit": "min",
+            "completed": "0",
+            "context": "順風 1.2",
+        })
+        rec.refresh_from_db()
+        self.assertEqual(float(rec.weight_kg), 5.0)
+        self.assertEqual(rec.reps, 3)
+        self.assertEqual(rec.rest_sec, 240)
+        self.assertFalse(rec.completed)
+        self.assertEqual(rec.context, "順風 1.2")

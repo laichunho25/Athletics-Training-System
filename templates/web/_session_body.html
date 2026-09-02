@@ -296,18 +296,14 @@
       </div>
     </div>
 
-    <table class="setgrid">
+    <div class="setgridwrap">
+      <table class="setgrid">
       <thead>
         <tr>
           <th style="width:52px">組</th>
           <th>目標數值（秒）</th><th>完成數值（秒）</th><th>重量 (kg)</th>
           <th>次數</th>
-          <th>休息時間
-            <select name="rest_unit" class="unitsel">
-              <option value="sec">秒</option>
-              <option value="min">分鐘</option>
-            </select>
-          </th>
+          <th>休息</th>
           <th style="width:118px">成功完成</th>
           <th style="width:34px"></th>
         </tr>
@@ -330,8 +326,15 @@
         </tr>
       </tbody>
     </table>
+      </div>
     <div class="flex mb">
       <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組</button>
+      <label class="unitpick">休息時間單位
+        <select name="rest_unit">
+          <option value="sec">秒</option>
+          <option value="min">分鐘</option>
+        </select>
+      </label>
       <span class="small c-dim">每一組各存成一筆；數值可以先留空，之後在數據分析補；
         只有「數據項目」或「項目名稱」沒填才登不進去</span>
     </div>

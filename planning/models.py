@@ -44,7 +44,7 @@ class Competition(TimeStampedModel):
         d = self.days_remaining
         if d < 0:
             return f"已結束 {abs(d)} 天"
-        return f"T-{d} 天 / 約 {self.weeks_remaining} 週"
+        return f"剩餘 {d} 天 / 約 {self.weeks_remaining} 週"
 
 
 class CompetitionEntry(TimeStampedModel):

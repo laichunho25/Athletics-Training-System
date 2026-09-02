@@ -1401,6 +1401,17 @@ def _metric_value(raw):
         raise ValueError(raw)
 
 
+def _metric_int(raw):
+    """表單上的一格整數（次數、休息）：空的就是「沒填」。"""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return max(0, int(float(raw)))
+    except ValueError:
+        raise ValueError(raw)
+
+
 def _add_metric(request, session):
     """在課表頁直接登這堂課的數據——存進去的就是數據分析那張 MetricRecord。"""
     domains = domains_for_session_type(session.session_type)
@@ -1842,18 +1853,26 @@ def analytics_view(request):
             return redirect(f"{back}&item={item.id}")
 
         if action == "edit_record":
-            # 在課表頁登完之後，回到數據分析還可以把目標／完成的數值改掉。
+            # 課表頁登完之後，回到這裡整筆紀錄的內容都還改得動（不只數值）。
             record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
             if record.athlete_id != athlete.id:
                 raise Http404("無權限修改這筆紀錄。")
+            post = request.POST
             try:
-                record.target_value = _metric_value(request.POST.get("target_value"))
-                record.value = _metric_value(request.POST.get("value"))
+                record.target_value = _metric_value(post.get("target_value"))
+                record.value = _metric_value(post.get("value"))
+                record.weight_kg = _metric_value(post.get("weight"))
+                record.reps = _metric_int(post.get("reps"))
+                rest = _metric_int(post.get("rest_sec"))
+                factor = 60 if post.get("rest_unit") == "min" else 1
+                record.rest_sec = None if rest is None else rest * factor
             except ValueError:
                 messages.error(request, "數值要填數字，或留空。")
             else:
-                record.save(update_fields=["target_value", "value", "updated_at"])
-                messages.success(request, "已更新這筆紀錄的數值。")
+                record.completed = post.get("completed", "1") != "0"
+                record.context = post.get("context", "")[:120]
+                record.save()
+                messages.success(request, "已更新這筆紀錄。")
             return redirect(f"{back}&item={record.item_id}")
 
         if action == "delete_record":

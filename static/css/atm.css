@@ -576,15 +576,42 @@ details > summary::-webkit-details-marker { display: none; }
 .setgrid tbody tr:hover { background: transparent; }
 .setgrid input, .setgrid select { padding: 6px 8px; font-size: 13px; }
 .setgrid .setno { color: var(--text-dim); font-size: 12px; text-align: center; }
-/* 表頭上的單位切換（例：休息時間 秒／分鐘） */
-.setgrid th .unitsel { padding: 2px 4px; font-size: 12px; margin-left: 4px; }
-/* 紀錄明細裡可以直接改的數值格 */
-.editnum { width: 76px; padding: 3px 6px; font-size: 13px; }
+/* ---------------------------------------------- 數據分析：儀表板式排版
+   參考賽車數據面板：名字一律一行內截斷（全名放 title），日期縮成 m/d，
+   數字統一等寬對齊，眼睛掃得快、欄寬也不會被一個長名字撐開。 */
+
+/* 一行內截斷，全文放 title */
+.ellip { display: block; min-width: 0; overflow: hidden;
+         text-overflow: ellipsis; white-space: nowrap; }
+.ellip.inline { display: inline-block; max-width: 160px; vertical-align: bottom; }
+
+/* 項目清單：左邊名字可截斷，右邊數字固定不被擠掉 */
+.itemlist a .name { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
+.itemlist a .meta { font-variant-numeric: tabular-nums; }
+
+/* 紀錄明細：可直接改的格子 */
+.editnum { width: 76px; padding: 3px 6px; font-size: 13px;
+           font-variant-numeric: tabular-nums; }
+.editnum.sm { width: 58px; }
+.editnum.wide { width: 100%; min-width: 90px; text-align: left; }
+.editsel { padding: 2px 4px; font-size: 13px; width: auto; }
+
+/* 表格數字對齊（比較表、紀錄明細） */
+.cmptable, .dayrow table, .setgrid { font-variant-numeric: tabular-nums; }
+
+/* 登記數據的表格：欄位多，窄螢幕讓它自己橫向捲，不要互相擠在一起 */
+.setgridwrap { overflow-x: auto; }
+.setgridwrap .setgrid { min-width: 640px; }
+
+/* 表格下方的單位切換（例：休息時間 秒／分鐘） */
+.unitpick { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+            color: var(--text-dim); white-space: nowrap; }
+.unitpick select { padding: 3px 6px; font-size: 12px; width: auto; }
 
 .detailsplit { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); }
 .detailsplit > .detailchart { border-left: 1px solid var(--border); }
 .detailtable { overflow-x: auto; }
-.detailtable table { min-width: 620px; }
+.detailtable table { min-width: 860px; }
 tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); }
 @media (max-width: 1100px) {
   .detailsplit { grid-template-columns: 1fr; }
@@ -657,7 +684,8 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); 
 .dayrow .dayhl .lo { color: var(--text-dim); }
 .dayrow .dayhl strong { font-size: 15px; }
 .dayrow .daymeta { margin-left: auto; font-size: 12px; color: var(--text-dim); }
-.dayrow table { min-width: 560px; }
+.dayrow table { min-width: 640px; }
+.daylist { overflow-x: auto; }
 .dayrow[open] { background: var(--surface-2); }
 .dayrow[open] table { background: var(--surface); }
 
