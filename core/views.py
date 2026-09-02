@@ -4,12 +4,15 @@ import calendar as pycalendar
 import json
 import logging
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from datetime import timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F, Min, Q
+from django.db.models import Count, F, Max, Min, Q, Value
+from django.utils import timezone
+from django.db.models.functions import Coalesce, Greatest
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -69,7 +72,7 @@ from planning.models import (
     project_athletes,
     projects_for,
 )
-from programs.models import Project
+from programs.models import Application, Project
 from programs.services import ImportError_ as ProgramImportError
 from programs.services import annotate_matches, find_existing_athlete, import_application
 from training.models import (
@@ -522,8 +525,12 @@ def coach_dashboard(request):
 # -------------------------------------------------------------- 運動員列表
 
 #: 列表可以排序的欄位 → 實際的 order_by（預設方向＝由小到大 / A→Z）
+#: 沒有任何紀錄時的替代時間（只用來讓 MAX() 不會變成 NULL）
+EPOCH = datetime(1970, 1, 1, tzinfo=dt_timezone.utc)
+
 ATHLETE_SORTS = {
     "name": ["user__first_name", "user__last_name", "user__username"],
+    "updated": ["-last_update", "user__username"],
     "project": ["project_title", "user__username"],
     "event": ["primary_event__category", "primary_event__distance_m", "primary_event__code"],
     "age": ["-birth_date"],  # 生日越晚＝年紀越小
@@ -533,11 +540,20 @@ ATHLETE_SORTS = {
 #: 表頭與「目前排序」提示用的中文欄名
 SORT_LABELS = {
     "name": "姓名",
+    "updated": "最後更新",
     "project": "計劃",
     "event": "主項",
     "age": "年紀",
     "status": "傷患狀態",
 }
+
+#: 「最後更新」篩選：找最近有動的人，或找久沒人理的人
+UPDATED_FILTERS = [
+    ("7", "7 天內有更新"),
+    ("30", "30 天內有更新"),
+    ("stale30", "超過 30 天沒更新"),
+    ("stale90", "超過 90 天沒更新"),
+]
 
 #: 傷患狀態欄的篩選選項（除了三種 status，再加一個「身上有未結案傷患」）
 INJURY_FILTERS = list(AthleteStatus.choices) + [("HAS_INJURY", "有未結案傷患")]
@@ -558,6 +574,15 @@ def _sort_urls(request, sort, direction):
     return urls
 
 
+def _athlete_scope_note(user):
+    """列表看得到誰，直接寫在標題下面，免得以為是資料掉了。"""
+    if _is_admin(user):
+        return "管理員：看得到系統內所有運動員"
+    if user.role == Role.COACH:
+        return "教練：只看得到直屬與自己負責的計劃裡的運動員"
+    return "運動員：只看得到自己的狀態總覽"
+
+
 @login_required
 def athlete_list(request):
     """運動員列表：先挑人，再進去看那個人的狀態總覽。
@@ -567,13 +592,21 @@ def athlete_list(request):
     qs = (
         AthleteProfile.objects.filter(id__in=athlete_ids_visible_to(request.user))
         .select_related("user", "primary_event", "coach__user")
-        .prefetch_related("applications__project")
+        .prefetch_related("applications__project__coaches__user")
         .annotate(
             injury_count=Count(
                 "injuries", filter=~Q(injuries__status="RESOLVED"), distinct=True
             ),
             # 一名運動員可以報多個項目，排序時取字母序最前的那個
             project_title=Min("applications__project__title"),
+            # 最後更新＝檔案本身、課表、數據紀錄、傷患紀錄之中最新的那個時間。
+            # SQLite 的 MAX() 碰到 NULL 會整個變 NULL，所以先 Coalesce 成很早的時間
+            last_update=Greatest(
+                F("updated_at"),
+                Coalesce(Max("sessions__updated_at"), Value(EPOCH)),
+                Coalesce(Max("metric_records__updated_at"), Value(EPOCH)),
+                Coalesce(Max("injuries__updated_at"), Value(EPOCH)),
+            ),
         )
     )
 
@@ -605,6 +638,13 @@ def athlete_list(request):
     elif injury in AthleteStatus.values:
         qs = qs.filter(status=injury)
 
+    updated = request.GET.get("updated", "")
+    now = timezone.now()
+    if updated in ("7", "30"):
+        qs = qs.filter(last_update__gte=now - timedelta(days=int(updated)))
+    elif updated.startswith("stale"):
+        qs = qs.filter(last_update__lt=now - timedelta(days=int(updated[5:])))
+
     sort = request.GET.get("sort", "name")
     if sort not in ATHLETE_SORTS:
         sort = "name"
@@ -634,6 +674,7 @@ def athlete_list(request):
             "project": project,
             "event": event,
             "injury": injury,
+            "updated": updated,
             "sort": sort,
             "sort_label": SORT_LABELS[sort],
             "dir": direction,
@@ -642,8 +683,10 @@ def athlete_list(request):
             "projects": visible_projects,
             "events": visible_events,
             "injury_filters": INJURY_FILTERS,
-            "has_filter": bool(q or project or event or injury),
+            "updated_filters": UPDATED_FILTERS,
+            "has_filter": bool(q or project or event or injury or updated),
             "today": date.today(),
+            "scope_note": _athlete_scope_note(request.user),
         },
     )
 
@@ -656,7 +699,12 @@ def _can_edit_plan(user, athlete):
     if _is_admin(user):
         return True
     if user.role == Role.COACH:
-        return athlete.coach_id is not None and athlete.coach.user_id == user.id
+        if athlete.coach_id is not None and athlete.coach.user_id == user.id:
+            return True
+        # 由計劃分配過來的教練，同樣改得動這名運動員的備戰計劃
+        return Application.objects.filter(
+            athlete=athlete, project__coaches__user=user
+        ).exists()
     return athlete.user_id == user.id
 
 

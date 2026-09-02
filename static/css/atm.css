@@ -193,7 +193,7 @@ a:hover { text-decoration: underline; }
 .crumb b { color: var(--text); font-weight: 600; }
 
 .topsearch {
-  flex: 1; max-width: 340px; margin-left: auto;
+  flex: 1; max-width: 340px; margin-left: auto; margin-right: 4px;
   display: flex; align-items: center; gap: 8px;
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 0 10px; height: 34px;
@@ -207,7 +207,7 @@ a:hover { text-decoration: underline; }
 .topsearch input:hover { border: 0; }
 .topsearch input:focus { outline: none; border: 0; box-shadow: none; }
 
-.topacts { display: flex; align-items: center; gap: 12px; }
+.topacts { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .iconbtn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border-radius: var(--radius-sm);
@@ -593,6 +593,10 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); 
 @media (max-width: 1180px) {
   .topsearch { display: none; }
 }
+@media (max-width: 620px) {
+  .densitypick { display: none; }
+  .userbox .uinfo b { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 @media (max-width: 960px) {
   .only-mobile { display: inline-flex; }
   .sidebar {
@@ -613,7 +617,6 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 8%, transparent); 
   :root.sb-collapsed .nav-title::before { content: none; }
   .sb-foot { display: none; }
   .topbar { padding: 0 16px; gap: 12px; }
-  .userbox .uinfo { display: none; }
   .wrap { padding: 16px; }
   .between { flex-wrap: wrap; }
 }

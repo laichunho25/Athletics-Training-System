@@ -72,12 +72,13 @@ class ProjectAdmin(admin.ModelAdmin):
     list_filter = ("status", "organiser")
     search_fields = ("title", "slug", "description")
     prepopulated_fields = {"slug": ("title",)}
+    filter_horizontal = ("coaches",)
     inlines = [ApplicationInline]
     actions = ["open_enrollment", "close_enrollment"]
     fieldsets = (
         (
             "基本資料",
-            {"fields": ("title", "subtitle", "slug", "organiser", "default_school_or_club", "description")},
+            {"fields": ("title", "subtitle", "slug", "organiser", "default_school_or_club", "description", "coaches")},
         ),
         (
             "時間與規模",

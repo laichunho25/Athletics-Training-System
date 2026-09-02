@@ -12,9 +12,17 @@ def athlete_ids_visible_to(user):
     if user.is_superuser or user.role == Role.ADMIN:
         return AthleteProfile.objects.values_list("id", flat=True)
     if user.role == Role.COACH:
-        return AthleteProfile.objects.filter(
-            coach__user=user
-        ).values_list("id", flat=True)
+        # 直屬（AthleteProfile.coach）＋ 自己負責的計劃裡的運動員。
+        # 同一名運動員報了兩個計劃、由兩位教練帶時，兩邊都看得到他的總覽。
+        from django.db.models import Q
+
+        return (
+            AthleteProfile.objects.filter(
+                Q(coach__user=user) | Q(applications__project__coaches__user=user)
+            )
+            .distinct()
+            .values_list("id", flat=True)
+        )
     return AthleteProfile.objects.filter(user=user).values_list("id", flat=True)
 
 

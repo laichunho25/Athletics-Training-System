@@ -5,7 +5,7 @@
 <div class="between mb">
   <div>
     <h1>運動員列表</h1>
-    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員{% if has_filter %}（已篩選）{% endif %}</p>
+    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員{% if has_filter %}（已篩選）{% endif %} · {{ scope_note }}</p>
   </div>
   <div class="flex">
     <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">全隊燈號總覽</a>
@@ -40,6 +40,15 @@
       </select>
     </div>
     <div class="field" style="margin:0">
+      <label>最後更新</label>
+      <select name="updated">
+        <option value="">不限</option>
+        {% for value, label in updated_filters %}
+          <option value="{{ value }}" {% if updated == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin:0">
       <label>傷患狀態</label>
       <select name="injury">
         <option value="">全部狀態</option>
@@ -60,7 +69,7 @@
 <!-- ------------------------------------------------------------ 列表 -->
 <div class="card pad0">
   <div class="card-head">
-    <span>點表頭可排序 · 點運動員進入狀態總覽</span>
+    <span>點表頭可排序 · 「狀態總覽」看那個人的完整狀態</span>
     <span class="small c-dim">目前依「{{ sort_label }}」{% if dir == 'asc' %}正序{% else %}倒序{% endif %}</span>
   </div>
   <table>
@@ -71,6 +80,7 @@
         <th><a href="{{ sort_urls.event }}">主項 {% if sort == 'event' %}{{ arrow }}{% endif %}</a></th>
         <th class="num"><a href="{{ sort_urls.age }}">年紀 {% if sort == 'age' %}{{ arrow }}{% endif %}</a></th>
         <th><a href="{{ sort_urls.status }}">傷患狀態 {% if sort == 'status' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.updated }}">最後更新 {% if sort == 'updated' %}{{ arrow }}{% endif %}</a></th>
         <th></th>
       </tr>
     </thead>
@@ -83,7 +93,12 @@
         </td>
         <td>
           {% for app in a.applications.all %}
-            <div><a href="{% url 'web:plan_detail' app.project.id %}">{{ app.project.title }}</a></div>
+            <div>
+              <a href="{% url 'web:plan_detail' app.project.id %}">{{ app.project.title }}</a>
+              {% for c in app.project.coaches.all %}
+                <span class="small c-dim">· {{ c.user.get_full_name|default:c.user.username }}</span>
+              {% endfor %}
+            </div>
           {% empty %}
             <span class="c-dim">—</span>
           {% endfor %}
@@ -95,6 +110,10 @@
           {% if a.injury_count %}<span class="small c-red">· {{ a.injury_count }} 筆未結案</span>{% endif %}
         </td>
         <td>
+          <span title="{{ a.last_update }}">{{ a.last_update|date:"Y-m-d H:i" }}</span>
+          <div class="small c-dim">{{ a.last_update|timesince }}前</div>
+        </td>
+        <td>
           <div class="flex" style="gap:6px">
             <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ a.id }}">狀態總覽</a>
             <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ a.id }}">日曆</a>
@@ -102,7 +121,7 @@
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="6" class="empty">{% if has_filter %}沒有符合條件的運動員{% else %}尚未有旗下運動員{% endif %}</td></tr>
+      <tr><td colspan="7" class="empty">{% if has_filter %}沒有符合條件的運動員{% else %}尚未有旗下運動員{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

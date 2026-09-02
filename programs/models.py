@@ -63,6 +63,14 @@ class Project(TimeStampedModel):
 
     # ---- 內容與場地 ----
     trainer = models.CharField("教練", max_length=100, blank=True)
+    coaches = models.ManyToManyField(
+        "accounts.CoachProfile",
+        blank=True,
+        related_name="coached_projects",
+        verbose_name="負責教練",
+        help_text="這個計劃由哪些教練帶；同一名運動員在不同計劃可以由不同教練負責，"
+        "每位負責教練都看得到他的狀態總覽",
+    )
     recommended_for = models.CharField(
         "建議對象", max_length=200, blank=True, help_text="例：短跑、跨欄及中距離運動員"
     )

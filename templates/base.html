@@ -106,11 +106,11 @@
             <b>{{ user.get_full_name|default:user.username }}</b>
             <em>{{ user.get_role_display }}</em>
           </span>
+          <form method="post" action="{% url 'logout' %}" style="margin-left:4px">
+            {% csrf_token %}
+            <button class="btn ghost sm" type="submit">登出</button>
+          </form>
         </div>
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button class="btn ghost sm" type="submit">登出</button>
-        </form>
       </div>
     </header>
 {% endif %}
