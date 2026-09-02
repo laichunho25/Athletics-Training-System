@@ -564,6 +564,11 @@ def metric_points(athlete, item, days=365):
     )
 
 
+def scored(records):
+    """只有填了完成數值的紀錄才算得進統計（數值不是必填，可以先留空）。"""
+    return [r for r in records if r.value is not None]
+
+
 def metric_days(records, item):
     """把紀錄按日期收成一天一列——列上顯示當日最重與最輕，展開才看每一組。
 
@@ -578,16 +583,16 @@ def metric_days(records, item):
     result = []
     for on_date in sorted(by_date, reverse=True):  # 新的一天放最上面
         rows = sorted(by_date[on_date], key=lambda r: (r.set_no or 0, r.id))
-        values = [float(r.value) for r in rows]
+        values = [float(r.value) for r in scored(rows)]
         tonnages = [r.tonnage for r in rows if r.tonnage is not None]
         result.append(
             {
                 "date": on_date,
                 "records": rows,
                 "count": len(rows),
-                "high": max(values),          # 當日最重／最高
-                "low": min(values),           # 當日最輕／最低
-                "best": (max if item.higher_is_better else min)(values),
+                "high": max(values) if values else None,   # 當日最重／最高
+                "low": min(values) if values else None,    # 當日最輕／最低
+                "best": (max if item.higher_is_better else min)(values) if values else None,
                 "unit_is_weight": unit_is_weight,
                 "failed": sum(1 for r in rows if not r.completed),
                 "total_reps": sum(r.reps for r in rows if r.reps is not None) or None,
@@ -606,7 +611,8 @@ def metric_analysis(athlete, item, days=365):
     重量與距離類越大越好，所以進步與否不能只看斜率正負。
     """
     records = metric_points(athlete, item, days)
-    values = [float(r.value) for r in records]
+    with_value = scored(records)          # 只有填了完成數值的才算得出趨勢
+    values = [float(r.value) for r in with_value]
     result = {
         "item": item,
         "records": records,
@@ -614,7 +620,8 @@ def metric_analysis(athlete, item, days=365):
         "points": [
             {
                 "date": str(r.date),
-                "value": float(r.value),
+                "value": float(r.value) if r.value is not None else None,
+                "target": float(r.target_value) if r.target_value is not None else None,
                 "session": r.session.title if r.session_id else "",
                 "context": r.context,
                 "set_no": r.set_no,
@@ -675,7 +682,7 @@ def metric_analysis(athlete, item, days=365):
         return result
 
     base = date.today()
-    xs = [(r.date - base).days for r in records]
+    xs = [(r.date - base).days for r in with_value]
     slope = _linear_slope(xs, values)
     if slope is not None:
         result["slope_per_month"] = round(slope * 30, 3)
@@ -729,7 +736,9 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
     rows = []
     for item in items:
         qs = MetricRecord.objects.filter(athlete=athlete, item=item, date__gte=since)
-        values = list(qs.values_list("value", "date"))
+        pairs = list(qs.values_list("value", "date"))
+        # 只填了目標、還沒填完成數值的紀錄算得進筆數，但算不出最佳與最近
+        values = [p for p in pairs if p[0] is not None]
         if values:
             nums = [float(v) for v, _ in values]
             latest = max(values, key=lambda p: p[1])
@@ -739,7 +748,7 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
         rows.append(
             {
                 "item": item,
-                "count": len(nums),
+                "count": len(pairs),
                 "latest": float(latest[0]) if latest else None,
                 "latest_date": latest[1] if latest else None,
                 "best": best,
@@ -800,12 +809,12 @@ def phase_lookup(athlete):
 
 def _group_stats(key, label, records, item, sublabel=""):
     """一組紀錄的摘要：最佳、平均、最近、噸位、完成率、期間內的變化。"""
-    values = [float(r.value) for r in records]
+    values = [float(r.value) for r in scored(records)]
     better = max if item.higher_is_better else min
     dates = [r.date for r in records]
     tonnages = [r.tonnage for r in records if r.tonnage is not None]
     completed = sum(1 for r in records if r.completed)
-    first_v, last_v = values[0], values[-1]
+    first_v, last_v = (values[0], values[-1]) if values else (None, None)
     change_pct = None
     if first_v:
         raw = (last_v - first_v) / abs(first_v) * 100
@@ -818,9 +827,9 @@ def _group_stats(key, label, records, item, sublabel=""):
         "days": len(set(dates)),
         "first_date": min(dates),
         "last_date": max(dates),
-        "best": better(values),
-        "worst": (min if item.higher_is_better else max)(values),
-        "average": round(statistics.mean(values), 2),
+        "best": better(values) if values else None,
+        "worst": (min if item.higher_is_better else max)(values) if values else None,
+        "average": round(statistics.mean(values), 2) if values else None,
         "latest": last_v,
         "total_tonnage": round(sum(tonnages), 1) if tonnages else None,
         "total_reps": sum(r.reps for r in records if r.reps is not None) or None,
@@ -890,10 +899,10 @@ def metric_comparison(athlete, item, mode="all", days=1825):
 
     result["groups"].sort(key=lambda g: order.get(g["key"], g["key"]))
 
-    bests = [g["best"] for g in result["groups"]]
-    overall_best = (max if item.higher_is_better else min)(bests)
+    bests = [g["best"] for g in result["groups"] if g["best"] is not None]
+    overall_best = (max if item.higher_is_better else min)(bests) if bests else None
     for g in result["groups"]:
-        g["is_best"] = g["best"] == overall_best
+        g["is_best"] = g["best"] is not None and g["best"] == overall_best
         if g["is_best"] and result["best_group"] is None:
             result["best_group"] = g
     return result
@@ -945,7 +954,8 @@ def competition_report(athlete, days=1825):
     since = date.today() - timedelta(days=days)
     records = list(
         MetricRecord.objects.filter(
-            athlete=athlete, item__domain=MetricDomain.COMPETITION, date__gte=since
+            athlete=athlete, item__domain=MetricDomain.COMPETITION, date__gte=since,
+            value__isnull=False,          # 只填了目標、還沒有成績的先不進逐場分析
         )
         .select_related("item", "competition", "session")
         .order_by("date", "id")

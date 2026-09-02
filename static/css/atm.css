@@ -576,6 +576,10 @@ details > summary::-webkit-details-marker { display: none; }
 .setgrid tbody tr:hover { background: transparent; }
 .setgrid input, .setgrid select { padding: 6px 8px; font-size: 13px; }
 .setgrid .setno { color: var(--text-dim); font-size: 12px; text-align: center; }
+/* 表頭上的單位切換（例：休息時間 秒／分鐘） */
+.setgrid th .unitsel { padding: 2px 4px; font-size: 12px; margin-left: 4px; }
+/* 紀錄明細裡可以直接改的數值格 */
+.editnum { width: 76px; padding: 3px 6px; font-size: 13px; }
 
 .detailsplit { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); }
 .detailsplit > .detailchart { border-left: 1px solid var(--border); }

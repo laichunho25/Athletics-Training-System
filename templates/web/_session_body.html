@@ -204,10 +204,14 @@
           <span class="daydate">{{ g.item.display_name }}</span>
           <span class="daysets">{{ g.count }} 組</span>
           <span class="dayhl">
-            <span class="hi">{% if g.unit_is_weight %}最重{% else %}最佳{% endif %}
-              <strong>{{ g.best }}</strong>{{ g.item.unit }}</span>
-            <span class="lo">{% if g.unit_is_weight %}最輕{% else %}最低{% endif %}
-              <strong>{{ g.low }}</strong>{{ g.item.unit }}</span>
+            {% if g.best != None %}
+              <span class="hi">{% if g.unit_is_weight %}最重{% else %}最佳{% endif %}
+                <strong>{{ g.best }}</strong>{{ g.item.unit }}</span>
+              <span class="lo">{% if g.unit_is_weight %}最輕{% else %}最低{% endif %}
+                <strong>{{ g.low }}</strong>{{ g.item.unit }}</span>
+            {% else %}
+              <span class="c-dim small">還沒填完成數值</span>
+            {% endif %}
           </span>
           <span class="daymeta">
             {% if g.failed %}<span class="badge b-red">{{ g.failed }} 組未完成</span>{% endif %}
@@ -217,7 +221,10 @@
         </summary>
         <table>
           <thead>
-            <tr><th class="num">組</th><th class="num">數值</th><th class="num">重量</th>
+            <tr><th class="num">組</th>
+                <th class="num">目標數值（{{ g.item.unit|default:"秒" }}）</th>
+                <th class="num">完成數值（{{ g.item.unit|default:"秒" }}）</th>
+                <th class="num">重量</th>
                 <th class="num">次數</th><th class="num">休息</th><th>完成</th>
                 <th>情境</th><th></th></tr>
           </thead>
@@ -225,10 +232,11 @@
           {% for r in g.records %}
             <tr{% if not r.completed %} class="failedrow"{% endif %}>
               <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
-              <td class="num"><strong>{{ r.value }}</strong> {{ g.item.unit }}</td>
+              <td class="num">{% if r.target_value != None %}{{ r.target_value }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
+              <td class="num">{% if r.value != None %}<strong>{{ r.value }}</strong>{% else %}<span class="c-dim">—</span>{% endif %}</td>
               <td class="num">{% if r.weight_kg != None %}{{ r.weight_kg }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
               <td class="num">{% if r.reps != None %}{{ r.reps }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td class="num">{% if r.rest_sec != None %}{{ r.rest_sec }}s{% else %}<span class="c-dim">—</span>{% endif %}</td>
+              <td class="num">{% if r.rest_sec != None %}{{ r.rest_display }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
               <td>{% if r.completed %}<span class="badge b-green">完成</span>{% else %}<span class="badge b-red">未完成</span>{% endif %}</td>
               <td class="small c-dim">{{ r.context|default:"—" }}</td>
               <td>
@@ -291,15 +299,24 @@
     <table class="setgrid">
       <thead>
         <tr>
-          <th style="width:52px">組</th><th>數值</th><th>重量 (kg)</th>
-          <th>次數</th><th>休息 (秒)</th><th style="width:118px">成功完成</th>
+          <th style="width:52px">組</th>
+          <th>目標數值（秒）</th><th>完成數值（秒）</th><th>重量 (kg)</th>
+          <th>次數</th>
+          <th>休息時間
+            <select name="rest_unit" class="unitsel">
+              <option value="sec">秒</option>
+              <option value="min">分鐘</option>
+            </select>
+          </th>
+          <th style="width:118px">成功完成</th>
           <th style="width:34px"></th>
         </tr>
       </thead>
       <tbody id="metricRows">
         <tr>
           <td class="setno num">1</td>
-          <td><input type="number" step="0.01" name="value" required></td>
+          <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
+          <td><input type="number" step="0.01" name="value" placeholder="—"></td>
           <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
           <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
           <td><input type="number" step="5" min="0" name="rest_sec" placeholder="—"></td>
@@ -315,7 +332,8 @@
     </table>
     <div class="flex mb">
       <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組</button>
-      <span class="small c-dim">每一組各存成一筆；項目名稱沿用課表上的活動名，兩邊就是同一個動作</span>
+      <span class="small c-dim">每一組各存成一筆；數值可以先留空，之後在數據分析補；
+        只有「數據項目」或「項目名稱」沒填才登不進去</span>
     </div>
     <div class="field">
       <label>情境（這次所有組共用）</label>
@@ -443,10 +461,10 @@
 </div>
 {% endif %}
 
-<!-- ------------------------------------------------------ 打卡 / 教練評語 -->
+<!-- --------------------------------------- 訓練後檢討和反饋 / 教練評語 -->
 <div class="grid grid-2">
   <div class="card">
-    <h2>訓練打卡</h2>
+    <h2>訓練後檢討和反饋</h2>
     {% if can_log %}
     <form method="post">
       {% csrf_token %}
@@ -482,11 +500,11 @@
         <textarea id="fb" name="athlete_feedback" rows="3"
                   placeholder="感受、狀況、身體反應…">{{ s.athlete_feedback }}</textarea>
       </div>
-      <button class="btn" type="submit">送出打卡</button>
+      <button class="btn" type="submit">送出檢討和反饋</button>
       <span class="small c-dim" style="margin-left:10px">負荷 = RPE × 時長，送出後即時重算 ACWR</span>
     </form>
     {% else %}
-      <div class="small c-dim mb">打卡欄位由運動員本人填寫。</div>
+      <div class="small c-dim mb">訓練後檢討和反饋由運動員本人填寫。</div>
       <div style="white-space:pre-wrap">{{ s.athlete_feedback|default:"運動員尚未填寫反饋。" }}</div>
     {% endif %}
   </div>

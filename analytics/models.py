@@ -258,7 +258,16 @@ class MetricRecord(TimeStampedModel):
         help_text="比賽數據登在哪一場比賽底下；練習紀錄留空",
     )
     date = models.DateField("日期")
-    value = models.DecimalField("數值", max_digits=10, decimal_places=2)
+    # 目標與完成分開記：課表上要求做到幾秒、實際做出幾秒，兩個都不是必填，
+    # 只要挑了項目就登得進來（之後在數據分析補值也可以）。
+    target_value = models.DecimalField(
+        "目標數值 (秒)", max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="課表上要求的目標，沒有就留空",
+    )
+    value = models.DecimalField(
+        "完成數值 (秒)", max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="實際完成的數值，還沒量到可以留空，之後在數據分析補",
+    )
     # 同一堂課的不同組，重量／次數／休息時間都可能不一樣，所以一組就是一筆紀錄。
     set_no = models.PositiveSmallIntegerField(
         "組別", null=True, blank=True, help_text="第幾組；單筆成績（例如比賽）可留空"
@@ -268,7 +277,8 @@ class MetricRecord(TimeStampedModel):
     )
     reps = models.PositiveSmallIntegerField("次數", null=True, blank=True)
     rest_sec = models.PositiveIntegerField(
-        "休息時間 (秒)", null=True, blank=True, help_text="這一組做完之後休息幾秒"
+        "休息時間 (秒)", null=True, blank=True,
+        help_text="這一組做完之後休息多久；表單可以用秒或分鐘填，一律換算成秒存起來",
     )
     completed = models.BooleanField(
         "成功完成", default=True, help_text="這一組有沒有照課表完成（沒完成請取消勾選）"
@@ -285,11 +295,22 @@ class MetricRecord(TimeStampedModel):
         indexes = [models.Index(fields=["athlete", "item", "date"])]
 
     def __str__(self):
-        return f"{self.athlete} {self.item.name} {self.value}{self.item.unit} ({self.date})"
+        shown = f"{self.value}{self.item.unit}" if self.value is not None else "未填"
+        return f"{self.athlete} {self.item.name} {shown} ({self.date})"
 
     @property
     def set_label(self):
         return f"第 {self.set_no} 組" if self.set_no else ""
+
+    @property
+    def rest_display(self):
+        """休息時間：超過一分鐘就寫成「N 分 N 秒」，短的直接寫秒。"""
+        if self.rest_sec is None:
+            return ""
+        if self.rest_sec < 60:
+            return f"{self.rest_sec} 秒"
+        minutes, seconds = divmod(self.rest_sec, 60)
+        return f"{minutes} 分" + (f" {seconds} 秒" if seconds else "")
 
     @property
     def tonnage(self):

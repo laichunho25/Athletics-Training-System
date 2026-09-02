@@ -28,7 +28,7 @@ class MetricItemAdmin(admin.ModelAdmin):
 
 @admin.register(MetricRecord)
 class MetricRecordAdmin(admin.ModelAdmin):
-    list_display = ("athlete", "item", "date", "set_no", "value", "weight_kg",
+    list_display = ("athlete", "item", "date", "set_no", "target_value", "value", "weight_kg",
                     "reps", "rest_sec", "completed", "session", "context")
     list_filter = ("item__domain", "item", "athlete", "completed")
     date_hierarchy = "date"

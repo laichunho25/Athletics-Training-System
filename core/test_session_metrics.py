@@ -463,3 +463,68 @@ class LibrarySeedTests(TestCase):
                   ).context["activity_groups"]]
         self.assertEqual(len(labels), 1)
         self.assertEqual(body.count("<optgroup"), 1)
+
+
+class TargetAndCompletedValueTests(TestCase):
+    """數值（目標／完成）不是必填，只有沒挑項目才登不進去；休息時間可以用分鐘填。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a9")
+        self.client.force_login(self.athlete.user)
+        self.session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+
+    def post(self, **extra):
+        data = {
+            "action": "add_metric",
+            "domain": MetricDomain.TRACK,
+            "item_name": "150m 課表",
+            "date": TODAY.isoformat(),
+        }
+        data.update(extra)
+        return self.client.post(
+            reverse("web:session_detail", args=[self.session.id]), data
+        )
+
+    def test_item_alone_is_enough(self):
+        self.assertEqual(self.post().status_code, 302)
+        rec = MetricRecord.objects.get()
+        self.assertIsNone(rec.value)
+        self.assertIsNone(rec.target_value)
+        self.assertEqual(rec.session_id, self.session.id)
+
+    def test_no_item_no_record(self):
+        self.post(item_name="", value="19.5")
+        self.assertFalse(MetricRecord.objects.exists())
+
+    def test_target_and_completed_are_kept_apart(self):
+        self.post(target_value="20", value="19.5")
+        rec = MetricRecord.objects.get()
+        self.assertEqual((float(rec.target_value), float(rec.value)), (20.0, 19.5))
+
+    def test_rest_can_be_given_in_minutes(self):
+        self.post(value="19.5", rest_sec="3", rest_unit="min")
+        self.assertEqual(MetricRecord.objects.get().rest_sec, 180)
+
+    def test_values_can_be_fixed_in_analytics(self):
+        self.post(target_value="20", value="19.5")
+        rec = MetricRecord.objects.get()
+        self.client.post(reverse("web:analytics"), {
+            "action": "edit_record",
+            "domain": MetricDomain.TRACK,
+            "record_id": rec.id,
+            "target_value": "19",
+            "value": "18.8",
+        })
+        rec.refresh_from_db()
+        self.assertEqual((float(rec.target_value), float(rec.value)), (19.0, 18.8))
+
+    def test_analytics_page_renders_records_without_a_value(self):
+        self.post(target_value="20")
+        item = MetricItem.objects.get(name="150m 課表")
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&item={item.id}"
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "還沒填完成數值")

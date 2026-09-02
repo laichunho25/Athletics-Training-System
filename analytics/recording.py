@@ -16,13 +16,29 @@ class RecordError(Exception):
     """表單填的東西有問題（訊息直接給使用者看）。"""
 
 
+def _raw(seq, i):
+    return (seq[i] if i < len(seq) else "").strip()
+
+
 def _num(seq, i, cast):
-    raw = (seq[i] if i < len(seq) else "").strip()
+    raw = _raw(seq, i)
     if not raw:
         return None
     try:
         return cast(raw)
     except (TypeError, ValueError, InvalidOperation):
+        return None
+
+
+def _decimal(seq, i, label, problems):
+    """一格數值：空的回 None，填錯的記一筆問題（不擋掉整列）。"""
+    raw = _raw(seq, i)
+    if not raw:
+        return None
+    try:
+        return Decimal(raw)
+    except (InvalidOperation, ValueError):
+        problems.append(f"第 {i + 1} 組的{label}不是有效數字。")
         return None
 
 
@@ -36,7 +52,8 @@ def session_allows(session, item):
 def create_records(*, athlete, item, session, post, on_date, competition=None):
     """把表單上的每一列（每一組）各存成一筆紀錄。
 
-    回傳 (建立的紀錄, 提示訊息)；一列都沒填就丟 RecordError。
+    數值不是必填：挑好項目就登得進來，先留一組空的、之後在數據分析補值也可以。
+    回傳 (建立的紀錄, 提示訊息)。
     """
     if session is not None and not session_allows(session, item):
         raise RecordError(
@@ -45,30 +62,34 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 
     context = post.get("context", "")
     note = post.get("note", "")
+    targets = post.getlist("target_value")
     values = post.getlist("value")
     weights = post.getlist("weight")
     reps_list = post.getlist("reps")
     rests = post.getlist("rest_sec")
     dones = post.getlist("completed")
-    multi = len(values) > 1
+    # 休息時間可以用秒或分鐘填，資料庫一律存秒
+    rest_factor = 60 if post.get("rest_unit") == "min" else 1
+
+    columns = (targets, values, weights, reps_list, rests)
+    row_count = max([len(c) for c in columns] + [1])
+    # 數值不是必填——只要挑了項目就登得進來，所以「這一列有沒有填東西」
+    # 決定它算不算一組；整張表都空白就當成一組空紀錄（之後再回來補值）。
+    rows = [i for i in range(row_count) if any(_raw(c, i) for c in columns)] or [0]
+    multi = len(rows) > 1
 
     # 單位本身就是 kg 的項目（背蹲舉、臥推…），表單只留「數值」一格，
     # 重量就是那個數值，這裡自動補上去，噸位與圖表照樣算得出來。
     unit_is_weight = (item.unit or "").strip().lower() == "kg"
 
     created, problems = [], []
-    for i, raw_value in enumerate(values):
-        raw_value = raw_value.strip()
-        if not raw_value:
-            continue  # 空白列＝加了組卻沒填，跳過
-        try:
-            value = Decimal(raw_value)
-        except (InvalidOperation, ValueError):
-            problems.append(f"第 {i + 1} 組的數值不是有效數字。")
-            continue
+    for position, i in enumerate(rows):
+        target = _decimal(targets, i, "目標數值", problems)
+        value = _decimal(values, i, "完成數值", problems)
         weight = _num(weights, i, Decimal)
         if weight is None and unit_is_weight:
             weight = value
+        rest = _num(rests, i, int)
         created.append(
             MetricRecord.objects.create(
                 athlete=athlete,
@@ -76,25 +97,22 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
                 session=session,
                 competition=competition,
                 date=on_date,
+                target_value=target,
                 value=value,
-                set_no=(i + 1) if multi else None,
+                set_no=(position + 1) if multi else None,
                 weight_kg=weight,
                 reps=_num(reps_list, i, int),
-                rest_sec=_num(rests, i, int),
+                rest_sec=None if rest is None else rest * rest_factor,
                 completed=(dones[i] if i < len(dones) else "1") != "0",
                 context=context,
                 note=note,
             )
         )
 
-    if not created:
-        raise RecordError(
-            "；".join(problems) if problems else "沒有記錄到任何一組，請至少填一個數值。"
-        )
-
     if len(created) == 1:
         r = created[0]
-        message = f"已記錄 {item.name} {r.value}{item.unit}（{r.date}）。"
+        shown = f"{r.value}{item.unit}" if r.value is not None else "（未填數值）"
+        message = f"已記錄 {item.name} {shown}（{r.date}）。"
     else:
         failed = sum(1 for r in created if not r.completed)
         message = (

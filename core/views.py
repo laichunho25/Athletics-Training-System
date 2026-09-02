@@ -1222,7 +1222,7 @@ def session_detail(request, pk):
             if satisfaction:
                 session.satisfaction = int(satisfaction)
                 session.save(update_fields=["satisfaction", "updated_at"])
-            messages.success(request, f"已完成打卡，本次負荷 {session.session_load} AU。")
+            messages.success(request, f"已送出訓練後檢討和反饋，本次負荷 {session.session_load} AU。")
         elif action == "coach_comment":
             session.coach_comment = request.POST.get("coach_comment", "")
             session.save(update_fields=["coach_comment", "updated_at"])
@@ -1361,16 +1361,16 @@ def _session_metric_context(session):
     for entry in grouped.values():
         item = entry["item"]
         rows = entry["records"]
-        values = [float(r.value) for r in rows]
+        values = [float(r.value) for r in an.scored(rows)]
         tonnages = [r.tonnage for r in rows if r.tonnage is not None]
         groups.append(
             {
                 "item": item,
                 "records": rows,
                 "count": len(rows),
-                "best": (max if item.higher_is_better else min)(values),
-                "high": max(values),
-                "low": min(values),
+                "best": (max if item.higher_is_better else min)(values) if values else None,
+                "high": max(values) if values else None,
+                "low": min(values) if values else None,
                 "failed": sum(1 for r in rows if not r.completed),
                 "tonnage": round(sum(tonnages), 1) if tonnages else None,
                 "unit_is_weight": (item.unit or "").strip().lower() == "kg",
@@ -1388,6 +1388,17 @@ def _session_metric_context(session):
         "metric_groups": groups,
         "metric_record_count": len(records),
     }
+
+
+def _metric_value(raw):
+    """表單上的一格數值：空的就是「沒填」，填了就要是數字。"""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return Decimal(raw)
+    except InvalidOperation:
+        raise ValueError(raw)
 
 
 def _add_metric(request, session):
@@ -1829,6 +1840,21 @@ def analytics_view(request):
             else:
                 messages.success(request, msg)
             return redirect(f"{back}&item={item.id}")
+
+        if action == "edit_record":
+            # 在課表頁登完之後，回到數據分析還可以把目標／完成的數值改掉。
+            record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
+            if record.athlete_id != athlete.id:
+                raise Http404("無權限修改這筆紀錄。")
+            try:
+                record.target_value = _metric_value(request.POST.get("target_value"))
+                record.value = _metric_value(request.POST.get("value"))
+            except ValueError:
+                messages.error(request, "數值要填數字，或留空。")
+            else:
+                record.save(update_fields=["target_value", "value", "updated_at"])
+                messages.success(request, "已更新這筆紀錄的數值。")
+            return redirect(f"{back}&item={record.item_id}")
 
         if action == "delete_record":
             record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
