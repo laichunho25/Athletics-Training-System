@@ -9,68 +9,68 @@
 html[data-theme="light"],
 :root {
   --atm-accent: #ff6b35;
-  --atm-nav-bg: #101a2b;
-  --atm-nav-bg-2: #17253c;
-  --atm-nav-text: #cbd5e1;
-  --atm-nav-dim: #7d8ea6;
-  --atm-surface-2: #f2f5f9;
+  --atm-nav-bg: #0a0f16;
+  --atm-nav-bg-2: #17212e;
+  --atm-nav-text: #c2cedd;
+  --atm-nav-dim: #6b7c92;
+  --atm-surface-2: #f3f6fa;
   --atm-shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
   --atm-shadow-2: 0 6px 20px rgba(15, 23, 42, .10);
-  --atm-radius: 8px;
-  --atm-radius-sm: 6px;
+  --atm-radius: 4px;
+  --atm-radius-sm: 3px;
 
   /* Django 的主色系 */
   --primary: #ff6b35;
-  --secondary: #101a2b;
+  --secondary: #0a0f16;
   --accent: #ff6b35;
   --primary-fg: #fff;
 
-  --body-fg: #1f2937;
-  --body-bg: #f5f7fa;
-  --body-quiet-color: #64748b;
-  --body-medium-color: #475569;
-  --body-loud-color: #0f172a;
+  --body-fg: #131a24;
+  --body-bg: #eef1f6;
+  --body-quiet-color: #5b6b80;
+  --body-medium-color: #48586d;
+  --body-loud-color: #0a1018;
 
-  --header-color: #cbd5e1;
+  --header-color: #c2cedd;
   --header-branding-color: #fff;
   --header-bg: var(--atm-nav-bg);
   --header-link-color: #fff;
 
-  --breadcrumbs-fg: #64748b;
-  --breadcrumbs-link-fg: #64748b;
+  --breadcrumbs-fg: #5b6b80;
+  --breadcrumbs-link-fg: #5b6b80;
   --breadcrumbs-bg: #ffffff;
 
-  --link-fg: #2563eb;
+  --link-fg: #1f6feb;
   --link-hover-color: #ff6b35;
   --link-selected-fg: #ff6b35;
 
-  --hairline-color: #e2e8f0;
-  --border-color: #e2e8f0;
+  --hairline-color: #dde4ee;
+  --border-color: #dde4ee;
 
-  --error-fg: #dc2626;
+  --error-fg: #d92d43;
 
-  --message-success-bg: #ecfdf5;
-  --message-warning-bg: #fffbeb;
-  --message-error-bg: #fef2f2;
-  --message-info-bg: #eff6ff;
+  --message-success-bg: #e8f7f0;
+  --message-warning-bg: #fdf6e3;
+  --message-error-bg: #fdecee;
+  --message-info-bg: #e9f1fd;
 
-  --darkened-bg: #f2f5f9;
-  --selected-bg: #eef2f7;
-  --selected-row: #fff4ef;
+  --darkened-bg: #f3f6fa;
+  --selected-bg: #e6ecf4;
+  --selected-row: #fdeee8;
 
   --button-fg: #fff;
   --button-bg: #ff6b35;
   --button-hover-bg: #f2592a;
   --default-button-bg: #ff6b35;
   --default-button-hover-bg: #f2592a;
-  --close-button-bg: #64748b;
-  --close-button-hover-bg: #475569;
-  --delete-button-bg: #dc2626;
-  --delete-button-hover-bg: #b91c1c;
+  --close-button-bg: #5b6b80;
+  --close-button-hover-bg: #48586d;
+  --delete-button-bg: #d92d43;
+  --delete-button-hover-bg: #b02236;
 
   --object-tools-fg: #fff;
-  --object-tools-bg: #101a2b;
-  --object-tools-hover-bg: #1f2d45;
+  --object-tools-bg: #0a0f16;
+  --object-tools-hover-bg: #17212e;
 
   --font-family-primary:
       -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "PingFang SC",
@@ -78,70 +78,70 @@ html[data-theme="light"],
 }
 
 html[data-theme="dark"] {
-  --atm-nav-bg: #131a24;
-  --atm-nav-bg-2: #1c2532;
-  --atm-nav-text: #c3ccd8;
-  --atm-nav-dim: #7d8896;
-  --atm-surface-2: #1f2733;
+  --atm-nav-bg: #0f141b;
+  --atm-nav-bg-2: #151c25;
+  --atm-nav-text: #b8c6d6;
+  --atm-nav-dim: #5f7086;
+  --atm-surface-2: #151c25;
   --atm-shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
   --atm-shadow-2: 0 8px 24px rgba(0, 0, 0, .45);
 
   --primary: #ff6b35;
-  --secondary: #131a24;
+  --secondary: #0f141b;
   --primary-fg: #fff;
 
-  --body-fg: #e6edf3;
-  --body-bg: #0f1419;
-  --body-quiet-color: #8b98a8;
-  --body-medium-color: #b3becb;
+  --body-fg: #e6eef7;
+  --body-bg: #080b10;
+  --body-quiet-color: #8496aa;
+  --body-medium-color: #c3d1e0;
   --body-loud-color: #ffffff;
 
-  --header-bg: #131a24;
-  --header-color: #c3ccd8;
+  --header-bg: #0f141b;
+  --header-color: #b8c6d6;
   --header-branding-color: #fff;
 
-  --breadcrumbs-fg: #8b98a8;
-  --breadcrumbs-link-fg: #8b98a8;
-  --breadcrumbs-bg: #171d26;
+  --breadcrumbs-fg: #8496aa;
+  --breadcrumbs-link-fg: #8496aa;
+  --breadcrumbs-bg: #0f141b;
 
-  --link-fg: #58a6ff;
+  --link-fg: #4da3ff;
   --link-hover-color: #ff6b35;
   --link-selected-fg: #ff6b35;
 
-  --hairline-color: #2b3543;
-  --border-color: #2b3543;
+  --hairline-color: #1e2836;
+  --border-color: #1e2836;
 
-  --darkened-bg: #1f2733;
-  --selected-bg: #253040;
-  --selected-row: #2a2018;
+  --darkened-bg: #151c25;
+  --selected-bg: #1d2733;
+  --selected-row: #2a1a12;
 
-  --object-tools-bg: #1f2733;
-  --object-tools-hover-bg: #2b3543;
+  --object-tools-bg: #151c25;
+  --object-tools-hover-bg: #1e2836;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --atm-nav-bg: #131a24;
-    --atm-nav-bg-2: #1c2532;
-    --atm-surface-2: #1f2733;
+    --atm-nav-bg: #0f141b;
+    --atm-nav-bg-2: #151c25;
+    --atm-surface-2: #151c25;
 
     --primary: #ff6b35;
-    --secondary: #131a24;
-    --body-fg: #e6edf3;
-    --body-bg: #0f1419;
-    --body-quiet-color: #8b98a8;
-    --header-bg: #131a24;
-    --breadcrumbs-bg: #171d26;
-    --breadcrumbs-fg: #8b98a8;
-    --breadcrumbs-link-fg: #8b98a8;
-    --link-fg: #58a6ff;
-    --hairline-color: #2b3543;
-    --border-color: #2b3543;
-    --darkened-bg: #1f2733;
-    --selected-bg: #253040;
-    --selected-row: #2a2018;
-    --object-tools-bg: #1f2733;
-    --object-tools-hover-bg: #2b3543;
+    --secondary: #0f141b;
+    --body-fg: #e6eef7;
+    --body-bg: #080b10;
+    --body-quiet-color: #8496aa;
+    --header-bg: #0f141b;
+    --breadcrumbs-bg: #0f141b;
+    --breadcrumbs-fg: #8496aa;
+    --breadcrumbs-link-fg: #8496aa;
+    --link-fg: #4da3ff;
+    --hairline-color: #1e2836;
+    --border-color: #1e2836;
+    --darkened-bg: #151c25;
+    --selected-bg: #1d2733;
+    --selected-row: #2a1a12;
+    --object-tools-bg: #151c25;
+    --object-tools-hover-bg: #1e2836;
   }
 }
 
@@ -292,7 +292,7 @@ div.breadcrumbs a:hover, div.breadcrumbs a:focus { color: var(--atm-accent); }
   align-items: start;
 }
 .dashboard #content-main .module { margin-bottom: 0; background: #fff; }
-html[data-theme="dark"] .dashboard #content-main .module { background: #171d26; }
+html[data-theme="dark"] .dashboard #content-main .module { background: #0f141b; }
 .dashboard .module table { width: 100%; }
 .dashboard .module th[scope="row"] { padding: 10px 16px; font-weight: 500; }
 .dashboard .module td { padding: 10px 12px; }
@@ -316,14 +316,14 @@ thead th, thead th.sorted, thead th a:link, thead th a:visited {
 #changelist-form .results { border: 0; }
 .results { overflow-x: auto; }
 #changelist .results table { background: #fff; }
-html[data-theme="dark"] #changelist .results table { background: #171d26; }
+html[data-theme="dark"] #changelist .results table { background: #0f141b; }
 
 /* 列表頁的外框：搜尋、結果、分頁包成一張卡 */
 #changelist {
   background: #fff; border: 1px solid var(--border-color);
   border-radius: var(--atm-radius); box-shadow: var(--atm-shadow-1); overflow: hidden;
 }
-html[data-theme="dark"] #changelist { background: #171d26; }
+html[data-theme="dark"] #changelist { background: #0f141b; }
 #changelist #toolbar {
   background: transparent; border: 0; border-bottom: 1px solid var(--border-color); padding: 12px 16px;
 }
@@ -355,7 +355,7 @@ html[data-theme="dark"] #changelist { background: #171d26; }
   border-radius: var(--atm-radius); box-shadow: var(--atm-shadow-1);
   width: 220px; margin-left: 16px; overflow: hidden;
 }
-html[data-theme="dark"] #changelist-filter { background: #171d26; }
+html[data-theme="dark"] #changelist-filter { background: #0f141b; }
 #changelist-filter h2 {
   background: var(--darkened-bg); color: var(--body-medium-color);
   font-size: 12px; font-weight: 600; padding: 10px 14px; text-transform: none;
@@ -377,7 +377,7 @@ fieldset.module { padding-bottom: 8px; }
 .aligned label { color: var(--body-quiet-color); font-size: 13px; font-weight: 500; padding-top: 8px; }
 input[type="text"], input[type="password"], input[type="email"], input[type="url"],
 input[type="number"], input[type="tel"], input[type="search"], textarea, select, .vTextField {
-  border: 1px solid #cbd5e1; border-radius: var(--atm-radius-sm);
+  border: 1px solid #c2cedd; border-radius: var(--atm-radius-sm);
   padding: 7px 11px; font-size: 14px; font-family: inherit;
   background: #fff; color: var(--body-fg);
 }
@@ -390,7 +390,7 @@ html[data-theme="dark"] input[type="search"],
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] select,
 html[data-theme="dark"] .vTextField {
-  background: #0f1419; border-color: #3a4658; color: var(--body-fg);
+  background: #080b10; border-color: #3a4658; color: var(--body-fg);
 }
 input:focus, textarea:focus, select:focus, .vTextField:focus {
   outline: none; border-color: var(--atm-accent);
@@ -406,7 +406,7 @@ input:focus, textarea:focus, select:focus, .vTextField:focus {
   padding: 12px 16px; margin-top: 16px;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
-html[data-theme="dark"] .submit-row { background: #171d26; }
+html[data-theme="dark"] .submit-row { background: #0f141b; }
 .submit-row a.deletelink { border-radius: var(--atm-radius-sm); }
 
 /* ------------------------------------------------------------ 按鈕 */
@@ -444,7 +444,7 @@ body.login { background: var(--body-bg); }
   border: 1px solid var(--border-color); border-radius: var(--atm-radius);
   box-shadow: var(--atm-shadow-2); background: #fff; width: 380px; overflow: hidden;
 }
-html[data-theme="dark"] .login #container { background: #171d26; }
+html[data-theme="dark"] .login #container { background: #0f141b; }
 .login #header { height: auto; padding: 20px 24px; justify-content: center; text-align: center; }
 .login #site-name a { justify-content: center; flex-direction: column; gap: 2px; }
 .login #content { padding: 24px; }

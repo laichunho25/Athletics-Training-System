@@ -736,7 +736,7 @@
 
 {% block scripts %}
 <script>
-const ACC = '#ff6b35', BLUE = '#58a6ff', GREEN = '#3fb950', YELLOW = '#d29922';
+const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
 
 {% if item %}
 const pts = {{ chart_points|safe }};
@@ -765,7 +765,7 @@ new Chart(document.getElementById('metricChart'), {
 
 {% if item and analysis.count %}
 // ---- 紀錄明細旁的分析圖：逐組的數值 / 重量 / 次數 / 休息 ----
-const RED = '#f85149';
+const RED = '#ff4d5e';
 const setLabels = pts.map(p => p.label);
 const okColors  = pts.map(p => p.completed ? ACC : RED);
 
@@ -911,8 +911,8 @@ new Chart(document.getElementById('c4'), {
     labels: {{ dist_labels|safe }},
     datasets: [{
       data: {{ dist_values|safe }},
-      backgroundColor: [ACC, BLUE, GREEN, YELLOW, '#db6d28', '#8b98a8', '#f85149'],
-      borderColor: '#171d26', borderWidth: 2
+      backgroundColor: [ACC, BLUE, GREEN, YELLOW, '#ff8f3f', '#8496aa', '#ff4d5e'],
+      borderColor: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(), borderWidth: 2
     }]
   },
   options: { plugins: { legend: { position: 'right' } }, cutout: '58%' }

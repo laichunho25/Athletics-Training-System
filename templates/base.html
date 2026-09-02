@@ -1,5 +1,5 @@
 {% load static %}<!DOCTYPE html>
-<html lang="zh-Hant" data-theme="light">
+<html lang="zh-Hant" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,7 +10,7 @@
     (function () {
       try {
         var d = document.documentElement;
-        d.dataset.theme = localStorage.getItem('atm-theme') || 'light';
+        d.dataset.theme = localStorage.getItem('atm-theme') || 'dark';
         d.dataset.density = localStorage.getItem('atm-density') || 'default';
         if (localStorage.getItem('atm-sidebar') === 'collapsed') d.classList.add('sb-collapsed');
       } catch (e) {}
@@ -88,6 +88,9 @@
       </form>
 
       <div class="topacts">
+        <span class="syslive" title="系統連線正常，時間為本機時間">
+          <i class="led"></i>LIVE<span class="clock" id="sysClock">--:--</span>
+        </span>
         <label class="densitypick" title="表格間距">
           <svg class="ic"><use href="#i-rows"></use></svg>
           <select data-act="density" aria-label="表格間距">
@@ -136,11 +139,40 @@
     var cs = getComputedStyle(document.documentElement);
     Chart.defaults.color = cs.getPropertyValue('--text-dim').trim() || '#667085';
     Chart.defaults.borderColor = cs.getPropertyValue('--border').trim() || '#e3e8ef';
-    Chart.defaults.font.family = '-apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif';
-    Chart.defaults.font.size = 12;
-    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.font.family = '"JetBrains Mono", "Cascadia Mono", Consolas, "PingFang TC", "Microsoft JhengHei", monospace';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.boxHeight = 10;
     Chart.defaults.maintainAspectRatio = false;
+    // 儀器盤：線細、點細、hover 時整條垂直線對齊（跟遙測圖一樣讀同一個時間點）
+    Chart.defaults.elements.line.borderWidth = 1.6;
+    Chart.defaults.elements.line.tension = 0.25;
+    Chart.defaults.elements.point.radius = 2;
+    Chart.defaults.elements.point.hoverRadius = 5;
+    Chart.defaults.elements.bar.borderRadius = 2;
+    Chart.defaults.plugins.tooltip.backgroundColor = cs.getPropertyValue('--surface-3').trim() || '#1d2733';
+    Chart.defaults.plugins.tooltip.titleColor = cs.getPropertyValue('--text').trim();
+    Chart.defaults.plugins.tooltip.bodyColor = cs.getPropertyValue('--text').trim();
+    Chart.defaults.plugins.tooltip.borderColor = cs.getPropertyValue('--border-strong').trim();
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.cornerRadius = 3;
+    Chart.defaults.plugins.tooltip.padding = 8;
+    Chart.defaults.plugins.tooltip.displayColors = false;
+    Chart.defaults.interaction.mode = 'index';
+    Chart.defaults.interaction.intersect = false;
   }
+
+  // 頂欄時鐘（本機時間，每 15 秒對一次）
+  (function () {
+    var el = document.getElementById('sysClock');
+    if (!el) return;
+    function tick() {
+      var d = new Date();
+      el.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    }
+    tick();
+    setInterval(tick, 15000);
+  })();
 </script>
 {% block scripts %}{% endblock %}
 </body>

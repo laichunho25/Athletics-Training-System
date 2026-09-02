@@ -178,8 +178,8 @@ new Chart(document.getElementById('macro'), {
   data: {
     labels: {{ macro_labels|safe }},
     datasets: [{ data: {{ macro_values|safe }},
-                 backgroundColor: ['#58a6ff', '#3fb950', '#d29922'],
-                 borderColor: '#171d26', borderWidth: 2 }]
+                 backgroundColor: ['#4da3ff', '#35d07f', '#f2c744'],
+                 borderColor: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(), borderWidth: 2 }]
   },
   options: {
     cutout: '58%',
@@ -195,10 +195,10 @@ new Chart(document.getElementById('sleep'), {
     labels: {{ sleep_labels|safe }},
     datasets: [
       { type: 'line', label: '睡眠 (小時)', data: {{ sleep_values|safe }},
-        borderColor: '#58a6ff', backgroundColor: '#58a6ff33', fill: true,
+        borderColor: '#4da3ff', backgroundColor: '#4da3ff33', fill: true,
         spanGaps: true, tension: .3, yAxisID: 'y' },
       { type: 'bar', label: '痠痛 (1-10)', data: {{ soreness_values|safe }},
-        backgroundColor: '#d2992288', borderColor: '#d29922', borderWidth: 1, yAxisID: 'y1' }
+        backgroundColor: '#f2c74488', borderColor: '#f2c744', borderWidth: 1, yAxisID: 'y1' }
     ]
   },
   options: {

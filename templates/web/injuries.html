@@ -382,10 +382,10 @@ new Chart(document.getElementById('pain{{ item.injury.id }}'), {
   data: {
     labels: {{ item.labels|safe }},
     datasets: [
-      { label: '靜態疼痛', data: {{ item.rest|safe }}, borderColor: '#58a6ff',
-        backgroundColor: '#58a6ff', tension: .3, spanGaps: true },
-      { label: '活動時疼痛', data: {{ item.activity|safe }}, borderColor: '#f85149',
-        backgroundColor: '#f8514933', fill: true, tension: .3, spanGaps: true }
+      { label: '靜態疼痛', data: {{ item.rest|safe }}, borderColor: '#4da3ff',
+        backgroundColor: '#4da3ff', tension: .3, spanGaps: true },
+      { label: '活動時疼痛', data: {{ item.activity|safe }}, borderColor: '#ff4d5e',
+        backgroundColor: '#ff4d5e33', fill: true, tension: .3, spanGaps: true }
     ]
   },
   options: {
