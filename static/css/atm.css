@@ -733,6 +733,31 @@ details > summary::-webkit-details-marker { display: none; }
 .editnum.wide { width: 100%; min-width: 90px; text-align: left; font-family: inherit; }
 .editsel { padding: 2px 4px; font-size: 13px; width: auto; }
 
+/* 狀態註記：這段紀錄各是在什麼狀態下練出來的 */
+.statusbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.statuschip { display: inline-flex; align-items: baseline; gap: 8px;
+              padding: 5px 10px; border-radius: 999px; font-size: 12px;
+              border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+              background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.statuschip strong { font-size: 12.5px; }
+.statuschip span { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.statuschip.none { border-color: var(--border); background: var(--surface-2); }
+
+/* 「先確認這幾件事，再看總結」——判讀的前提，不是結論 */
+.factors { border: 1px solid var(--border); border-radius: 10px;
+           background: var(--surface-2); overflow: hidden; }
+.factors .factorhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px;
+                       padding: 9px 14px; font-weight: 600; font-size: 13px;
+                       border-bottom: 1px solid var(--border); }
+.factors ol { margin: 0; padding: 8px 14px 10px 30px; }
+.factors li { margin: 5px 0; font-size: 12.5px; line-height: 1.6; }
+.factors li::marker { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.factors .flabel { font-weight: 600; margin-right: 6px; }
+.factors li.lv-warn .flabel { color: var(--yellow); }
+.factors li.lv-ok .flabel { color: var(--green); }
+.factors li.lv-info .flabel { color: var(--blue); }
+.factors .ftext { color: var(--text-dim); }
+
 /* 表格數字對齊（比較表、紀錄明細） */
 .cmptable, .dayrow table, .setgrid { font-variant-numeric: tabular-nums; }
 

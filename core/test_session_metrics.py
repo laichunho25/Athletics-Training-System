@@ -9,6 +9,8 @@ from analytics.models import (
     MetricDomain,
     MetricItem,
     MetricRecord,
+    TrackMethod,
+    TrainingStatus,
     ensure_builtin_items,
 )
 from core.models import SessionType
@@ -512,9 +514,9 @@ class TargetAndCompletedValueTests(TestCase):
         self.client.post(reverse("web:analytics"), {
             "action": "edit_record",
             "domain": MetricDomain.TRACK,
-            "record_id": rec.id,
-            "target_value": "19",
-            "value": "18.8",
+            "item_id": rec.item_id,
+            f"target_value_{rec.id}": "19",
+            f"value_{rec.id}": "18.8",
         })
         rec.refresh_from_db()
         self.assertEqual((float(rec.target_value), float(rec.value)), (19.0, 18.8))
@@ -536,19 +538,250 @@ class TargetAndCompletedValueTests(TestCase):
         self.client.post(reverse("web:analytics"), {
             "action": "edit_record",
             "domain": MetricDomain.TRACK,
-            "record_id": rec.id,
-            "target_value": "19",
-            "value": "18.8",
-            "weight": "5",
-            "reps": "3",
-            "rest_sec": "4",
+            "item_id": rec.item_id,
+            f"target_value_{rec.id}": "19",
+            f"value_{rec.id}": "18.8",
+            f"weight_{rec.id}": "5",
+            f"reps_{rec.id}": "3",
+            f"rest_sec_{rec.id}": "4",
             "rest_unit": "min",
-            "completed": "0",
-            "context": "順風 1.2",
+            f"completed_{rec.id}": "0",
+            f"status_{rec.id}": TrainingStatus.INJURY,
+            f"context_{rec.id}": "順風 1.2",
         })
         rec.refresh_from_db()
         self.assertEqual(float(rec.weight_kg), 5.0)
         self.assertEqual(rec.reps, 3)
         self.assertEqual(rec.rest_sec, 240)
         self.assertFalse(rec.completed)
+        self.assertEqual(rec.status, TrainingStatus.INJURY)
         self.assertEqual(rec.context, "順風 1.2")
+
+
+class SessionRecordEditTests(TestCase):
+    """課表頁登完之後改得動——改的就是數據分析那一份。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a10")
+        self.client.force_login(self.athlete.user)
+        self.session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        self.client.post(reverse("web:session_detail", args=[self.session.id]), {
+            "action": "add_metric",
+            "domain": MetricDomain.TRACK,
+            "item_name": "150m 課表",
+            "date": TODAY.isoformat(),
+            "value": ["19.5", "19.9"],
+            "reps": ["1", "1"],
+        })
+        self.records = list(MetricRecord.objects.order_by("id"))
+        self.assertEqual(len(self.records), 2)
+
+    def post(self, data):
+        return self.client.post(
+            reverse("web:session_detail", args=[self.session.id]), data
+        )
+
+    def test_one_row_can_be_saved_on_its_own(self):
+        first, second = self.records
+        self.post({
+            "action": "edit_metric",
+            "rest_unit": "min",
+            "only": first.id,
+            f"value_{first.id}": "19.1",
+            f"value_{second.id}": "18.0",
+        })
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(float(first.value), 19.1)
+        self.assertEqual(float(second.value), 19.9)   # only 沒點到的不動
+
+    def test_all_rows_can_be_confirmed_at_once(self):
+        first, second = self.records
+        self.post({
+            "action": "edit_metric",
+            "rest_unit": "min",
+            f"value_{first.id}": "19.1",
+            f"value_{second.id}": "19.4",
+            f"rest_sec_{first.id}": "3",
+            f"status_{first.id}": TrainingStatus.RETURN,
+            f"intensity_{second.id}": "95%",
+        })
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((float(first.value), float(second.value)), (19.1, 19.4))
+        self.assertEqual(first.rest_sec, 180)
+        self.assertEqual(first.status, TrainingStatus.RETURN)
+        self.assertEqual(second.intensity, "95%")
+
+    def test_the_same_edit_shows_up_in_analytics(self):
+        first = self.records[0]
+        self.post({
+            "action": "edit_metric",
+            "rest_unit": "min",
+            "only": first.id,
+            f"value_{first.id}": "18.7",
+            f"status_{first.id}": TrainingStatus.INJURY,
+        })
+        item = MetricItem.objects.get(name="150m 課表")
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&item={item.id}"
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "18.7")
+        self.assertContains(page, "傷害治療期")
+
+    def test_a_coach_cannot_edit_someone_elses_records(self):
+        other = make_athlete("a11")
+        self.client.force_login(other.user)
+        first = self.records[0]
+        self.post({
+            "action": "edit_metric",
+            "only": first.id,
+            f"value_{first.id}": "1.0",
+        })
+        first.refresh_from_db()
+        self.assertEqual(float(first.value), 19.5)
+
+
+class TrackMethodItemTests(TestCase):
+    """田徑練習：先挑方式、再填距離，加進要追蹤的項目清單。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a12")
+        self.client.force_login(self.athlete.user)
+
+    def add(self, **extra):
+        data = {"action": "add_track_item", "domain": MetricDomain.TRACK}
+        data.update(extra)
+        return self.client.post(reverse("web:analytics"), data)
+
+    def test_method_plus_distance_becomes_an_item(self):
+        self.add(method=TrackMethod.REPEAT, distance_m="150")
+        item = MetricItem.objects.get(name="150m 反覆跑")
+        self.assertEqual(item.domain, MetricDomain.TRACK)
+        self.assertEqual(item.track_method, TrackMethod.REPEAT)
+        self.assertEqual(item.track_distance_m, 150)
+        self.assertEqual(item.unit, "秒")
+        self.assertFalse(item.higher_is_better)
+
+    def test_same_distance_different_method_are_two_items(self):
+        self.add(method=TrackMethod.REPEAT, distance_m="150")
+        self.add(method=TrackMethod.TEMPO, distance_m="150")
+        self.assertEqual(
+            MetricItem.objects.filter(track_distance_m=150).count(), 2
+        )
+
+    def test_distance_is_optional(self):
+        self.add(method=TrackMethod.START)
+        self.assertTrue(MetricItem.objects.filter(name="起跑").exists())
+
+    def test_a_method_is_required(self):
+        self.add(distance_m="150")
+        self.assertFalse(MetricItem.objects.filter(track_distance_m=150).exists())
+
+
+class MultiItemAnalysisTests(TestCase):
+    """相類似的項目可以勾起來一起分析。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a13")
+        self.client.force_login(self.athlete.user)
+        self.a = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="150m 反覆跑", unit="秒",
+            higher_is_better=False, track_method=TrackMethod.REPEAT, track_distance_m=150,
+        )
+        self.b = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="150m 節奏跑", unit="秒",
+            higher_is_better=False, track_method=TrackMethod.TEMPO, track_distance_m=150,
+        )
+        for item, value in ((self.a, "19.5"), (self.b, "21.2")):
+            MetricRecord.objects.create(
+                athlete=self.athlete, item=item, date=TODAY, value=value
+            )
+
+    def test_two_items_are_analysed_side_by_side(self):
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&items={self.a.id},{self.b.id}"
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "多項目一起分析")
+        multi = page.context["multi"]
+        self.assertEqual(len(multi["rows"]), 2)
+        self.assertEqual(
+            {row["item"].id for row in multi["rows"]}, {self.a.id, self.b.id}
+        )
+
+    def test_one_item_alone_is_not_a_comparison(self):
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&items={self.a.id}"
+        )
+        self.assertIsNone(page.context["multi"])
+
+
+class StatusAwareAdviceTests(TestCase):
+    """分析之前先看當天的狀態註記與其他考慮因素。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a14")
+        self.client.force_login(self.athlete.user)
+        self.item = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="150m 反覆跑", unit="秒",
+            higher_is_better=False,
+        )
+
+    def log(self, day, value, status=""):
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item,
+            date=TODAY.replace(day=day), value=value, status=status,
+        )
+
+    def analysis(self):
+        from analytics import services as an
+
+        return an.metric_analysis(self.athlete, self.item)
+
+    def test_injury_days_are_named_before_calling_it_a_decline(self):
+        # 越跑越慢，但那段時間都在傷害治療期
+        for i, value in enumerate(["19.5", "20.2", "21.0", "21.6"]):
+            self.log(1 + i * 5, value, status=TrainingStatus.INJURY)
+        result = self.analysis()
+        self.assertIs(result["improving"], False)
+        self.assertIn("傷害治療期", result["status_note"])
+        self.assertIn("傷害治療期", result["advice"])
+        self.assertNotIn("能力下降", result["advice"])
+
+    def test_missing_status_is_pointed_out(self):
+        for i, value in enumerate(["19.5", "20.2", "21.0"]):
+            self.log(1 + i * 5, value)
+        result = self.analysis()
+        self.assertIn("沒有註記", result["status_note"])
+        keys = {f["key"] for f in result["considerations"]}
+        self.assertIn("status_missing", keys)
+        # ACWR 與睡眠是「考慮因素」之一，不是唯一的解釋
+        self.assertIn("load", keys)
+        self.assertIn("sleep", keys)
+
+    def test_statuses_are_broken_down_per_status(self):
+        self.log(1, "19.5", status=TrainingStatus.PREP)
+        self.log(6, "19.2", status=TrainingStatus.TAPER)
+        self.log(11, "21.0", status=TrainingStatus.INJURY)
+        rows = {row["value"]: row for row in self.analysis()["status_rows"]}
+        self.assertEqual(set(rows), {"PREP", "TAPER", "INJURY"})
+        self.assertEqual(rows["INJURY"]["days"], 1)
+
+    def test_records_can_be_compared_by_status(self):
+        self.log(1, "19.5", status=TrainingStatus.TAPER)
+        self.log(6, "21.0", status=TrainingStatus.INJURY)
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&item={self.item.id}&compare=status"
+        )
+        groups = page.context["comparison"]["groups"]
+        self.assertEqual({g["label"] for g in groups}, {"比賽調整期", "傷害治療期"})

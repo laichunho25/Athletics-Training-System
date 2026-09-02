@@ -135,12 +135,44 @@
       <span class="small c-dim">活動庫共 {{ activity_library|length }} 個動作</span>
     </div>
     <div style="padding:14px 18px">
+      {% if is_track %}
+      <!-- 田徑練習的距離是多變的（今天 120m、明天 150m），
+           所以項目以「方式」為主：挑方式、填距離，合起來就是一個追蹤項目。 -->
+      <form method="post" class="mb">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_track_item">
+        <input type="hidden" name="domain" value="TRACK">
+        <div class="field">
+          <label>① 挑練習方式（距離另外填）</label>
+          <select name="method" required>
+            <option value="">— 挑一個方式 —</option>
+            {% for v, l in track_methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>距離 (m)</label>
+            <input type="number" name="distance_m" min="1" step="1" placeholder="例：150">
+          </div>
+          <div class="field" style="flex:1;align-self:flex-end">
+            <button class="btn sm" type="submit">加入要追蹤的項目</button>
+          </div>
+        </div>
+        <div class="small c-dim">
+          例：挑「反覆跑」＋ 填 150 → 加進來的項目就是「150m 反覆跑」。
+          同一個距離用不同方式（150m 節奏跑 / 150m 反覆跑）是兩個項目，
+          之後可以在下面的「多項目一起分析」勾起來一起比。
+          距離留空就只記方式（例：起跑）。
+        </div>
+      </form>
+      {% endif %}
+
       <form method="post" class="mb">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>① 從訓練活動庫挑（挑好按「加進清單」）</label>
+          <label>{% if is_track %}②{% else %}①{% endif %} 從訓練活動庫挑（挑好按「加進清單」）</label>
           {% if not activity_library %}
             <div class="empty">活動庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
           {% endif %}
@@ -165,7 +197,7 @@
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>② 或直接打名稱（打得中活動庫就會自動帶入英文名與分類）</label>
+          <label>{% if is_track %}③{% else %}②{% endif %} 或直接打名稱（打得中活動庫就會自動帶入英文名與分類）</label>
           <input type="text" name="name" list="libitems" required
                  placeholder="例：槓鈴深蹲 / Back Squat">
           <datalist id="libitems">
@@ -180,7 +212,7 @@
       </form>
 
       <details>
-        <summary class="small c-accent" style="cursor:pointer">③ 活動庫沒有？自己定義一個項目</summary>
+        <summary class="small c-accent" style="cursor:pointer">{% if is_track %}④{% else %}③{% endif %} 活動庫沒有？自己定義一個項目</summary>
         <form method="post" class="mt">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_item">
@@ -215,6 +247,43 @@
           <button class="btn sm" type="submit">新增項目</button>
         </form>
       </details>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------ 多個項目一起分析 -->
+  <div class="card pad0 mb">
+    <div class="card-head">
+      <span>多項目一起分析</span>
+      <span class="small c-dim">勾 2 個以上</span>
+    </div>
+    <div style="padding:14px 18px">
+      <form method="get">
+        <input type="hidden" name="athlete" value="{{ athlete.id }}">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        {% if item %}<input type="hidden" name="item" value="{{ item.id }}">{% endif %}
+        <input type="hidden" name="compare" value="{{ compare }}">
+        <div class="field">
+          <label>挑幾個項目放在一起比</label>
+          <select name="items" multiple size="8" style="height:auto">
+            {% for it in multi_choices %}
+              <option value="{{ it.id }}" {% if it.id in picked_ids %}selected{% endif %}>
+                {{ it.display }}
+              </option>
+            {% empty %}
+              <option disabled>這個範疇還沒有任何紀錄</option>
+            {% endfor %}
+          </select>
+          <span class="small c-dim">按住 Ctrl（Mac 是 ⌘）可以複選。
+            相近的訓練項目——同一個距離不同方式、或同一個方式不同距離——
+            勾起來才看得出哪一種練得起來。</span>
+        </div>
+        <div class="flex">
+          <button class="btn sm" type="submit">一起分析</button>
+          {% if multi %}
+            <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}{% if item %}&item={{ item.id }}{% endif %}&compare={{ compare }}">清除</a>
+          {% endif %}
+        </div>
+      </form>
     </div>
   </div>
   {% endif %}
@@ -273,11 +342,98 @@
     <div class="chart-box"><canvas id="metricChart"></canvas></div>
 
     <div style="padding:0 18px 16px">
+      {% if analysis.status_rows %}
+      <!-- 下結論之前先看這一段：這些紀錄各是在什麼狀態下練出來的 -->
+      <div class="statusbar mb">
+        {% for row in analysis.status_rows %}
+          <span class="statuschip{% if not row.value %} none{% endif %}"
+                title="{{ row.feature }}｜{{ row.reading }}">
+            <strong>{{ row.label }}</strong>
+            <span>{{ row.days }} 天 / {{ row.count }} 組</span>
+            {% if row.best != None %}<span>最佳 {{ row.best }}{{ item.unit }}</span>{% endif %}
+          </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if analysis.considerations %}
+      <div class="factors mb">
+        <div class="factorhead">
+          先確認這幾件事，再看下面的總結
+          <span class="small c-dim">同一個數字在不同狀態、不同條件下代表的意思不一樣</span>
+        </div>
+        <ol>
+          {% for f in analysis.considerations %}
+            <li class="lv-{{ f.level }}">
+              <span class="flabel">{{ f.label }}</span>
+              <span class="ftext">{{ f.text }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% endif %}
+
+      {% if analysis.status_note %}
+        <div class="alert blue mb" style="margin:0 0 10px">
+          <strong>狀態提醒：</strong>{{ analysis.status_note }}
+        </div>
+      {% endif %}
+
       <div class="alert {% if analysis.improving %}green{% elif analysis.improving is False %}yellow{% else %}blue{% endif %}" style="margin:0">
-        <strong>分析：</strong>{{ analysis.advice }}
+        <strong>總結分析：</strong>{{ analysis.advice }}
       </div>
     </div>
 
+
+    {% if multi %}
+    <!-- ------------------------------ 多個項目一起分析 -->
+    <div class="card-head" style="border-top:1px solid var(--border)">
+      <span>多項目一起分析</span>
+      <span class="small c-dim">{{ multi.rows|length }} 個項目</span>
+    </div>
+    <div style="padding:10px 18px 0">
+      <div class="alert blue" style="margin:0">{{ multi.note }}</div>
+    </div>
+    <div class="chart-box"><canvas id="multiChart"></canvas></div>
+    <div class="cmptablewrap">
+      <table class="cmptable">
+        <thead>
+          <tr>
+            <th>項目</th><th class="num">組數</th><th class="num">天數</th>
+            <th class="num">最佳</th><th class="num">平均</th>
+            <th class="num">最近</th><th class="num">期內變化</th>
+            <th class="num">完成率</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in multi.rows %}
+          <tr>
+            <td>
+              <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}&items={{ picked_csv }}">
+                <strong>{{ row.item.display_name }}</strong>
+              </a>
+              <div class="small c-dim">
+                {% if row.empty %}還沒有紀錄
+                {% else %}{{ row.first_date|date:"y/m/d" }} → {{ row.last_date|date:"y/m/d" }}
+                  · {% if row.item.higher_is_better %}越大越好{% else %}越小越好{% endif %}
+                  {% if row.item.unit %}（{{ row.item.unit }}）{% endif %}{% endif %}
+              </div>
+            </td>
+            <td class="num">{{ row.count }}</td>
+            <td class="num">{{ row.days }}</td>
+            <td class="num c-accent"><strong>{{ row.best|default:"—" }}</strong></td>
+            <td class="num">{{ row.average|default:"—" }}</td>
+            <td class="num">{{ row.latest|default:"—" }}</td>
+            <td class="num {% if row.improving %}c-green{% elif row.improving is False %}c-red{% endif %}">
+              {% if row.change_pct != None %}{% if row.change_pct > 0 %}+{% endif %}{{ row.change_pct }}%{% else %}—{% endif %}
+            </td>
+            <td class="num">{% if row.completion_pct != None %}{{ row.completion_pct }}%{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
 
     <!-- ------------------------------ 整體 / 分年份 / 分時期 比較 -->
     <div class="card-head" style="border-top:1px solid var(--border)">
@@ -433,9 +589,20 @@
         <span class="small c-dim">每一組各存成一筆紀錄，右邊的圖會逐組畫出來</span>
       </div>
 
-      <div class="field">
-        <label>情境（這次所有組共用）</label>
-        <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+      <div class="row">
+        <div class="field">
+          <label>狀態（這天的練習在什麼狀態下進行）</label>
+          <select name="status">
+            <option value="">（未註記）</option>
+            {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+          </select>
+          <span class="small c-dim">傷患期或季後休息期跑出來的數字本來就不一樣；
+            註記了，下面的分析才不會把它當成能力退步</span>
+        </div>
+        <div class="field" style="flex:1">
+          <label>情境（這次所有組共用）</label>
+          <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+        </div>
       </div>
       <button class="btn" type="submit">記錄</button>
     </form>
@@ -454,9 +621,25 @@
     </div>
     <div class="detailsplit">
       <div class="detailtable">
+        <!-- 整張表共用一張 form：按某一列的 ✓ 只存那一列（多送一個 only=<id>），
+             按下面的「儲存全部更改」就一次過確認所有欄位的修改。 -->
+        <form method="post" id="recEdit">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="edit_record">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+          <input type="hidden" name="rest_unit" value="min">
+        </form>
+        <form method="post" id="recDel">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_record">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+        </form>
         <div class="small c-dim" style="padding:10px 16px 0">
           一天一列，先看當日的{% if unit_is_weight %}最重與最輕{% else %}最高與最低{% endif %}，
-          點日期展開看那天每一組；每一格都可以直接改，改完按該列的 ✓ 存回去。
+          點日期展開看那天每一組；每一格都可以直接改，改完按該列的 ✓ 存單筆，
+          或按最下面的 <strong>儲存全部更改</strong> 一次過確認所有更改。
         </div>
         <div class="daylist">
         {% for d in analysis.days %}
@@ -475,6 +658,7 @@
                 {% endif %}
               </span>
               <span class="daymeta">
+                {% if d.status_label %}<span class="badge b-blue" title="這天的練習狀態">{{ d.status_label }}</span>{% endif %}
                 {% if d.failed %}<span class="badge b-red">{{ d.failed }} 組未完成</span>{% endif %}
                 {% if d.tonnage %}噸位 {{ d.tonnage }} kg{% endif %}
                 {% if d.session %}· <span class="ellip inline" title="{{ d.session.title }}">{{ d.session.title }}</span>{% endif %}
@@ -491,6 +675,7 @@
                   {% elif not unit_is_weight %}<th class="num">重量</th>{% endif %}
                   <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
                   <th title="這一組有沒有照課表完成">完成</th>
+                  <th title="這天的練習在什麼狀態下進行">狀態</th>
                   <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
                 </tr>
               </thead>
@@ -499,43 +684,52 @@
                 <tr{% if not r.completed %} class="failedrow"{% endif %}>
                   <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
                   <td class="num">
-                    <input class="editnum" type="number" step="0.01" name="target_value"
-                           form="editrec{{ r.id }}" value="{{ r.target_value|default_if_none:'' }}"
+                    <input class="editnum" type="number" step="0.01" name="target_value_{{ r.id }}"
+                           form="recEdit" value="{{ r.target_value|default_if_none:'' }}"
                            placeholder="—" title="目標數值（{{ item.unit|default:'秒' }}）">
                   </td>
                   <td class="num">
-                    <input class="editnum" type="number" step="0.01" name="value"
-                           form="editrec{{ r.id }}" value="{{ r.value|default_if_none:'' }}"
+                    <input class="editnum" type="number" step="0.01" name="value_{{ r.id }}"
+                           form="recEdit" value="{{ r.value|default_if_none:'' }}"
                            placeholder="—" title="完成數值（{{ item.unit|default:'秒' }}）">
                   </td>
                   {% if is_track %}
                     <td class="num">
-                      <input class="editnum" type="text" maxlength="20" name="intensity"
-                             form="editrec{{ r.id }}" value="{{ r.intensity }}"
+                      <input class="editnum" type="text" maxlength="20" name="intensity_{{ r.id }}"
+                             form="recEdit" value="{{ r.intensity }}"
                              placeholder="—" title="強度要求（例：90%）">
                     </td>
                   {% elif not unit_is_weight %}
                     <td class="num">
-                      <input class="editnum" type="number" step="0.5" min="0" name="weight"
-                             form="editrec{{ r.id }}" value="{{ r.weight_kg|default_if_none:'' }}"
+                      <input class="editnum" type="number" step="0.5" min="0" name="weight_{{ r.id }}"
+                             form="recEdit" value="{{ r.weight_kg|default_if_none:'' }}"
                              placeholder="—" title="重量 (kg)">
                     </td>
                   {% endif %}
                   <td class="num">
-                    <input class="editnum sm" type="number" step="1" min="0" name="reps"
-                           form="editrec{{ r.id }}" value="{{ r.reps|default_if_none:'' }}"
+                    <input class="editnum sm" type="number" step="1" min="0" name="reps_{{ r.id }}"
+                           form="recEdit" value="{{ r.reps|default_if_none:'' }}"
                            placeholder="—" title="次數">
                   </td>
                   <td class="num">
-                    <input class="editnum sm" type="number" step="0.5" min="0" name="rest_sec"
-                           form="editrec{{ r.id }}" value="{{ r.rest_min|default_if_none:'' }}"
+                    <input class="editnum sm" type="number" step="0.5" min="0" name="rest_sec_{{ r.id }}"
+                           form="recEdit" value="{{ r.rest_min|default_if_none:'' }}"
                            placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
                   </td>
                   <td>
-                    <select name="completed" form="editrec{{ r.id }}" class="editsel"
+                    <select name="completed_{{ r.id }}" form="recEdit" class="editsel"
                             title="這一組有沒有照課表完成">
                       <option value="1" {% if r.completed %}selected{% endif %}>✅</option>
                       <option value="0" {% if not r.completed %}selected{% endif %}>❌</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select name="status_{{ r.id }}" form="recEdit" class="editsel"
+                            title="這天的練習在什麼狀態下進行">
+                      <option value="">未註記</option>
+                      {% for v, l in metric_statuses %}
+                        <option value="{{ v }}" {% if r.status == v %}selected{% endif %}>{{ l }}</option>
+                      {% endfor %}
                     </select>
                   </td>
                   <td>
@@ -545,27 +739,16 @@
                     {% else %}<span class="c-dim">—</span>{% endif %}
                   </td>
                   <td>
-                    <input class="editnum wide" type="text" name="context" maxlength="120"
-                           form="editrec{{ r.id }}" value="{{ r.context }}"
+                    <input class="editnum wide" type="text" name="context_{{ r.id }}" maxlength="120"
+                           form="recEdit" value="{{ r.context }}"
                            placeholder="情境" title="情境（例：順風 1.2、賽前熱身）">
                   </td>
                   <td style="white-space:nowrap">
-                    <!-- 上面兩格的數值就是送這張表——改完按 ✓ 存回去 -->
-                    <form method="post" style="display:inline" id="editrec{{ r.id }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="edit_record">
-                      <input type="hidden" name="domain" value="{{ domain }}">
-                      <input type="hidden" name="record_id" value="{{ r.id }}">
-                      <input type="hidden" name="rest_unit" value="min">
-                      <button class="linkbtn" type="submit" title="存回這兩個數值">✓</button>
-                    </form>
-                    <form method="post" style="display:inline">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="delete_record">
-                      <input type="hidden" name="domain" value="{{ domain }}">
-                      <input type="hidden" name="record_id" value="{{ r.id }}">
-                      <button class="linkbtn" type="submit" title="刪除">×</button>
-                    </form>
+                    <!-- ✓ 只送這一列（only=<id>）；要一次過確認全部就按最下面那顆 -->
+                    <button class="linkbtn" type="submit" form="recEdit"
+                            name="only" value="{{ r.id }}" title="只存這一列">✓</button>
+                    <button class="linkbtn" type="submit" form="recDel"
+                            name="record_id" value="{{ r.id }}" title="刪除">×</button>
                   </td>
                 </tr>
               {% endfor %}
@@ -576,6 +759,13 @@
           <div class="empty">尚無紀錄</div>
         {% endfor %}
         </div>
+        {% if analysis.days %}
+        <div class="flex" style="padding:12px 16px;border-top:1px solid var(--border)">
+          <button class="btn sm" type="submit" form="recEdit">儲存全部更改</button>
+          <span class="small c-dim">把上面所有列的修改一次過存回去，不用逐列按 ✓；
+            沒動過的欄位維持原樣。</span>
+        </div>
+        {% endif %}
       </div>
 
       <div class="detailchart">
@@ -1056,6 +1246,33 @@ new Chart(document.getElementById('metricChart'), {
   daysSel.addEventListener('change', render);
   zoomSel.addEventListener('change', render);
   render();
+})();
+{% endif %}
+
+{% if multi %}
+// ---- 多項目一起分析：一條線一個項目，一天取當天最好的那一組 ----
+(function () {
+  const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b07cff', '#3fd0d6', '#ff8f3f', '#8496aa'];
+  const series = {{ multi_series|safe }};
+  const dates = [...new Set(series.flatMap(s => s.points.map(p => p.date)))].sort();
+  const sets = series.map((s, i) => {
+    const byDate = Object.fromEntries(s.points.map(p => [p.date, p.value]));
+    const color = SERIES[i % SERIES.length];
+    return {
+      type: 'line',
+      label: s.item + (s.unit ? ' (' + s.unit + ')' : ''),
+      data: dates.map(d => (d in byDate ? byDate[d] : null)),
+      borderColor: color, backgroundColor: color + '33',
+      pointRadius: 3, tension: .2, spanGaps: true
+    };
+  });
+  new Chart(document.getElementById('multiChart'), {
+    data: { labels: dates, datasets: sets },
+    options: {
+      scales: { y: { title: { display: true, text: '各項目的當日最佳' } } },
+      plugins: { tooltip: { mode: 'index', intersect: false } }
+    }
+  });
 })();
 {% endif %}
 

@@ -197,6 +197,22 @@
   </div>
 
   {% if metric_groups %}
+    <!-- 登進去之後在同一張表上直接改：每一格都是輸入框，
+         按某一列的 ✓ 只存那一列，按下面的「儲存全部更改」一次過確認全部。
+         改的是數據分析那張 MetricRecord，所以那邊的紀錄明細同步更新。 -->
+    <form method="post" id="metricEdit">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_metric">
+      <input type="hidden" name="rest_unit" value="min">
+    </form>
+    <form method="post" id="metricDel">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_metric">
+    </form>
+    <div class="small c-dim" style="padding:10px 18px 0">
+      每一格都可以直接改；改好按該列的 ✓ 存單筆，或按最下面的
+      <strong>儲存全部更改</strong> 一次過確認所有更改。
+    </div>
     <div class="daylist">
     {% for g in metric_groups %}
       <details class="dayrow" open>
@@ -224,28 +240,76 @@
             <tr><th class="num">組</th>
                 <th class="num">目標數值（{{ g.item.unit|default:"秒" }}）</th>
                 <th class="num">完成數值（{{ g.item.unit|default:"秒" }}）</th>
-                <th class="num">重量</th>
-                <th class="num">次數</th><th class="num">休息</th><th>完成</th>
+                {% if g.item.domain == "TRACK" %}<th class="num">強度要求</th>
+                {% else %}<th class="num">重量</th>{% endif %}
+                <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
+                <th>完成</th>
+                <th title="這天的練習在什麼狀態下進行">狀態</th>
                 <th>情境</th><th></th></tr>
           </thead>
           <tbody>
           {% for r in g.records %}
             <tr{% if not r.completed %} class="failedrow"{% endif %}>
               <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
-              <td class="num">{% if r.target_value != None %}{{ r.target_value }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td class="num">{% if r.value != None %}<strong>{{ r.value }}</strong>{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td class="num">{% if r.weight_kg != None %}{{ r.weight_kg }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td class="num">{% if r.reps != None %}{{ r.reps }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td class="num">{% if r.rest_sec != None %}{{ r.rest_display }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
-              <td>{% if r.completed %}<span class="badge b-green">完成</span>{% else %}<span class="badge b-red">未完成</span>{% endif %}</td>
-              <td class="small c-dim">{{ r.context|default:"—" }}</td>
+              <td class="num">
+                <input class="editnum" type="number" step="0.01" form="metricEdit"
+                       name="target_value_{{ r.id }}" value="{{ r.target_value|default_if_none:'' }}"
+                       placeholder="—" title="目標數值（{{ g.item.unit|default:'秒' }}）">
+              </td>
+              <td class="num">
+                <input class="editnum" type="number" step="0.01" form="metricEdit"
+                       name="value_{{ r.id }}" value="{{ r.value|default_if_none:'' }}"
+                       placeholder="—" title="完成數值（{{ g.item.unit|default:'秒' }}）">
+              </td>
+              {% if g.item.domain == "TRACK" %}
+                <td class="num">
+                  <input class="editnum" type="text" maxlength="20" form="metricEdit"
+                         name="intensity_{{ r.id }}" value="{{ r.intensity }}"
+                         placeholder="—" title="強度要求（例：90%、全力）">
+                </td>
+              {% else %}
+                <td class="num">
+                  <input class="editnum" type="number" step="0.5" min="0" form="metricEdit"
+                         name="weight_{{ r.id }}" value="{{ r.weight_kg|default_if_none:'' }}"
+                         placeholder="—" title="重量 (kg)">
+                </td>
+              {% endif %}
+              <td class="num">
+                <input class="editnum sm" type="number" step="1" min="0" form="metricEdit"
+                       name="reps_{{ r.id }}" value="{{ r.reps|default_if_none:'' }}"
+                       placeholder="—" title="次數">
+              </td>
+              <td class="num">
+                <input class="editnum sm" type="number" step="0.5" min="0" form="metricEdit"
+                       name="rest_sec_{{ r.id }}" value="{{ r.rest_min|default_if_none:'' }}"
+                       placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
+              </td>
               <td>
-                <form method="post" style="display:inline">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="delete_metric">
-                  <input type="hidden" name="record_id" value="{{ r.id }}">
-                  <button class="linkbtn" type="submit" title="刪除">×</button>
-                </form>
+                <select class="editsel" form="metricEdit" name="completed_{{ r.id }}"
+                        title="這一組有沒有照課表完成">
+                  <option value="1" {% if r.completed %}selected{% endif %}>✅</option>
+                  <option value="0" {% if not r.completed %}selected{% endif %}>❌</option>
+                </select>
+              </td>
+              <td>
+                <select class="editsel" form="metricEdit" name="status_{{ r.id }}"
+                        title="這天的練習在什麼狀態下進行">
+                  <option value="">未註記</option>
+                  {% for v, l in metric_statuses %}
+                    <option value="{{ v }}" {% if r.status == v %}selected{% endif %}>{{ l }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <input class="editnum wide" type="text" maxlength="120" form="metricEdit"
+                       name="context_{{ r.id }}" value="{{ r.context }}"
+                       placeholder="情境" title="情境（例：順風 1.2、賽前熱身）">
+              </td>
+              <td style="white-space:nowrap">
+                <button class="linkbtn" type="submit" form="metricEdit"
+                        name="only" value="{{ r.id }}" title="只存這一列">✓</button>
+                <button class="linkbtn" type="submit" form="metricDel"
+                        name="record_id" value="{{ r.id }}" title="刪除">×</button>
               </td>
             </tr>
           {% endfor %}
@@ -253,6 +317,11 @@
         </table>
       </details>
     {% endfor %}
+    </div>
+    <div class="flex" style="padding:12px 18px;border-top:1px solid var(--border)">
+      <button class="btn sm" type="submit" form="metricEdit">儲存全部更改</button>
+      <span class="small c-dim">一次過確認上面所有欄位的修改；
+        數據分析頁的「紀錄明細」看到的是同一份資料。</span>
     </div>
   {% endif %}
 
@@ -301,9 +370,11 @@
       <thead>
         <tr>
           <th style="width:52px">組</th>
-          <th>目標數值（秒）</th><th>完成數值（秒）</th><th>重量 (kg)</th>
+          <th>目標數值（秒）</th><th>完成數值（秒）</th>
+          <th>重量 (kg)</th>
+          <th title="田徑練習用：這一組要求跑到幾成">強度要求</th>
           <th>次數</th>
-          <th>休息</th>
+          <th>休息（分）</th>
           <th style="width:118px">成功完成</th>
           <th style="width:34px"></th>
         </tr>
@@ -314,8 +385,9 @@
           <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
           <td><input type="number" step="0.01" name="value" placeholder="—"></td>
           <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
+          <td><input type="text" maxlength="20" name="intensity" placeholder="例：90%"></td>
           <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
-          <td><input type="number" step="5" min="0" name="rest_sec" placeholder="—"></td>
+          <td><input type="number" step="0.5" min="0" name="rest_sec" placeholder="—"></td>
           <td>
             <select name="completed">
               <option value="1">✅ 完成</option>
@@ -331,16 +403,27 @@
       <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組</button>
       <label class="unitpick">休息時間單位
         <select name="rest_unit">
+          <option value="min" selected>分鐘</option>
           <option value="sec">秒</option>
-          <option value="min">分鐘</option>
         </select>
       </label>
       <span class="small c-dim">每一組各存成一筆；數值可以先留空，之後在數據分析補；
         只有「數據項目」或「項目名稱」沒填才登不進去</span>
     </div>
-    <div class="field">
-      <label>情境（這次所有組共用）</label>
-      <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+    <div class="row">
+      <div class="field">
+        <label>狀態（這天的練習在什麼狀態下進行）</label>
+        <select name="status">
+          <option value="">（未註記）</option>
+          {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+        <span class="small c-dim">傷患期、季後休息期練出來的數字本來就不一樣；
+          註記了，數據分析才不會把它當成能力退步</span>
+      </div>
+      <div class="field" style="flex:1">
+        <label>情境（這次所有組共用）</label>
+        <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+      </div>
     </div>
     <div class="flex">
       <button class="btn" type="submit">登記數據</button>

@@ -111,6 +111,105 @@ def domain_pairs_for_session_type(session_type):
     return [(d.value, labels[d.value]) for d in domains_for_session_type(session_type)]
 
 
+class TrainingStatus(models.TextChoices):
+    """這一天的練習是在什麼狀態下進行的。
+
+    同一個動作在傷害治療期跑出來的秒數，本來就不該跟訓練準備期放在一起比。
+    分析時先看這一欄，才不會把「那陣子在復健」誤判成「能力退步」。
+    """
+
+    OFFSEASON = "OFFSEASON", "季後休息期"
+    PREP = "PREP", "訓練準備期"
+    TAPER = "TAPER", "比賽調整期"
+    INJURY = "INJURY", "傷害治療期"
+    RETURN = "RETURN", "恢復回歸期"
+
+
+#: 每個狀態在看數據時要記得的事——畫面上直接寫在旁邊，
+#: 免得看的人要自己回想「季後休息期本來就跑不快」。
+STATUS_GUIDE = {
+    TrainingStatus.OFFSEASON.value: {
+        "feature": "刻意減量休息，體能與專項水準本來就會回落",
+        "reading": "這段期間的數字不代表能力，別跟賽季的成績直接比。",
+    },
+    TrainingStatus.PREP.value: {
+        "feature": "量大、強度中等，帶著疲勞在練",
+        "reading": "數字比高峰期差是正常的；看的是量能不能吃得下、完成率高不高。",
+    },
+    TrainingStatus.TAPER.value: {
+        "feature": "量降、強度高，狀態往高峰推",
+        "reading": "這裡的數字最接近真實水準，適合拿來當基準。",
+    },
+    TrainingStatus.INJURY.value: {
+        "feature": "帶傷或在治療，動作被迫調整",
+        "reading": "退步幾乎一定跟傷有關，不要當成能力下降；先看傷患頁的疼痛紀錄。",
+    },
+    TrainingStatus.RETURN.value: {
+        "feature": "剛回歸，刻意壓著強度往上疊",
+        "reading": "數字偏低是計劃的一部分；看的是有沒有一週比一週好、有沒有再痛。",
+    },
+}
+
+
+def status_guide(value):
+    return STATUS_GUIDE.get(value, {"feature": "沒有註記當天的狀態", "reading": "補上狀態註記，分析才分得清是狀態還是能力。"})
+
+
+class TrackMethod(models.TextChoices):
+    """田徑練習的「方式」。
+
+    距離是多變的（今天 120m、明天 150m），所以項目以方式為主：
+    先挑方式，再輸入距離，合起來就是一個可以追蹤的項目（例：150m 反覆跑）。
+    """
+
+    TEMPO = "TEMPO", "節奏跑"
+    REPEAT = "REPEAT", "反覆跑"
+    INTERVAL = "INTERVAL", "間歇跑"
+    START = "START", "起跑"
+    ACCEL = "ACCEL", "加速跑"
+    BUILDUP = "BUILDUP", "漸速跑"
+    FLYING = "FLYING", "飛行跑"
+    MAXSPEED = "MAXSPEED", "全速計時"
+    SPLIT = "SPLIT", "分段跑"
+    HILL = "HILL", "上坡跑"
+    RESIST = "RESIST", "阻力跑"
+    HURDLE = "HURDLE", "跨欄節奏"
+    RELAY = "RELAY", "接力交棒"
+    TECH = "TECH", "技術跑"
+    ENDURANCE = "ENDURANCE", "專項耐力跑"
+
+
+#: 方式 → 英文名（項目名稱一律「中文（English）」，這裡給英文的那一半）
+TRACK_METHOD_EN = {
+    "TEMPO": "Tempo Run",
+    "REPEAT": "Repetition Run",
+    "INTERVAL": "Interval Run",
+    "START": "Block Start",
+    "ACCEL": "Acceleration Run",
+    "BUILDUP": "Build-up Run",
+    "FLYING": "Flying Sprint",
+    "MAXSPEED": "Max Speed Time Trial",
+    "SPLIT": "Split Run",
+    "HILL": "Hill Sprint",
+    "RESIST": "Resisted Sprint",
+    "HURDLE": "Hurdle Rhythm",
+    "RELAY": "Relay Handover",
+    "TECH": "Technical Run",
+    "ENDURANCE": "Special Endurance Run",
+}
+
+
+def track_item_name(method, distance_m):
+    """方式 ＋ 距離 → 項目名稱（例：150m 反覆跑；沒填距離就只有方式）。"""
+    label = dict(TrackMethod.choices).get(method, "")
+    if not label:
+        return "", ""
+    en = TRACK_METHOD_EN.get(method, "")
+    if distance_m:
+        return f"{distance_m}m {label}", (f"{distance_m}m {en}" if en else "")
+    return label, en
+
+
 class MetricCategory(models.TextChoices):
     """重量訓練紀錄的動作分類——項目清單照這個分組顯示，找動作比一長串快。"""
 
@@ -201,6 +300,15 @@ class MetricItem(models.Model):
     higher_is_better = models.BooleanField(
         "數值越大越好", default=True, help_text="計時類項目請取消勾選（越小越好）"
     )
+    # 田徑練習的項目以「方式」為主，距離另外填——同一個距離用不同方式跑
+    # （150m 節奏跑 vs 150m 反覆跑）本來就是兩件事，分開記才比得出來。
+    track_method = models.CharField(
+        "練習方式", max_length=12, choices=TrackMethod.choices, blank=True,
+        help_text="田徑練習專用：節奏跑／反覆跑／起跑／加速跑…",
+    )
+    track_distance_m = models.PositiveIntegerField(
+        "距離 (m)", null=True, blank=True, help_text="田徑練習專用：這個項目跑幾米"
+    )
     is_builtin = models.BooleanField("內建項目", default=False)
     is_active = models.BooleanField("顯示中", default=True)
     created_by = models.ForeignKey(
@@ -289,6 +397,11 @@ class MetricRecord(TimeStampedModel):
     completed = models.BooleanField(
         "成功完成", default=True, help_text="這一組有沒有照課表完成（沒完成請取消勾選）"
     )
+    # 當天是在什麼狀態下練的——分析退步與否之前，先看這一欄
+    status = models.CharField(
+        "狀態", max_length=12, choices=TrainingStatus.choices, blank=True,
+        help_text="這天的練習在什麼狀態下進行（季後休息／訓練準備／比賽調整／傷害治療／恢復回歸）",
+    )
     context = models.CharField(
         "情境", max_length=120, blank=True, help_text="例：順風 1.2、賽前熱身、第 3 組"
     )
@@ -303,6 +416,10 @@ class MetricRecord(TimeStampedModel):
     def __str__(self):
         shown = f"{self.value}{self.item.unit}" if self.value is not None else "未填"
         return f"{self.athlete} {self.item.name} {shown} ({self.date})"
+
+    @property
+    def status_label(self):
+        return self.get_status_display() if self.status else ""
 
     @property
     def set_label(self):
@@ -416,6 +533,45 @@ def item_for_name(domain, name, unit=None, user=None, category=None, name_en="")
             changes.append("name_en")
         if changes:
             item.save(update_fields=changes)
+    return item
+
+
+def track_item_for(method, distance_m, user=None):
+    """田徑練習：挑一個方式、填一個距離，就得到（必要時建立）一個可追蹤的項目。
+
+    距離是多變的，所以清單上不預先列滿所有距離——
+    要追蹤 150m 反覆跑就當場開一個，之後同樣的方式加距離都會對到同一個項目。
+    """
+    name, name_en = track_item_name(method, distance_m)
+    if not name:
+        return None
+    item, created = MetricItem.objects.get_or_create(
+        domain=MetricDomain.TRACK.value,
+        name=name,
+        defaults={
+            "name_en": name_en,
+            "unit": "秒",
+            "higher_is_better": False,     # 田徑練習記的是時間，越小越好
+            "category": MetricCategory.OTHER.value,
+            "track_method": method,
+            "track_distance_m": distance_m or None,
+            "created_by": user,
+        },
+    )
+    # 之前用打名稱的方式建過同名項目，這裡把方式／距離補上去，
+    # 之後「同方式不同距離」「同距離不同方式」才分得出來一起比。
+    changes = []
+    if not item.track_method:
+        item.track_method = method
+        changes.append("track_method")
+    if item.track_distance_m is None and distance_m:
+        item.track_distance_m = distance_m
+        changes.append("track_distance_m")
+    if not item.name_en and name_en:
+        item.name_en = name_en
+        changes.append("name_en")
+    if changes:
+        item.save(update_fields=changes)
     return item
 
 

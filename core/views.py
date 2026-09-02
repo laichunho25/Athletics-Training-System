@@ -27,6 +27,8 @@ from analytics.models import (
     MetricDomain,
     MetricItem,
     MetricRecord,
+    TrackMethod,
+    TrainingStatus,
     domain_pairs_for_session_type,
     domains_for_session_type,
     ensure_builtin_items,
@@ -34,8 +36,14 @@ from analytics.models import (
     item_for_name,
     metric_category_for_activity,
     session_types_for_domain,
+    track_item_for,
 )
-from analytics.recording import RecordError, create_records
+from analytics.recording import (
+    RecordError,
+    create_records,
+    edit_message,
+    update_records,
+)
 from core import liveedit
 from core.glossary import all_terms, as_groups
 from core.models import (
@@ -1242,6 +1250,8 @@ def session_detail(request, pk):
             _delete_row(request, SessionNote, request.POST.get("id"), "記事")
         elif action == "add_metric":
             _add_metric(request, session)
+        elif action == "edit_metric":
+            _edit_metrics(request, session)
         elif action == "delete_metric":
             _delete_metric(request, session)
         return redirect("web:session_detail", pk=pk)
@@ -1387,29 +1397,9 @@ def _session_metric_context(session):
         ),
         "metric_groups": groups,
         "metric_record_count": len(records),
+        # 登記完之後在同一張表上直接改（改的就是數據分析那一份）
+        "metric_statuses": TrainingStatus.choices,
     }
-
-
-def _metric_value(raw):
-    """表單上的一格數值：空的就是「沒填」，填了就要是數字。"""
-    raw = (raw or "").strip()
-    if not raw:
-        return None
-    try:
-        return Decimal(raw)
-    except InvalidOperation:
-        raise ValueError(raw)
-
-
-def _metric_int(raw):
-    """表單上的一格整數（次數、休息）：空的就是「沒填」。"""
-    raw = (raw or "").strip()
-    if not raw:
-        return None
-    try:
-        return max(0, int(float(raw)))
-    except ValueError:
-        raise ValueError(raw)
 
 
 def _add_metric(request, session):
@@ -1452,6 +1442,38 @@ def _add_metric(request, session):
     messages.success(request, f"{msg}同一筆在「數據分析 → {item.get_domain_display()}」也看得到。")
 
 
+def _can_log_metrics(request, session):
+    """能不能動這堂課的數據——跟登記 RPE 同一個門檻（本人或管理員）。"""
+    return liveedit.can_edit(session, request.user, "session_rpe") or liveedit.is_admin(
+        request.user
+    )
+
+
+def _edit_metrics(request, session):
+    """在課表頁改已經登進去的數據。
+
+    一張表可以一次改很多筆（按「儲存全部更改」），
+    也可以只按某一列的 ✓ 單獨存那一筆。改的就是數據分析那張 MetricRecord，
+    所以數據分析頁的「紀錄明細」同時更新，不用兩邊各改一次。
+    """
+    if not _can_log_metrics(request, session):
+        messages.error(request, "只有這名運動員本人（或管理員）能改這堂課的數據。")
+        return
+
+    records = list(session.metric_records.select_related("item"))
+    only = request.POST.get("only") or None
+    if only and not any(str(r.pk) == str(only) for r in records):
+        messages.error(request, "這筆紀錄已經不在這堂課裡了。")
+        return
+
+    changed, problems = update_records(request.POST, records, only=only)
+    text = edit_message(changed, problems)
+    if changed:
+        messages.success(request, text + "數據分析的「紀錄明細」同時更新了。")
+    else:
+        messages.info(request, text)
+
+
 def _delete_metric(request, session):
     record = MetricRecord.objects.filter(
         pk=request.POST.get("record_id"), session=session
@@ -1459,9 +1481,7 @@ def _delete_metric(request, session):
     if record is None:
         messages.error(request, "這筆紀錄已經不在了。")
         return
-    if not liveedit.can_edit(session, request.user, "session_rpe") and not liveedit.is_admin(
-        request.user
-    ):
+    if not _can_log_metrics(request, session):
         messages.error(request, "只有這名運動員本人（或管理員）能刪這筆數據。")
         return
     record.delete()
@@ -1793,6 +1813,30 @@ def analytics_view(request):
                 back += f"&item={item.id}"
             return redirect(back)
 
+        if action == "add_track_item":
+            # 田徑練習：距離是多變的，所以先挑方式、再填距離，
+            # 合起來就是一個可以追蹤的項目（例：150m 反覆跑）。
+            method = request.POST.get("method", "")
+            if method not in TrackMethod.values:
+                messages.error(request, "請先挑一個練習方式（節奏跑／反覆跑／起跑…）。")
+                return redirect(f"{request.path}?athlete={athlete.id}&domain=TRACK")
+            raw = (request.POST.get("distance_m") or "").strip()
+            distance = None
+            if raw:
+                try:
+                    distance = max(1, int(float(raw)))
+                except ValueError:
+                    messages.error(request, "距離要填數字（公尺），或留空只記方式。")
+                    return redirect(f"{request.path}?athlete={athlete.id}&domain=TRACK")
+            item = track_item_for(method, distance, user=request.user)
+            messages.success(
+                request,
+                f"已把「{item.display_name}」加進要追蹤的項目清單，可以開始登數據了。",
+            )
+            return redirect(
+                f"{request.path}?athlete={athlete.id}&domain=TRACK&item={item.id}"
+            )
+
         if action == "delete_item":
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
             mine = MetricRecord.objects.filter(athlete=athlete, item=item)
@@ -1853,32 +1897,23 @@ def analytics_view(request):
             return redirect(f"{back}&item={item.id}")
 
         if action == "edit_record":
-            # 課表頁登完之後，回到這裡整筆紀錄的內容都還改得動（不只數值）。
-            record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
-            if record.athlete_id != athlete.id:
+            # 紀錄明細改完可以一次過確認全部（「儲存全部更改」），
+            # 也可以只按某一列的 ✓ 單獨存那一筆（表單多送一個 only=<id>）。
+            item_id = request.POST.get("item_id")
+            editable = list(
+                MetricRecord.objects.filter(athlete=athlete, item_id=item_id)
+                .select_related("item")
+            )
+            only = request.POST.get("only") or None
+            if only and not any(str(r.pk) == str(only) for r in editable):
                 raise Http404("無權限修改這筆紀錄。")
-            post = request.POST
-            try:
-                record.target_value = _metric_value(post.get("target_value"))
-                record.value = _metric_value(post.get("value"))
-                # 田徑練習的表單沒有重量欄（換成強度要求），沒送就別把原值洗掉
-                if "weight" in post:
-                    record.weight_kg = _metric_value(post.get("weight"))
-                record.reps = _metric_int(post.get("reps"))
-                # 休息時間預設以分鐘填（可填 1.5），只有明說 sec 才當秒
-                rest = _metric_value(post.get("rest_sec"))
-                factor = 1 if post.get("rest_unit") == "sec" else 60
-                record.rest_sec = None if rest is None else round(float(rest) * factor)
-            except ValueError:
-                messages.error(request, "數值要填數字，或留空。")
+            changed, problems = update_records(request.POST, editable, only=only)
+            text = edit_message(changed, problems)
+            if changed:
+                messages.success(request, text)
             else:
-                if "intensity" in post:
-                    record.intensity = post.get("intensity", "").strip()[:20]
-                record.completed = post.get("completed", "1") != "0"
-                record.context = post.get("context", "")[:120]
-                record.save()
-                messages.success(request, "已更新這筆紀錄。")
-            return redirect(f"{back}&item={record.item_id}")
+                messages.info(request, text)
+            return redirect(f"{back}&item={item_id}")
 
         if action == "delete_record":
             record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
@@ -1942,6 +1977,28 @@ def analytics_view(request):
         compare = "all"
     comparison = an.metric_comparison(athlete, item, compare) if item else None
     tops = [] if is_competition else an.top_movements(athlete, domain)
+
+    # ---- 多個項目一起分析 ----
+    # 同一個距離不同方式（150m 節奏跑 / 150m 反覆跑）、或相近的重訓動作，
+    # 各自看趨勢看不出所以然，勾幾個放在一起才知道哪一種練得起來。
+    picked_ids = []
+    for raw in request.GET.getlist("items"):
+        for part in raw.split(","):
+            part = part.strip()
+            if part.isdigit() and int(part) not in picked_ids:
+                picked_ids.append(int(part))
+    picked_items = []
+    if picked_ids:
+        found = {
+            obj.id: obj
+            for obj in MetricItem.objects.filter(id__in=picked_ids, domain=domain)
+        }
+        picked_items = [found[i] for i in picked_ids if i in found]
+    multi = an.multi_item_analysis(athlete, picked_items) if len(picked_items) > 1 else None
+
+    # 可以勾來一起分析的項目：這個範疇底下有紀錄的都列出來
+    multi_choices = [row["item"] for row in overview if row["count"]]
+
     activity_library = list(
         ActivityDefinition.objects.filter(is_active=True).order_by(
             "category", "-use_count", "name"
@@ -1979,6 +2036,10 @@ def analytics_view(request):
             "meets": meets,
             "competitions": competitions,
             "metric_categories": MetricCategory.choices,
+            # 每一筆紀錄都可以註記當天的狀態（傷害治療期…），分析前先看這一欄
+            "metric_statuses": TrainingStatus.choices,
+            # 田徑練習：先挑方式、再填距離
+            "track_methods": TrackMethod.choices,
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": activity_library,
             "activity_groups": library_groups(activity_library),
@@ -2002,6 +2063,12 @@ def analytics_view(request):
             "today_iso": date.today().isoformat(),
             # 最常做的動作 + 整體／年份／時期比較
             "tops": tops,
+            # 多項目一起分析
+            "multi": multi,
+            "multi_choices": multi_choices,
+            "picked_ids": picked_ids,
+            "picked_csv": ",".join(str(i) for i in picked_ids),
+            "multi_series": json.dumps(multi["series"] if multi else []),
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,
