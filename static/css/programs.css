@@ -1,29 +1,37 @@
-/* 報名頁 —— 沿用 landing.css 的編輯式語言：紙感底、髮絲線、零圓角、零陰影 */
+/* 報名頁 —— 沿用 landing.css 的遙測語言：深色面板、髮絲線、直角、等寬數字 */
 
 /* ---------------------------------------------------------------- 頁首 */
-.page-head{background:var(--white);border-bottom:1px solid var(--rule);padding:72px 0 56px}
+.page-head{background:var(--white);border-bottom:1px solid var(--rule);
+  border-top:2px solid var(--accent);padding:64px 0 48px}
 .page-head h1{margin-bottom:20px;max-width:16em}
 .page-head .lead{max-width:640px}
 .head-act{display:flex;align-items:center;gap:28px;margin-top:32px;flex-wrap:wrap}
-.deadline{font-size:13px;color:var(--mute)}
+.deadline{font-size:12.5px;color:var(--mute);font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
 
 /* ---------------------------------------------------------------- 項目列表 */
 .prog-list{border-top:1px solid var(--rule)}
 .prog{
   display:grid;grid-template-columns:150px 1fr 200px;gap:40px;
-  padding:36px 0;border-bottom:1px solid var(--rule);align-items:start;
+  padding:32px 0 32px 18px;border-bottom:1px solid var(--rule);align-items:start;
+  border-left:2px solid transparent;transition:border-color .16s,background .16s;
 }
+.prog:hover{border-left-color:var(--accent);background:rgba(255,255,255,.02)}
 .prog-meta{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding-top:4px}
 .prog h2{font-size:23px}
 .prog h2 a{text-decoration:none;border-bottom:1px solid transparent}
 .prog h2 a:hover{border-bottom-color:var(--accent)}
 .prog .sub{margin-top:10px;color:var(--body);font-size:15px}
 .prog-act{display:flex;flex-direction:column;gap:16px;align-items:flex-start;padding-top:4px}
-.org{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:700}
+.org{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);
+  font-weight:700;font-family:var(--mono)}
 
-.tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
-  padding:5px 10px;border:1px solid currentColor}
-.tag.open{color:var(--accent)}
+.tag{display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+  padding:4px 9px;border:1px solid currentColor;font-family:var(--mono)}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;
+  background:currentColor;box-shadow:0 0 6px currentColor}
+.tag.open{color:#35d07f}
 .tag.closed{color:var(--mute)}
 
 /* 事實清單 */
@@ -31,8 +39,9 @@
   gap:0 40px;border-top:1px dotted var(--rule)}
 .facts>div{display:grid;grid-template-columns:88px 1fr;gap:12px;
   padding:9px 0;border-bottom:1px dotted var(--rule);font-size:14px}
-.facts dt{color:var(--mute);margin:0}
-.facts dd{margin:0;color:var(--body)}
+.facts dt{color:var(--mute);margin:0;font-family:var(--mono);font-size:12px;
+  letter-spacing:.04em}
+.facts dd{margin:0;color:var(--body);font-variant-numeric:tabular-nums}
 
 .empty{border-top:1px solid var(--rule);padding-top:48px}
 .empty h2{margin-bottom:14px}
@@ -44,8 +53,8 @@
   border-top:1px solid var(--rule);border-right:1px solid var(--rule);
   border-bottom:1px solid var(--rule);padding:24px 28px;margin-top:40px}
 .notice p:not(.kicker){color:var(--body);font-size:14.5px}
-.notice.warn{border-left-color:#a33c22}
-.notice.warn .kicker{color:#a33c22}
+.notice.warn{border-left-color:#ff4d5e}
+.notice.warn .kicker{color:#ff4d5e}
 
 /* ---------------------------------------------------------------- 報名表 */
 .form-sec{padding-top:56px}
@@ -61,7 +70,7 @@
 .field.check{grid-column:1/-1}
 .field>label{font-size:13px;font-weight:600;color:var(--ink)}
 .field>label i{font-style:normal;font-size:10px;letter-spacing:.12em;color:var(--accent);
-  margin-left:8px;font-weight:700;text-transform:uppercase}
+  margin-left:8px;font-weight:700;text-transform:uppercase;font-family:var(--mono)}
 .field .help{font-size:12.5px;color:var(--mute);line-height:1.6}
 
 /* 寬欄位 */
@@ -70,9 +79,11 @@
 
 .inp{
   width:100%;font:inherit;font-size:15px;color:var(--ink);
-  background:var(--white);border:1px solid var(--rule);border-radius:0;
+  background:#080b10;border:1px solid var(--rule);border-radius:0;
   padding:11px 13px;appearance:none;
 }
+.inp:hover{border-color:#2c3a4b}
+input[type="number"].inp,input[type="date"].inp{font-family:var(--mono)}
 .inp:focus{outline:0;border-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
 textarea.inp{line-height:1.7;resize:vertical}
 select.inp{background-image:none}
@@ -83,8 +94,8 @@ select.inp{background-image:none}
 .field.check label span{line-height:1.6}
 .chk{width:18px;height:18px;margin:2px 0 0;accent-color:var(--accent);flex:none}
 
-.field.has-error .inp{border-color:#a33c22;background:#fdf6f4}
-.field-error{color:#a33c22;font-size:12.5px;margin:0}
+.field.has-error .inp{border-color:#ff4d5e;background:rgba(255,77,94,.08)}
+.field-error{color:#ff4d5e;font-size:12.5px;margin:0}
 .field-error ul{margin:0;padding-left:18px}
 
 .submit-row{border-top:1px solid var(--rule);margin-top:48px;padding-top:32px;

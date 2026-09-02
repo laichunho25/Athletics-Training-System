@@ -320,8 +320,8 @@ class LandingContentTests(TestCase):
         self.assertEqual(self.html.count('class="term"'), len(all_terms()))
         self.assertEqual(self.html.count("data-text="), len(all_terms()))
 
-    def test_soft_gradient_page_keeps_red_for_the_track_only(self):
-        """跑道紅只留給畫布，版面底色改為溫和的漸變。"""
+    def test_telemetry_page_keeps_red_for_the_track_only(self):
+        """公開頁跟系統內部同一套遙測外觀，跑道紅只留給畫布。"""
         css = (Path(settings.BASE_DIR) / "static" / "css" / "landing.css").read_text(
             encoding="utf-8"
         )
@@ -329,11 +329,14 @@ class LandingContentTests(TestCase):
         self.assertIn("--track:#bf4029", css)
         self.assertIn("--line:#ffffff", css)
         self.assertIn("--infield:#4f8b4a", css)
-        # 版面底色是漸變，重點色不是紅色
-        self.assertIn("--accent:#2f6b52", css)
-        self.assertRegex(css, r"body\{[^}]*background:linear-gradient")
-        # 舊的紅色版面用色已全部退場
-        for gone in ("#c0392b", "#8d2418", "#6d1a10", "#8a5a24"):
+        # 儀表板外觀：深色機艙底 + 訊號橙重點色 + 等寬數字
+        self.assertIn("color-scheme:dark", css)
+        self.assertIn("--bg-1:#080b10", css)
+        self.assertIn("--accent:#ff6b35", css)
+        self.assertIn("--mono:", css)
+        self.assertRegex(css, r"body\{[^}]*background:")
+        # 舊的紅色／草綠版面用色已全部退場
+        for gone in ("#c0392b", "#8d2418", "#6d1a10", "#8a5a24", "#2f6b52"):
             self.assertNotIn(gone, css)
 
     def test_track_canvas_is_a_regulation_400m_stadium(self):

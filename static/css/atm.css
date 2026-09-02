@@ -10,6 +10,7 @@
 
 /* ------------------------------------------------------------ 顏色與變數 */
 :root {
+  color-scheme: dark;
   /* 深色：儀表板預設 */
   --bg: #080b10;
   --surface: #0f141b;
@@ -58,6 +59,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   /* 淺色：白天在場邊看得清 */
   --bg: #eef1f6;
   --surface: #ffffff;
