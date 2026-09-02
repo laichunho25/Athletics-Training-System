@@ -275,6 +275,12 @@ class MetricRecord(TimeStampedModel):
     weight_kg = models.DecimalField(
         "重量 (kg)", max_digits=6, decimal_places=1, null=True, blank=True
     )
+    # 田徑練習不是靠重量分辨強度，而是「這一組要跑到幾成」——
+    # 90% / 95% / 全力 都填得進來，之後在紀錄分析圖可以照強度分開比。
+    intensity = models.CharField(
+        "強度要求", max_length=20, blank=True,
+        help_text="田徑練習這一組要求的強度，例：90%、95%、全力",
+    )
     reps = models.PositiveSmallIntegerField("次數", null=True, blank=True)
     rest_sec = models.PositiveIntegerField(
         "休息時間 (秒)", null=True, blank=True,

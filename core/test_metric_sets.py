@@ -1,5 +1,5 @@
 """煙霧測試：多組新增紀錄 + 分析頁渲染。跑在 django test runner 的暫時資料庫上。"""
-from datetime import date
+from datetime import date, timedelta
 
 from django.test import TestCase
 from django.urls import reverse
@@ -77,19 +77,90 @@ class MultiSetRecordTests(TestCase):
         body = page.content.decode()
         self.assertNotIn('name="weight"', body)   # 重複的重量欄已經拿掉
 
-    def test_non_kg_item_still_has_its_own_weight_field(self):
+    def test_track_item_asks_for_intensity_instead_of_weight(self):
+        """田徑練習跑的是強度要求（90%、全力），不是重量。"""
         item = MetricItem.objects.filter(domain=MetricDomain.TRACK, unit="秒").first()
         url = reverse("web:analytics")
 
         self.client.post(url, {
             "action": "add_record", "domain": MetricDomain.TRACK,
             "item_id": item.id, "date": date.today().isoformat(),
-            "value": "7.2", "weight": "", "reps": "", "rest_sec": "", "completed": "1",
+            "value": "7.2", "intensity": "90%", "reps": "", "rest_sec": "",
+            "completed": "1",
         })
 
-        self.assertIsNone(MetricRecord.objects.get().weight_kg)
+        rec = MetricRecord.objects.get()
+        self.assertIsNone(rec.weight_kg)
+        self.assertEqual(rec.intensity, "90%")
+
         body = self.client.get(f"{url}?domain={MetricDomain.TRACK}&item={item.id}").content.decode()
+        self.assertIn('name="intensity"', body)
+        self.assertNotIn('name="weight"', body)     # 重量欄換成了強度要求
+
+    def test_strength_item_keeps_its_weight_field(self):
+        """重量訓練不受影響：非 kg 單位的項目照樣有自己的重量欄。"""
+        item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="秒").first()
+        url = reverse("web:analytics")
+
+        self.client.post(url, {
+            "action": "add_record", "domain": MetricDomain.STRENGTH,
+            "item_id": item.id, "date": date.today().isoformat(),
+            "value": "60", "weight": "20", "reps": "", "rest_sec": "", "completed": "1",
+        })
+
+        self.assertEqual(float(MetricRecord.objects.get().weight_kg), 20.0)
+        body = self.client.get(
+            f"{url}?domain={MetricDomain.STRENGTH}&item={item.id}"
+        ).content.decode()
         self.assertIn('name="weight"', body)
+        self.assertNotIn('name="intensity"', body)
+
+
+class TrackIntensityTests(TestCase):
+    """田徑練習：強度要求存得進去，紀錄分析圖與比較都可以照強度分開看。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a_track")
+        self.item = MetricItem.objects.get(
+            domain=MetricDomain.TRACK, name="150m 計時"
+        )
+        self.client.force_login(self.athlete.user)
+        self.url = reverse("web:analytics")
+
+    def _add(self, on_date, values, intensities):
+        self.client.post(self.url, {
+            "action": "add_record", "domain": MetricDomain.TRACK,
+            "item_id": self.item.id, "date": on_date.isoformat(),
+            "value": values, "intensity": intensities,
+            "completed": ["1"] * len(values),
+        })
+
+    def test_each_set_keeps_its_own_intensity(self):
+        self._add(date.today(), ["18.5", "19.2"], ["95%", "90%"])
+        records = MetricRecord.objects.order_by("set_no")
+        self.assertEqual([r.intensity for r in records], ["95%", "90%"])
+
+    def test_chart_and_comparison_offer_intensity_views(self):
+        self._add(date.today() - timedelta(days=2), ["18.5", "19.2"], ["95%", "90%"])
+        self._add(date.today(), ["18.3", "19.0"], ["95%", "90%"])
+
+        page = self.client.get(f"{self.url}?domain={MetricDomain.TRACK}&item={self.item.id}")
+        body = page.content.decode()
+        self.assertIn("不同強度比較", body)      # 紀錄分析圖的看法選單
+        self.assertIn("分強度", body)            # 比較分頁
+        self.assertIn("compare=intensity", body)
+
+        grouped = self.client.get(
+            f"{self.url}?domain={MetricDomain.TRACK}&item={self.item.id}&compare=intensity"
+        ).context["comparison"]
+        self.assertEqual([g["label"] for g in grouped["groups"]], ["強度 95%", "強度 90%"])
+        self.assertEqual([g["count"] for g in grouped["groups"]], [2, 2])
+        self.assertEqual(grouped["groups"][0]["best"], 18.3)   # 計時項目取最小值
+
+    def test_strength_page_has_no_intensity_comparison(self):
+        page = self.client.get(f"{self.url}?domain={MetricDomain.STRENGTH}")
+        self.assertNotIn("分強度", page.content.decode())
 
 
 class DailyDetailTests(TestCase):

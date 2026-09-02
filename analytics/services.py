@@ -626,6 +626,7 @@ def metric_analysis(athlete, item, days=365):
                 "context": r.context,
                 "set_no": r.set_no,
                 "weight": float(r.weight_kg) if r.weight_kg is not None else None,
+                "intensity": r.intensity,
                 "reps": r.reps,
                 "rest_sec": r.rest_sec,
                 "tonnage": r.tonnage,
@@ -780,12 +781,37 @@ def overview_by_category(rows):
 # ------------------------------------------------- 分組比較（整體／年份／時期）
 
 
-#: 比較的三種切法
+#: 比較的幾種切法（「分強度」只對田徑練習有意義，見 compare_modes_for）
 COMPARE_MODES = [
     ("all", "整體"),
     ("year", "分年份"),
     ("phase", "分時期"),
+    ("intensity", "分強度"),
 ]
+
+#: 每個範疇能用的比較切法
+COMPARE_MODES_BY_DOMAIN = {"TRACK": ["all", "year", "phase", "intensity"]}
+DEFAULT_COMPARE_MODES = ["all", "year", "phase"]
+
+
+def compare_modes_for(domain):
+    """這個範疇的比較切法——只有田徑練習多一個「分強度」。"""
+    allowed = COMPARE_MODES_BY_DOMAIN.get(domain, DEFAULT_COMPARE_MODES)
+    return [(v, l) for v, l in COMPARE_MODES if v in allowed]
+
+
+def _intensity_key(record):
+    """紀錄的強度分組鍵（沒填強度的歸到一組）。"""
+    return (record.intensity or "").strip() or "—"
+
+
+def _intensity_order(key):
+    """強度由高到低排；純數字（90、95%）照數字排，文字的排在後面。"""
+    digits = "".join(c for c in key if c.isdigit() or c == ".")
+    try:
+        return (0, -float(digits))
+    except ValueError:
+        return (1, 0) if key != "—" else (2, 0)
 
 
 def phase_lookup(athlete):
@@ -870,6 +896,13 @@ def metric_comparison(athlete, item, mode="all", days=1825):
             key = str(r.date.year)
             buckets.setdefault(key, []).append(r)
             order[key] = key
+    elif mode == "intensity":
+        for r in records:
+            buckets.setdefault(_intensity_key(r), []).append(r)
+        order = {
+            k: f"{i:02d}"
+            for i, k in enumerate(sorted(buckets, key=_intensity_order))
+        }
     elif mode == "phase":
         lookup = phase_lookup(athlete)
         for r in records:
@@ -892,6 +925,9 @@ def metric_comparison(athlete, item, mode="all", days=1825):
         elif mode == "year":
             label = f"{key} 年"
             sublabel = ""
+        elif mode == "intensity":
+            label = "未填強度" if key == "—" else f"強度 {key}"
+            sublabel = f"{len({r.date for r in rows})} 天的紀錄"
         else:
             label = "整體"
             sublabel = f"{records[0].date} 至 {records[-1].date}"

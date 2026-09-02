@@ -343,6 +343,7 @@
       <span>新增一筆紀錄</span>
       <span class="small c-dim">
         {% if unit_is_weight %}這個項目的數值就是重量（kg），不同組的次數、休息時間可以分開填
+        {% elif is_track %}不同組的強度要求、次數、休息時間可以分開填（強度例：90%、95%、全力）
         {% else %}不同組的重量、次數、休息時間可以分開填{% endif %}
         · 目標與完成數值都可以先留空，之後回來這裡補
       </span>
@@ -390,7 +391,8 @@
             <th style="width:52px">組</th>
             <th>目標數值（{{ item.unit|default:"秒" }}）</th>
             <th>完成數值（{{ item.unit|default:"秒" }}）</th>
-            {% if not unit_is_weight %}<th>重量 (kg)</th>{% endif %}
+            {% if is_track %}<th>強度要求</th>
+            {% elif not unit_is_weight %}<th>重量 (kg)</th>{% endif %}
             <th>次數</th>
             <th>休息</th>
             <th style="width:118px">成功完成</th>
@@ -402,7 +404,9 @@
             <td class="setno num">1</td>
             <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
             <td><input type="number" step="0.01" name="value" placeholder="—"></td>
-            {% if not unit_is_weight %}
+            {% if is_track %}
+              <td><input type="text" name="intensity" maxlength="20" placeholder="例：90%"></td>
+            {% elif not unit_is_weight %}
               <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
             {% endif %}
             <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
@@ -483,7 +487,8 @@
                   <th class="num">組</th>
                   <th class="num">目標數值（{{ item.unit|default:"秒" }}）</th>
                   <th class="num">完成數值（{{ item.unit|default:"秒" }}）</th>
-                  {% if not unit_is_weight %}<th class="num">重量</th>{% endif %}
+                  {% if is_track %}<th class="num">強度要求</th>
+                  {% elif not unit_is_weight %}<th class="num">重量</th>{% endif %}
                   <th class="num">次數</th><th class="num" title="休息時間（秒）">休息</th>
                   <th title="這一組有沒有照課表完成">完成</th>
                   <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
@@ -503,7 +508,13 @@
                            form="editrec{{ r.id }}" value="{{ r.value|default_if_none:'' }}"
                            placeholder="—" title="完成數值（{{ item.unit|default:'秒' }}）">
                   </td>
-                  {% if not unit_is_weight %}
+                  {% if is_track %}
+                    <td class="num">
+                      <input class="editnum" type="text" maxlength="20" name="intensity"
+                             form="editrec{{ r.id }}" value="{{ r.intensity }}"
+                             placeholder="—" title="強度要求（例：90%）">
+                    </td>
+                  {% elif not unit_is_weight %}
                     <td class="num">
                       <input class="editnum" type="number" step="0.5" min="0" name="weight"
                              form="editrec{{ r.id }}" value="{{ r.weight_kg|default_if_none:'' }}"
@@ -567,13 +578,35 @@
       </div>
 
       <div class="detailchart">
-        <div class="card-head"><span>紀錄分析圖</span></div>
+        <div class="card-head">
+          <span>紀錄分析圖</span>
+          <span class="small c-dim">單日看逐組、多天看變化{% if is_track %}、還可以照強度分開比{% endif %}</span>
+        </div>
         {% if analysis.count %}
+          <div class="flex" style="padding:10px 16px 0;flex-wrap:wrap">
+            <label class="unitpick">看法
+              <select id="chartMode">
+                <option value="day">單日（逐組）</option>
+                <option value="days">多天比較（同組別對照）</option>
+                <option value="all">全部紀錄</option>
+                {% if is_track %}<option value="intensity">不同強度比較</option>{% endif %}
+              </select>
+            </label>
+            <label class="unitpick" id="dayPick">日期
+              <select id="chartDay"></select>
+            </label>
+            <label class="unitpick" id="daysPick" hidden>範圍
+              <select id="chartDays">
+                <option value="3">最近 3 天</option>
+                <option value="5" selected>最近 5 天</option>
+                <option value="10">最近 10 天</option>
+                <option value="0">全部日期</option>
+              </select>
+            </label>
+          </div>
           <div class="chart-box"><canvas id="setChart"></canvas></div>
           <div class="chart-box"><canvas id="restChart"></canvas></div>
-          <div class="small c-dim" style="padding:0 16px 14px">
-            上圖：每一組的完成數值（未完成的組畫成紅色）與重量；下圖：次數與休息時間。
-          </div>
+          <div class="small c-dim" id="chartNote" style="padding:0 16px 14px"></div>
         {% else %}
           <div class="empty">記錄之後，這裡會逐組畫出分析圖。</div>
         {% endif %}
@@ -764,62 +797,222 @@ new Chart(document.getElementById('metricChart'), {
 {% endif %}
 
 {% if item and analysis.count %}
-// ---- 紀錄明細旁的分析圖：逐組的數值 / 重量 / 次數 / 休息 ----
-const RED = '#ff4d5e';
-const setLabels = pts.map(p => p.label);
-const okColors  = pts.map(p => p.completed ? ACC : RED);
+// ---- 紀錄明細旁的分析圖 ----------------------------------------------------
+// 一天的課看逐組表現（底下只寫「第 N 組」，日期在上面的選單裡），
+// 要看訓練變化就切「多天比較」——同一個組別跨日對照，一條線一天。
+// 田徑練習還可以照「強度要求」分組比，看 90% 跟全力各跑成什麼樣。
+(function () {
+  const RED = '#ff4d5e', PURPLE = '#b07cff', CYAN = '#3fd0d6';
+  const SERIES = [ACC, BLUE, GREEN, YELLOW, PURPLE, CYAN, '#ff8f3f', '#8496aa'];
+  const UNIT = '{{ item.unit|default:"" }}';
+  const UNIT_SUFFIX = UNIT ? ' (' + UNIT + ')' : '';
+  const REVERSE = {% if item.higher_is_better %}false{% else %}true{% endif %};
+  const IS_TRACK = {% if is_track %}true{% else %}false{% endif %};
 
-new Chart(document.getElementById('setChart'), {
-  data: {
-    labels: setLabels,
-    datasets: [
-      { type: 'bar', label: '完成數值{% if item.unit %} ({{ item.unit }}){% endif %}',
-        data: pts.map(p => p.value),
-        backgroundColor: okColors.map(c => c + '99'), borderColor: okColors,
-        borderWidth: 1, yAxisID: 'y' },
-      { type: 'line', label: '重量 (kg)', data: pts.map(p => p.weight),
+  const modeSel = document.getElementById('chartMode');
+  const daySel = document.getElementById('chartDay');
+  const daysSel = document.getElementById('chartDays');
+  const dayPick = document.getElementById('dayPick');
+  const daysPick = document.getElementById('daysPick');
+  const noteBox = document.getElementById('chartNote');
+
+  const dates = [...new Set(pts.map(p => p.date))].sort();     // 舊 → 新
+  const rowsOf = (d) => pts.filter(p => p.date === d);
+  const setNo = (p, i) => p.set_no || i + 1;
+  const short = (d) => d.slice(5).replace('-', '/');
+  const num = (xs) => xs.filter(v => v !== null && v !== undefined);
+  const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const round2 = (v) => (v === null ? null : Math.round(v * 100) / 100);
+
+  // 新的一天排最上面，跟左邊的紀錄明細同一個順序
+  dates.slice().reverse().forEach((d) => {
+    const o = document.createElement('option');
+    o.value = d;
+    o.textContent = d + '（' + rowsOf(d).length + ' 組）';
+    daySel.appendChild(o);
+  });
+
+  const detail = (p) => [
+    p.completed ? '✅ 成功完成' : '❌ 未完成',
+    p.intensity ? '強度要求 ' + p.intensity : null,
+    p.target !== null ? '目標 ' + p.target + UNIT : null,
+    (!IS_TRACK && p.weight !== null) ? '重量 ' + p.weight + ' kg' : null,
+    p.reps ? p.reps + ' 次' : null,
+    p.rest_sec ? '休息 ' + p.rest_sec + ' 秒' : null,
+    p.tonnage ? '噸位 ' + p.tonnage + ' kg' : null,
+    p.session, p.context
+  ].filter(Boolean);
+
+  // 一組紀錄 → 主圖（完成數值 ± 目標 ± 重量）與副圖（次數 / 休息）
+  function setSeries(rows, labels) {
+    const colors = rows.map(p => (p.completed ? ACC : RED));
+    const main = [{
+      type: 'bar', label: '完成數值' + UNIT_SUFFIX, data: rows.map(p => p.value),
+      backgroundColor: colors.map(c => c + '99'), borderColor: colors,
+      borderWidth: 1, yAxisID: 'y'
+    }];
+    if (rows.some(p => p.target !== null)) {
+      main.push({
+        type: 'line', label: '目標數值' + UNIT_SUFFIX, data: rows.map(p => p.target),
+        borderColor: PURPLE, backgroundColor: PURPLE, borderDash: [5, 4],
+        pointRadius: 3, tension: .2, spanGaps: true, yAxisID: 'y'
+      });
+    }
+    if (!IS_TRACK && rows.some(p => p.weight !== null)) {
+      main.push({
+        type: 'line', label: '重量 (kg)', data: rows.map(p => p.weight),
         borderColor: BLUE, backgroundColor: BLUE, tension: .25,
-        spanGaps: true, yAxisID: 'y1' }
-    ]
-  },
-  options: {
-    scales: {
-      y:  { position: 'left', title: { display: true, text: '{{ item.unit|default:"數值" }}' } },
-      y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
-            title: { display: true, text: 'kg' } }
-    },
-    plugins: { tooltip: { callbacks: {
-      afterLabel: (ctx) => {
-        const p = pts[ctx.dataIndex];
-        return [p.completed ? '✅ 成功完成' : '❌ 未完成',
-                p.reps ? p.reps + ' 次' : null,
-                p.rest_sec ? '休息 ' + p.rest_sec + ' 秒' : null,
-                p.tonnage ? '噸位 ' + p.tonnage + ' kg' : null,
-                p.session, p.context].filter(Boolean);
-      }
-    } } }
-  }
-});
-
-new Chart(document.getElementById('restChart'), {
-  data: {
-    labels: setLabels,
-    datasets: [
-      { type: 'bar', label: '次數', data: pts.map(p => p.reps),
+        spanGaps: true, yAxisID: 'y1'
+      });
+    }
+    const rest = [
+      { type: 'bar', label: '次數', data: rows.map(p => p.reps),
         backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-      { type: 'line', label: '休息 (秒)', data: pts.map(p => p.rest_sec),
+      { type: 'line', label: '休息 (秒)', data: rows.map(p => p.rest_sec),
         borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
         tension: .25, spanGaps: true, yAxisID: 'y1' }
-    ]
-  },
-  options: {
-    scales: {
-      y:  { position: 'left', beginAtZero: true, title: { display: true, text: '次' } },
-      y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
-            title: { display: true, text: '秒' } }
-    }
+    ];
+    return { labels: labels, main: main, rest: rest, tip: (ctx) => detail(rows[ctx.dataIndex]) };
   }
-});
+
+  // 一天一條線，x 軸是組別——同一組跨日對照，看得出訓練變化
+  function byDay(chosen, field, suffix) {
+    const most = Math.max(...chosen.map(d => rowsOf(d).length));
+    const labels = Array.from({ length: most }, (_, i) => '第 ' + (i + 1) + ' 組');
+    const sets = chosen.map((d, i) => {
+      const rows = rowsOf(d);
+      const color = SERIES[i % SERIES.length];
+      return {
+        type: 'line', label: short(d) + suffix,
+        data: labels.map((_, k) => (rows[k] ? rows[k][field] : null)),
+        borderColor: color, backgroundColor: color + '33',
+        pointRadius: 3, tension: .2, spanGaps: true, yAxisID: 'y'
+      };
+    });
+    return { labels: labels, sets: sets };
+  }
+
+  const SPECS = {
+    day: () => {
+      const day = daySel.value || dates[dates.length - 1];
+      const rows = rowsOf(day);
+      const spec = setSeries(rows, rows.map((p, i) => '第 ' + setNo(p, i) + ' 組'));
+      const done = rows.filter(p => p.completed).length;
+      spec.note = day + ' 這一天共 ' + rows.length + ' 組，完成 ' + done + ' 組。'
+        + '上圖：每一組的完成數值（未完成畫成紅色）'
+        + (IS_TRACK ? '與目標，強度要求在滑過去的提示裡' : '、目標與重量')
+        + '；下圖：次數與休息時間。';
+      return spec;
+    },
+
+    days: () => {
+      const n = parseInt(daysSel.value, 10);
+      const chosen = n ? dates.slice(-n) : dates;
+      const value = byDay(chosen, 'value', '');
+      const rest = byDay(chosen, 'rest_sec', ' 休息');
+      return {
+        labels: value.labels,
+        main: value.sets,
+        rest: rest.sets.map(d => Object.assign({}, d, { yAxisID: 'y1' })),
+        note: '拿 ' + chosen.length + ' 天（' + short(chosen[0]) + ' → '
+          + short(chosen[chosen.length - 1]) + '）的同一組別對照，線往'
+          + (REVERSE ? '下' : '上') + '走就是這一組愈做愈好；下圖是各天的休息時間。'
+      };
+    },
+
+    all: () => {
+      const spec = setSeries(pts, pts.map(p => p.label));
+      spec.note = '近一年全部 ' + pts.length + ' 組紀錄按日期排開，看整段時間的起伏。';
+      return spec;
+    },
+
+    intensity: () => {
+      const groups = {};
+      pts.forEach((p) => {
+        const key = (p.intensity || '').trim() || '未填強度';
+        (groups[key] = groups[key] || []).push(p);
+      });
+      // 強度由高到低（純數字的照數字排，文字的排後面）
+      const keys = Object.keys(groups).sort((a, b) => {
+        const f = (k) => { const v = parseFloat(k); return isNaN(v) ? -1 : v; };
+        return f(b) - f(a) || a.localeCompare(b);
+      });
+      const best = (vs) => (REVERSE ? Math.min(...vs) : Math.max(...vs));
+      const stat = (k, pick) => {
+        const vs = num(groups[k].map(p => p.value));
+        return vs.length ? round2(pick(vs)) : null;
+      };
+      return {
+        labels: keys,
+        main: [
+          { type: 'bar', label: '最佳' + UNIT_SUFFIX, data: keys.map(k => stat(k, best)),
+            backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1, yAxisID: 'y' },
+          { type: 'bar', label: '平均' + UNIT_SUFFIX, data: keys.map(k => stat(k, mean)),
+            backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' }
+        ],
+        rest: [
+          { type: 'bar', label: '平均次數',
+            data: keys.map(k => round2(mean(num(groups[k].map(p => p.reps))))),
+            backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
+          { type: 'line', label: '平均休息 (秒)',
+            data: keys.map(k => round2(mean(num(groups[k].map(p => p.rest_sec))))),
+            borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
+            tension: .25, spanGaps: true, yAxisID: 'y1' }
+        ],
+        tip: (ctx) => {
+          const rows = groups[keys[ctx.dataIndex]];
+          return ['共 ' + rows.length + ' 組 / ' + new Set(rows.map(p => p.date)).size + ' 天',
+                  '完成 ' + rows.filter(p => p.completed).length + ' 組'];
+        },
+        note: '同一個項目照「強度要求」分開比：共 ' + keys.length + ' 種強度，'
+          + '看每一檔強度各跑得出什麼水準（'
+          + (REVERSE ? '數字愈小愈好' : '數字愈大愈好') + '）。'
+      };
+    }
+  };
+
+  const axisTitle = UNIT + (REVERSE ? '（軸已反轉：越上面越好）' : '');
+  let mainChart = null, restChart = null;
+
+  function render() {
+    dayPick.hidden = modeSel.value !== 'day';
+    daysPick.hidden = modeSel.value !== 'days';
+    const spec = SPECS[modeSel.value]();
+    noteBox.textContent = spec.note;
+    if (mainChart) { mainChart.destroy(); }
+    if (restChart) { restChart.destroy(); }
+
+    mainChart = new Chart(document.getElementById('setChart'), {
+      data: { labels: spec.labels, datasets: spec.main },
+      options: {
+        scales: {
+          y: { reverse: REVERSE, title: { display: true, text: axisTitle || '數值' } },
+          y1: { display: spec.main.some(d => d.yAxisID === 'y1'), position: 'right',
+                beginAtZero: true, grid: { drawOnChartArea: false },
+                title: { display: true, text: 'kg' } }
+        },
+        plugins: { tooltip: spec.tip ? { callbacks: { afterLabel: spec.tip } } : {} }
+      }
+    });
+
+    restChart = new Chart(document.getElementById('restChart'), {
+      data: { labels: spec.labels, datasets: spec.rest },
+      options: {
+        scales: {
+          y: { display: spec.rest.some(d => d.yAxisID === 'y'), position: 'left',
+               beginAtZero: true, title: { display: true, text: '次' } },
+          y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
+                title: { display: true, text: '秒' } }
+        }
+      }
+    });
+  }
+
+  modeSel.addEventListener('change', render);
+  daySel.addEventListener('change', render);
+  daysSel.addEventListener('change', render);
+  render();
+})();
 {% endif %}
 
 {% if item and comparison.groups %}

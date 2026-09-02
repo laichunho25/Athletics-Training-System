@@ -1861,7 +1861,9 @@ def analytics_view(request):
             try:
                 record.target_value = _metric_value(post.get("target_value"))
                 record.value = _metric_value(post.get("value"))
-                record.weight_kg = _metric_value(post.get("weight"))
+                # 田徑練習的表單沒有重量欄（換成強度要求），沒送就別把原值洗掉
+                if "weight" in post:
+                    record.weight_kg = _metric_value(post.get("weight"))
                 record.reps = _metric_int(post.get("reps"))
                 rest = _metric_int(post.get("rest_sec"))
                 factor = 60 if post.get("rest_unit") == "min" else 1
@@ -1869,6 +1871,8 @@ def analytics_view(request):
             except ValueError:
                 messages.error(request, "數值要填數字，或留空。")
             else:
+                if "intensity" in post:
+                    record.intensity = post.get("intensity", "").strip()[:20]
                 record.completed = post.get("completed", "1") != "0"
                 record.context = post.get("context", "")[:120]
                 record.save()
@@ -1931,7 +1935,10 @@ def analytics_view(request):
     ).order_by("-date")[:60]
 
     # ---- 整體 / 分年份 / 分時期 比較 ----
+    compare_modes = an.compare_modes_for(domain)
     compare = request.GET.get("compare", "all")
+    if compare not in {m for m, _ in compare_modes}:
+        compare = "all"
     comparison = an.metric_comparison(athlete, item, compare) if item else None
     tops = [] if is_competition else an.top_movements(athlete, domain)
     activity_library = list(
@@ -1984,6 +1991,8 @@ def analytics_view(request):
             "analysis": analysis,
             # 單位就是 kg 的項目（背蹲舉 1RM…），數值＝重量，表單不再重複問一次
             "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
+            # 田徑練習用「強度要求」取代重量欄；重量訓練維持原樣
+            "is_track": domain == MetricDomain.TRACK,
             "chart_points": json.dumps(analysis["points"] if analysis else []),
             "recent_sessions": recent_sessions,
             "linkable_type_labels": [
@@ -1993,7 +2002,7 @@ def analytics_view(request):
             # 最常做的動作 + 整體／年份／時期比較
             "tops": tops,
             "compare": comparison["mode"] if comparison else "all",
-            "compare_modes": an.COMPARE_MODES,
+            "compare_modes": compare_modes,
             "comparison": comparison,
             "phase_guide": PHASE_GUIDE,
             "cmp_labels": json.dumps(

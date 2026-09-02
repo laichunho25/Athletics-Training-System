@@ -67,11 +67,13 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     weights = post.getlist("weight")
     reps_list = post.getlist("reps")
     rests = post.getlist("rest_sec")
+    # 田徑練習用「強度要求」取代重量：一列一組，各組可以要求不同強度
+    intensities = post.getlist("intensity")
     dones = post.getlist("completed")
     # 休息時間可以用秒或分鐘填，資料庫一律存秒
     rest_factor = 60 if post.get("rest_unit") == "min" else 1
 
-    columns = (targets, values, weights, reps_list, rests)
+    columns = (targets, values, weights, intensities, reps_list, rests)
     row_count = max([len(c) for c in columns] + [1])
     # 數值不是必填——只要挑了項目就登得進來，所以「這一列有沒有填東西」
     # 決定它算不算一組；整張表都空白就當成一組空紀錄（之後再回來補值）。
@@ -101,6 +103,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
                 value=value,
                 set_no=(position + 1) if multi else None,
                 weight_kg=weight,
+                intensity=_raw(intensities, i)[:20],
                 reps=_num(reps_list, i, int),
                 rest_sec=None if rest is None else rest * rest_factor,
                 completed=(dones[i] if i < len(dones) else "1") != "0",
