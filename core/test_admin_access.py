@@ -7,7 +7,7 @@ from django.urls import reverse
 from accounts.models import User
 from core.admin import user_may_use_admin
 from core.models import Role
-from core.test_factories import make_athlete, make_coach
+from core.test_factories import login_admin_site, make_athlete, make_coach
 
 
 def admin_url(name="admin:index"):
@@ -26,15 +26,22 @@ class AdminGateTests(TestCase):
 
     # ------------------------------------------------------------ 放行
     def test_admin_can_open_the_dashboard(self):
-        self.client.force_login(self.boss)
+        login_admin_site(self.client, self.boss)
         self.assertEqual(self.client.get(admin_url()).status_code, 200)
 
     # ------------------------------------------------------------ 擋下
-    def test_coach_cannot_reach_the_admin_even_when_logged_in(self):
+    def test_coach_logged_into_the_app_gets_no_admin_content(self):
+        """登入 ATM 不等於登入後台——後台那一份 session 是分開的。"""
         coach = make_coach().user
         self.client.force_login(coach)
         resp = self.client.get(admin_url(), follow=True)
-        # 會先被丟去後台登入頁，但那一頁認得他沒權限，直接把他請回系統
+        self.assertNotIn("資料管理", resp.content.decode())
+
+    def test_coach_logged_into_the_admin_zone_is_sent_back_to_the_app(self):
+        """萬一後台那一份 session 掛著沒權限的人，也不給他再試密碼的表單。"""
+        coach = make_coach(username="c_zone").user
+        login_admin_site(self.client, coach)
+        resp = self.client.get(admin_url(), follow=True)
         final_url, _ = resp.redirect_chain[-1]
         self.assertNotIn(settings.ADMIN_URL, final_url)
         body = resp.content.decode()
@@ -42,7 +49,7 @@ class AdminGateTests(TestCase):
         self.assertNotIn('name="password"', body)  # 也沒拿到後台登入框
 
     def test_athlete_cannot_reach_the_admin(self):
-        self.client.force_login(make_athlete().user)
+        login_admin_site(self.client, make_athlete().user)
         resp = self.client.get(admin_url(), follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertNotIn("資料管理", resp.content.decode())

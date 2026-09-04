@@ -62,6 +62,22 @@ def make_admin(username="admin1"):
     )
 
 
+def login_admin_site(client, user):
+    """把測試 client 也登進「後台那一份 session」。
+
+    後台與系統各用一個 cookie（見 core/zones.py），force_login 拿到的是系統那一份；
+    要測後台頁面就得再把同一把鑰匙放進後台專用的 cookie 名稱底下。
+    """
+    from django.conf import settings
+
+    from core.zones import admin_aliases
+
+    client.force_login(user)
+    base = settings.SESSION_COOKIE_NAME
+    client.cookies[admin_aliases()[base]] = client.cookies[base].value
+    return client
+
+
 def make_session(
     athlete,
     on_date,

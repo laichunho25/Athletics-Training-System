@@ -15,6 +15,8 @@
 
 from django.conf import settings
 from django.contrib import admin, messages
+from django.contrib.admin.forms import AdminAuthenticationForm
+from django.core.exceptions import ValidationError
 from django.shortcuts import redirect
 
 
@@ -59,7 +61,24 @@ MODEL_ORDER = {
 }
 
 
+class ATMAdminLoginForm(AdminAuthenticationForm):
+    """後台登入表單：密碼對了但沒有後台權限，也要說清楚是權限問題。
+
+    後台與系統是兩份獨立的登入（見 core/zones.py），所以教練就算已經登入了
+    ATM，在後台這邊仍然是未登入狀態、看到的是登入框。訊息寫在這裡，
+    不管他有沒有登入過系統，拿教練帳號來試都會得到同一句話。
+    """
+
+    def confirm_login_allowed(self, user):
+        super(AdminAuthenticationForm, self).confirm_login_allowed(user)
+        if not user_may_use_admin(user):
+            raise ValidationError(
+                "你的帳號沒有後台權限，這裡只開放給管理員。", code="no_admin"
+            )
+
+
 class ATMAdminSite(admin.AdminSite):
+    login_form = ATMAdminLoginForm
     site_header = "ATM 後台管理"
     site_title = "ATM 後台"
     index_title = "資料管理"
@@ -94,7 +113,7 @@ class ATMAdminSite(admin.AdminSite):
         return user_may_use_admin(request.user)
 
     def login(self, request, extra_context=None):
-        """已登入卻沒權限的人，直接請回系統，不給他再試密碼的表單。"""
+        """後台這一區已登入卻沒權限的人，直接請回系統，不給他再試密碼的表單。"""
         user = request.user
         if user.is_authenticated and not user_may_use_admin(user):
             messages.error(request, "你的帳號沒有後台權限，這裡只開放給管理員。")

@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from accounts.models import AthleteProfile, User
 from core.models import EventCategory, Role, Sex
-from core.test_factories import make_admin, make_coach, make_event
+from core.test_factories import login_admin_site, make_admin, make_coach, make_event
 from programs import services
 from programs.models import Application, ApplicationStatus, Project, ProjectStatus
 
@@ -398,7 +398,7 @@ class AdminActionTests(TestCase):
         self.admin = User.objects.create_superuser(
             username="root", password="test-pw-12345", email="root@example.com"
         )
-        self.client.force_login(self.admin)
+        login_admin_site(self.client, self.admin)
 
     def test_import_action_creates_the_athlete(self):
         url = reverse("admin:programs_application_changelist")

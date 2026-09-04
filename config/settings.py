@@ -97,6 +97,8 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    # 最外層：後台與系統各用一份 session cookie，兩邊可同時登入不同帳號
+    'core.zones.SplitAdminSessionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',   # 正式環境靜態檔（CSS / Chart.js）
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -120,6 +122,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.site_flags',
+                'core.context_processors.athlete_nav',
             ],
         },
     },
