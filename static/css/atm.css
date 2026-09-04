@@ -951,3 +951,102 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
   position: sticky; top: 0; z-index: 2;
 }
 .itemcat span { font-variant-numeric: tabular-nums; opacity: .8; }
+
+/* =================================================== 顯示欄收合／展開
+   一頁裡的欄位很多，全部攤開來看很累。每一條標題列右邊加一顆 ▾：
+   按一下把整欄收起來（只剩標題），再按一下展開；狀態記在瀏覽器，
+   下次回到同一頁維持上次的樣子。 */
+.foldbtn {
+  flex: none; margin-left: auto; width: 26px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-dim);
+  font-size: 11px; line-height: 1; cursor: pointer; font-family: var(--mono);
+}
+.foldbtn:hover { color: var(--accent); border-color: var(--accent); }
+.foldbtn::before { content: "▾"; transition: transform .15s ease; }
+[data-folded="1"] > .foldbtn::before { transform: rotate(-90deg); }
+[data-folded="1"] { border-bottom-color: transparent; }
+.card-head[data-folded="1"] { border-bottom: none; }
+h2 .foldbtn { margin-left: 8px; }
+h2:has(.foldbtn) { display: flex; align-items: center; }
+.foldhidden { display: none !important; }
+
+/* 「全部收起／全部展開」：一鍵把整頁摺起來，只看標題找位置 */
+.foldbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* ============================================ 數據分析：左清單 ＋ 右分析
+   桌面兩欄（左邊清單固定窄、右邊分析吃剩下的寬），窄螢幕自動變一欄，
+   清單在上、分析在下。 */
+.anagrid { grid-template-columns: minmax(280px, 360px) 1fr; align-items: start; }
+@media (max-width: 900px) {
+  .anagrid { grid-template-columns: 1fr; }
+  .itemlist { max-height: 340px; }
+}
+
+/* ------------------------------------------------------ 電話螢幕微調
+   欄位擠在一起就看不清楚：字級、間距收窄一點，KPI 兩個一行，
+   欄位多的表格自己橫向捲（右邊留一條漸層提示還有內容）。 */
+@media (max-width: 760px) {
+  .wrap { padding: 12px 10px 30px; }
+  h1 { font-size: 18px; }
+  .subtitle { margin-bottom: 14px; }
+
+  .card-head { flex-wrap: wrap; gap: 4px 10px; padding: 8px 12px; }
+  .card-head > .small { flex-basis: 100%; }
+  .card-head .foldbtn { margin-left: auto; }
+
+  .chart-box { height: 210px; padding: 10px 4px; }
+  .chart-box.tall { height: 260px; }
+  .cmpwrap > .chart-box { height: 210px; padding: 10px 4px; }
+  .detailchart .chart-box { height: 230px; }
+
+  /* KPI：一行兩個，比一行一個省一半捲動 */
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .stat .value { font-size: 22px; }
+  .stat .value.sm { font-size: 18px; }
+  .stat .label { font-size: 10.5px; letter-spacing: .6px; }
+  .stat .hint { font-size: 10.5px; }
+
+  /* 清單列：名字一行、右邊數字換到下一行，不會互相擠扁 */
+  .itemlist a { flex-wrap: wrap; gap: 2px 8px; padding: 9px 12px; }
+  .itemlist a .name { flex: 1 1 100%; }
+  .itemlist a .meta { font-size: 10.5px; }
+
+  /* 一天一列：日期／組數／最高最低一行，備註換行放下面 */
+  .dayrow > summary { gap: 4px 8px; padding: 9px 12px; }
+  .dayrow .daymeta { margin-left: 0; flex-basis: 100%; }
+  .dayrow .dayhl { gap: 8px; flex-wrap: wrap; }
+  .dayrow .dayhl strong { font-size: 14px; }
+
+  /* 欄位多的表格：橫向捲，格子收窄一點，一次看得到多幾欄 */
+  .detailtable table, .dayrow table { min-width: 560px; }
+  .setgridwrap .setgrid { min-width: 560px; }
+  .cmptable { min-width: 560px; }
+  .editnum { width: 58px; }
+  .editnum.sm { width: 46px; }
+  .editnum.wide { min-width: 76px; }
+  th { font-size: 10.5px; letter-spacing: .4px; }
+  td { font-size: 12px; }
+
+  /* 欄位多的表格在手機上是橫向捲的，捲動要順手 */
+  .detailtable, .daylist, .setgridwrap, .cmptablewrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 手機打字時 iOS 會自動放大：表單輸入框給足 16px 就不會跳 */
+  .field input, .field select, .field textarea,
+  .row input, .row select { font-size: 16px; }
+
+  .factors ol { padding-left: 24px; }
+  .factors li { font-size: 12px; }
+  .statuschip { font-size: 11.5px; padding: 4px 9px; }
+  .alert { font-size: 12px; padding: 8px 11px; }
+  .tabs { gap: 14px; }
+  .tabs a { font-size: 12.5px; }
+}
+
+@media (max-width: 520px) {
+  .userbox .uinfo { display: none; }
+  .topbar { gap: 8px; }
+}

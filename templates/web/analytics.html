@@ -21,7 +21,14 @@
   {% endfor %}
 </div>
 
-<div class="grid grid-2 mb" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
+<!-- 一頁的欄位很多，這兩顆一次過把所有欄收起／展開，先看標題再挑要看哪一段 -->
+<div class="foldbar">
+  <button type="button" class="btn ghost sm" data-fold-all="1">全部收起</button>
+  <button type="button" class="btn ghost sm" data-fold-all="0">全部展開</button>
+  <span class="small c-dim">每一欄標題右邊的 ▾ 也可以單獨收起，收起哪幾欄會記住。</span>
+</div>
+
+<div class="grid anagrid mb">
  <div>
   <!-- 左邊清單上的每一個 × 都是這張表單的送出鍵，各帶自己的 item_id。 -->
   <form method="post" id="itemDel" hidden>
@@ -147,7 +154,7 @@
   {% if not is_competition %}
   <!-- ------------------------------------------------ 從活動庫加入項目 -->
   <div class="card pad0 mb">
-    <div class="card-head">
+    <div class="card-head" data-fold-default="closed">
       <span>加入要追蹤的項目</span>
       <span class="small c-dim">活動庫共 {{ activity_library|length }} 個動作</span>
     </div>
@@ -269,7 +276,7 @@
 
   <!-- ------------------------------------------ 多個項目一起分析 -->
   <div class="card pad0 mb">
-    <div class="card-head">
+    <div class="card-head" data-fold-default="closed">
       <span>多項目一起分析</span>
       <span class="small c-dim">勾 2 個以上</span>
     </div>
@@ -524,7 +531,7 @@
     {% endif %}
 
     <!-- 新增紀錄 -->
-    <div class="card-head" style="border-top:1px solid var(--border)">
+    <div class="card-head" data-fold-default="closed" style="border-top:1px solid var(--border)">
       <span>新增一筆紀錄</span>
       <span class="small c-dim">
         {% if unit_is_weight %}這個項目的數值就是重量（kg），不同組的次數、休息時間可以分開填
@@ -1051,6 +1058,88 @@
 {% block scripts %}
 <script>
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
+
+// ---- 顯示欄收合／展開 ---------------------------------------------------
+// 這一頁欄位多，一次全攤開來看很累。每一條標題列（card-head、h2）右邊插一顆 ▾，
+// 按一下把它底下那一段收起來，只剩標題；再按一下展開。
+// 「底下那一段」＝標題之後的兄弟節點，一直數到下一條同級標題為止，
+// 所以同一張卡裡的「比較」「新增一筆紀錄」「紀錄明細」各自收各自的。
+// 收起了哪幾欄記在 localStorage，換頁回來維持上次的樣子。
+(function () {
+  const KEY = 'atm-fold:analytics:';
+  const read = (k) => { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } };
+  const write = (k, v) => { try { localStorage.setItem(KEY + k, v); } catch (e) {} };
+
+  const wrap = document.querySelector('.wrap');
+  if (!wrap) { return; }
+
+  const panels = [];
+  const used = {};
+
+  function following(head, isHead) {
+    const out = [];
+    let n = head.nextElementSibling;
+    while (n && !isHead(n)) { out.push(n); n = n.nextElementSibling; }
+    return out;
+  }
+
+  function keyFor(head) {
+    const label = (head.querySelector('span, b') || head).textContent
+      .replace(/\s+/g, ' ').trim().slice(0, 40) || 'panel';
+    used[label] = (used[label] || 0) + 1;
+    return used[label] > 1 ? label + '#' + used[label] : label;
+  }
+
+  function attach(head, targets) {
+    if (!targets.length) { return; }
+    const key = keyFor(head);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'foldbtn';
+    btn.title = '收起／展開這一欄';
+    head.appendChild(btn);
+
+    function apply(folded, remember) {
+      head.dataset.folded = folded ? '1' : '0';
+      btn.setAttribute('aria-expanded', folded ? 'false' : 'true');
+      targets.forEach((el) => { el.classList.toggle('foldhidden', folded); });
+      if (remember) { write(key, folded ? '1' : '0'); }
+      // 收起時圖表的框是 display:none，量不到寬高；展開之後要叫它重新量一次再畫
+      if (!folded && window.Chart) {
+        requestAnimationFrame(() => {
+          targets.forEach((el) => {
+            el.querySelectorAll('canvas').forEach((cv) => {
+              const chart = Chart.getChart(cv);
+              if (chart) { chart.resize(); }
+            });
+          });
+        });
+      }
+    }
+
+    const saved = read(key);
+    apply(saved === null ? head.dataset.foldDefault === 'closed' : saved === '1', false);
+    btn.addEventListener('click', () => apply(head.dataset.folded !== '1', true));
+    panels.push(apply);
+  }
+
+  const isCardHead = (el) => el.classList.contains('card-head');
+  wrap.querySelectorAll('.card-head').forEach((head) => {
+    attach(head, following(head, isCardHead));
+  });
+
+  const isH2 = (el) => el.tagName === 'H2';
+  Array.prototype.forEach.call(wrap.children, (el) => {
+    if (el.tagName === 'H2') { attach(el, following(el, isH2)); }
+  });
+
+  document.querySelectorAll('[data-fold-all]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const folded = btn.dataset.foldAll === '1';
+      panels.forEach((apply) => apply(folded, true));
+    });
+  });
+})();
 
 {% if item %}
 const pts = {{ chart_points|safe }};
