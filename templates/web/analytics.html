@@ -637,6 +637,14 @@
           <span class="small c-dim">傷患期或季後休息期跑出來的數字本來就不一樣；
             註記了，下面的分析才不會把它當成能力退步</span>
         </div>
+        <div class="field">
+          <label>課表區塊（這次所有組共用）</label>
+          <select name="block">
+            <option value="">（未指定）</option>
+            {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+          </select>
+          <span class="small c-dim">這一組數據算是熱身、正課、補充練習還是恢復練習</span>
+        </div>
         <div class="field" style="flex:1">
           <label>情境（這次所有組共用）</label>
           <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
@@ -681,6 +689,25 @@
           <input type="hidden" name="domain" value="{{ domain }}">
           <input type="hidden" name="item_id" value="{{ item.id }}">
         </form>
+        {% if domain == 'STRENGTH' %}
+        <!-- 重量訓練預設用 kg；平板支撐、懸垂這種撐時間的動作換成秒才合理。
+             單位是跟著項目走的，換了之後這個項目所有紀錄都用同一個單位。 -->
+        <form method="post" class="flex" style="padding:10px 16px 0">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="item_unit">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+          <label class="unitpick">「{{ item.name }}」的單位
+            <select name="unit">
+              {% for v, l in strength_units %}
+                <option value="{{ v }}" {% if item.unit == v %}selected{% endif %}>{{ l }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="btn ghost sm" type="submit">換單位</button>
+          <span class="small c-dim">重量訓練以 kg 為主；撐時間的動作（平板支撐、懸垂…）可以改成秒</span>
+        </form>
+        {% endif %}
         <div class="small c-dim" style="padding:10px 16px 0">
           一天一列，先看當日的{% if unit_is_weight %}最重與最輕{% else %}最高與最低{% endif %}，
           點日期展開看那天每一組；每一格都可以直接改，改完按該列的 ✓ 存單筆，
@@ -725,6 +752,7 @@
                   <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
                   <th title="這一組有沒有照課表完成">完成</th>
                   <th title="這天的練習在什麼狀態下進行">狀態</th>
+                  <th title="這一組屬於課表的哪一段">區塊</th>
                   <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
                 </tr>
                 <!-- 最頂這一列不是紀錄：填一個數值按「套用」，
@@ -757,6 +785,12 @@
                     <select class="editsel" data-fill="status">
                       <option value="">—</option>
                       {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <select class="editsel" data-fill="block">
+                      <option value="">—</option>
+                      {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
                     </select>
                   </td>
                   <td class="c-dim">—</td>
@@ -821,6 +855,15 @@
                       <option value="">未註記</option>
                       {% for v, l in metric_statuses %}
                         <option value="{{ v }}" {% if r.status == v %}selected{% endif %}>{{ l }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <select name="block_{{ r.id }}" form="recEdit" class="editsel"
+                            title="這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）">
+                      <option value="">未指定</option>
+                      {% for v, l in metric_blocks %}
+                        <option value="{{ v }}" {% if r.block == v %}selected{% endif %}>{{ l }}</option>
                       {% endfor %}
                     </select>
                   </td>

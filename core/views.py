@@ -23,12 +23,15 @@ from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event
 from analytics import services as an
 from analytics.models import (
+    STRENGTH_UNITS,
     MetricCategory,
     MetricDomain,
     MetricItem,
     MetricRecord,
     TrackMethod,
     TrainingStatus,
+    block_choices,
+    block_order,
     domain_pairs_for_session_type,
     domains_for_session_type,
     ensure_builtin_items,
@@ -36,6 +39,7 @@ from analytics.models import (
     item_for_name,
     metric_category_for_activity,
     session_types_for_domain,
+    set_item_unit,
     track_item_for,
     track_method_choices,
 )
@@ -1248,6 +1252,10 @@ def session_detail(request, pk):
             _edit_metrics(request, session)
         elif action == "delete_metric":
             _delete_metric(request, session)
+        elif action == "move_metric":
+            _move_metric(request, session)
+        elif action == "item_unit":
+            _switch_item_unit(request, session)
         return redirect("web:session_detail", pk=pk)
 
     return render(request, "web/session_detail.html", _session_context(request, session))
@@ -1380,9 +1388,16 @@ def _session_metric_context(session):
         )
     )
 
+    # 一組＝（課表區塊, 項目）。同一個動作放在熱身和放在正課本來就不是同一件事，
+    # 所以分開兩堆列出來，看得出哪一段做了什麼。
     grouped = {}
     for r in records:
-        grouped.setdefault(r.item_id, {"item": r.item, "records": []})["records"].append(r)
+        key = (r.block, r.item_id)
+        grouped.setdefault(key, {"item": r.item, "block": r.block, "records": []})
+        grouped[key]["records"].append(r)
+
+    block_labels = dict(block_choices())
+    order = block_order()
 
     groups = []
     for entry in grouped.values():
@@ -1393,6 +1408,8 @@ def _session_metric_context(session):
         groups.append(
             {
                 "item": item,
+                "block": entry["block"],
+                "block_label": block_labels.get(entry["block"], ""),
                 "records": rows,
                 "count": len(rows),
                 "best": (max if item.higher_is_better else min)(values) if values else None,
@@ -1403,7 +1420,13 @@ def _session_metric_context(session):
                 "unit_is_weight": (item.unit or "").strip().lower() == "kg",
             }
         )
-    groups.sort(key=lambda g: g["item"].name)
+    # 沒指定區塊的排最後，其餘照熱身 → 正課 → 補充 → 恢復
+    groups.sort(
+        key=lambda g: (
+            order.index(g["block"]) if g["block"] in order else len(order),
+            g["item"].name,
+        )
+    )
 
     return {
         "metric_domains": domain_pairs_for_session_type(session.session_type),
@@ -1416,6 +1439,10 @@ def _session_metric_context(session):
         "metric_record_count": len(records),
         # 登記完之後在同一張表上直接改（改的就是數據分析那一份）
         "metric_statuses": TrainingStatus.choices,
+        # 這一組數據放回課表的哪一段（熱身／正課／補充練習／恢復練習）
+        "metric_blocks": block_choices(),
+        # 重量訓練以 kg 為主，撐時間的動作可以把單位換成秒
+        "strength_units": STRENGTH_UNITS,
     }
 
 
@@ -1503,6 +1530,47 @@ def _delete_metric(request, session):
         return
     record.delete()
     messages.info(request, "已刪除一筆數據紀錄。")
+
+
+def _move_metric(request, session):
+    """本課數據紀錄裡的 ↑ ↓：把一組往前／往後挪，同一天的組號跟著重排。
+
+    跟數據分析「紀錄明細」的 ↑ ↓ 是同一個做法（同一個 move_record）。
+    """
+    if not _can_log_metrics(request, session):
+        messages.error(request, "只有這名運動員本人（或管理員）能調這堂課的數據。")
+        return
+    direction = "up" if request.POST.get("up") else "down"
+    record = MetricRecord.objects.filter(
+        pk=request.POST.get(direction) or request.POST.get("record_id"), session=session
+    ).first()
+    if record is None:
+        messages.error(request, "這筆紀錄已經不在這堂課裡了。")
+        return
+    if move_record(record, direction):
+        messages.info(request, f"已把這一組往{'前' if direction == 'up' else '後'}挪。")
+    else:
+        messages.info(request, "這一組已經在最" + ("前" if direction == "up" else "後") + "面了。")
+
+
+def _switch_item_unit(request, session):
+    """把一個項目的單位在 kg 和秒之間換過來。
+
+    重量訓練預設用 kg，但像平板支撐、懸垂這種撐時間的動作用秒才合理，
+    所以單位是跟著項目走的，換了之後這個項目所有紀錄都用同一個單位。
+    """
+    if not _can_log_metrics(request, session):
+        messages.error(request, "只有這名運動員本人（或管理員）能改項目單位。")
+        return
+    item = MetricItem.objects.filter(pk=request.POST.get("item_id")).first()
+    if item is None:
+        messages.error(request, "找不到這個項目。")
+        return
+    unit = request.POST.get("unit", "")
+    if set_item_unit(item, unit):
+        messages.success(request, f"「{item.name}」的單位已改成 {item.unit}。")
+    else:
+        messages.info(request, "單位沒有變動。")
 
 
 def _add_activity(request, session):
@@ -1883,6 +1951,15 @@ def analytics_view(request):
                 )
             return redirect(back)
 
+        if action == "item_unit":
+            # 重量訓練以 kg 為主，撐時間的動作（平板支撐、懸垂…）可以換成秒
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            if set_item_unit(item, request.POST.get("unit", "")):
+                messages.success(request, f"「{item.name}」的單位已改成 {item.unit}。")
+            else:
+                messages.info(request, "單位沒有變動。")
+            return redirect(f"{back}&item={item.id}")
+
         if action == "add_record":
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
             session_id = request.POST.get("session") or None
@@ -2076,6 +2153,10 @@ def analytics_view(request):
             "metric_categories": MetricCategory.choices,
             # 每一筆紀錄都可以註記當天的狀態（傷害治療期…），分析前先看這一欄
             "metric_statuses": TrainingStatus.choices,
+            # 這一組數據放回課表的哪一段（熱身／正課／補充練習／恢復練習）
+            "metric_blocks": block_choices(),
+            # 重量訓練以 kg 為主，撐時間的動作可以把單位換成秒
+            "strength_units": STRENGTH_UNITS,
             # 田徑練習：先挑方式、再填距離
             "track_methods": track_method_choices(),
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據

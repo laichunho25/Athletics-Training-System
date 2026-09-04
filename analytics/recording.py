@@ -11,8 +11,15 @@ from django.db.models import F
 from analytics.models import (
     MetricRecord,
     TrainingStatus,
+    block_choices,
     domains_for_session_type,
 )
+
+
+def _clean_block(raw):
+    """課表區塊：不認得的值一律當成「沒指定」。"""
+    raw = (raw or "").strip()
+    return raw if raw in [v for v, _ in block_choices()] else ""
 
 
 class RecordError(Exception):
@@ -69,6 +76,9 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     status = post.get("status", "")
     if status not in TrainingStatus.values:
         status = ""
+    # 這一整批是課表上哪一段做的（熱身／正課／補充練習／恢復練習）——
+    # 同一個動作放在熱身和放在正課本來就不是同一件事，分開記才看得準
+    block = _clean_block(post.get("block"))
     targets = post.getlist("target_value")
     values = post.getlist("value")
     weights = post.getlist("weight")
@@ -116,6 +126,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
                 rest_sec=None if rest is None else round(rest * rest_factor),
                 completed=(dones[i] if i < len(dones) else "1") != "0",
                 status=status,
+                block=block,
                 context=context,
                 note=note,
             )
@@ -146,7 +157,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 #: 表單上改得動的欄位
 EDITABLE_FIELDS = (
     "set_no", "target_value", "value", "weight", "intensity", "reps",
-    "rest_sec", "completed", "status", "context",
+    "rest_sec", "completed", "status", "block", "context",
 )
 
 
@@ -242,6 +253,10 @@ def update_records(post, records, only=None):
         raw = _field(post, "status", rid)
         if raw is not None:
             take("status", raw if raw in TrainingStatus.values else "")
+
+        raw = _field(post, "block", rid)
+        if raw is not None:
+            take("block", _clean_block(raw))
 
         raw = _field(post, "context", rid)
         if raw is not None:

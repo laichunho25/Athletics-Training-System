@@ -216,6 +216,24 @@ def track_item_name(method, distance_m):
     return label, en
 
 
+def block_choices():
+    """課表的四個區塊（熱身／正課／補充練習／恢復練習）。
+
+    定義放在 training.models（課表那邊才是它的主場），這裡延後匯入，
+    免得兩個 app 的 models 互相 import。
+    """
+    from training.models import BlockType
+
+    return BlockType.choices
+
+
+def block_order():
+    """四個區塊的固定顯示順序（value 清單）。"""
+    from training.models import BLOCK_ORDER
+
+    return [b.value for b in BLOCK_ORDER]
+
+
 class MetricCategory(models.TextChoices):
     """重量訓練紀錄的動作分類——項目清單照這個分組顯示，找動作比一長串快。"""
 
@@ -372,6 +390,13 @@ class MetricRecord(TimeStampedModel):
         help_text="比賽數據登在哪一場比賽底下；練習紀錄留空",
     )
     date = models.DateField("日期")
+    # 這一組是課表上的哪一段做的（熱身 / 正課 / 補充練習 / 恢復練習）。
+    # 登數據時挑一個，紀錄就「放回」課表對應的那一區，
+    # 之後看數據分析也分得出熱身跳的與正課跳的不是同一件事。
+    block = models.CharField(
+        "課表區塊", max_length=12, choices=block_choices, blank=True,
+        help_text="這一組屬於課表的哪一段：熱身／正課／補充練習／恢復練習",
+    )
     # 目標與完成分開記：課表上要求做到幾秒、實際做出幾秒，兩個都不是必填，
     # 只要挑了項目就登得進來（之後在數據分析補值也可以）。
     target_value = models.DecimalField(
@@ -426,6 +451,10 @@ class MetricRecord(TimeStampedModel):
     @property
     def status_label(self):
         return self.get_status_display() if self.status else ""
+
+    @property
+    def block_label(self):
+        return self.get_block_display() if self.block else ""
 
     @property
     def set_label(self):
@@ -609,7 +638,11 @@ def item_for_activity(session_type, name, activity_category="", user=None, name_
     domain = domain_for_activity(session_type, activity_category)
     if domain is None:
         return None
-    unit = "秒" if activity_category in ("WARMUP", "RECOVERY") else None
+    # 重量訓練一律先以 kg 為主要單位（撐體、平板那種要記秒的動作，
+    # 之後在畫面上把那個項目的單位切成「秒」就可以，見 set_item_unit）
+    unit = None
+    if domain != MetricDomain.STRENGTH.value and activity_category in ("WARMUP", "RECOVERY"):
+        unit = "秒"
     return item_for_name(
         domain,
         name,
@@ -618,3 +651,27 @@ def item_for_activity(session_type, name, activity_category="", user=None, name_
         category=metric_category_for_activity(activity_category),
         name_en=name_en,
     )
+
+
+#: 重量訓練項目用得到的單位。大部分動作記的是重量（kg），
+#: 平板支撐、懸垂、登階那種撐時間的動作就切成「秒」。
+STRENGTH_UNITS = [("kg", "kg（重量）"), ("秒", "秒（時間）")]
+
+
+def set_item_unit(item, unit):
+    """換掉一個項目的單位（kg ↔ 秒），並把「越大越好」調成合理的方向。
+
+    重量訓練記秒的是撐多久（越久越好）；田徑與比賽記秒的是跑多快（越短越好）。
+    回傳有沒有真的換過。
+    """
+    unit = (unit or "").strip()
+    if unit not in [u for u, _ in STRENGTH_UNITS]:
+        return False
+    if unit == (item.unit or "").strip():
+        return False
+    item.unit = unit
+    item.higher_is_better = (
+        True if unit == "kg" else item.domain == MetricDomain.STRENGTH.value
+    )
+    item.save(update_fields=["unit", "higher_is_better"])
+    return True

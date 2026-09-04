@@ -209,9 +209,16 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="delete_metric">
     </form>
+    <!-- ↑ ↓ 換組數次序：按哪一顆就送 up=<id> 或 down=<id> -->
+    <form method="post" id="metricMove">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="move_metric">
+    </form>
     <div class="small c-dim" style="padding:10px 18px 0">
       每一格都可以直接改；改好按該列的 ✓ 存單筆，或按最下面的
       <strong>儲存全部更改</strong> 一次過確認所有更改。
+      組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼；
+      最頂那一列填一個數值按「套用」，就會填進這個項目所有組。
     </div>
     <div class="daylist">
     {% for g in metric_groups %}
@@ -230,11 +237,30 @@
             {% endif %}
           </span>
           <span class="daymeta">
+            {% if g.block_label %}<span class="badge b-blue" title="這一組放在課表的哪一段">{{ g.block_label }}</span>{% endif %}
             {% if g.failed %}<span class="badge b-red">{{ g.failed }} 組未完成</span>{% endif %}
             {% if g.tonnage %}噸位 {{ g.tonnage }} kg{% endif %}
             · <span class="badge b-dim">{{ g.item.get_domain_display }}</span>
           </span>
         </summary>
+        {% if g.item.domain == "STRENGTH" %}
+        <!-- 重量訓練預設用 kg；平板支撐、懸垂這種撐時間的動作換成秒才合理。
+             單位跟著項目走，換了之後這個項目所有紀錄都用同一個單位。 -->
+        <form method="post" class="flex" style="padding:8px 16px 0">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="item_unit">
+          <input type="hidden" name="item_id" value="{{ g.item.id }}">
+          <label class="unitpick">「{{ g.item.name }}」的單位
+            <select name="unit">
+              {% for v, l in strength_units %}
+                <option value="{{ v }}" {% if g.item.unit == v %}selected{% endif %}>{{ l }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="btn ghost sm" type="submit">換單位</button>
+          <span class="small c-dim">重量訓練以 kg 為主；撐時間的動作可以改成秒</span>
+        </form>
+        {% endif %}
         <table>
           <thead>
             <tr><th class="num">組</th>
@@ -245,12 +271,60 @@
                 <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
                 <th>完成</th>
                 <th title="這天的練習在什麼狀態下進行">狀態</th>
+                <th title="這一組屬於課表的哪一段">區塊</th>
                 <th>情境</th><th></th></tr>
+            <!-- 最頂這一列不是紀錄：填一個數值按「套用」，
+                 就會填進這個項目所有組（十組同重量不用打十次）。 -->
+            <tr class="fillrow">
+              <td class="num c-dim" title="填一格就套用到所有組">全部</td>
+              <td class="num"><input class="editnum" type="number" step="any"
+                                     data-fill="target_value" placeholder="目標"></td>
+              <td class="num"><input class="editnum" type="number" step="any"
+                                     data-fill="value" placeholder="完成"></td>
+              {% if g.item.domain == "TRACK" %}
+                <td class="num"><input class="editnum" type="text" maxlength="20"
+                                       data-fill="intensity" placeholder="強度"></td>
+              {% else %}
+                <td class="num"><input class="editnum" type="number" step="any" min="0"
+                                       data-fill="weight" placeholder="重量"></td>
+              {% endif %}
+              <td class="num"><input class="editnum sm" type="number" step="1" min="0"
+                                     data-fill="reps" placeholder="次數"></td>
+              <td class="num"><input class="editnum sm" type="number" step="any" min="0"
+                                     data-fill="rest_sec" placeholder="休息"></td>
+              <td>
+                <select class="editsel" data-fill="completed">
+                  <option value="">—</option>
+                  <option value="1">✅</option>
+                  <option value="0">❌</option>
+                </select>
+              </td>
+              <td>
+                <select class="editsel" data-fill="status">
+                  <option value="">—</option>
+                  {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                </select>
+              </td>
+              <td>
+                <select class="editsel" data-fill="block">
+                  <option value="">—</option>
+                  {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                </select>
+              </td>
+              <td><input class="editnum wide" type="text" maxlength="120"
+                         data-fill="context" placeholder="情境"></td>
+              <td><button type="button" class="btn ghost sm fillall"
+                          title="把上面填了的格套用到所有組（還要按儲存才寫回去）">套用</button></td>
+            </tr>
           </thead>
           <tbody>
           {% for r in g.records %}
             <tr{% if not r.completed %} class="failedrow"{% endif %}>
-              <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
+              <td class="num setcell">
+                <input class="editnum setno" type="number" step="1" min="1" form="metricEdit"
+                       name="set_no_{{ r.id }}" value="{{ r.set_no|default_if_none:'' }}"
+                       placeholder="—" title="組號——改成想要的次序，存檔後會重排成 1、2、3…">
+              </td>
               <td class="num">
                 <input class="editnum" type="number" step="any" form="metricEdit"
                        name="target_value_{{ r.id }}" value="{{ r.target_value|default_if_none:'' }}"
@@ -301,11 +375,24 @@
                 </select>
               </td>
               <td>
+                <select class="editsel" form="metricEdit" name="block_{{ r.id }}"
+                        title="這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）">
+                  <option value="">未指定</option>
+                  {% for v, l in metric_blocks %}
+                    <option value="{{ v }}" {% if r.block == v %}selected{% endif %}>{{ l }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
                 <input class="editnum wide" type="text" maxlength="120" form="metricEdit"
                        name="context_{{ r.id }}" value="{{ r.context }}"
                        placeholder="情境" title="情境（例：順風 1.2、賽前熱身）">
               </td>
               <td style="white-space:nowrap">
+                <button class="linkbtn" type="submit" form="metricMove"
+                        name="up" value="{{ r.id }}" title="往前挪一組">↑</button>
+                <button class="linkbtn" type="submit" form="metricMove"
+                        name="down" value="{{ r.id }}" title="往後挪一組">↓</button>
                 <button class="linkbtn" type="submit" form="metricEdit"
                         name="only" value="{{ r.id }}" title="只存這一列">✓</button>
                 <button class="linkbtn" type="submit" form="metricDel"
@@ -359,7 +446,7 @@
                placeholder="例：槓鈴深蹲、30m 衝刺">
         <datalist id="actnames">
           {% for b in blocks %}{% for row in b.activities %}
-            <option value="{{ row.a.name }}"></option>
+            <option value="{{ row.a.name }}" data-block="{{ b.value }}"></option>
           {% endfor %}{% endfor %}
         </datalist>
       </div>
@@ -400,7 +487,9 @@
     </table>
       </div>
     <div class="flex mb">
-      <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組</button>
+      <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組（空白）</button>
+      <button type="button" class="btn ghost sm" id="copyMetricSet"
+              title="數字照抄上一組，只要改動不一樣的那一格">＋ 跟上一組一樣</button>
       <label class="unitpick">休息時間單位
         <select name="rest_unit">
           <option value="min" selected>分鐘</option>
@@ -419,6 +508,15 @@
         </select>
         <span class="small c-dim">傷患期、季後休息期練出來的數字本來就不一樣；
           註記了，數據分析才不會把它當成能力退步</span>
+      </div>
+      <div class="field">
+        <label>課表區塊（這次所有組共用）</label>
+        <select name="block" id="metricBlock">
+          <option value="">（未指定）</option>
+          {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        </select>
+        <span class="small c-dim">這一組數據放回課表的哪一段；
+          項目名稱對得上課表上的動作時會自動幫你挑好</span>
       </div>
       <div class="field" style="flex:1">
         <label>情境（這次所有組共用）</label>

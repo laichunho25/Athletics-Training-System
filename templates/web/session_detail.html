@@ -48,19 +48,52 @@
       });
     }
 
-    document.addEventListener('click', function (event) {
-      if (event.target.id === 'addMetricSet') {
-        var body = rows();
-        if (!body) { return; }
-        var row = body.rows[0].cloneNode(true);
+    function addRow(copy) {
+      var body = rows();
+      if (!body) { return; }
+      var source = copy ? body.rows[body.rows.length - 1] : body.rows[0];
+      var row = source.cloneNode(true);
+      if (copy) {
+        // cloneNode 抄得到 input 的字，但 select 的選擇要自己對回去
+        row.querySelectorAll('input').forEach(function (inp) { inp.removeAttribute('required'); });
+        var from = source.querySelectorAll('select');
+        row.querySelectorAll('select').forEach(function (sel, i) { sel.value = from[i].value; });
+      } else {
         row.querySelectorAll('input').forEach(function (inp) {
           inp.value = '';
           inp.removeAttribute('required');
         });
         row.querySelector('select').selectedIndex = 0;
-        body.appendChild(row);
-        renumber(body);
-        row.querySelector('input').focus();
+      }
+      body.appendChild(row);
+      renumber(body);
+      row.querySelector('input').focus();
+    }
+
+    document.addEventListener('click', function (event) {
+      if (event.target.id === 'addMetricSet') { addRow(false); return; }
+      if (event.target.id === 'copyMetricSet') { addRow(true); return; }
+
+      // 明細最頂那一列的「套用」：把填了的格填進這個項目所有組
+      // （只是填在畫面上，要按 ✓ 或「儲存全部更改」才寫回資料庫）
+      var fill = event.target.closest('#metriccard .fillall');
+      if (fill) {
+        var table = fill.closest('table');
+        var head = table.querySelector('.fillrow');
+        var tbody = table.querySelector('tbody');
+        var filled = 0;
+        head.querySelectorAll('[data-fill]').forEach(function (source) {
+          var value = source.value.trim ? source.value.trim() : source.value;
+          if (value === '') { return; }          // 沒填的欄位就不要動
+          tbody.querySelectorAll('[name^="' + source.dataset.fill + '_"]').forEach(function (cell) {
+            cell.value = value;
+            filled += 1;
+          });
+        });
+        if (filled) {
+          fill.textContent = '已填 ' + filled + ' 格';
+          setTimeout(function () { fill.textContent = '套用'; }, 1600);
+        }
         return;
       }
 
@@ -87,7 +120,22 @@
       if (event.target.id === 'metricName' && event.target.value) {
         var pick = document.getElementById('metricItem');
         if (pick) { pick.value = ''; }
+        blockFromName(event.target.value);
       }
+    });
+
+    // 打的名稱對得上課表上的動作時，順手把「課表區塊」挑好；
+    // 使用者自己動過那個選單就不再插手。
+    function blockFromName(name) {
+      var pick = document.getElementById('metricBlock');
+      if (!pick || pick.dataset.touched) { return; }
+      var opt = document.querySelector(
+        '#actnames option[value="' + String(name).replace(/["\\]/g, '\\$&') + '"]'
+      );
+      pick.value = opt ? (opt.dataset.block || '') : '';
+    }
+    document.addEventListener('change', function (event) {
+      if (event.target.id === 'metricBlock') { event.target.dataset.touched = '1'; }
     });
   })();
 </script>
