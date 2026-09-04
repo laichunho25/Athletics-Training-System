@@ -540,6 +540,26 @@
         · 目標與完成數值都可以先留空，之後回來這裡補
       </span>
     </div>
+    {% if domain == 'STRENGTH' %}
+    <!-- 目標／完成數值的單位跟著項目走：重量訓練預設 kg，
+         平板支撐、懸垂這種撐時間的動作換成秒，換完上下兩張表一起改。 -->
+    <form method="post" class="flex" style="padding:12px 18px 0">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="item_unit">
+      <input type="hidden" name="domain" value="{{ domain }}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+      <label class="unitpick">目標／完成數值的單位
+        <select name="unit">
+          {% for v, l in strength_units %}
+            <option value="{{ v }}" {% if item.unit == v %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn ghost sm" type="submit">換單位</button>
+      <span class="small c-dim">現在是 <strong>{{ item.unit|default:"秒" }}</strong>；
+        撐時間的動作（平板支撐、懸垂…）改成秒才記得準</span>
+    </form>
+    {% endif %}
     <form method="post" style="padding:14px 18px">
       {% csrf_token %}
       <input type="hidden" name="action" value="add_record">
@@ -710,7 +730,7 @@
         {% endif %}
         <div class="small c-dim" style="padding:10px 16px 0">
           一天一列，先看當日的{% if unit_is_weight %}最重與最輕{% else %}最高與最低{% endif %}，
-          點日期展開看那天每一組；每一格都可以直接改，改完按該列的 ✓ 存單筆，
+          點日期展開看那天每一組；每一格（連同「區塊」和「program」）都可以直接改，改完按該列的 ✓ 存單筆，
           或按最下面的 <strong>儲存全部更改</strong> 一次過確認所有更改。
           組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼；
           展開後最頂那一列填一個數值按「套用」，就會填進當天所有組。
@@ -793,7 +813,16 @@
                       {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
                     </select>
                   </td>
-                  <td class="c-dim">—</td>
+                  <td>
+                    <select class="editsel" data-fill="session">
+                      <option value="">—</option>
+                      {% for sess in recent_sessions %}
+                        <option value="{{ sess.id }}">
+                          {{ sess.date|date:"m/d" }} {{ sess.get_session_type_display }} · {{ sess.title }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </td>
                   <td><input class="editnum wide" type="text" maxlength="120"
                              data-fill="context" placeholder="情境"></td>
                   <td><button type="button" class="btn ghost sm fillall"
@@ -867,11 +896,25 @@
                       {% endfor %}
                     </select>
                   </td>
-                  <td>
+                  <td style="white-space:nowrap">
+                    <select name="session_{{ r.id }}" form="recEdit" class="editsel"
+                            title="這筆紀錄掛在哪一堂課（只列得出對得上這個範疇的課別）">
+                      <option value="">（不對應課表）</option>
+                      {% if r.session and r.session not in recent_sessions %}
+                        <option value="{{ r.session.id }}" selected>
+                          {{ r.session.date|date:"m/d" }} {{ r.session.get_session_type_display }} · {{ r.session.title }}
+                        </option>
+                      {% endif %}
+                      {% for sess in recent_sessions %}
+                        <option value="{{ sess.id }}" {% if r.session_id == sess.id %}selected{% endif %}>
+                          {{ sess.date|date:"m/d" }} {{ sess.get_session_type_display }} · {{ sess.title }}
+                        </option>
+                      {% endfor %}
+                    </select>
                     {% if r.session %}
-                      <a class="ellip inline" href="{% url 'web:session_detail' r.session.id %}"
-                         title="{{ r.session.date }} {{ r.session.get_session_type_display }}｜{{ r.session.title }}">{{ r.session.title }}</a>
-                    {% else %}<span class="c-dim">—</span>{% endif %}
+                      <a class="linkbtn" href="{% url 'web:session_detail' r.session.id %}"
+                         title="{{ r.session.date }} {{ r.session.title }}｜點一下回到那一堂課">→</a>
+                    {% endif %}
                   </td>
                   <td>
                     <input class="editnum wide" type="text" name="context_{{ r.id }}" maxlength="120"

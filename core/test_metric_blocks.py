@@ -12,7 +12,7 @@ from analytics.models import (
 )
 from core.models import SessionType
 from core.test_factories import make_athlete, make_session
-from training.models import BlockType
+from training.models import BlockType, SessionActivity
 
 TODAY = date(2026, 6, 1)
 
@@ -116,6 +116,65 @@ class MetricBlockTests(TestCase):
         self.assertEqual(item.unit, "kg")
 
 
+class BlockToActivityTests(TestCase):
+    """選了區塊，上面的課表就把那個動作放進那一區。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a3")
+        self.client.force_login(self.athlete.user)
+        self.session = make_session(
+            self.athlete, TODAY, session_type=SessionType.STRENGTH
+        )
+
+    def url(self):
+        return reverse("web:session_detail", args=[self.session.id])
+
+    def test_logging_with_a_block_adds_the_activity_above(self):
+        self.client.post(self.url(), {
+            "action": "add_metric",
+            "domain": MetricDomain.STRENGTH,
+            "item_name": "槓鈴深蹲",
+            "date": TODAY.isoformat(),
+            "value": "100",
+            "completed": "1",
+            "block": BlockType.MAIN,
+        })
+        act = SessionActivity.objects.get(session=self.session, name="槓鈴深蹲")
+        self.assertEqual(act.block, BlockType.MAIN)
+
+    def test_changing_the_block_moves_the_activity(self):
+        self.client.post(self.url(), {
+            "action": "add_metric",
+            "domain": MetricDomain.STRENGTH,
+            "item_name": "槓鈴深蹲",
+            "date": TODAY.isoformat(),
+            "value": "100",
+            "completed": "1",
+            "block": BlockType.MAIN,
+        })
+        rec = MetricRecord.objects.get()
+        self.client.post(self.url(), {
+            "action": "edit_metric",
+            "only": rec.id,
+            f"block_{rec.id}": BlockType.WARMUP,
+        })
+        # 沒有多開一列，是把原本那一列搬過去
+        act = SessionActivity.objects.get(session=self.session, name="槓鈴深蹲")
+        self.assertEqual(act.block, BlockType.WARMUP)
+
+    def test_no_block_leaves_the_plan_alone(self):
+        self.client.post(self.url(), {
+            "action": "add_metric",
+            "domain": MetricDomain.STRENGTH,
+            "item_name": "槓鈴深蹲",
+            "date": TODAY.isoformat(),
+            "value": "100",
+            "completed": "1",
+        })
+        self.assertFalse(SessionActivity.objects.filter(session=self.session).exists())
+
+
 class AnalyticsBlockTests(TestCase):
     def setUp(self):
         ensure_builtin_items()
@@ -145,6 +204,86 @@ class AnalyticsBlockTests(TestCase):
             f"&domain={MetricDomain.STRENGTH}&item={self.item.id}"
         )
         self.assertContains(page, "補充練習")
+
+    def test_program_can_be_changed_from_the_detail_table(self):
+        url = reverse("web:analytics")
+        self.client.post(url, {
+            "action": "add_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "date": TODAY.isoformat(),
+            "value": "100",
+            "completed": "1",
+        })
+        rec = MetricRecord.objects.get()
+        self.assertIsNone(rec.session_id)
+
+        s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
+        r = self.client.post(url, {
+            "action": "edit_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "only": rec.id,
+            f"session_{rec.id}": s.id,
+        })
+        self.assertEqual(r.status_code, 302)
+        rec.refresh_from_db()
+        self.assertEqual(rec.session_id, s.id)
+
+        # 清空就變成不對應課表
+        self.client.post(url, {
+            "action": "edit_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "only": rec.id,
+            f"session_{rec.id}": "",
+        })
+        rec.refresh_from_db()
+        self.assertIsNone(rec.session_id)
+
+    def test_program_of_a_wrong_session_type_is_refused(self):
+        url = reverse("web:analytics")
+        self.client.post(url, {
+            "action": "add_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "date": TODAY.isoformat(),
+            "value": "100", "completed": "1",
+        })
+        rec = MetricRecord.objects.get()
+        track = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        self.client.post(url, {
+            "action": "edit_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "only": rec.id,
+            f"session_{rec.id}": track.id,
+        })
+        rec.refresh_from_db()
+        self.assertIsNone(rec.session_id)
+
+    def test_another_athletes_program_cannot_be_attached(self):
+        url = reverse("web:analytics")
+        self.client.post(url, {
+            "action": "add_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "date": TODAY.isoformat(),
+            "value": "100", "completed": "1",
+        })
+        rec = MetricRecord.objects.get()
+        other = make_session(
+            make_athlete("a9"), TODAY, session_type=SessionType.STRENGTH
+        )
+        self.client.post(url, {
+            "action": "edit_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id,
+            "only": rec.id,
+            f"session_{rec.id}": other.id,
+        })
+        rec.refresh_from_db()
+        self.assertIsNone(rec.session_id)
 
     def test_unit_switch_from_the_analytics_page(self):
         url = reverse("web:analytics")

@@ -157,7 +157,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 #: 表單上改得動的欄位
 EDITABLE_FIELDS = (
     "set_no", "target_value", "value", "weight", "intensity", "reps",
-    "rest_sec", "completed", "status", "block", "context",
+    "rest_sec", "completed", "status", "block", "session", "context",
 )
 
 
@@ -178,11 +178,15 @@ def _edit_decimal(raw, label, record_id, problems):
         return "skip"
 
 
-def update_records(post, records, only=None):
+def update_records(post, records, only=None, session_lookup=None):
     """把表單上的內容寫回這些紀錄。
 
     records 是這一頁列得出來的紀錄（限定範圍，避免別人的紀錄被改到）。
     only 有值就只改那一筆。回傳 (改了幾筆, 問題清單)。
+
+    session_lookup 給得出來的話，「program」那一格也改得動：
+    它收一個 id 回傳那堂課（找不到或不是這名運動員的就回 None）。
+    課表頁不給這個參數——那邊的紀錄本來就屬於當下那一堂課。
     """
     if only:
         records = [r for r in records if str(r.pk) == str(only)]
@@ -257,6 +261,27 @@ def update_records(post, records, only=None):
         raw = _field(post, "block", rid)
         if raw is not None:
             take("block", _clean_block(raw))
+
+        # program：登錯課、或事後才想把這一組掛回某一堂課，都在這裡改
+        raw = _field(post, "session", rid)
+        if raw is not None and session_lookup is not None:
+            raw = raw.strip()
+            if not raw:
+                if record.session_id is not None:
+                    record.session = None
+                    fields.append("session")
+            else:
+                found = session_lookup(raw)
+                if found is None:
+                    problems.append(f"第 {rid} 筆指定的 program 找不到")
+                elif not session_allows(found, record.item):
+                    problems.append(
+                        f"第 {rid} 筆：「{found.get_session_type_display()}」"
+                        f"的課不能掛{record.item.get_domain_display()}的紀錄"
+                    )
+                elif record.session_id != found.pk:
+                    record.session = found
+                    fields.append("session")
 
         raw = _field(post, "context", rid)
         if raw is not None:

@@ -1485,6 +1485,56 @@ def _add_metric(request, session):
         return
     messages.success(request, f"{msg}同一筆在「數據分析 → {item.get_domain_display()}」也看得到。")
 
+    # 選了區塊就順手把這個動作放進上面課表的那一區
+    moved = _sync_block_activity(
+        request, session, item.name, _created[0].block if _created else ""
+    )
+    if moved:
+        messages.info(request, moved)
+
+
+def _sync_block_activity(request, session, name, block):
+    """數據紀錄選了區塊，上面的課表就把這個動作放進那一區。
+
+    上面已經有同名的活動：直接搬到選的那一區（連同它的組數、次數一起搬）。
+    還沒有：在那一區補一列（名字對得上活動庫就把預設值一起帶進來）。
+    回傳給使用者看的一句話，沒有動到就回空字串。
+    """
+    name = (name or "").strip()
+    if not name or block not in BlockType.values:
+        return ""
+
+    label = BlockType(block).label
+    existing = session.activities.filter(name__iexact=name).first()
+    if existing is not None:
+        if existing.block == block:
+            return ""
+        last = session.activities.filter(block=block).order_by("-order").first()
+        existing.block = block
+        existing.order = (last.order + 1) if last else 1
+        existing.save(update_fields=["block", "order", "updated_at"])
+        return f"課表上的「{existing.name}」已改放到{label}。"
+
+    row_def = _definition_for_name(name)
+    defaults = row_def.defaults_payload() if row_def else {}
+    last = session.activities.filter(block=block).order_by("-order").first()
+    SessionActivity.objects.create(
+        session=session,
+        block=block,
+        order=(last.order + 1) if last else 1,
+        definition=row_def,
+        name=name,
+        sets=defaults.get("sets", ""),
+        reps=defaults.get("reps", ""),
+        distance=defaults.get("distance", ""),
+        weight=defaults.get("weight", ""),
+        intensity=defaults.get("intensity", ""),
+        rest=defaults.get("rest", ""),
+        key_points=defaults.get("key_points", ""),
+        created_by=request.user,
+    )
+    return f"已把「{name}」加進課表的{label}。"
+
 
 def _can_log_metrics(request, session):
     """能不能動這堂課的數據——跟登記 RPE 同一個門檻（本人或管理員）。"""
@@ -1510,12 +1560,22 @@ def _edit_metrics(request, session):
         messages.error(request, "這筆紀錄已經不在這堂課裡了。")
         return
 
+    before = {r.pk: r.block for r in records}
     changed, problems = update_records(request.POST, records, only=only)
     text = edit_message(changed, problems)
     if changed:
         messages.success(request, text + "數據分析的「紀錄明細」同時更新了。")
     else:
         messages.info(request, text)
+
+    # 區塊改了的，上面的課表跟著把那個動作放到新的一區
+    for record in records:
+        if record.block and record.block != before.get(record.pk):
+            moved = _sync_block_activity(
+                request, session, record.item.name, record.block
+            )
+            if moved:
+                messages.info(request, moved)
 
 
 def _delete_metric(request, session):
@@ -2001,7 +2061,18 @@ def analytics_view(request):
             only = request.POST.get("only") or None
             if only and not any(str(r.pk) == str(only) for r in editable):
                 raise Http404("無權限修改這筆紀錄。")
-            changed, problems = update_records(request.POST, editable, only=only)
+
+            def find_session(raw):
+                """只認這名運動員自己的課，別人的 program 掛不上去。"""
+                return (
+                    athlete.sessions.filter(pk=raw).first()
+                    if str(raw).isdigit()
+                    else None
+                )
+
+            changed, problems = update_records(
+                request.POST, editable, only=only, session_lookup=find_session
+            )
             text = edit_message(changed, problems)
             if changed:
                 messages.success(request, text)
