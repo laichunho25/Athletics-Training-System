@@ -1,21 +1,21 @@
-{% comment %}面包屑：模組 → 目前頁面。`page` 由各 view 傳進來。{% endcomment %}
+{% load atm %}{% comment %}
+麵包屑：模組 → 目前頁面 →（跟著運動員走的頁面才有）檢視中的運動員。
+頁名不再寫成一長串 if/elif，統一由 core.context_processors.NAV_PAGES 給。
+{% endcomment %}
 <nav class="crumb" aria-label="路徑">
-  <a href="{% url 'web:home' %}"><svg class="ic"><use href="#i-home"></use></svg></a>
-  {% if page == 'athletes' %}
-    <i>/</i><span>運動員</span><i>/</i><b>運動員列表</b>
-  {% elif page == 'dashboard' %}
-    <i>/</i><span>運動員</span><i>/</i><b>運動員狀態總覽</b>
-  {% elif page == 'plan' %}
-    <i>/</i><span>訓練管理</span><i>/</i><b>計劃</b>
-  {% elif page == 'calendar' %}
-    <i>/</i><span>訓練管理</span><i>/</i><b>訓練日曆</b>
-  {% elif page == 'analytics' %}
-    <i>/</i><span>數據與健康</span><i>/</i><b>數據分析</b>
-  {% elif page == 'nutrition' %}
-    <i>/</i><span>數據與健康</span><i>/</i><b>營養與恢復</b>
-  {% elif page == 'injuries' %}
-    <i>/</i><span>數據與健康</span><i>/</i><b>傷患管理</b>
-  {% else %}
-    <i>/</i><b>{{ crumb|default:"工作區" }}</b>
+  <a href="{% url 'web:home' %}" title="回工作區首頁"><svg class="ic"><use href="#i-home"></use></svg></a>
+  {% with meta=nav_pages|lookup:page %}
+    {% if meta %}
+      <i>/</i><span>{{ meta.0 }}</span><i>/</i><b>{{ meta.1 }}</b>
+    {% else %}
+      <i>/</i><b>{{ crumb|default:"工作區" }}</b>
+    {% endif %}
+  {% endwith %}
+  {% if nav_athlete and page in nav_scoped_pages %}
+    <i>/</i>
+    <a class="crumb-who" href="{% url 'web:athlete_list' %}"
+       title="這一頁看的是這位運動員；換人用右上角的切換器">
+      {{ nav_athlete.user.get_full_name|default:nav_athlete.user.username }}
+    </a>
   {% endif %}
 </nav>

@@ -43,9 +43,12 @@ from analytics.recording import (
     RecordError,
     create_records,
     edit_message,
+    move_record,
+    resequence,
     update_records,
 )
 from core import liveedit
+from core.athlete_context import athlete_switcher, current_athlete, remember, remembered_id
 from core.glossary import all_terms, as_groups
 from core.models import (
     PHASE_GUIDE,
@@ -128,31 +131,17 @@ RISK_CSS = {
 
 
 def _current_athlete(request):
+    """目前檢視的運動員（?athlete= → session 記住的 → 名單第一位）。
+
+    實作搬到 core.athlete_context，樣板外框（頂欄切換器、側欄連結）用的是同一份，
+    所以換頁一定跟著同一位人。
     """
-    決定目前檢視的運動員：
-    - 運動員 → 自己
-    - 教練/管理員 → ?athlete=<id>，未指定則取第一位旗下運動員
-    """
-    visible = list(athlete_ids_visible_to(request.user))
-    if not visible:
-        return None
-    requested = request.GET.get("athlete")
-    if requested and int(requested) in visible:
-        return AthleteProfile.objects.select_related("user", "primary_event").get(id=int(requested))
-    return (
-        AthleteProfile.objects.select_related("user", "primary_event")
-        .filter(id__in=visible)
-        .first()
-    )
+    return current_athlete(request)
 
 
 def _athlete_switcher(request):
     """教練用的運動員切換清單。"""
-    if request.user.role == Role.ATHLETE:
-        return []
-    return AthleteProfile.objects.select_related("user").filter(
-        id__in=athlete_ids_visible_to(request.user)
-    )
+    return athlete_switcher(request)
 
 
 def landing(request):
@@ -177,8 +166,12 @@ def home(request):
 
 @login_required
 def dashboard(request):
-    if request.user.role == Role.COACH and not request.GET.get("athlete"):
-        # 教練先看列表挑人，挑完才進到某一位的狀態總覽
+    if (
+        request.user.role == Role.COACH
+        and not request.GET.get("athlete")
+        and remembered_id(request) is None
+    ):
+        # 教練第一次進來先看列表挑人；挑過之後直接回到上一位的狀態總覽
         return redirect("web:athlete_list")
 
     athlete = _current_athlete(request)
@@ -521,7 +514,7 @@ def coach_dashboard(request):
         request,
         "web/coach_dashboard.html",
         {
-            "page": "dashboard",
+            "page": "team",
             "rows": rows,
             "high_risk": high_risk,
             "injured": injured,
@@ -1269,6 +1262,8 @@ def _visible_session(request, pk):
     )
     if session.athlete_id not in set(athlete_ids_visible_to(request.user)):
         raise Http404("無權限存取此課表。")
+    # 開了誰的課表，頂欄與側欄就跟著切到誰——不會停在上一個看過的人身上
+    remember(request, session.athlete_id)
     return session
 
 
@@ -1309,9 +1304,30 @@ def _session_context(request, session):
         for n in session.notes.select_related("author")
     ]
 
+    # 同一位運動員的上／下一課：看完一課可以直接翻，不用先回日曆再點
+    same_athlete = TrainingSession.objects.filter(athlete_id=session.athlete_id).exclude(pk=session.pk)
+    prev_session = (
+        same_athlete.filter(
+            Q(date__lt=session.date)
+            | Q(date=session.date, time_slot__lt=session.time_slot)
+        )
+        .order_by("-date", "-time_slot")
+        .first()
+    )
+    next_session = (
+        same_athlete.filter(
+            Q(date__gt=session.date)
+            | Q(date=session.date, time_slot__gt=session.time_slot)
+        )
+        .order_by("date", "time_slot")
+        .first()
+    )
+
     return {
-        "page": "calendar",
+        "page": "session",
         "s": session,
+        "prev_session": prev_session,
+        "next_session": next_session,
         "blocks": blocks,
         "notes": notes,
         "note_kinds": NoteKind.choices,
@@ -1916,12 +1932,33 @@ def analytics_view(request):
                 messages.info(request, text)
             return redirect(f"{back}&item={item_id}")
 
+        if action == "move_record":
+            # 紀錄明細裡的 ↑ ↓：把一組往前／往後挪，同一天的組號跟著重排
+            # ↑ 與 ↓ 是同一張表單的兩顆送出鍵，按哪一顆就送哪一個欄位
+            direction = "up" if request.POST.get("up") else "down"
+            record = get_object_or_404(
+                MetricRecord, pk=request.POST.get(direction) or request.POST.get("record_id")
+            )
+            if record.athlete_id != athlete.id:
+                raise Http404("無權限調整這筆紀錄。")
+            if move_record(record, direction):
+                messages.info(
+                    request,
+                    f"已把 {record.date} 的這一組往{'前' if direction == 'up' else '後'}挪。",
+                )
+            else:
+                messages.info(request, "這一組已經在最" + ("前" if direction == "up" else "後") + "面了。")
+            return redirect(f"{back}&item={record.item_id}#day-{record.date}")
+
         if action == "delete_record":
             record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
             if record.athlete_id != athlete.id:
                 raise Http404("無權限刪除這筆紀錄。")
             item_id = record.item_id
+            on_date = record.date
             record.delete()
+            # 刪掉中間那一組之後，剩下的組號補回 1、2、3…
+            resequence(athlete.id, item_id, on_date)
             messages.info(request, "已刪除一筆紀錄。")
             return redirect(f"{back}&item={item_id}")
 

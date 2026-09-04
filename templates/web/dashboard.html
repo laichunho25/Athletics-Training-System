@@ -12,7 +12,7 @@
       <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
     </div>
   </div>
-  {% include "web/_switcher.html" %}
+  {% include "web/_athlete_links.html" %}
 </div>
 
 {% if injuries %}
@@ -100,7 +100,8 @@
         </tbody>
       </table>
     {% else %}
-      <div class="empty">今日無安排課表（休息日）</div>
+      <div class="empty">今日無安排課表（休息日）·
+        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">到日曆排一堂</a></div>
     {% endif %}
   </div>
 
@@ -123,7 +124,8 @@
         </tbody>
       </table>
     {% else %}
-      <div class="empty">本週尚無課表</div>
+      <div class="empty">本週尚無課表 ·
+        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">到日曆排課</a></div>
     {% endif %}
   </div>
 </div>

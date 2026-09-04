@@ -287,6 +287,48 @@ a:hover { text-decoration: underline; }
 .densitypick select:hover { border: 0; }
 .densitypick select:focus { outline: none; box-shadow: none; }
 
+/* 頂欄的運動員切換器：整個系統只有這一個，換頁時人跟著走 */
+.athletepick {
+  display: flex; align-items: center; gap: 6px; margin: 0;
+  height: 32px; padding: 0 6px 0 9px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--accent);
+  font-size: 12px; max-width: 240px;
+}
+.athletepick .ic { width: 14px; height: 14px; flex: none; }
+.athletepick select {
+  border: 0; background: transparent; width: auto; max-width: 190px; padding: 0 2px;
+  height: 30px; font-size: 12px; color: var(--text);
+}
+.athletepick select:hover { border: 0; }
+.athletepick select:focus { outline: none; box-shadow: none; }
+.athletepick.solo { color: var(--text); gap: 7px; padding-right: 10px; }
+@media (max-width: 620px) { .athletepick { max-width: 150px; } .athletepick select { max-width: 110px; } }
+
+/* 麵包屑最後一段：這一頁看的是誰 */
+.crumb .crumb-who { color: var(--accent); font-weight: 600; }
+
+/* 同一位運動員的跨頁快捷（頁面抬頭右邊那一排） */
+.athletejump { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.athletejump .btn.warn { border-color: var(--yellow); color: var(--yellow); }
+
+/* 課表頁的上一課／下一課 */
+.sessionnav { display: flex; align-items: center; gap: 6px; }
+.btn.disabled, .btn.ghost.disabled {
+  opacity: .38; pointer-events: none; cursor: default;
+}
+
+/* 課後檢討：填過就收起來，不再佔一整塊版面 */
+.recap > summary {
+  cursor: pointer; list-style: none; margin-bottom: 10px;
+  font-size: 12px; color: var(--text-dim); font-weight: 600; letter-spacing: .5px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.recap > summary::-webkit-details-marker { display: none; }
+.recap > summary::before { content: "▸"; color: var(--accent); }
+.recap[open] > summary::before { content: "▾"; }
+.recap > summary:hover { color: var(--accent); }
+
 .userbox {
   display: flex; align-items: center; gap: 8px;
   padding-left: 10px; border-left: 1px solid var(--border);
@@ -861,6 +903,29 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
   font-variant-numeric: tabular-nums; font-family: var(--mono);
 }
 .itemlist a.active .rank { color: var(--accent); }
+
+/* 清單上的刪項目鍵：整列還是一條連結，× 貼在右邊自己一格 */
+.itemlist .itemrow { display: flex; align-items: stretch; }
+.itemlist .itemrow > a { flex: 1; min-width: 0; }
+.itemlist .itemdel {
+  background: none; border: 0; border-bottom: 1px solid var(--border);
+  color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1;
+  padding: 0 10px; font-family: inherit;
+}
+.itemlist .itemrow:hover .itemdel { color: var(--text-dim); }
+.itemlist .itemdel:hover { color: var(--red); background: var(--surface-2); }
+
+/* 紀錄明細：組號那一格 + 最頂的「全部套用」列 */
+.dayrow .setcell { width: 62px; }
+.dayrow .setcell .setno { width: 46px; text-align: center; }
+.dayrow .fillrow > td {
+  background: var(--surface-2); border-bottom: 1px solid var(--border-strong);
+  padding: 4px 8px; vertical-align: middle;
+}
+.dayrow .fillrow > td:first-child {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .6px; color: var(--text-dim);
+}
+.dayrow .fillrow input::placeholder { opacity: .55; }
 
 .tabs.sub { margin: 0; gap: 14px; border-bottom: none; }
 .tabs.sub a { padding: 2px 2px; font-size: 12.5px; }

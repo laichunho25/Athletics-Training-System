@@ -7,11 +7,25 @@
   <div>
     <h1>課表</h1>
     <div class="subtitle" style="margin:0">
-      有底線的欄位點一下就能改；改完會即時同步到日曆與其他人的畫面。
+      {{ s.athlete.user.get_full_name|default:s.athlete.user.username }} ·
+      {{ s.date|date:"Y-m-d (D)" }} {{ s.get_time_slot_display }} ·
+      有底線的欄位點一下就能改，改完即時同步到日曆與其他人的畫面。
     </div>
   </div>
-  <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ s.athlete.id }}&year={{ s.date.year }}&month={{ s.date.month }}">← 回日曆</a>
+  <div class="sessionnav">
+    {% if prev_session %}
+      <a class="btn ghost sm" href="{% url 'web:session_detail' prev_session.id %}"
+         title="{{ prev_session.date|date:'m/d' }} {{ prev_session.title }}">← 上一課</a>
+    {% else %}<span class="btn ghost sm disabled">← 上一課</span>{% endif %}
+    <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ s.athlete.id }}&year={{ s.date.year }}&month={{ s.date.month }}">回日曆</a>
+    {% if next_session %}
+      <a class="btn ghost sm" href="{% url 'web:session_detail' next_session.id %}"
+         title="{{ next_session.date|date:'m/d' }} {{ next_session.title }}">下一課 →</a>
+    {% else %}<span class="btn ghost sm disabled">下一課 →</span>{% endif %}
+  </div>
 </div>
+
+{% include "web/_athlete_links.html" %}
 
 <div id="live" data-version="{{ version }}" data-live-url="{% url 'web:session_live' s.id %}">
   {% include "web/_session_body.html" %}

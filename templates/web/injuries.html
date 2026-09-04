@@ -10,7 +10,7 @@
       <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
     </div>
   </div>
-  {% include "web/_switcher.html" %}
+  {% include "web/_athlete_links.html" %}
 </div>
 
 {% if blocked %}
@@ -365,13 +365,6 @@
 </div>
 {% endif %}
 
-<div class="card mt small c-dim">
-  <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
-  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
-  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
-  [4] 上方表單 <em>更新傷患狀態</em>
-</div>
 {% endblock %}
 
 {% block scripts %}

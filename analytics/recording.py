@@ -6,6 +6,8 @@
 
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import F
+
 from analytics.models import (
     MetricRecord,
     TrainingStatus,
@@ -143,7 +145,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 
 #: 表單上改得動的欄位
 EDITABLE_FIELDS = (
-    "target_value", "value", "weight", "intensity", "reps",
+    "set_no", "target_value", "value", "weight", "intensity", "reps",
     "rest_sec", "completed", "status", "context",
 )
 
@@ -177,6 +179,7 @@ def update_records(post, records, only=None):
     rest_factor = 1 if post.get("rest_unit") == "sec" else 60
 
     changed, problems = 0, []
+    touched_days = {}
     for record in records:
         rid = record.pk
         # 這一列完全沒被送出來（例如收合起來沒展開）就跳過，不要清空資料
@@ -201,6 +204,20 @@ def update_records(post, records, only=None):
             parsed = _edit_decimal(raw, label, rid, problems)
             if parsed != "skip":
                 take(attr, parsed)
+
+        # 組號可以直接改成想要的次序（例：把第 3 組改成 1），
+        # 存完之後同一天會重新排成 1、2、3…（見 resequence）
+        raw = _field(post, "set_no", rid)
+        if raw is not None:
+            raw = raw.strip()
+            if not raw:
+                take("set_no", None)
+            else:
+                order = _num([raw], 0, int)
+                if order is None or order < 1:
+                    problems.append(f"第 {rid} 筆的組號要填 1 以上的整數")
+                else:
+                    take("set_no", order)
 
         raw = _field(post, "reps", rid)
         if raw is not None:
@@ -237,7 +254,67 @@ def update_records(post, records, only=None):
         if fields:
             record.save(update_fields=fields + ["updated_at"])
             changed += 1
+            if "set_no" in fields:
+                key = (record.athlete_id, record.item_id, record.date)
+                touched_days.setdefault(key, []).append(record.pk)
+
+    for (athlete_id, item_id, on_date), picked in touched_days.items():
+        resequence(athlete_id, item_id, on_date, priority=picked)
     return changed, problems
+
+
+# ------------------------------------------------ 組數次序
+#
+# 同一天的組是有先後的（第 1 組跑得比第 5 組快是正常的），
+# 所以組號要能改：登錯次序、或事後補一組插在中間，都不用刪掉重打。
+
+
+def _day_rows(athlete_id, item_id, on_date):
+    """同一天、同一個項目的所有組，照現在的次序排。"""
+    return list(
+        MetricRecord.objects.filter(
+            athlete_id=athlete_id, item_id=item_id, date=on_date
+        ).order_by(F("set_no").asc(nulls_first=True), "id")
+    )
+
+
+def resequence(athlete_id, item_id, on_date, priority=()):
+    """把同一天的組號重新排成 1、2、3…（只有一組的日子不動）。
+
+    priority 是「剛剛被改到組號的那幾筆」：兩筆撞到同一個號碼時它排前面，
+    這樣把第 3 組改成 1，第 3 組就真的變成第 1 組，其餘往後推。
+    """
+    rows = _day_rows(athlete_id, item_id, on_date)
+    if len(rows) < 2:
+        return 0
+    picked = set(priority)
+    rows.sort(key=lambda r: (r.set_no or 0, 0 if r.pk in picked else 1, r.pk))
+    fixed = 0
+    for position, record in enumerate(rows, start=1):
+        if record.set_no != position:
+            record.set_no = position
+            record.save(update_fields=["set_no", "updated_at"])
+            fixed += 1
+    return fixed
+
+
+def move_record(record, direction):
+    """把一組往前／往後挪一格，並重新編號同一天的組。
+
+    回傳有沒有真的挪動（已經在最前面還要往前就回 False）。
+    """
+    step = -1 if direction == "up" else 1
+    rows = _day_rows(record.athlete_id, record.item_id, record.date)
+    position = next((i for i, r in enumerate(rows) if r.pk == record.pk), None)
+    target = None if position is None else position + step
+    if position is None or target is None or not (0 <= target < len(rows)):
+        return False
+    rows[position], rows[target] = rows[target], rows[position]
+    for order, row in enumerate(rows, start=1):
+        if row.set_no != order:
+            row.set_no = order
+            row.save(update_fields=["set_no", "updated_at"])
+    return True
 
 
 def edit_message(changed, problems, scope=""):

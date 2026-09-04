@@ -31,13 +31,21 @@
       <a class="brand" href="{% url 'web:landing' %}">ATM<span>·</span><b>田徑</b></a>
     </div>
 
+    {% comment %}
+      跟著運動員走的頁面全部帶上 ?athlete=，所以在側欄換頁時人不會換掉。
+    {% endcomment %}
     <nav class="nav">
       <div class="nav-group">
         <div class="nav-title">運動員</div>
         <a href="{% url 'web:athlete_list' %}" data-tip="運動員列表"
            class="nav-item {% if page == 'athletes' %}active{% endif %}">
           <svg class="ic"><use href="#i-people"></use></svg><span>運動員列表</span></a>
-        <a href="{% url 'web:dashboard' %}" data-tip="運動員狀態總覽"
+        {% if nav_athletes %}
+        <a href="{% url 'web:coach_dashboard' %}" data-tip="全隊燈號總覽"
+           class="nav-item {% if page == 'team' %}active{% endif %}">
+          <svg class="ic"><use href="#i-shield"></use></svg><span>全隊燈號總覽</span></a>
+        {% endif %}
+        <a href="{% url 'web:dashboard' %}{{ nav_athlete_qs }}" data-tip="運動員狀態總覽"
            class="nav-item {% if page == 'dashboard' %}active{% endif %}">
           <svg class="ic"><use href="#i-gauge"></use></svg><span>運動員狀態總覽</span></a>
       </div>
@@ -47,20 +55,20 @@
         <a href="{% url 'web:plan' %}" data-tip="計劃"
            class="nav-item {% if page == 'plan' %}active{% endif %}">
           <svg class="ic"><use href="#i-clipboard"></use></svg><span>計劃</span></a>
-        <a href="{% url 'web:calendar' %}" data-tip="訓練日曆"
-           class="nav-item {% if page == 'calendar' %}active{% endif %}">
+        <a href="{% url 'web:calendar' %}{{ nav_athlete_qs }}" data-tip="訓練日曆"
+           class="nav-item {% if page == 'calendar' or page == 'session' %}active{% endif %}">
           <svg class="ic"><use href="#i-calendar"></use></svg><span>訓練日曆</span></a>
       </div>
 
       <div class="nav-group">
         <div class="nav-title">數據與健康</div>
-        <a href="{% url 'web:analytics' %}" data-tip="數據分析"
+        <a href="{% url 'web:analytics' %}{{ nav_athlete_qs }}" data-tip="數據分析"
            class="nav-item {% if page == 'analytics' %}active{% endif %}">
           <svg class="ic"><use href="#i-chart"></use></svg><span>數據分析</span></a>
-        <a href="{% url 'web:nutrition' %}" data-tip="營養與恢復"
+        <a href="{% url 'web:nutrition' %}{{ nav_athlete_qs }}" data-tip="營養與恢復"
            class="nav-item {% if page == 'nutrition' %}active{% endif %}">
           <svg class="ic"><use href="#i-heart"></use></svg><span>營養與恢復</span></a>
-        <a href="{% url 'web:injuries' %}" data-tip="傷患管理"
+        <a href="{% url 'web:injuries' %}{{ nav_athlete_qs }}" data-tip="傷患管理"
            class="nav-item {% if page == 'injuries' %}active{% endif %}">
           <svg class="ic"><use href="#i-shield"></use></svg><span>傷患管理</span></a>
       </div>
@@ -89,6 +97,7 @@
       </form>
 
       <div class="topacts">
+        {% include "web/_switcher.html" %}
         <span class="syslive" title="系統連線正常，時間為本機時間">
           <i class="led"></i>LIVE<span class="clock" id="sysClock">--:--</span>
         </span>

@@ -821,9 +821,18 @@ def metric_analysis(athlete, item, days=365):
     「好」的方向由項目自己的 higher_is_better 決定——計時類越小越好，
     重量與距離類越大越好，所以進步與否不能只看斜率正負。
     """
+    from core.models import PhaseType
+
     records = metric_points(athlete, item, days)
     with_value = scored(records)          # 只有填了完成數值的才算得出趨勢
     values = [float(r.value) for r in with_value]
+    # 主圖可以切「分年份和月份／分時期／分狀態」，所以每一筆都先帶上分組標籤
+    phase_of = phase_lookup(athlete)
+    phase_labels = dict(PhaseType.choices)
+
+    def _phase_label(on_date):
+        phase = phase_of(on_date)
+        return phase_labels.get(phase.phase_type, "未分期") if phase else "未分期"
     result = {
         "item": item,
         "records": records,
@@ -844,6 +853,11 @@ def metric_analysis(athlete, item, days=365):
                 "tonnage": r.tonnage,
                 "completed": r.completed,
                 "label": (f"{r.date} 第{r.set_no}組" if r.set_no else str(r.date)),
+                # 主圖分組用：年、年月、時期、狀態
+                "year": str(r.date.year),
+                "month": f"{r.date.year}-{r.date.month:02d}",
+                "phase": _phase_label(r.date),
+                "status": r.status_label if r.status else "未註記狀態",
             }
             for r in records
         ],

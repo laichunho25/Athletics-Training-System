@@ -206,7 +206,7 @@ class DailyDetailTests(TestCase):
             f"{self.url}?domain={MetricDomain.STRENGTH}&item={self.item.id}"
         ).content.decode()
 
-        self.assertEqual(body.count('<details class="dayrow">'), 2)
+        self.assertEqual(body.count('class="dayrow"'), 2)
         self.assertIn("最重", body)
         self.assertIn("最輕", body)
         self.assertIn("2026-06-08", body)
@@ -221,3 +221,181 @@ class DailyDetailTests(TestCase):
             "completed": ["1", "1", "1"],
         })
         self.assertEqual(MetricRecord.objects.count(), 1)
+
+
+class SetOrderTests(TestCase):
+    """組數次序：↑ ↓ 挪一格，或直接把組號改成想要的數字。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a3")
+        self.item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="kg").first()
+        self.client.force_login(self.athlete.user)
+        self.url = reverse("web:analytics")
+        self.day = date(2026, 6, 1)
+        self.client.post(self.url, {
+            "action": "add_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, "date": self.day.isoformat(),
+            "value": ["100", "105", "110"], "reps": ["5", "5", "5"],
+            "completed": ["1", "1", "1"],
+        })
+
+    def order(self):
+        rows = MetricRecord.objects.filter(athlete=self.athlete).order_by("set_no")
+        return [(r.set_no, float(r.value)) for r in rows]
+
+    def record(self, set_no):
+        return MetricRecord.objects.get(athlete=self.athlete, set_no=set_no)
+
+    def move(self, record, direction):
+        return self.client.post(self.url, {
+            "action": "move_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, direction: record.id,
+        })
+
+    def test_moving_a_set_up_swaps_it_with_the_one_before(self):
+        self.move(self.record(3), "up")
+        self.assertEqual(self.order(), [(1, 100.0), (2, 110.0), (3, 105.0)])
+
+    def test_moving_a_set_down_swaps_it_with_the_one_after(self):
+        self.move(self.record(1), "down")
+        self.assertEqual(self.order(), [(1, 105.0), (2, 100.0), (3, 110.0)])
+
+    def test_the_first_set_cannot_go_up(self):
+        r = self.move(self.record(1), "up")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(self.order(), [(1, 100.0), (2, 105.0), (3, 110.0)])
+
+    def test_the_last_set_cannot_go_down(self):
+        self.move(self.record(3), "down")
+        self.assertEqual(self.order(), [(1, 100.0), (2, 105.0), (3, 110.0)])
+
+    def test_another_athletes_record_cannot_be_moved(self):
+        stranger = make_athlete("a3x")
+        theirs = MetricRecord.objects.create(
+            athlete=stranger, item=self.item, date=self.day, value=90, set_no=1
+        )
+        r = self.move(theirs, "up")
+        self.assertEqual(r.status_code, 404)
+
+    def test_editing_the_set_number_reorders_that_day(self):
+        third = self.record(3)
+        self.client.post(self.url, {
+            "action": "edit_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, f"set_no_{third.id}": "1",
+        })
+        # 110 排到最前面，其餘往後補成 1、2、3
+        self.assertEqual(self.order(), [(1, 110.0), (2, 100.0), (3, 105.0)])
+
+    def test_a_set_number_that_is_not_a_number_is_reported(self):
+        first = self.record(1)
+        r = self.client.post(self.url, {
+            "action": "edit_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, f"set_no_{first.id}": "0",
+        }, follow=True)
+        self.assertIn("組號要填 1 以上的整數", r.content.decode())
+        self.assertEqual(self.order(), [(1, 100.0), (2, 105.0), (3, 110.0)])
+
+    def test_deleting_a_middle_set_renumbers_the_rest(self):
+        self.client.post(self.url, {
+            "action": "delete_record", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, "record_id": self.record(2).id,
+        })
+        self.assertEqual(self.order(), [(1, 100.0), (2, 110.0)])
+
+    def test_the_detail_table_offers_the_order_controls_and_the_fill_row(self):
+        body = self.client.get(
+            f"{self.url}?domain={MetricDomain.STRENGTH}&item={self.item.id}"
+        ).content.decode()
+        self.assertIn('name="up"', body)
+        self.assertIn('name="down"', body)
+        self.assertIn('data-fill="value"', body)
+        self.assertIn("fillall", body)
+        self.assertIn(f'name="set_no_{self.record(1).id}"', body)
+
+
+class MainChartModeTests(TestCase):
+    """主圖可以切整體／年份／年月／時期／狀態，所以每一筆都要帶分組標籤。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a4")
+        self.item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="kg").first()
+        self.client.force_login(self.athlete.user)
+        self.url = reverse("web:analytics")
+
+    def test_points_carry_year_month_phase_and_status(self):
+        from analytics.services import metric_analysis
+
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=date.today(),
+            value=100, status="INJURY",
+        )
+        point = metric_analysis(self.athlete, self.item)["points"][0]
+
+        self.assertEqual(point["year"], str(date.today().year))
+        self.assertEqual(point["month"], f"{date.today().year}-{date.today().month:02d}")
+        self.assertEqual(point["phase"], "未分期")      # 沒排備戰計劃就是未分期
+        self.assertEqual(point["status"], "傷害治療期")
+
+    def test_a_record_inside_a_phase_is_labelled_with_that_phase(self):
+        from planning.models import Competition, Macrocycle, Phase
+
+        macro = Macrocycle.objects.create(
+            athlete=self.athlete,
+            target_competition=Competition.objects.create(
+                name="2026 全國賽", date=date(2026, 6, 20)
+            ),
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        Phase.objects.create(
+            macrocycle=macro, phase_type="TAPER_COMP", week_start=22, week_end=26,
+            start_date=date(2026, 6, 1), end_date=date(2026, 6, 30),
+        )
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=date(2026, 6, 10), value=120
+        )
+        from analytics.services import metric_analysis
+
+        self.assertEqual(
+            metric_analysis(self.athlete, self.item)["points"][0]["phase"], "比賽期"
+        )
+
+    def test_the_page_offers_the_four_main_chart_views(self):
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=date.today(), value=100
+        )
+        body = self.client.get(
+            f"{self.url}?domain={MetricDomain.STRENGTH}&item={self.item.id}"
+        ).content.decode()
+        self.assertIn('id="mainMode"', body)
+        for label in ("整體（每一筆）", "分年份", "分年份和月份", "分時期", "分狀態"):
+            self.assertIn(label, body)
+
+
+class ItemDeleteButtonTests(TestCase):
+    """清單上每一列都有 ×，不用先點進去才刪得掉項目。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a5")
+        self.item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH, unit="kg").first()
+        self.client.force_login(self.athlete.user)
+        self.url = reverse("web:analytics")
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=self.item, date=date.today(), value=100
+        )
+
+    def test_every_row_carries_a_delete_button(self):
+        body = self.client.get(f"{self.url}?domain={MetricDomain.STRENGTH}").content.decode()
+        self.assertIn('id="itemDel"', body)
+        self.assertIn(f'class="itemdel" type="submit" form="itemDel" name="item_id" '
+                      f'value="{self.item.id}"', body)
+
+    def test_the_button_clears_the_records_of_a_builtin_item(self):
+        self.client.post(self.url, {
+            "action": "delete_item", "domain": MetricDomain.STRENGTH,
+            "item_id": self.item.id, "confirm": "1",
+        })
+        self.assertEqual(MetricRecord.objects.filter(athlete=self.athlete).count(), 0)
+        self.assertTrue(MetricItem.objects.filter(pk=self.item.pk).exists())

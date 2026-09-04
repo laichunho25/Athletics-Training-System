@@ -492,7 +492,7 @@
 <!-- --------------------------------------------- 舊有的專項 / 力量明細表 -->
 {% if track_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>田徑專項組數</span><span class="small c-dim">數字都可以直接點下去改</span></div>
+  <div class="card-head"><span>田徑專項組數 <span class="badge b-dim">舊格式</span></span><span class="small c-dim">新的紀錄請登在上面「本課數據紀錄」；這裡的數字仍可直接點下去改</span></div>
   <table>
     <thead>
       <tr><th>#</th><th>內容</th><th class="num">距離</th><th class="num">目標</th><th class="num">實際</th>
@@ -520,7 +520,7 @@
 
 {% if strength_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>力量訓練組數</span><span class="small c-dim">數字都可以直接點下去改</span></div>
+  <div class="card-head"><span>力量訓練組數 <span class="badge b-dim">舊格式</span></span><span class="small c-dim">新的紀錄請登在上面「本課數據紀錄」；這裡的數字仍可直接點下去改</span></div>
   <table>
     <thead>
       <tr><th>動作</th><th class="num">組</th><th class="num">次</th><th class="num">重量</th>
@@ -550,11 +550,24 @@
 <!-- --------------------------------------- 訓練後檢討和反饋 / 教練評語 -->
 <div class="grid grid-2">
   <div class="card">
-    <h2>訓練後檢討和反饋</h2>
+    <div class="between">
+      <h2 style="margin:0">訓練後檢討和反饋</h2>
+      {% if s.session_rpe %}<span class="badge b-green">已填 · RPE {{ s.session_rpe }}／負荷 {{ s.session_load }} AU</span>{% endif %}
+    </div>
     {% if can_log %}
+    {% comment %}
+      課後才填的四個數字（時長／RPE／完成度／滿意度）跟上面抬頭是同一組欄位：
+      上面適合改單一個值，這裡適合練完一次填完。填過之後預設收起來，不再佔一整塊版面。
+    {% endcomment %}
+    <details class="recap" {% if not s.session_rpe %}open{% endif %}>
+      <summary>{% if s.session_rpe %}修改課後數字與反饋{% else %}練完後在這裡一次填完{% endif %}</summary>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="complete">
+      <div class="small c-dim mb">
+        這四個數字跟上面課表抬頭的「實際時長／課後 RPE／完成度／滿意度」是同一組；
+        改單一個值可以直接點抬頭那一格。
+      </div>
       <div class="row">
         <div class="field">
           <label for="dur">實際時長（分鐘）</label>
@@ -589,6 +602,7 @@
       <button class="btn" type="submit">送出檢討和反饋</button>
       <span class="small c-dim" style="margin-left:10px">負荷 = RPE × 時長，送出後即時重算 ACWR</span>
     </form>
+    </details>
     {% else %}
       <div class="small c-dim mb">訓練後檢討和反饋由運動員本人填寫。</div>
       <div style="white-space:pre-wrap">{{ s.athlete_feedback|default:"運動員尚未填寫反饋。" }}</div>

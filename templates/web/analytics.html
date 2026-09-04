@@ -10,7 +10,7 @@
       日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢
     </div>
   </div>
-  {% include "web/_switcher.html" %}
+  {% include "web/_athlete_links.html" %}
 </div>
 
 <!-- ==================================================== 一、數據紀錄三範疇 -->
@@ -23,6 +23,13 @@
 
 <div class="grid grid-2 mb" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
  <div>
+  <!-- 左邊清單上的每一個 × 都是這張表單的送出鍵，各帶自己的 item_id。 -->
+  <form method="post" id="itemDel" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_item">
+    <input type="hidden" name="domain" value="{{ domain }}">
+    <input type="hidden" name="confirm" value="1">
+  </form>
   {% if not is_competition %}
   <!-- ------------------------------------------------------ 最常做的動作 -->
   <div class="card pad0 mb">
@@ -32,6 +39,7 @@
     </div>
     <div class="itemlist">
       {% for t in tops %}
+       <div class="itemrow">
         <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ t.item.id }}&compare={{ compare }}"
            class="{% if item and t.item.id == item.id %}active{% endif %}">
           <span class="name">
@@ -46,6 +54,10 @@
             {% endif %}
           </span>
         </a>
+        <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ t.item.id }}"
+                data-name="{{ t.item.display_name }}" data-builtin="{{ t.item.is_builtin|yesno:"1," }}"
+                title="把「{{ t.item.display_name }}」從清單刪掉">×</button>
+       </div>
       {% empty %}
         <div class="empty">這個範疇還沒有任何紀錄</div>
       {% endfor %}
@@ -106,6 +118,7 @@
       {% for group in overview_groups %}
         <div class="itemcat">{{ group.label }}<span>{{ group.rows|length }}</span></div>
         {% for row in group.rows %}
+          <div class="itemrow">
           <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
              class="{% if item and row.item.id == item.id %}active{% endif %}">
             <span class="name">
@@ -117,6 +130,10 @@
               {% if row.count %}{{ row.latest|default:"—" }} · {{ row.count }}筆{% else %}—{% endif %}
             </span>
           </a>
+          <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ row.item.id }}"
+                  data-name="{{ row.item.display_name }}" data-builtin="{{ row.item.is_builtin|yesno:"1," }}"
+                  title="把「{{ row.item.display_name }}」從清單刪掉">×</button>
+          </div>
         {% endfor %}
       {% empty %}
         {% if not is_competition %}
@@ -339,6 +356,18 @@
       </div>
     </div>
 
+    <div class="flex" style="padding:8px 18px 0;flex-wrap:wrap">
+      <label class="unitpick">主圖顯示
+        <select id="mainMode">
+          <option value="all">整體（每一筆）</option>
+          <option value="year">分年份</option>
+          <option value="month">分年份和月份</option>
+          <option value="phase">分時期</option>
+          <option value="status">分狀態</option>
+        </select>
+      </label>
+      <span class="small c-dim" id="mainNote"></span>
+    </div>
     <div class="chart-box"><canvas id="metricChart"></canvas></div>
 
     <div style="padding:0 18px 16px">
@@ -579,7 +608,9 @@
       </table>
       </div>
       <div class="flex mb">
-        <button type="button" class="btn ghost sm" id="addSet">＋ 再加一組</button>
+        <button type="button" class="btn ghost sm" id="addSet">＋ 再加一組（空白）</button>
+        <button type="button" class="btn ghost sm" id="copySet"
+                title="數字照抄上一組，只要改動不一樣的那一格">＋ 跟上一組一樣</button>
         <label class="unitpick">休息時間單位
           <select name="rest_unit">
             <option value="min" selected>分鐘</option>
@@ -636,14 +667,24 @@
           <input type="hidden" name="domain" value="{{ domain }}">
           <input type="hidden" name="item_id" value="{{ item.id }}">
         </form>
+        <!-- ↑ ↓ 換組數次序：按哪一顆就送 up=<id> 或 down=<id> -->
+        <form method="post" id="recMove">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="move_record">
+          <input type="hidden" name="domain" value="{{ domain }}">
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+        </form>
         <div class="small c-dim" style="padding:10px 16px 0">
           一天一列，先看當日的{% if unit_is_weight %}最重與最輕{% else %}最高與最低{% endif %}，
           點日期展開看那天每一組；每一格都可以直接改，改完按該列的 ✓ 存單筆，
           或按最下面的 <strong>儲存全部更改</strong> 一次過確認所有更改。
+          組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼；
+          展開後最頂那一列填一個數值按「套用」，就會填進當天所有組。
         </div>
         <div class="daylist">
         {% for d in analysis.days %}
-          <details class="dayrow">
+          <details class="dayrow" id="day-{{ d.date|date:"Y-m-d" }}"
+                   {% if forloop.first %}open{% endif %}>
             <summary>
               <span class="daydate" title="{{ d.date }}（{{ d.date|date:"l" }}）">{{ d.date|date:"m/d" }}</span>
               <span class="daysets">{{ d.count }} 組</span>
@@ -661,7 +702,8 @@
                 {% if d.status_label %}<span class="badge b-blue" title="這天的練習狀態">{{ d.status_label }}</span>{% endif %}
                 {% if d.failed %}<span class="badge b-red">{{ d.failed }} 組未完成</span>{% endif %}
                 {% if d.tonnage %}噸位 {{ d.tonnage }} kg{% endif %}
-                {% if d.session %}· <span class="ellip inline" title="{{ d.session.title }}">{{ d.session.title }}</span>{% endif %}
+                {% if d.session %}· <a class="ellip inline" href="{% url 'web:session_detail' d.session.id %}"
+                     title="{{ d.session.date }} {{ d.session.title }}｜點一下回到那一堂課">{{ d.session.title }}</a>{% endif %}
               </span>
             </summary>
 
@@ -678,11 +720,54 @@
                   <th title="這天的練習在什麼狀態下進行">狀態</th>
                   <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
                 </tr>
+                <!-- 最頂這一列不是紀錄：填一個數值按「套用」，
+                     就會填進當天所有組（重訓十組同重量不用打十次）。 -->
+                <tr class="fillrow">
+                  <td class="num c-dim" title="填一格就套用到當天所有組">全部</td>
+                  <td class="num"><input class="editnum" type="number" step="any"
+                                         data-fill="target_value" placeholder="目標"></td>
+                  <td class="num"><input class="editnum" type="number" step="any"
+                                         data-fill="value" placeholder="完成"></td>
+                  {% if is_track %}
+                    <td class="num"><input class="editnum" type="text" maxlength="20"
+                                           data-fill="intensity" placeholder="強度"></td>
+                  {% elif not unit_is_weight %}
+                    <td class="num"><input class="editnum" type="number" step="any" min="0"
+                                           data-fill="weight" placeholder="重量"></td>
+                  {% endif %}
+                  <td class="num"><input class="editnum sm" type="number" step="1" min="0"
+                                         data-fill="reps" placeholder="次數"></td>
+                  <td class="num"><input class="editnum sm" type="number" step="any" min="0"
+                                         data-fill="rest_sec" placeholder="休息"></td>
+                  <td>
+                    <select class="editsel" data-fill="completed">
+                      <option value="">—</option>
+                      <option value="1">✅</option>
+                      <option value="0">❌</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select class="editsel" data-fill="status">
+                      <option value="">—</option>
+                      {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                    </select>
+                  </td>
+                  <td class="c-dim">—</td>
+                  <td><input class="editnum wide" type="text" maxlength="120"
+                             data-fill="context" placeholder="情境"></td>
+                  <td><button type="button" class="btn ghost sm fillall"
+                              title="把上面填了的格套用到當天所有組（還要按儲存才寫回去）">套用</button></td>
+                </tr>
               </thead>
               <tbody>
               {% for r in d.records %}
                 <tr{% if not r.completed %} class="failedrow"{% endif %}>
-                  <td class="num c-dim">{% if r.set_no %}#{{ r.set_no }}{% else %}—{% endif %}</td>
+                  <td class="num setcell">
+                    <input class="editnum setno" type="number" step="1" min="1"
+                           name="set_no_{{ r.id }}" form="recEdit"
+                           value="{{ r.set_no|default_if_none:'' }}"
+                           placeholder="—" title="組號——改成想要的次序，存檔後同一天會重排成 1、2、3…">
+                  </td>
                   <td class="num">
                     <input class="editnum" type="number" step="any" name="target_value_{{ r.id }}"
                            form="recEdit" value="{{ r.target_value|default_if_none:'' }}"
@@ -745,6 +830,10 @@
                   </td>
                   <td style="white-space:nowrap">
                     <!-- ✓ 只送這一列（only=<id>）；要一次過確認全部就按最下面那顆 -->
+                    <button class="linkbtn" type="submit" form="recMove"
+                            name="up" value="{{ r.id }}" title="往前挪一組">↑</button>
+                    <button class="linkbtn" type="submit" form="recMove"
+                            name="down" value="{{ r.id }}" title="往後挪一組">↓</button>
                     <button class="linkbtn" type="submit" form="recEdit"
                             name="only" value="{{ r.id }}" title="只存這一列">✓</button>
                     <button class="linkbtn" type="submit" form="recDel"
@@ -957,13 +1046,6 @@
   </div>
 </div>
 
-<div class="card mt small c-dim">
-  <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">到日曆新增 program</a>
-  [2] 上方分頁 <em>切換比賽 / 田徑練習 / 重量紀錄</em>
-  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
-  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -972,27 +1054,90 @@ const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
 
 {% if item %}
 const pts = {{ chart_points|safe }};
-new Chart(document.getElementById('metricChart'), {
-  type: 'line',
-  data: {
-    labels: pts.map(p => p.date),
-    datasets: [{
-      label: '{{ item.display_name }}{% if item.unit %} ({{ item.unit }}){% endif %}',
-      data: pts.map(p => p.value),
-      borderColor: ACC, backgroundColor: ACC + '33',
-      fill: true, pointRadius: 4, tension: .2
-    }]
-  },
-  options: {
-    // 越小越好的項目把 y 軸反過來，圖上「往上＝變好」永遠成立
-    scales: { y: { reverse: {% if item.higher_is_better %}false{% else %}true{% endif %},
-                   title: { display: true,
-                            text: '{{ item.unit }}{% if not item.higher_is_better %}（軸已反轉：越上面越好）{% endif %}' } } },
-    plugins: { tooltip: { callbacks: {
-      afterLabel: (ctx) => [pts[ctx.dataIndex].session, pts[ctx.dataIndex].context].filter(Boolean).join(' · ')
-    } } }
+
+// ---- 主圖：整體逐筆，或按年份 / 年月 / 時期 / 狀態收成一組一柱 -----------
+// 逐筆看得到每一次的起伏，收成組別看得出「哪一年、哪一期、哪一種狀態下練得最好」。
+(function () {
+  const REVERSE = {% if item.higher_is_better %}false{% else %}true{% endif %};
+  const UNIT = '{{ item.unit }}';
+  const AXIS = UNIT + (REVERSE ? '（軸已反轉：越上面越好）' : '');
+  const canvas = document.getElementById('metricChart');
+  const modeSel = document.getElementById('mainMode');
+  const note = document.getElementById('mainNote');
+  const MODE_NAME = { year: '年份', month: '月份', phase: '時期', status: '狀態' };
+  const scoredPts = pts.filter(p => p.value !== null && p.value !== undefined);
+  let chart = null;
+
+  const best = (vs) => (REVERSE ? Math.min(...vs) : Math.max(...vs));
+  const mean = (vs) => vs.reduce((a, b) => a + b, 0) / vs.length;
+  const round2 = (v) => Math.round(v * 100) / 100;
+
+  function grouped(field) {
+    // 年、年月照時間排；時期與狀態照第一次出現的時間排，看得出先後
+    const buckets = {};
+    scoredPts.forEach((p) => { (buckets[p[field]] = buckets[p[field]] || []).push(p); });
+    const keys = Object.keys(buckets);
+    keys.sort((a, b) => (field === 'year' || field === 'month')
+      ? a.localeCompare(b)
+      : buckets[a][0].date.localeCompare(buckets[b][0].date));
+    const vals = (k) => buckets[k].map(p => p.value);
+    return {
+      labels: keys,
+      datasets: [
+        { type: 'bar', label: '最佳' + (UNIT ? ' (' + UNIT + ')' : ''),
+          data: keys.map(k => round2(best(vals(k)))),
+          backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1 },
+        { type: 'bar', label: '平均' + (UNIT ? ' (' + UNIT + ')' : ''),
+          data: keys.map(k => round2(mean(vals(k)))),
+          backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1 }
+      ],
+      tip: (items) => {
+        const rows = buckets[keys[items[0].dataIndex]];
+        return [rows.length + ' 組 / ' + new Set(rows.map(p => p.date)).size + ' 天',
+                rows[0].date + ' → ' + rows[rows.length - 1].date];
+      },
+      note: '共 ' + keys.length + ' 個' + MODE_NAME[field] + '；每一柱是該' + MODE_NAME[field]
+        + '的最佳與平均（' + (REVERSE ? '數字越小越好' : '數字越大越好') + '）。'
+    };
   }
-});
+
+  function spec() {
+    const mode = modeSel.value;
+    if (mode !== 'all') { return grouped(mode); }
+    return {
+      labels: pts.map(p => p.date),
+      datasets: [{
+        type: 'line',
+        label: '{{ item.display_name }}{% if item.unit %} ({{ item.unit }}){% endif %}',
+        data: pts.map(p => p.value),
+        borderColor: ACC, backgroundColor: ACC + '33',
+        fill: true, pointRadius: 4, tension: .2
+      }],
+      after: (ctx) => [pts[ctx.dataIndex].session, pts[ctx.dataIndex].context].filter(Boolean).join(' · '),
+      note: '近一年 ' + pts.length + ' 筆紀錄按日期排開。'
+    };
+  }
+
+  function render() {
+    const s = spec();
+    note.textContent = s.note;
+    if (chart) { chart.destroy(); }
+    chart = new Chart(canvas, {
+      data: { labels: s.labels, datasets: s.datasets },
+      options: {
+        // 越小越好的項目把 y 軸反過來，圖上「往上＝變好」永遠成立
+        scales: { y: { reverse: REVERSE, title: { display: true, text: AXIS || '數值' } } },
+        plugins: { tooltip: { callbacks: {
+          afterLabel: s.after || (() => ''),
+          afterBody: s.tip || (() => '')
+        } } }
+      }
+    });
+  }
+
+  modeSel.addEventListener('change', render);
+  render();
+})();
 {% endif %}
 
 {% if item and analysis.count %}
@@ -1304,27 +1449,39 @@ new Chart(document.getElementById('cmpChart'), {
 {% endif %}
 
 {% if item %}
-// ---- 「再加一組」：複製第一列並重編組號；空白列送出後會被略過 ----
+// ---- 「再加一組」：空白一列，或整列照抄上一組（重訓常常好幾組同重量同次數）----
 (function () {
   const body = document.getElementById('setRows');
   const addBtn = document.getElementById('addSet');
+  const copyBtn = document.getElementById('copySet');
   if (!body || !addBtn) return;
 
   const renumber = () => [...body.rows].forEach((tr, i) => {
     tr.querySelector('.setno').textContent = i + 1;
   });
 
-  addBtn.addEventListener('click', () => {
-    const row = body.rows[0].cloneNode(true);
-    row.querySelectorAll('input').forEach(inp => {
-      inp.value = '';
-      inp.removeAttribute('required');
-    });
-    row.querySelector('select').selectedIndex = 0;
+  function addRow(keepValues) {
+    const source = keepValues ? body.rows[body.rows.length - 1] : body.rows[0];
+    const row = source.cloneNode(true);
+    if (!keepValues) {
+      row.querySelectorAll('input').forEach(inp => {
+        inp.value = '';
+        inp.removeAttribute('required');
+      });
+      row.querySelector('select').selectedIndex = 0;
+    } else {
+      // cloneNode 抄得到 input 的字，但 select 的選擇要自己對回去
+      row.querySelectorAll('input').forEach(inp => inp.removeAttribute('required'));
+      const from = source.querySelectorAll('select');
+      row.querySelectorAll('select').forEach((sel, i) => { sel.value = from[i].value; });
+    }
     body.appendChild(row);
     renumber();
     row.querySelector('input').focus();
-  });
+  }
+
+  addBtn.addEventListener('click', () => addRow(false));
+  if (copyBtn) { copyBtn.addEventListener('click', () => addRow(true)); }
 
   body.addEventListener('click', (e) => {
     if (!e.target.classList.contains('rmset')) return;
@@ -1337,6 +1494,49 @@ new Chart(document.getElementById('cmpChart'), {
   });
 })();
 {% endif %}
+
+// ---- 紀錄明細：最頂那一列填一次，套用到當天所有組 ----------------------
+// 只是把值填進下面每一格（畫面上看得到），要按 ✓ 或「儲存全部更改」才寫回資料庫。
+(function () {
+  document.querySelectorAll('.dayrow').forEach((day) => {
+    const btn = day.querySelector('.fillall');
+    const head = day.querySelector('.fillrow');
+    const body = day.querySelector('tbody');
+    if (!btn || !head || !body) { return; }
+
+    btn.addEventListener('click', () => {
+      let filled = 0;
+      head.querySelectorAll('[data-fill]').forEach((source) => {
+        const value = source.value.trim ? source.value.trim() : source.value;
+        if (value === '') { return; }          // 沒填的欄位就不要動
+        body.querySelectorAll('[name^="' + source.dataset.fill + '_"]').forEach((cell) => {
+          cell.value = value;
+          filled += 1;
+        });
+      });
+      if (filled) {
+        btn.textContent = '已填 ' + filled + ' 格';
+        setTimeout(() => { btn.textContent = '套用'; }, 1600);
+      }
+    });
+  });
+})();
+
+// ---- 清單上的 ×：刪項目前先問一次 ----------------------------------------
+(function () {
+  const form = document.getElementById('itemDel');
+  if (!form) { return; }
+  document.querySelectorAll('.itemdel').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const name = btn.dataset.name || '這個項目';
+      const text = btn.dataset.builtin
+        ? '「' + name + '」是系統內建項目，會清掉這名運動員在這個項目底下的所有紀錄'
+          + '（項目本身留著，重新記錄就會再出現）。確定嗎？'
+        : '確定要刪除「' + name + '」嗎？底下的紀錄會一起不見。';
+      if (!confirm(text)) { e.preventDefault(); }
+    });
+  });
+})();
 
 new Chart(document.getElementById('c1'), {
   data: {

@@ -1,0 +1,19 @@
+{% comment %}
+同一位運動員的跨頁快捷。手機上側欄是收起來的，這排連結讓「看完狀態 →
+去日曆排課 → 去分析看趨勢」不用先開選單。目前所在的那一頁不重複列出。
+{% endcomment %}
+{% if nav_athlete %}
+<nav class="athletejump" aria-label="這名運動員的其他頁面">
+  {% if page != 'dashboard' %}
+    <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ nav_athlete.id }}">狀態總覽</a>{% endif %}
+  {% if page != 'calendar' %}
+    <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ nav_athlete.id }}">訓練日曆</a>{% endif %}
+  {% if page != 'analytics' %}
+    <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ nav_athlete.id }}">數據分析</a>{% endif %}
+  {% if page != 'nutrition' %}
+    <a class="btn ghost sm" href="{% url 'web:nutrition' %}?athlete={{ nav_athlete.id }}">營養與恢復</a>{% endif %}
+  {% if page != 'injuries' %}
+    <a class="btn ghost sm{% if nav_athlete.status != 'HEALTHY' %} warn{% endif %}"
+       href="{% url 'web:injuries' %}?athlete={{ nav_athlete.id }}">傷患管理</a>{% endif %}
+</nav>
+{% endif %}

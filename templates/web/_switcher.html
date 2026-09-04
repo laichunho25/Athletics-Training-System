@@ -1,12 +1,32 @@
-{% if athletes %}
-<form method="get" class="flex" style="gap:8px">
-  <label style="margin:0">檢視運動員</label>
-  <select name="athlete" onchange="this.form.submit()" style="width:auto">
-    {% for a in athletes %}
-      <option value="{{ a.id }}" {% if a.id == athlete.id %}selected{% endif %}>
-        {{ a.user.get_full_name|default:a.user.username }}（{{ a.primary_event.name_zh }}）
+{% comment %}
+頂欄的運動員切換器。整個系統只有這一個——挑過的人記在 session，
+換頁、按側欄都跟著同一位，各頁不用再自己放一個。
+
+在跟著運動員走的頁面（總覽／日曆／分析／營養／傷患）就地換人，
+其他頁面（列表、計劃、課表明細）換人則帶到那一位的狀態總覽。
+{% endcomment %}
+{% if nav_athletes %}
+{% if page in nav_scoped_pages %}
+<form method="get" class="athletepick" action="">
+  {% for key, value in request.GET.items %}{% if key != 'athlete' %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+  {% endif %}{% endfor %}
+{% else %}
+<form method="get" class="athletepick" action="{% url 'web:dashboard' %}">
+{% endif %}
+  <svg class="ic"><use href="#i-people"></use></svg>
+  <select name="athlete" onchange="this.form.submit()" aria-label="檢視中的運動員"
+          title="切換檢視中的運動員；換頁會跟著同一位">
+    {% for a in nav_athletes %}
+      <option value="{{ a.id }}" {% if a.id == nav_athlete.id %}selected{% endif %}>
+        {{ a.user.get_full_name|default:a.user.username }}{% if a.primary_event %}（{{ a.primary_event.name_zh }}）{% endif %}
       </option>
     {% endfor %}
   </select>
 </form>
+{% elif nav_athlete %}
+<span class="athletepick solo" title="檢視中的運動員">
+  <svg class="ic"><use href="#i-people"></use></svg>
+  {{ nav_athlete.user.get_full_name|default:nav_athlete.user.username }}
+</span>
 {% endif %}

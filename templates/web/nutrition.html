@@ -11,7 +11,7 @@
       <span class="badge b-dim">{{ t.get_goal_display }}</span>
     </div>
   </div>
-  {% include "web/_switcher.html" %}
+  {% include "web/_athlete_links.html" %}
 </div>
 
 <div class="grid grid-4 mb">
@@ -162,13 +162,6 @@
   </div>
 </div>
 
-<div class="card mt small c-dim">
-  <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">記錄今日訓練</a>
-  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
-  [3] 上方 <em>重新計算</em> 調整營養菜單
-  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
-</div>
 {% endblock %}
 
 {% block scripts %}
