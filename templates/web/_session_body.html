@@ -808,15 +808,27 @@
       <h2 style="margin:0">新增訓練活動</h2>
       <button type="button" class="btn ghost sm" onclick="document.getElementById('defDlg').close()">關閉</button>
     </div>
-    <div class="small c-dim mb">寫進清單之後，之後排課表時所有人都挑得到，不用再逐字打。</div>
+    <div class="small c-dim mb">
+      寫進<a href="{% url 'web:library' %}">運動練習項目庫</a>之後，排課表時所有人都挑得到，
+      不用再逐字打。新加的動作要管理員確認過才會對所有人出現，在那之前只有你自己挑得到。
+    </div>
 
     <div class="row">
       <div class="field" style="flex:2"><label>活動名稱</label><input type="text" name="name" required placeholder="例：槓鈴深蹲"></div>
       <div class="field" style="flex:2"><label>英文名稱</label><input type="text" name="name_en" placeholder="例：Squat (Barbell)"></div>
       <div class="field">
-        <label>分類</label>
-        <select name="category">
-          {% for v, l in activity_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+        <label>運動項目</label>
+        <select name="discipline">
+          {% for d in library_disciplines %}
+            <option value="{{ d.id }}">{{ d.sport.name }} · {{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>訓練動作種類</label>
+        <select name="movement_kind">
+          <option value="">—</option>
+          {% for k in library_kinds %}<option value="{{ k.id }}">{{ k.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="field">

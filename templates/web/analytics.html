@@ -157,7 +157,7 @@
   <div class="card pad0 mb">
     <div class="card-head" data-fold-default="closed">
       <span>加入要追蹤的項目</span>
-      <span class="small c-dim">活動庫共 {{ activity_library|length }} 個動作</span>
+      <span class="small c-dim">項目庫共 {{ activity_library|length }} 個動作</span>
     </div>
     <div style="padding:14px 18px">
       {% if is_track %}
@@ -197,10 +197,14 @@
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>{% if is_track %}②{% else %}①{% endif %} 從訓練活動庫挑（挑好按「加進清單」）</label>
+          <label>{% if is_track %}②{% else %}①{% endif %} 從<a href="{% url 'web:library' %}">運動練習項目庫</a>挑（挑好按「加進清單」）</label>
           {% if not activity_library %}
-            <div class="empty">活動庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
+            <div class="empty">項目庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
           {% endif %}
+          <div class="small c-dim" style="margin-bottom:4px">
+            每個動作在做什麼、預設練幾組幾次，都寫在
+            <a href="{% url 'web:library' %}">運動練習項目庫</a>裡。
+          </div>
           <select name="definition" size="8" style="height:auto" required>
             {% for g in activity_groups %}
               <optgroup label="{{ g.label }}">
@@ -222,7 +226,7 @@
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>{% if is_track %}③{% else %}②{% endif %} 或直接打名稱（打得中活動庫就會自動帶入英文名與分類）</label>
+          <label>{% if is_track %}③{% else %}②{% endif %} 或直接打名稱（打得中項目庫就會自動帶入英文名與分類）</label>
           <input type="text" name="name" list="libitems" required
                  placeholder="例：槓鈴深蹲 / Back Squat">
           <datalist id="libitems">
@@ -237,7 +241,7 @@
       </form>
 
       <details>
-        <summary class="small c-accent" style="cursor:pointer">{% if is_track %}④{% else %}③{% endif %} 活動庫沒有？自己定義一個項目</summary>
+        <summary class="small c-accent" style="cursor:pointer">{% if is_track %}④{% else %}③{% endif %} 項目庫沒有？自己定義一個項目</summary>
         <form method="post" class="mt">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_item">
@@ -315,32 +319,6 @@
     </div>
   </div>
 
-  <!-- ------------------------------------------------ 活動庫的動作說明 -->
-  <div class="card pad0 mb">
-    <div class="card-head" data-fold-default="closed">
-      <span>動作說明</span>
-      <span class="small c-dim">{{ activity_notes|length }} 個分類</span>
-    </div>
-    <div style="padding:14px 18px">
-      <div class="small c-dim mb">
-        這裡寫的是「這個動作在做什麼、練到什麼」。做的時候要注意什麼寫在課表的訓練要點裡。
-      </div>
-      {% for g in activity_notes %}
-        <div class="mb" data-fold-key="note-{{ g.value }}">
-          <h3 class="small c-accent" style="margin:0 0 4px">{{ g.label }}</h3>
-          {% for d in g.rows %}
-            <div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">
-              <strong>{{ d.name }}</strong>
-              {% if d.name_en %}<span class="c-dim">（{{ d.name_en }}）</span>{% endif %}
-              <div class="c-dim">{{ d.note }}</div>
-            </div>
-          {% endfor %}
-        </div>
-      {% empty %}
-        <div class="empty">活動庫還沒有寫說明的動作。</div>
-      {% endfor %}
-    </div>
-  </div>
   {% endif %}
  </div>
 

@@ -9,7 +9,14 @@
 
 from django.core.management.base import BaseCommand
 
-from training.models import ActivityCategory, ActivityDefinition, BlockType
+from training.models import (
+    ActivityCategory,
+    ActivityDefinition,
+    BlockType,
+    Discipline,
+    MovementKind,
+    SportType,
+)
 
 W, M, S, R = (
     BlockType.WARMUP,
@@ -276,6 +283,79 @@ ACTIVITIES = [
 ]
 
 
+
+# ----------------------------------------------- 運動練習項目庫的三層目錄
+
+#: 運動種類 → 底下的運動項目。
+#: (運動種類, 英文, 排序, [(運動項目, 英文, 這一項底下新動作的預設分類, 排序)])
+SPORTS = [
+    ("田徑", "Track & Field", 10, [
+        ("短跑", "Sprints", C_TRACK, 10),
+        ("中長跑", "Middle & Long Distance", C_TRACK, 20),
+        ("跨欄", "Hurdles", C_TRACK, 30),
+        ("跳部", "Jumps", C_TRACK, 40),
+        ("投擲", "Throws", C_TRACK, 50),
+        ("接力", "Relays", C_TRACK, 60),
+    ]),
+    ("體能訓練", "Physical Conditioning", 20, [
+        ("有氧訓練（心肺耐力）", "Aerobic Endurance", C_WARM, 10),
+        ("肌力與重量訓練", "Strength & Weight Training", C_LOW, 20),
+        ("核心與穩定性訓練", "Core & Stability", C_CORE, 30),
+        ("增強式與爆發力訓練", "Plyometrics & Power", C_PLY1, 40),
+    ]),
+    ("共通基礎", "General Foundation", 30, [
+        ("熱身與活動度", "Warm-up & Mobility", C_WARM, 10),
+        ("輔助與預防傷害", "Accessory & Prehab", C_ACC, 20),
+        ("恢復與放鬆", "Recovery & Cool-down", C_REC, 30),
+    ]),
+]
+
+#: 訓練動作種類——各個運動項目共用的一層，(名稱, 英文, 排序)
+MOVEMENT_KINDS = [
+    ("熱身", "Warm-up", 10),
+    ("技術動作", "Technique Drill", 20),
+    ("專項動作", "Event-Specific", 30),
+    ("主課動作", "Main Lift", 40),
+    ("輔助動作", "Accessory", 50),
+    ("恢復放鬆", "Cool-down", 60),
+]
+
+#: 動作分類 → 預設歸到哪個運動項目
+CATEGORY_DISCIPLINE = {
+    C_WARM: "熱身與活動度",
+    C_TRACK: "短跑",
+    C_UP: "肌力與重量訓練",
+    C_LOW: "肌力與重量訓練",
+    C_CORE: "核心與穩定性訓練",
+    C_PLYO: "增強式與爆發力訓練",
+    C_PLY1: "增強式與爆發力訓練",
+    C_PLY2: "增強式與爆發力訓練",
+    C_PLY3: "增強式與爆發力訓練",
+    C_PLY4: "增強式與爆發力訓練",
+    C_ACC: "輔助與預防傷害",
+    C_REC: "恢復與放鬆",
+}
+
+#: 少數動作照分類會歸錯（400m 間歇不是短跑、交棒練習屬於接力），逐項指定。
+NAME_DISCIPLINE = {
+    "400m 間歇": "中長跑",
+    "接力交棒練習": "接力",
+}
+
+
+def kind_for(category, block):
+    """動作分類 ＋ 預設區塊 → 訓練動作種類。"""
+    if category == C_REC or block == R:
+        return "恢復放鬆"
+    if category == C_WARM:
+        return "熱身"
+    if category in (C_TRACK, C_PLY2):
+        return "專項動作"
+    if category == C_ACC or category == C_CORE:
+        return "輔助動作"
+    return "主課動作" if block == M else "輔助動作"
+
+
 #: 舊版清單裡中英混在一起的名字 → 現在中英分兩欄之後的名字。
 #: 只改系統內建的那幾筆，而且目標名稱已經存在時就跳過，不會撞名。
 RENAMES = {
@@ -335,6 +415,8 @@ class Command(BaseCommand):
     help = "建立訓練活動名稱庫的起始清單（可重覆執行）"
 
     def handle(self, *args, **options):
+        disciplines, kinds = self._seed_structure()
+
         renamed = 0
         for old_name, new_name in RENAMES.items():
             row = ActivityDefinition.objects.filter(name=old_name, is_builtin=True).first()
@@ -363,6 +445,10 @@ class Command(BaseCommand):
                     "default_rest": rest,
                     "default_key_points": key_points,
                     "note": NOTES.get(name, ""),
+                    "discipline": disciplines.get(
+                        NAME_DISCIPLINE.get(name, CATEGORY_DISCIPLINE.get(category))
+                    ),
+                    "movement_kind": kinds.get(kind_for(category, block)),
                     "is_builtin": True,
                 },
             )
@@ -380,6 +466,17 @@ class Command(BaseCommand):
                 if not obj.note and NOTES.get(name):
                     obj.note = NOTES[name]
                     changed.append("note")
+                # 分層目錄是後來才加的，舊資料在這裡補上運動項目與動作種類
+                discipline = disciplines.get(
+                    NAME_DISCIPLINE.get(name, CATEGORY_DISCIPLINE.get(category))
+                )
+                if obj.discipline_id is None and discipline is not None:
+                    obj.discipline = discipline
+                    changed.append("discipline")
+                kind = kinds.get(kind_for(category, block))
+                if obj.movement_kind_id is None and kind is not None:
+                    obj.movement_kind = kind
+                    changed.append("movement_kind")
                 if changed:
                     obj.save(update_fields=changed + ["updated_at"])
                     updated += 1
@@ -391,9 +488,43 @@ class Command(BaseCommand):
                 f"活動清單：新增 {created} 項、補齊 {updated} 項、"
                 f"更名 {renamed} 項，"
                 f"目前共 {ActivityDefinition.objects.count()} 項；"
-                f"另對齊 {synced} 個數據項目的分類／英文名。"
+                f"另對齊 {synced} 個數據項目的分類／英文名；"
+                f"目錄共 {SportType.objects.count()} 個運動種類、"
+                f"{Discipline.objects.count()} 個運動項目、"
+                f"{MovementKind.objects.count()} 個訓練動作種類。"
             )
         )
+
+    def _seed_structure(self):
+        """補齊運動種類 / 運動項目 / 訓練動作種類三層目錄。
+
+        內建的目錄一開始就是「已確認」——它們是系統帶進來的，
+        不需要管理員再按一次；使用者自己加的才要等確認。
+        回傳 (運動項目 dict, 訓練動作種類 dict)，兩個都以名稱為鍵。
+        """
+        disciplines, kinds = {}, {}
+        for sport_name, sport_en, sport_order, rows in SPORTS:
+            sport, _ = SportType.objects.get_or_create(
+                name=sport_name,
+                defaults={"name_en": sport_en, "order": sport_order, "is_builtin": True},
+            )
+            for name, name_en, category, order in rows:
+                disciplines[name], _ = Discipline.objects.get_or_create(
+                    sport=sport,
+                    name=name,
+                    defaults={
+                        "name_en": name_en,
+                        "activity_category": category,
+                        "order": order,
+                        "is_builtin": True,
+                    },
+                )
+        for name, name_en, order in MOVEMENT_KINDS:
+            kinds[name], _ = MovementKind.objects.get_or_create(
+                name=name,
+                defaults={"name_en": name_en, "order": order, "is_builtin": True},
+            )
+        return disciplines, kinds
 
     def _sync_metric_categories(self):
         """數據項目的分類與英文名跟著活動庫走。

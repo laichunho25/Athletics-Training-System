@@ -58,6 +58,9 @@
         <a href="{% url 'web:calendar' %}{{ nav_athlete_qs }}" data-tip="訓練日曆"
            class="nav-item {% if page == 'calendar' or page == 'session' %}active{% endif %}">
           <svg class="ic"><use href="#i-calendar"></use></svg><span>訓練日曆</span></a>
+        <a href="{% url 'web:library' %}" data-tip="運動練習項目庫"
+           class="nav-item {% if page == 'library' %}active{% endif %}">
+          <svg class="ic"><use href="#i-rows"></use></svg><span>運動練習項目庫</span></a>
       </div>
 
       <div class="nav-group">

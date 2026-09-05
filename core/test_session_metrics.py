@@ -452,21 +452,17 @@ class LibrarySeedTests(TestCase):
         self.assertGreater(len(page.context["activity_groups"]), 0)
 
     def test_no_empty_optgroup_is_rendered(self):
-        ActivityDefinition.objects.all().delete()
-        ActivityDefinition.objects.create(
-            name="槓鈴深蹲", name_en="Back Squat", category=ActivityCategory.LOWER
-        )
-        body = self.client.get(
+        """挑選清單的分組是「運動種類 · 運動項目」，空的項目不佔一個標題。"""
+        page = self.client.get(
             f"{reverse('web:analytics')}?athlete={self.athlete.id}"
             f"&domain={MetricDomain.STRENGTH}"
-        ).content.decode()
-        labels = [g["label"] for g in
-                  self.client.get(
-                      f"{reverse('web:analytics')}?athlete={self.athlete.id}"
-                      f"&domain={MetricDomain.STRENGTH}"
-                  ).context["activity_groups"]]
-        self.assertEqual(len(labels), 1)
-        self.assertEqual(body.count("<optgroup"), 1)
+        )
+        groups = page.context["activity_groups"]
+        self.assertGreater(len(groups), 0)
+        for group in groups:
+            self.assertGreater(len(group["rows"]), 0, group["label"])
+        # 兩張表單各印一次同一份分組
+        self.assertEqual(page.content.decode().count("<optgroup"), len(groups))
 
 
 class TargetAndCompletedValueTests(TestCase):

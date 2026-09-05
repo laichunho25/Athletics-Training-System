@@ -105,10 +105,21 @@ from training.models import (
     ActivityCategory,
     ActivityDefinition,
     BlockType,
+    Discipline,
     Exercise,
+    LibraryStatus,
+    MovementKind,
     SessionActivity,
+    SportType,
 )
-from training.library import ensure_activity_library, library_groups
+from training.library import (
+    ensure_activity_library,
+    is_library_admin,
+    library_groups,
+    library_tree,
+    pending_submissions,
+    visible_definitions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1292,11 +1303,10 @@ def _session_context(request, session):
     """課表頁的完整 context（整頁與輪詢刷新的片段共用同一份）。"""
     blocked, reason = inj.should_block_high_intensity(session.athlete, session.date)
     ensure_activity_library()
-    library = list(
-        ActivityDefinition.objects.filter(is_active=True).order_by(
-            "category", "-use_count", "name"
-        )
-    )
+    # 課表挑得到的動作 ＝ 運動練習項目庫裡已確認的動作（自己剛加、還在等確認的
+    # 也留給本人，不然加了自己也挑不到）
+    library = list(visible_definitions(request.user))
+    catalog = library_tree(request.user)
 
     # 活動名稱要中英對照；自己打的名稱對得上活動庫就借它的英文名
     english = {d.name: d.name_en for d in library if d.name_en}
@@ -1368,7 +1378,9 @@ def _session_context(request, session):
             for d in library
         ],
         "activity_groups": library_groups(library),
-        "activity_categories": ActivityCategory.choices,
+        # 新增動作時挑的是項目庫的「運動項目 ＋ 訓練動作種類」，不再是一個平的分類
+        "library_disciplines": catalog["disciplines"],
+        "library_kinds": catalog["kinds"],
         "track_sets": session.track_sets.all(),
         "strength_sets": session.strength_sets.select_related("exercise"),
         "blocked": blocked,
@@ -1747,7 +1759,12 @@ def _new_definition(request, session):
     if block not in BlockType.values:
         block = BlockType.WARMUP
 
+    # 動作歸在項目庫的哪個運動項目底下；分類（決定數據分析的範疇）跟著項目走
+    discipline = Discipline.objects.filter(pk=request.POST.get("discipline")).first()
+    kind = MovementKind.objects.filter(pk=request.POST.get("movement_kind")).first()
     category = request.POST.get("category")
+    if discipline is not None:
+        category = discipline.activity_category
     if category not in ActivityCategory.values:
         category = ActivityCategory.WARMUP
 
@@ -1756,6 +1773,14 @@ def _new_definition(request, session):
         defaults={
             "default_block": block,
             "category": category,
+            "discipline": discipline,
+            "movement_kind": kind,
+            # 加進項目庫的東西要管理員確認過才會公開；管理員自己加的就直接生效
+            "status": (
+                LibraryStatus.APPROVED
+                if is_library_admin(request.user)
+                else LibraryStatus.PENDING
+            ),
             "name_en": request.POST.get("name_en", "").strip(),
             "default_sets": request.POST.get("sets", "").strip(),
             "default_reps": request.POST.get("reps", "").strip(),
@@ -1767,8 +1792,14 @@ def _new_definition(request, session):
             "created_by": request.user,
         },
     )
-    if created:
+    if created and definition.is_approved:
         messages.success(request, f"已新增訓練活動「{name}」，以後可以直接挑。")
+    elif created:
+        messages.success(
+            request,
+            f"已把「{name}」送進運動練習項目庫，等管理員確認後所有人都挑得到；"
+            "在那之前只有你自己看得到。",
+        )
     else:
         messages.info(request, f"「{name}」已經在活動清單裡了。")
 
@@ -1905,7 +1936,7 @@ def analytics_view(request):
             # 從訓練活動庫挑：名稱、分類、單位都照活動庫帶過來
             definition = None
             if request.POST.get("definition"):
-                definition = ActivityDefinition.objects.filter(
+                definition = visible_definitions(request.user).filter(
                     pk=request.POST["definition"]
                 ).first()
             if definition is not None and domain in MetricDomain.values:
@@ -2219,11 +2250,7 @@ def analytics_view(request):
     # 可以勾來一起分析的項目：這個範疇底下有紀錄的都列出來
     multi_choices = [row["item"] for row in overview if row["count"]]
 
-    activity_library = list(
-        ActivityDefinition.objects.filter(is_active=True).order_by(
-            "category", "-use_count", "name"
-        )
-    )
+    activity_library = list(visible_definitions(request.user))
 
     return render(
         request,
@@ -2264,12 +2291,9 @@ def analytics_view(request):
             "strength_units": STRENGTH_UNITS,
             # 田徑練習：先挑方式、再填距離
             "track_methods": track_method_choices(),
-            # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
+            # 「從運動練習項目庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": activity_library,
             "activity_groups": library_groups(activity_library),
-            # 「動作說明」那一欄：活動庫裡有寫說明的動作，照分類列出來
-            "activity_notes": library_groups([d for d in activity_library if d.note]),
-            "activity_categories": ActivityCategory.choices,
             "item": item,
             "item_record_count": (
                 MetricRecord.objects.filter(athlete=athlete, item=item).count()
@@ -2704,5 +2728,201 @@ def injuries_view(request):
             "treatment_types": TreatmentType.choices,
             "treatment_effects": TreatmentEffect.choices,
             "today": date.today(),
+        },
+    )
+
+
+# ---------------------------------------------------------- 運動練習項目庫
+
+
+#: 項目庫上「確認 / 退回」按鈕作用在哪一張表
+LIBRARY_MODELS = {
+    "sport": (SportType, "運動種類"),
+    "discipline": (Discipline, "運動項目"),
+    "kind": (MovementKind, "訓練動作種類"),
+    "activity": (ActivityDefinition, "動作"),
+}
+
+
+def _library_object(request):
+    """把表單送來的 model + id 換成物件（認不得就回 (None, None)）。"""
+    model, label = LIBRARY_MODELS.get(request.POST.get("model"), (None, None))
+    if model is None:
+        return None, None
+    return model.objects.filter(pk=request.POST.get("id")).first(), label
+
+
+@login_required
+def library_view(request):
+    """運動練習項目庫。
+
+    全站「有哪些動作可以練」的唯一來源：課表挑得到的活動、數據分析追蹤得到
+    的項目，都是從這裡出去的。分四層看——運動種類 → 運動項目 →
+    訓練動作種類 → 動作，動作底下寫著它在做什麼（動作說明）與預設的
+    組數／次數／休息。
+
+    教練、運動員、管理員都可以往裡面加東西，但加進來的先掛「待確認」，
+    管理員按確認之後才會永久出現在項目庫、別人才挑得到。
+    """
+    ensure_activity_library()
+    can_approve = is_library_admin(request.user)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        back = (
+            f"{request.path}?sport={request.POST.get('sport_id', '')}"
+            f"&discipline={request.POST.get('discipline_id', '')}"
+        )
+        # 自己加的東西自己看得到（掛著「待確認」），但要管理員按過才會公開。
+        # 管理員自己加的就直接算確認過，不用再確認自己一次。
+        status = LibraryStatus.APPROVED if can_approve else LibraryStatus.PENDING
+        pending_note = "" if can_approve else "，等管理員確認後所有人都看得到"
+
+        if action in ("approve", "reject"):
+            if not can_approve:
+                messages.error(request, "只有管理員可以確認項目庫的新增內容。")
+                return redirect(back)
+            obj, label = _library_object(request)
+            if obj is None:
+                messages.error(request, "找不到要處理的項目。")
+            elif action == "approve":
+                obj.status = LibraryStatus.APPROVED
+                obj.save(update_fields=["status", "updated_at"])
+                messages.success(request, f"已確認{label}「{obj.name}」，現在所有人都看得到。")
+            else:
+                obj.status = LibraryStatus.REJECTED
+                obj.save(update_fields=["status", "updated_at"])
+                messages.info(request, f"已退回{label}「{obj.name}」。")
+            return redirect(back)
+
+        if action == "add_sport":
+            name = request.POST.get("name", "").strip()
+            if not name:
+                messages.error(request, "請填運動種類的名稱。")
+            elif SportType.objects.filter(name=name).exists():
+                messages.info(request, f"「{name}」已經在項目庫裡了。")
+            else:
+                SportType.objects.create(
+                    name=name,
+                    name_en=request.POST.get("name_en", "").strip(),
+                    note=request.POST.get("note", "").strip(),
+                    status=status,
+                    created_by=request.user,
+                )
+                messages.success(request, f"已加入運動種類「{name}」{pending_note}。")
+            return redirect(back)
+
+        if action == "add_discipline":
+            sport = SportType.objects.filter(pk=request.POST.get("sport")).first()
+            name = request.POST.get("name", "").strip()
+            category = request.POST.get("activity_category")
+            if sport is None:
+                messages.error(request, "請先挑一個運動種類。")
+            elif not name:
+                messages.error(request, "請填運動項目的名稱。")
+            elif Discipline.objects.filter(sport=sport, name=name).exists():
+                messages.info(request, f"「{sport.name} · {name}」已經在項目庫裡了。")
+            else:
+                Discipline.objects.create(
+                    sport=sport,
+                    name=name,
+                    name_en=request.POST.get("name_en", "").strip(),
+                    note=request.POST.get("note", "").strip(),
+                    activity_category=(
+                        category
+                        if category in ActivityCategory.values
+                        else ActivityCategory.WARMUP
+                    ),
+                    status=status,
+                    created_by=request.user,
+                )
+                messages.success(
+                    request, f"已加入運動項目「{sport.name} · {name}」{pending_note}。"
+                )
+            return redirect(back)
+
+        if action == "add_kind":
+            name = request.POST.get("name", "").strip()
+            if not name:
+                messages.error(request, "請填訓練動作種類的名稱。")
+            elif MovementKind.objects.filter(name=name).exists():
+                messages.info(request, f"「{name}」已經在項目庫裡了。")
+            else:
+                MovementKind.objects.create(
+                    name=name,
+                    name_en=request.POST.get("name_en", "").strip(),
+                    note=request.POST.get("note", "").strip(),
+                    status=status,
+                    created_by=request.user,
+                )
+                messages.success(request, f"已加入訓練動作種類「{name}」{pending_note}。")
+            return redirect(back)
+
+        if action == "add_activity":
+            name = request.POST.get("name", "").strip()
+            discipline = Discipline.objects.filter(
+                pk=request.POST.get("discipline")
+            ).first()
+            kind = MovementKind.objects.filter(pk=request.POST.get("movement_kind")).first()
+            block = request.POST.get("default_block")
+            if not name:
+                messages.error(request, "請填動作名稱。")
+            elif discipline is None:
+                messages.error(request, "請挑這個動作屬於哪個運動項目。")
+            elif ActivityDefinition.objects.filter(name__iexact=name).exists():
+                messages.info(request, f"「{name}」已經在項目庫裡了。")
+            else:
+                ActivityDefinition.objects.create(
+                    name=name,
+                    name_en=request.POST.get("name_en", "").strip(),
+                    note=request.POST.get("note", "").strip(),
+                    discipline=discipline,
+                    movement_kind=kind,
+                    # 分類決定數據分析把它歸到哪個範疇，照運動項目的預設值走
+                    category=discipline.activity_category,
+                    default_block=(block if block in BlockType.values else BlockType.MAIN),
+                    default_sets=request.POST.get("sets", "").strip(),
+                    default_reps=request.POST.get("reps", "").strip(),
+                    default_distance=request.POST.get("distance", "").strip(),
+                    default_weight=request.POST.get("weight", "").strip(),
+                    default_intensity=request.POST.get("intensity", "").strip(),
+                    default_rest=request.POST.get("rest", "").strip(),
+                    default_key_points=request.POST.get("key_points", "").strip(),
+                    status=status,
+                    created_by=request.user,
+                )
+                messages.success(request, f"已加入動作「{name}」{pending_note}。")
+            return redirect(back)
+
+        messages.error(request, "不認得的操作。")
+        return redirect(back)
+
+    sport = SportType.objects.filter(pk=request.GET.get("sport") or 0).first()
+    discipline = (
+        Discipline.objects.select_related("sport")
+        .filter(pk=request.GET.get("discipline") or 0)
+        .first()
+    )
+    if discipline is not None:
+        sport = discipline.sport
+    tree = library_tree(request.user, sport=sport, discipline=discipline)
+    # 沒挑的話預設展開第一個運動種類，一進來就有東西看
+    if sport is None and tree["sports"]:
+        sport = tree["sports"][0]["obj"]
+        tree = library_tree(request.user, sport=sport, discipline=discipline)
+
+    return render(
+        request,
+        "web/library.html",
+        {
+            "page": "library",
+            "tree": tree,
+            "sport": sport,
+            "discipline": discipline,
+            "can_approve": can_approve,
+            "pending": pending_submissions(request.user),
+            "block_choices": BlockType.choices,
+            "activity_categories": ActivityCategory.choices,
+            "library_count": visible_definitions(request.user).count(),
         },
     )

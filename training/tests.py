@@ -11,9 +11,17 @@ from analytics.models import (
     metric_category_for_activity,
 )
 from core.models import SessionType
-from training.library import library_groups
+from core.test_factories import make_admin, make_athlete, make_coach
+from training.library import library_groups, visible_definitions
 from training.management.commands.seed_activities import NOTES
-from training.models import ActivityCategory, ActivityDefinition
+from training.models import (
+    ActivityCategory,
+    ActivityDefinition,
+    Discipline,
+    LibraryStatus,
+    MovementKind,
+    SportType,
+)
 
 
 class PlyometricLibraryTests(TestCase):
@@ -74,11 +82,19 @@ class PlyometricLibraryTests(TestCase):
             ).exists()
         )
 
-    def test_the_groups_show_up_as_their_own_headings(self):
+    def test_the_groups_land_under_the_plyometric_discipline(self):
+        """四大部份的動作在項目庫裡都掛在「體能訓練 · 增強式與爆發力訓練」底下。"""
+        for category, names in self.GROUPS.items():
+            for name in names:
+                row = ActivityDefinition.objects.get(name=name)
+                self.assertEqual(row.category, category.value)
+                self.assertEqual(row.discipline.name, "增強式與爆發力訓練")
+                self.assertEqual(row.discipline.sport.name, "體能訓練")
+
+    def test_the_discipline_shows_up_as_its_own_heading(self):
         library = list(ActivityDefinition.objects.filter(is_active=True))
-        labels = {g["value"] for g in library_groups(library)}
-        for category in self.GROUPS:
-            self.assertIn(category.value, labels)
+        labels = {g["label"] for g in library_groups(library)}
+        self.assertIn("體能訓練 · 增強式與爆發力訓練", labels)
 
     def test_plyometric_data_still_lands_in_the_strength_domain(self):
         for category in self.GROUPS:
@@ -89,3 +105,65 @@ class PlyometricLibraryTests(TestCase):
                 domain_for_activity(SessionType.STRENGTH, category.value),
                 MetricDomain.STRENGTH.value,
             )
+
+
+class ExerciseLibraryStructureTests(TestCase):
+    """運動練習項目庫：三層目錄、挑選清單的來源、以及等管理員確認的流程。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_activities", verbosity=0, stdout=io.StringIO())
+        cls.coach = make_coach(username="lib-coach").user
+        cls.admin = make_admin(username="lib-admin")
+
+    def test_the_seeded_catalogue_has_the_sports_the_coach_asked_for(self):
+        self.assertEqual(
+            [s.name for s in SportType.objects.order_by("order")],
+            ["田徑", "體能訓練", "共通基礎"],
+        )
+        track = SportType.objects.get(name="田徑")
+        self.assertEqual(
+            [d.name for d in track.disciplines.order_by("order")],
+            ["短跑", "中長跑", "跨欄", "跳部", "投擲", "接力"],
+        )
+        conditioning = SportType.objects.get(name="體能訓練")
+        self.assertEqual(
+            [d.name for d in conditioning.disciplines.order_by("order")],
+            ["有氧訓練（心肺耐力）", "肌力與重量訓練", "核心與穩定性訓練",
+             "增強式與爆發力訓練"],
+        )
+        self.assertIn("熱身", [k.name for k in MovementKind.objects.all()])
+        self.assertIn("專項動作", [k.name for k in MovementKind.objects.all()])
+
+    def test_every_seeded_movement_is_filed_under_a_discipline(self):
+        """挑選清單是照運動項目分組的，沒歸類的動作會掉進「其他」堆。"""
+        self.assertFalse(
+            ActivityDefinition.objects.filter(is_builtin=True, discipline=None).exists()
+        )
+
+    def test_relay_and_middle_distance_movements_are_not_filed_as_sprints(self):
+        self.assertEqual(
+            ActivityDefinition.objects.get(name="400m 間歇").discipline.name, "中長跑"
+        )
+        self.assertEqual(
+            ActivityDefinition.objects.get(name="接力交棒練習").discipline.name, "接力"
+        )
+
+    def test_a_coach_submission_waits_for_an_admin(self):
+        """教練加的動作先掛待確認：只有自己看得到，別人的挑選清單裡沒有。"""
+        discipline = Discipline.objects.get(name="短跑")
+        row = ActivityDefinition.objects.create(
+            name="沙地加速跑", discipline=discipline, created_by=self.coach,
+            status=LibraryStatus.PENDING,
+        )
+        self.assertIn(row, visible_definitions(self.coach))
+        self.assertIn(row, visible_definitions(self.admin))
+        self.assertNotIn(row, visible_definitions(make_athlete(username="lib-other").user))
+
+    def test_an_approved_submission_shows_up_for_everyone(self):
+        discipline = Discipline.objects.get(name="短跑")
+        row = ActivityDefinition.objects.create(
+            name="沙地加速跑", discipline=discipline, created_by=self.coach,
+            status=LibraryStatus.APPROVED,
+        )
+        self.assertIn(row, visible_definitions(make_athlete(username="lib-other2").user))

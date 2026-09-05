@@ -364,6 +364,106 @@ class ActivityCategory(models.TextChoices):
     RECOVERY = "RECOVERY", "恢復／放鬆"
 
 
+# ------------------------------------------------- 運動練習項目庫（分層目錄）
+
+
+class LibraryStatus(models.TextChoices):
+    """項目庫的審核狀態。
+
+    教練、運動員、管理員都可以往庫裡加東西，但加進來的先是「待確認」，
+    管理員按確認之後才會永久出現在項目庫、也才會出現在別人的挑選清單裡。
+    """
+
+    PENDING = "PENDING", "待管理員確認"
+    APPROVED = "APPROVED", "已確認"
+    REJECTED = "REJECTED", "已退回"
+
+
+class LibraryNode(TimeStampedModel):
+    """項目庫三層目錄（運動種類 / 運動項目 / 訓練動作種類）的共同欄位。"""
+
+    name = models.CharField("名稱", max_length=60)
+    name_en = models.CharField("英文名稱", max_length=80, blank=True)
+    note = models.CharField("說明", max_length=200, blank=True)
+    order = models.PositiveSmallIntegerField("排序", default=50)
+    status = models.CharField(
+        "狀態", max_length=10, choices=LibraryStatus.choices, default=LibraryStatus.APPROVED
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="建立者",
+    )
+    is_builtin = models.BooleanField("系統內建", default=False)
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_approved(self):
+        return self.status == LibraryStatus.APPROVED
+
+    @property
+    def display_name(self):
+        return f"{self.name}（{self.name_en}）" if self.name_en else self.name
+
+
+class SportType(LibraryNode):
+    """運動種類：田徑、體能訓練、共通基礎…"""
+
+    name = models.CharField("運動種類", max_length=60, unique=True)
+
+    class Meta:
+        verbose_name = "運動種類"
+        verbose_name_plural = "運動種類"
+        ordering = ["order", "name"]
+
+
+class Discipline(LibraryNode):
+    """運動項目：田徑底下的短跑、跨欄；體能訓練底下的肌力與重量訓練…"""
+
+    sport = models.ForeignKey(
+        SportType, on_delete=models.CASCADE, related_name="disciplines", verbose_name="運動種類"
+    )
+    activity_category = models.CharField(
+        "預設分類",
+        max_length=12,
+        choices=ActivityCategory.choices,
+        default=ActivityCategory.WARMUP,
+        help_text="這個項目底下新加的動作預設算哪一類——決定數據分析把它歸到哪個範疇",
+    )
+
+    class Meta:
+        verbose_name = "運動項目"
+        verbose_name_plural = "運動項目"
+        ordering = ["sport__order", "order", "name"]
+        unique_together = ("sport", "name")
+
+    @property
+    def full_label(self):
+        """運動種類 · 運動項目——下拉選單的分組標題用得到。"""
+        return f"{self.sport.name} · {self.name}"
+
+
+class MovementKind(LibraryNode):
+    """訓練動作種類：熱身、專項動作、主課動作、輔助動作、恢復放鬆…
+
+    這一層是各個運動項目共用的字彙——「熱身」不用在每個項目底下各建一次。
+    """
+
+    name = models.CharField("訓練動作種類", max_length=60, unique=True)
+
+    class Meta:
+        verbose_name = "訓練動作種類"
+        verbose_name_plural = "訓練動作種類"
+        ordering = ["order", "name"]
+
+
 class ActivityDefinition(TimeStampedModel):
     """訓練活動名稱庫。
 
@@ -392,6 +492,25 @@ class ActivityDefinition(TimeStampedModel):
     default_rest = models.CharField("預設休息時間", max_length=80, blank=True)
     default_key_points = models.TextField("預設訓練要點", blank=True)
     note = models.CharField("說明", max_length=200, blank=True)
+    discipline = models.ForeignKey(
+        Discipline,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activities",
+        verbose_name="運動項目",
+    )
+    movement_kind = models.ForeignKey(
+        MovementKind,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activities",
+        verbose_name="訓練動作種類",
+    )
+    status = models.CharField(
+        "狀態", max_length=10, choices=LibraryStatus.choices, default=LibraryStatus.APPROVED
+    )
     created_by = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,
@@ -416,6 +535,10 @@ class ActivityDefinition(TimeStampedModel):
     def display_name(self):
         """中文（英文）——挑活動的下拉裡兩個名字一起顯示。"""
         return f"{self.name}（{self.name_en}）" if self.name_en else self.name
+
+    @property
+    def is_approved(self):
+        return self.status == LibraryStatus.APPROVED
 
     def defaults_payload(self):
         """挑選時要帶進課表的預設值。"""

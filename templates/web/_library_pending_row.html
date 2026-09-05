@@ -1,0 +1,41 @@
+{% comment %}
+待確認的一列：誰加了什麼、管理員按確認或退回。
+obj / model（sport|discipline|kind|activity）/ label / extra 由 include 傳進來。
+{% endcomment %}
+<div class="between small" style="padding:6px 0;border-bottom:1px solid var(--border)">
+  <div>
+    <span class="badge">{{ label }}</span>
+    <strong>{{ obj.name }}</strong>
+    {% if obj.name_en %}<span class="c-dim">（{{ obj.name_en }}）</span>{% endif %}
+    {% if extra %}<span class="c-dim">· {{ extra }}</span>{% endif %}
+    <div class="c-dim">
+      {{ obj.created_by.get_full_name|default:obj.created_by.username|default:"—" }}
+      加於 {{ obj.created_at|date:"Y-m-d" }}
+      {% if obj.note %}· {{ obj.note }}{% endif %}
+    </div>
+  </div>
+  {% if can_approve %}
+    <div class="flex">
+      <form method="post" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="approve">
+        <input type="hidden" name="model" value="{{ model }}">
+        <input type="hidden" name="id" value="{{ obj.id }}">
+        <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
+        <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
+        <button class="btn sm" type="submit">確認</button>
+      </form>
+      <form method="post" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reject">
+        <input type="hidden" name="model" value="{{ model }}">
+        <input type="hidden" name="id" value="{{ obj.id }}">
+        <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
+        <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
+        <button class="btn ghost sm" type="submit">退回</button>
+      </form>
+    </div>
+  {% else %}
+    <span class="c-dim small">等管理員確認</span>
+  {% endif %}
+</div>
