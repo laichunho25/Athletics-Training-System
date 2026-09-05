@@ -68,6 +68,7 @@ from core.permissions import athlete_ids_visible_to
 from injury import services as inj
 from injury.models import (
     TRAINING_MODE_GUIDE,
+    DayAction,
     Injury,
     PainLog,
     TrainingMode,
@@ -2581,6 +2582,23 @@ def _regrams_meal(request, athlete):
 # ------------------------------------------------------------------ 傷患
 
 
+def _split_training_note(note):
+    """訓練備註存成「勾選的現場處置步驟｜自己寫的一句話」，讀回來時拆成兩截。"""
+    if "｜" in note:
+        picked, free = note.split("｜", 1)
+        return [p for p in picked.split("、") if p], free
+    return [], note
+
+
+def _compose_training_note(request):
+    """把勾選的處置步驟與自由文字合成一欄；沒勾任何一項就只留文字。"""
+    steps = [s for s in request.POST.getlist("care_step") if s]
+    free = request.POST.get("training_note", "").strip()
+    if not steps:
+        return free
+    return "、".join(steps) + "｜" + free
+
+
 def _log_pain(request, athlete, injury, prefix="", quiet=False):
     """寫一筆今日疼痛紀錄。prefix 讓「一次回報全部」用得上同一段邏輯。"""
 
@@ -2603,6 +2621,7 @@ def _log_pain(request, athlete, injury, prefix="", quiet=False):
             "pain_after_session": val("pain_after_session"),
             "load_intensity": val("load_intensity"),
             "load_volume": request.POST.get(f"load_volume{prefix}", "")[:120],
+            "day_action": request.POST.get(f"day_action{prefix}", ""),
             "swelling": bool(request.POST.get(f"swelling{prefix}")),
             "rom_limited": bool(request.POST.get(f"rom_limited{prefix}")),
             "note": request.POST.get(f"note{prefix}", ""),
@@ -2662,7 +2681,7 @@ def injuries_view(request):
         elif action == "set_training_mode":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             injury.training_mode = request.POST.get("training_mode", TrainingMode.MODIFIED)
-            injury.training_note = request.POST.get("training_note", "")[:200]
+            injury.training_note = _compose_training_note(request)[:200]
             injury.save(update_fields=["training_mode", "training_note", "updated_at"])
             messages.success(
                 request,
@@ -2735,15 +2754,16 @@ def injuries_view(request):
     detail = []
     for i in active:
         trend = i.pain_trend(28)
+        picked, free = _split_training_note(i.training_note)
         detail.append(
             {
                 "injury": i,
-                "report": inj.injury_alternatives_report(i),
                 "rtp": inj.rtp_checklist(i),
                 "direction": inj.suggest_treatment_direction(i),
                 "treatments": inj.treatment_summary(i),
                 "peace_love": inj.peace_love_guide(i),
-                "load": inj.load_verdict(i),
+                "care_picked": picked,
+                "care_free": free,
                 "labels": json.dumps([r["date"].strftime("%m/%d") for r in trend]),
                 "rest": json.dumps([r["pain_at_rest"] for r in trend]),
                 "activity": json.dumps([r["pain_during_activity"] for r in trend]),
@@ -2780,6 +2800,7 @@ def injuries_view(request):
             "treatment_stages": TreatmentStage.choices,
             "treatment_types": TreatmentType.choices,
             "treatment_effects": TreatmentEffect.choices,
+            "day_actions": DayAction.choices,
             "today": date.today(),
         },
     )

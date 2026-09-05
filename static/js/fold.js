@@ -9,6 +9,9 @@
  *
  * 想讓某一欄預設收起，在該標題列加 data-fold-default="closed"。
  * 頁面上的「全部收起／全部展開」是 <button data-fold-all="1|0">。
+ *
+ * 表格裡想有一條「按下去就跳到那格資料在哪裡填」的連結：<a href="#錨點"
+ * data-fold-open="key1 key2">。按下去會先把那幾欄展開（收起的欄捲不過去），再捲到錨點。
  */
 (function () {
   var script = document.currentScript;
@@ -24,6 +27,7 @@
     if (!root) { return; }
 
     var panels = [];
+    var byKey = {};
     var used = {};
 
     function following(head, isHead) {
@@ -70,6 +74,8 @@
         }
       }
 
+      byKey[key] = apply;
+
       var saved = read(key);
       apply(saved === null ? head.dataset.foldDefault === 'closed' : saved === '1', false);
       btn.addEventListener('click', function () { apply(head.dataset.folded !== '1', true); });
@@ -84,6 +90,32 @@
     var isH2 = function (el) { return el.tagName === 'H2'; };
     Array.prototype.forEach.call(root.children, function (el) {
       if (el.tagName === 'H2') { attach(el, following(el, isH2)); }
+    });
+
+    // 總覽表的連結：先展開目標那幾欄，再跳過去
+    function openKeys(keys) {
+      var opened = false;
+      keys.split(/\s+/).forEach(function (k) {
+        if (k && byKey[k]) { byKey[k](false, true); opened = true; }
+      });
+      return opened;
+    }
+
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('[data-fold-open]');
+      if (!link) { return; }
+      if (!openKeys(link.dataset.foldOpen)) { return; }
+      var hash = (link.getAttribute('href') || '').indexOf('#') === 0
+        ? link.getAttribute('href').slice(1) : '';
+      var target = hash ? document.getElementById(hash) : null;
+      if (target) {
+        e.preventDefault();
+        // 展開後版面高度才定下來，等一格再捲才捲得準
+        requestAnimationFrame(function () {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (history.replaceState) { history.replaceState(null, '', '#' + hash); }
+        });
+      }
     });
 
     document.querySelectorAll('[data-fold-all]').forEach(function (btn) {

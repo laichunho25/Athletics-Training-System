@@ -263,6 +263,19 @@ class TreatmentLog(TimeStampedModel):
         return self.effect in (TreatmentEffect.MUCH_BETTER, TreatmentEffect.BETTER)
 
 
+class DayAction(models.TextChoices):
+    """今天這一處傷，練還是不練——每日追蹤時當場就要下的決定。
+
+    痛楚數字本身不會告訴教練今天怎麼辦，所以每天記痛的同時一併記下決定，
+    回頭看趨勢時才知道當時是「痛但照練」還是「痛所以停」。
+    """
+
+    AS_USUAL = "AS_USUAL", "可照常訓練"
+    REDUCE = "REDUCE", "減低訓練量"
+    CHANGE = "CHANGE", "改變訓練方向"
+    REST = "REST", "完全休息"
+
+
 class PainLog(TimeStampedModel):
     injury = models.ForeignKey(Injury, on_delete=models.CASCADE, related_name="pain_logs")
     date = models.DateField("日期")
@@ -288,6 +301,13 @@ class PainLog(TimeStampedModel):
         max_length=120,
         blank=True,
         help_text="做了多少：例 投 30 球 / 慢跑 3km / 深蹲 60kg×3×8",
+    )
+    day_action = models.CharField(
+        "今日決定",
+        max_length=10,
+        choices=DayAction.choices,
+        blank=True,
+        help_text="照常訓練 / 減低訓練量 / 改變訓練方向 / 完全休息",
     )
     swelling = models.BooleanField("腫脹", default=False)
     rom_limited = models.BooleanField("活動度受限", default=False)
