@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}傷患管理{% endblock %}
 
 {% block content %}
@@ -8,9 +9,16 @@
     <div class="subtitle" style="margin:0">
       {{ athlete.user.get_full_name|default:athlete.user.username }} ·
       <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
+      {% if board %}<span class="badge b-dim">{{ board|length }} 處進行中</span>{% endif %}
     </div>
   </div>
   {% include "web/_athlete_links.html" %}
+</div>
+
+<div class="foldbar">
+  <button type="button" class="btn ghost sm" data-fold-all="1">全部收起</button>
+  <button type="button" class="btn ghost sm" data-fold-all="0">全部展開</button>
+  <span class="small c-dim">每一欄標題右邊的 ▾ 可以單獨收起，下次回來記得你上次的樣子。</span>
 </div>
 
 {% if blocked %}
@@ -19,9 +27,94 @@
 <div class="alert green">✅ 目前無疼痛封鎖，可執行計劃課表。</div>
 {% endif %}
 
+{% if team_mode %}
+<div class="alert {{ team_mode_guide.tone|default:'blue' }}">
+  <strong>今日整體處理方式：{{ team_mode_label }}</strong>
+  ——{{ team_mode_guide.do }}<br>
+  <span class="small">要避開：{{ team_mode_guide.avoid }}（多處受傷時，一律取最保守的那一級）</span>
+</div>
+{% endif %}
+
+{% if board %}
+<!-- ------------------------------------------------------- 多處傷患總覽 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="board">
+    <span>傷患總覽（{{ board|length }} 處）</span>
+    <span class="small c-dim">依急性程度與疼痛排序，最該先處理的在最上面</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>部位</th><th>類型</th><th class="num">第幾天</th><th class="num">疼痛</th>
+        <th>傷患狀態</th><th>治療進度</th><th>怎麼練</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in board %}
+      <tr>
+        <td><strong>{{ r.label }}</strong></td>
+        <td class="small c-dim">{{ r.injury.get_injury_type_display }}</td>
+        <td class="num">{{ r.days }}</td>
+        <td class="num">
+          <span class="badge {% if r.pain >= 6 %}b-red{% elif r.pain >= 3 %}b-yellow{% else %}b-green{% endif %}">{{ r.pain }}/10</span>
+        </td>
+        <td><span class="badge b-dim">{{ r.injury.get_status_display }}</span></td>
+        <td class="small c-dim">{{ r.stage }}</td>
+        <td><span class="badge b-{{ r.mode_tone }}">{{ r.mode }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ------------------------------------------------------- 今日一次回報 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="daily">
+    <span>今日回報（一次填完所有部位）</span>
+    <span class="small c-dim">運動員每天只需要填這一張</span>
+  </div>
+  <form method="post" style="padding:16px 18px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="daily_report">
+    <div class="small c-dim mb">
+      三個數字要分開填：<strong>運動前</strong>（今早起來）、<strong>運動當下</strong>、<strong>運動後</strong>。
+      系統就是用這三個數字判斷今天的量該加還是該減。強度＝幾分力／幾公斤／幾分速，總量＝幾球／幾米／幾組。
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>部位</th><th class="num">運動前</th><th class="num">運動當下</th><th class="num">運動後</th>
+          <th class="num">強度 0–10</th><th>今日總量</th><th>備註</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in detail %}
+        <tr>
+          <td>
+            <strong>{{ item.injury.get_body_part_display }}</strong>
+            {% if item.injury.side != 'NA' %}<span class="small c-dim">（{{ item.injury.get_side_display }}）</span>{% endif %}
+          </td>
+          <td class="num"><input type="number" min="0" max="10" style="width:64px" name="pain_before_{{ item.injury.id }}" value="{{ item.today_log.pain_before|default_if_none:'' }}"></td>
+          <td class="num"><input type="number" min="0" max="10" style="width:64px" name="pain_during_activity_{{ item.injury.id }}" value="{{ item.today_log.pain_during_activity|default_if_none:'' }}"></td>
+          <td class="num"><input type="number" min="0" max="10" style="width:64px" name="pain_after_session_{{ item.injury.id }}" value="{{ item.today_log.pain_after_session|default_if_none:'' }}"></td>
+          <td class="num"><input type="number" min="0" max="10" style="width:64px" name="load_intensity_{{ item.injury.id }}" value="{{ item.today_log.load_intensity|default_if_none:'' }}"></td>
+          <td><input type="text" name="load_volume_{{ item.injury.id }}" value="{{ item.today_log.load_volume|default:'' }}" placeholder="投 30 球 / 慢跑 3km / 深蹲 60kg 3×5"></td>
+          <td><input type="text" name="note_{{ item.injury.id }}" value="{{ item.today_log.note|default:'' }}" placeholder="哪個動作最痛"></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div style="padding-top:12px">
+      <button class="btn" type="submit">送出今日回報</button>
+      <span class="small c-dim" style="margin-left:8px">只會記錄有填「運動當下」的那幾行；活動疼痛 ≥ 6 會自動調整今日課表。</span>
+    </div>
+  </form>
+</div>
+{% endif %}
+
 {% for item in detail %}
 <div class="card pad0 mb">
-  <div class="card-head">
+  <div class="card-head" data-fold-key="{{ item.injury.id }}-head">
     <span>
       {{ item.injury.get_body_part_display }}
       {% if item.injury.side != 'NA' %}（{{ item.injury.get_side_display }}）{% endif %}
@@ -31,6 +124,7 @@
       <span class="badge {% if item.injury.current_pain_level >= 6 %}b-red{% elif item.injury.current_pain_level >= 3 %}b-yellow{% else %}b-green{% endif %}">
         疼痛 {{ item.injury.current_pain_level }}/10
       </span>
+      <span class="badge b-{{ item.injury.mode_guide.tone|default:'dim' }}">{{ item.injury.get_training_mode_display }}</span>
       <span class="badge b-dim">{{ item.injury.get_status_display }}</span>
       <span class="badge b-dim">第 {{ item.injury.days_since_onset }} 天</span>
     </span>
@@ -38,9 +132,10 @@
 
   <div style="padding:16px 18px">
     <div class="small c-dim mb">
-      受傷日期 {{ item.injury.onset_date }} · 嚴重度 {{ item.injury.severity }}/5
+      受傷日期 {{ item.injury.onset_date }} · 嚴重度 {{ item.injury.severity }}/4
       {% if item.injury.mechanism %}· 機制：{{ item.injury.mechanism }}{% endif %}
       {% if item.injury.expected_return_date %}· 預計回歸 {{ item.injury.expected_return_date }}{% endif %}
+      {% if item.injury.diagnosis %}· 診斷：{{ item.injury.diagnosis }}{% endif %}
     </div>
 
     <div class="grid grid-2">
@@ -59,12 +154,30 @@
           <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
           <div class="row">
             <div class="field">
+              <label>運動前疼痛 0–10</label>
+              <input type="number" min="0" max="10" name="pain_before" value="{{ item.today_log.pain_before|default_if_none:'' }}">
+            </div>
+            <div class="field">
               <label>靜態疼痛 0–10</label>
               <input type="number" min="0" max="10" name="pain_at_rest" value="{{ item.today_log.pain_at_rest|default:0 }}">
             </div>
             <div class="field">
-              <label>活動時疼痛 0–10</label>
+              <label>運動當下 0–10</label>
               <input type="number" min="0" max="10" name="pain_during_activity" value="{{ item.today_log.pain_during_activity|default:0 }}">
+            </div>
+            <div class="field">
+              <label>運動後 0–10</label>
+              <input type="number" min="0" max="10" name="pain_after_session" value="{{ item.today_log.pain_after_session|default_if_none:'' }}">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>今日強度（幾分力 0–10）</label>
+              <input type="number" min="0" max="10" name="load_intensity" value="{{ item.today_log.load_intensity|default_if_none:'' }}">
+            </div>
+            <div class="field">
+              <label>今日總量</label>
+              <input type="text" name="load_volume" value="{{ item.today_log.load_volume|default:'' }}" placeholder="投 30 球 / 慢跑 3km">
             </div>
           </div>
           <div class="flex mb small">
@@ -96,8 +209,111 @@
     </div>
   </div>
 
+  <!-- --------------------------------------------- 訓練中 / 完全休養 -->
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-mode">
+    <span>這處傷今天怎麼練</span>
+    <span class="badge b-{{ item.injury.mode_guide.tone|default:'dim' }}">{{ item.injury.get_training_mode_display }}</span>
+  </div>
+  <div style="padding:16px 18px">
+    <div class="grid grid-2">
+      <div>
+        <div class="alert {{ item.injury.mode_guide.tone|default:'blue' }}" style="margin-bottom:12px">
+          <strong>可以做：</strong>{{ item.injury.mode_guide.do }}
+        </div>
+        <div class="alert red" style="margin:0">
+          <strong>要避開：</strong>{{ item.injury.mode_guide.avoid }}
+        </div>
+        {% if item.injury.training_note %}
+          <div class="small c-dim mt">教練備註：{{ item.injury.training_note }}</div>
+        {% endif %}
+      </div>
+      <div>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="set_training_mode">
+          <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
+          <div class="field">
+            <label>處理方式（運動員／教練／管理員都可改）</label>
+            <select name="training_mode">
+              {% for value, label in training_modes %}
+                <option value="{{ value }}" {% if value == item.injury.training_mode %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>備註（今天實際怎麼安排）</label>
+            <input type="text" name="training_note" maxlength="200" value="{{ item.injury.training_note }}"
+                   placeholder="例：上肢照常、下肢改水中跑 20 分鐘">
+          </div>
+          <button class="btn" type="submit">儲存處理方式</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- --------------------------------------------- PEACE & LOVE -->
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-peace">
+    <span>現場處置：{{ item.peace_love.phase_label }}</span>
+    <span class="small c-dim">受傷第 {{ item.peace_love.days }} 天</span>
+  </div>
+  <div style="padding:16px 18px">
+    <div class="small c-dim mb">{{ item.peace_love.why }}</div>
+    <table>
+      <tbody>
+      {% for letter, name, text in item.peace_love.steps %}
+        <tr>
+          <td style="width:40px"><span class="badge b-orange">{{ letter }}</span></td>
+          <td style="width:150px"><strong>{{ name }}</strong></td>
+          <td class="small c-dim">{{ text }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="alert yellow" style="margin:12px 0 0">⚠️ 什麼時候要看醫生：{{ item.peace_love.escalate }}</div>
+  </div>
+
+  <!-- --------------------------------------------- 負荷三大標準 -->
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-load">
+    <span>今日負荷判讀（三大標準）</span>
+    {% if item.load.has_data %}
+      <span class="badge b-{% if item.load.tone == 'red' %}red{% elif item.load.tone == 'green' %}green{% else %}dim{% endif %}">{{ item.load.verdict }}</span>
+    {% endif %}
+  </div>
+  <div style="padding:16px 18px">
+    {% if item.load.has_data %}
+      <table>
+        <tbody>
+        {% for c in item.load.checks %}
+          <tr>
+            <td style="width:40px">
+              {% if c.ok %}<span class="c-green">✅</span>
+              {% elif c.ok == False %}<span class="c-accent">❌</span>
+              {% else %}<span class="c-dim">—</span>{% endif %}
+            </td>
+            <td>{{ c.label }}</td>
+            <td class="small c-dim">{{ c.detail }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="alert {% if item.load.tone == 'red' %}red{% elif item.load.tone == 'green' %}green{% else %}blue{% endif %}" style="margin:12px 0 0">
+        <strong>{{ item.load.verdict }}：</strong>{{ item.load.advice }}
+      </div>
+      {% if item.load.log.load_intensity != None or item.load.log.load_volume %}
+        <div class="small c-dim mt">
+          {{ item.load.log.date }} 記錄的量：
+          {% if item.load.log.load_intensity != None %}強度 {{ item.load.log.load_intensity }}/10{% endif %}
+          {% if item.load.log.load_volume %}· 總量 {{ item.load.log.load_volume }}{% endif %}
+          —— 把這兩個數字帶去給治療師看，比說「好像好一點」有用得多。
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty small">{{ item.load.advice }}</div>
+    {% endif %}
+  </div>
+
   <!-- --------------------------------------------------- 治療方向 -->
-  <div class="card-head" style="border-top:1px solid var(--border)">
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-direction">
     <span>治療方向</span>
     <span class="flex">
       <span class="badge b-orange">{{ item.direction.stage_label }}</span>
@@ -233,6 +449,10 @@
   </div>
 
   {% if item.treatments.recent %}
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-treatlog">
+    <span>治療紀錄</span>
+    <span class="small c-dim">最近 {{ item.treatments.recent|length }} 筆</span>
+  </div>
   <table>
     <thead>
       <tr>
@@ -261,7 +481,7 @@
   {% endif %}
 
   <!-- --------------------------------------------------- 替代動作 -->
-  <div class="card-head" style="border-top:1px solid var(--border)">
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-alt">
     <span>替代動作建議（維持體能、不加重傷勢）</span>
     <span class="small c-dim">目前疼痛 {{ item.report.current_pain }}/10</span>
   </div>
@@ -286,15 +506,25 @@
   </table>
 
   <!-- --------------------------------------------------- RTP -->
-  <div class="card-head" style="border-top:1px solid var(--border)"><span>Return-to-Play 檢核表</span></div>
-  <table>
-    <tbody>
+  <div class="card-head" style="border-top:1px solid var(--border)" data-fold-key="{{ item.injury.id }}-rtp">
+    <span>Return-to-Play 檢核表</span>
+    <span class="badge {% if item.rtp.cleared %}b-green{% elif item.rtp.percent >= 50 %}b-yellow{% else %}b-dim{% endif %}">
+      {{ item.rtp.met }}/{{ item.rtp.total }} 達標
+    </span>
+  </div>
+  <form method="post" style="padding:16px 18px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="rtp_toggle">
+    <input type="hidden" name="injury_id" value="{{ item.injury.id }}">
     {% for c in item.rtp.criteria %}
-      <tr><td>☐ {{ c.item }}</td></tr>
+      <label class="small" style="display:block;margin-bottom:6px">
+        <input type="checkbox" name="rtp" value="{{ c.index }}" style="width:auto" {% if c.met %}checked{% endif %}>
+        {{ c.item }}
+      </label>
     {% endfor %}
-    </tbody>
-  </table>
-  <div style="padding:12px 18px" class="small c-dim">{{ item.rtp.note }}</div>
+    <button class="btn ghost sm mt" type="submit">儲存 RTP 進度</button>
+    <span class="small c-dim" style="margin-left:8px">{{ item.rtp.note }}</span>
+  </form>
 </div>
 {% empty %}
 <div class="card empty mb">
@@ -304,9 +534,9 @@
 {% endfor %}
 
 <!-- ------------------------------------------------------- 新增傷患 -->
-<div class="card mb">
-  <h2>登錄新傷患</h2>
-  <form method="post">
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="new"><span>登錄新傷患</span></div>
+  <form method="post" style="padding:16px 18px">
     {% csrf_token %}
     <input type="hidden" name="action" value="new_injury">
     <div class="row">
@@ -333,8 +563,9 @@
         <input type="date" name="onset_date" value="{{ today|date:'Y-m-d' }}" required>
       </div>
       <div class="field">
-        <label>嚴重度 1–5</label>
-        <input type="number" min="1" max="5" name="severity" value="2">
+        <label>嚴重度 1–4</label>
+        <input type="number" min="1" max="4" name="severity" value="2">
+        <span class="small c-dim">1: &lt;7 天 · 2: 7–28 天 · 3: &gt;28 天 · 4: 賽季報銷</span>
       </div>
     </div>
     <div class="field">
@@ -347,7 +578,7 @@
 
 {% if resolved %}
 <div class="card pad0">
-  <div class="card-head"><span>已結案傷患歷史</span></div>
+  <div class="card-head" data-fold-key="resolved" data-fold-default="closed"><span>已結案傷患歷史</span></div>
   <table>
     <thead><tr><th>部位</th><th>類型</th><th class="num">受傷日</th><th class="num">歷時</th><th>狀態</th></tr></thead>
     <tbody>
@@ -368,6 +599,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'js/fold.js' %}" data-page="injuries"></script>
 <script>
 {% for item in detail %}
 new Chart(document.getElementById('pain{{ item.injury.id }}'), {

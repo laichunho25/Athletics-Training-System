@@ -66,15 +66,24 @@ from core.models import (
 from core.permissions import athlete_ids_visible_to
 from injury import services as inj
 from injury.models import (
+    TRAINING_MODE_GUIDE,
     Injury,
     PainLog,
+    TrainingMode,
     TreatmentEffect,
     TreatmentLog,
     TreatmentStage,
     TreatmentType,
 )
 from nutrition import services as nu
-from nutrition.models import NutritionTarget, RecoveryLog, RecoveryMethod
+from nutrition import vision as nuvision
+from nutrition.models import (
+    MealLog,
+    MealType,
+    NutritionTarget,
+    RecoveryLog,
+    RecoveryMethod,
+)
 from planning.models import (
     Competition,
     CompetitionLevel,
@@ -102,6 +111,10 @@ from training.models import (
 from training.library import ensure_activity_library, library_groups
 
 logger = logging.getLogger(__name__)
+
+#: 「多項目一起分析」一次最多放幾個項目——圖上超過這個數量就看不出東西了，
+#: 也順便擋掉手改網址塞一大串 items 的情況。
+MULTI_ITEM_LIMIT = 8
 
 def csrf_failure(request, reason=""):
     """CSRF 檢查失敗時的說明頁（settings.CSRF_FAILURE_VIEW）。
@@ -2170,9 +2183,12 @@ def analytics_view(request):
     picked_ids = []
     for raw in request.GET.getlist("items"):
         for part in raw.split(","):
+            # isdecimal 而不是 isdigit：上標「²」這種字 isdigit() 是 True，
+            # int() 卻會炸；網址是使用者改得到的東西，不能假設它乾淨。
             part = part.strip()
-            if part.isdigit() and int(part) not in picked_ids:
+            if part.isdecimal() and int(part) not in picked_ids:
                 picked_ids.append(int(part))
+    picked_ids = picked_ids[:MULTI_ITEM_LIMIT]
     picked_items = []
     if picked_ids:
         found = {
@@ -2180,7 +2196,25 @@ def analytics_view(request):
             for obj in MetricItem.objects.filter(id__in=picked_ids, domain=domain)
         }
         picked_items = [found[i] for i in picked_ids if i in found]
-    multi = an.multi_item_analysis(athlete, picked_items) if len(picked_items) > 1 else None
+
+    # 一起分析是「順便看看」的功能，不該讓整頁掛掉：
+    # 真的算不出來就把錯誤寫進 log、在畫面上說一句，其餘的欄位照常顯示。
+    multi = None
+    multi_error = ""
+    multi_series = []
+    if len(picked_items) > 1:
+        try:
+            multi = an.multi_item_analysis(athlete, picked_items)
+            multi_series = multi["series"]
+            json.dumps(multi_series)      # 先試序列化，壞掉的資料不要留到樣板才炸
+        except Exception:                 # noqa: BLE001 - 什麼原因都不該讓這一頁 500
+            logger.exception(
+                "多項目一起分析失敗：athlete=%s domain=%s items=%s",
+                athlete.id, domain, picked_ids,
+            )
+            multi = None
+            multi_series = []
+            multi_error = "這幾個項目一起分析時出了問題，已記錄下來；先分開看各自的趨勢。"
 
     # 可以勾來一起分析的項目：這個範疇底下有紀錄的都列出來
     multi_choices = [row["item"] for row in overview if row["count"]]
@@ -2233,6 +2267,8 @@ def analytics_view(request):
             # 「從訓練活動庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": activity_library,
             "activity_groups": library_groups(activity_library),
+            # 「動作說明」那一欄：活動庫裡有寫說明的動作，照分類列出來
+            "activity_notes": library_groups([d for d in activity_library if d.note]),
             "activity_categories": ActivityCategory.choices,
             "item": item,
             "item_record_count": (
@@ -2258,7 +2294,8 @@ def analytics_view(request):
             "multi_choices": multi_choices,
             "picked_ids": picked_ids,
             "picked_csv": ",".join(str(i) for i in picked_ids),
-            "multi_series": json.dumps(multi["series"] if multi else []),
+            "multi_series": json.dumps(multi_series),
+            "multi_error": multi_error,
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,
@@ -2291,7 +2328,8 @@ def nutrition_view(request):
     today = date.today()
 
     if request.method == "POST":
-        if request.POST.get("action") == "morning":
+        action = request.POST.get("action")
+        if action == "morning":
             RecoveryLog.objects.update_or_create(
                 athlete=athlete,
                 date=today,
@@ -2306,9 +2344,17 @@ def nutrition_view(request):
                 },
             )
             messages.success(request, "已儲存今日晨間問卷。")
-        elif request.POST.get("action") == "recalc":
+        elif action == "recalc":
             nu.calculate_targets(athlete, today, goal=request.POST.get("goal", "MAINTAIN"))
             messages.success(request, "已重新計算今日營養目標。")
+        elif action == "meal_add":
+            _save_meal(request, athlete)
+        elif action == "meal_regrams":
+            _regrams_meal(request, athlete)
+        elif action == "meal_delete":
+            meal = get_object_or_404(MealLog, pk=request.POST["meal_id"], athlete=athlete)
+            meal.delete()
+            messages.success(request, "已刪除該筆飲食紀錄。")
         return redirect("web:nutrition")
 
     target = NutritionTarget.objects.filter(athlete=athlete, date=today).first()
@@ -2326,6 +2372,9 @@ def nutrition_view(request):
     )
 
     split = target.macro_kcal_split
+    meals = list(MealLog.objects.filter(athlete=athlete, date=today))
+    plan = nu.supplement_plan(athlete, today, target=target)
+    insight = nu.body_composition_insight(athlete, target=target)
 
     return render(
         request,
@@ -2340,6 +2389,13 @@ def nutrition_view(request):
             "compliance": compliance,
             "methods": RecoveryMethod.objects.all(),
             "supplements": nu.COMMON_SUPPLEMENTS,
+            "meals": meals,
+            "meal_types": MealType.choices,
+            "eaten": target.actual_intake(),
+            "plan": plan,
+            "insight": insight,
+            "photo_ai": nuvision.api_available(),
+            "today": today,
             "macro_labels": json.dumps(["碳水", "蛋白質", "脂肪"]),
             "macro_values": json.dumps([split["carb"], split["protein"], split["fat"]]),
             "sleep_labels": json.dumps([r["date"].strftime("%m/%d") for r in sleep_rows]),
@@ -2351,7 +2407,142 @@ def nutrition_view(request):
     )
 
 
+def _save_meal(request, athlete):
+    """上傳一餐：有相片就交給辨識，沒有就用文字比對食物字典。"""
+    photo = request.FILES.get("photo")
+    description = request.POST.get("description", "").strip()
+    if not photo and not description:
+        messages.warning(request, "請上傳相片或至少寫下吃了什麼。")
+        return
+
+    image_bytes = photo.read() if photo else None
+    if photo:
+        photo.seek(0)
+    result = nuvision.analyze_meal(
+        image_bytes=image_bytes,
+        filename=getattr(photo, "name", ""),
+        description=description,
+        athlete=athlete,
+    )
+    total = nuvision.totals(result["items"])
+    meal = MealLog.objects.create(
+        athlete=athlete,
+        date=request.POST.get("date") or date.today(),
+        meal_type=request.POST.get("meal_type", MealType.LUNCH),
+        description=description or result["summary"],
+        kcal=total["kcal"],
+        carb_g=total["carb_g"],
+        protein_g=total["protein_g"],
+        fat_g=total["fat_g"],
+        fiber_g=total["fiber_g"],
+        sodium_mg=total["sodium_mg"],
+        photo=photo,
+        items=result["items"],
+        analysis_source=result["source"],
+        analysis_note="\n".join(x for x in (result["summary"], result["assessment"]) if x),
+    )
+    if result["error"]:
+        messages.warning(request, result["error"])
+    if meal.kcal:
+        messages.success(
+            request,
+            f"已記錄{meal.get_meal_type_display()}：{meal.kcal} kcal"
+            f"（碳水 {meal.carb_g}g／蛋白 {meal.protein_g}g／脂肪 {meal.fat_g}g）。",
+        )
+    else:
+        messages.warning(
+            request,
+            "認不出食物，紀錄已建立但營養值是 0——"
+            "可以在下面直接改份量，或用「白飯 200g、雞胸 150g」這種寫法再試一次。",
+        )
+
+
+def _regrams_meal(request, athlete):
+    """調整某一品項的公克數，其餘營養值按比例重算。"""
+    meal = get_object_or_404(MealLog, pk=request.POST["meal_id"], athlete=athlete)
+    items = list(meal.items or [])
+    keys = ("kcal", "carb_g", "protein_g", "fat_g", "fiber_g", "sodium_mg")
+    changed = 0
+    for idx, row in enumerate(items):
+        raw = request.POST.get(f"grams_{idx}")
+        if raw in (None, ""):
+            continue
+        try:
+            grams = max(float(raw), 0)
+        except ValueError:
+            continue
+        old = float(row.get("grams") or 0)
+        if not old or abs(grams - old) < 0.5:
+            continue
+        ratio = grams / old
+        row["grams"] = round(grams)
+        for k in keys:
+            row[k] = round(float(row.get(k) or 0) * ratio, 1)
+        changed += 1
+
+    if not changed:
+        messages.warning(request, "份量沒有變動。")
+        return
+
+    total = nuvision.totals(items)
+    meal.items = items
+    meal.kcal = total["kcal"]
+    meal.carb_g = total["carb_g"]
+    meal.protein_g = total["protein_g"]
+    meal.fat_g = total["fat_g"]
+    meal.fiber_g = total["fiber_g"]
+    meal.sodium_mg = total["sodium_mg"]
+    meal.save(
+        update_fields=[
+            "items", "kcal", "carb_g", "protein_g", "fat_g",
+            "fiber_g", "sodium_mg", "updated_at",
+        ]
+    )
+    messages.success(request, f"已更新 {changed} 個品項的份量，總熱量 {meal.kcal} kcal。")
+
+
 # ------------------------------------------------------------------ 傷患
+
+
+def _log_pain(request, athlete, injury, prefix="", quiet=False):
+    """寫一筆今日疼痛紀錄。prefix 讓「一次回報全部」用得上同一段邏輯。"""
+
+    def val(name, cast=int, default=None):
+        raw = request.POST.get(f"{name}{prefix}")
+        if raw in (None, ""):
+            return default
+        try:
+            return cast(raw)
+        except (TypeError, ValueError):
+            return default
+
+    log, _ = PainLog.objects.update_or_create(
+        injury=injury,
+        date=date.today(),
+        defaults={
+            "pain_before": val("pain_before"),
+            "pain_at_rest": val("pain_at_rest", default=0),
+            "pain_during_activity": val("pain_during_activity", default=0),
+            "pain_after_session": val("pain_after_session"),
+            "load_intensity": val("load_intensity"),
+            "load_volume": request.POST.get(f"load_volume{prefix}", "")[:120],
+            "swelling": bool(request.POST.get(f"swelling{prefix}")),
+            "rom_limited": bool(request.POST.get(f"rom_limited{prefix}")),
+            "note": request.POST.get(f"note{prefix}", ""),
+        },
+    )
+    if log.blocks_high_intensity:
+        n = 0
+        for session in athlete.sessions.filter(date=date.today()):
+            n += len(inj.apply_modifications(session))
+        messages.warning(
+            request,
+            f"{injury.get_body_part_display()} 疼痛 {log.pain_during_activity}/10 已超過門檻，"
+            f"今日課表已自動調整（{n} 項變更）。",
+        )
+    elif not quiet:
+        messages.success(request, "已記錄今日疼痛。")
+    return log
 
 
 @login_required
@@ -2376,28 +2567,43 @@ def injuries_view(request):
             messages.success(request, f"已建立傷患紀錄：{injury.get_body_part_display()}")
         elif action == "pain_log":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
-            log, _ = PainLog.objects.update_or_create(
-                injury=injury,
-                date=date.today(),
-                defaults={
-                    "pain_at_rest": int(request.POST.get("pain_at_rest", 0)),
-                    "pain_during_activity": int(request.POST.get("pain_during_activity", 0)),
-                    "swelling": bool(request.POST.get("swelling")),
-                    "rom_limited": bool(request.POST.get("rom_limited")),
-                    "note": request.POST.get("note", ""),
-                },
-            )
-            if log.blocks_high_intensity:
-                n = 0
-                for s in athlete.sessions.filter(date=date.today()):
-                    n += len(inj.apply_modifications(s))
-                messages.warning(
-                    request,
-                    f"疼痛 {log.pain_during_activity}/10 已超過門檻，"
-                    f"今日課表已自動調整（{n} 項變更）。",
-                )
+            _log_pain(request, athlete, injury, prefix="")
+        elif action == "daily_report":
+            # 一次把所有進行中的傷患都回報完，運動員不用一張表填一次。
+            done = 0
+            for injury in athlete.injuries.all():
+                if not injury.is_active:
+                    continue
+                if request.POST.get(f"pain_during_activity_{injury.id}") in (None, ""):
+                    continue
+                _log_pain(request, athlete, injury, prefix=f"_{injury.id}", quiet=True)
+                done += 1
+            if done:
+                messages.success(request, f"已回報 {done} 處傷患的今日狀況。")
             else:
-                messages.success(request, "已記錄今日疼痛。")
+                messages.warning(request, "沒有填任何一處的今日疼痛。")
+        elif action == "set_training_mode":
+            injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
+            injury.training_mode = request.POST.get("training_mode", TrainingMode.MODIFIED)
+            injury.training_note = request.POST.get("training_note", "")[:200]
+            injury.save(update_fields=["training_mode", "training_note", "updated_at"])
+            messages.success(
+                request,
+                f"{injury.get_body_part_display()} 今日處理方式："
+                f"{injury.get_training_mode_display()}。",
+            )
+        elif action == "rtp_toggle":
+            injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
+            done = {int(x) for x in request.POST.getlist("rtp")}
+            injury.rtp_progress = sorted(done)
+            injury.save(update_fields=["rtp_progress", "updated_at"])
+            rtp = inj.rtp_checklist(injury)
+            if rtp["cleared"]:
+                messages.success(request, "RTP 條件全部達標，可與教練確認回歸完整訓練。")
+            else:
+                messages.success(
+                    request, f"已更新 RTP 進度：{rtp['met']}/{rtp['total']} 項達標。"
+                )
         elif action == "update_status":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             injury.status = request.POST["status"]
@@ -2459,12 +2665,17 @@ def injuries_view(request):
                 "rtp": inj.rtp_checklist(i),
                 "direction": inj.suggest_treatment_direction(i),
                 "treatments": inj.treatment_summary(i),
+                "peace_love": inj.peace_love_guide(i),
+                "load": inj.load_verdict(i),
                 "labels": json.dumps([r["date"].strftime("%m/%d") for r in trend]),
                 "rest": json.dumps([r["pain_at_rest"] for r in trend]),
                 "activity": json.dumps([r["pain_during_activity"] for r in trend]),
                 "today_log": i.pain_logs.filter(date=date.today()).first(),
             }
         )
+    detail.sort(key=lambda d: -d["injury"].priority)
+
+    team_mode = inj.team_training_mode(active)
 
     blocked, reason = inj.should_block_high_intensity(athlete)
 
@@ -2477,6 +2688,11 @@ def injuries_view(request):
             "athletes": _athlete_switcher(request),
             "injuries": injuries,
             "detail": detail,
+            "board": inj.injury_board(active),
+            "team_mode": team_mode,
+            "team_mode_label": dict(TrainingMode.choices).get(team_mode, ""),
+            "team_mode_guide": TRAINING_MODE_GUIDE.get(team_mode, {}),
+            "training_modes": TrainingMode.choices,
             "resolved": [i for i in injuries if not i.is_active],
             "blocked": blocked,
             "block_reason": reason,

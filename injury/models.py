@@ -49,6 +49,50 @@ class InjuryStatus(models.TextChoices):
     RESOLVED = "RESOLVED", "已康復"
 
 
+class TrainingMode(models.TextChoices):
+    """受傷期間這個人到底怎麼練——教練與運動員每天要看的就是這一格。
+
+    分成五級是因為實務上「能不能練」從來不是是非題：
+    完全休養與完全訓練之間，大部分時間都落在中間那三級。
+    """
+
+    FULL_REST = "FULL_REST", "完全休養"
+    REHAB_ONLY = "REHAB_ONLY", "只做康復"
+    MODIFIED = "MODIFIED", "調整訓練"
+    GRADUAL = "GRADUAL", "漸進回歸"
+    FULL = "FULL", "完全訓練"
+
+
+#: 每一級的白話說明：今天可以做什麼、不可以做什麼。
+TRAINING_MODE_GUIDE = {
+    TrainingMode.FULL_REST: {
+        "do": "完全停練，處理發炎與疼痛；可做不牽涉患部的日常活動",
+        "avoid": "任何會誘發疼痛的動作、負重與衝擊",
+        "tone": "red",
+    },
+    TrainingMode.REHAB_ONLY: {
+        "do": "只做復健動作與不痛範圍的活動度訓練；上肢／對側可維持體能",
+        "avoid": "專項課表、跑跳與最大負荷",
+        "tone": "red",
+    },
+    TrainingMode.MODIFIED: {
+        "do": "照常出席，患部動作換成替代動作，強度與總量都先降一級",
+        "avoid": "衝刺、增強式、患部最大力量",
+        "tone": "yellow",
+    },
+    TrainingMode.GRADUAL: {
+        "do": "分級加回專項：慢跑 → 節奏跑 → 加速 → 全速，每次只加一項",
+        "avoid": "一次同時加強度又加量；比賽與計時測驗",
+        "tone": "blue",
+    },
+    TrainingMode.FULL: {
+        "do": "完整課表，維持復健動作作為預防",
+        "avoid": "突然把訓練量拉回受傷前的水平",
+        "tone": "green",
+    },
+}
+
+
 class TreatmentStage(models.TextChoices):
     """治療方向的四個階段——決定現在該做什麼、什麼時候可以往下一步。"""
 
@@ -110,6 +154,22 @@ class Injury(TimeStampedModel):
         "治療進度", max_length=15, choices=TreatmentStage.choices, default=TreatmentStage.ASSESS
     )
     next_review_date = models.DateField("下次覆診 / 檢視", null=True, blank=True)
+    training_mode = models.CharField(
+        "訓練處理方式",
+        max_length=15,
+        choices=TrainingMode.choices,
+        default=TrainingMode.MODIFIED,
+        help_text="今天這個人怎麼練：完全休養 / 只做康復 / 調整訓練 / 漸進回歸 / 完全訓練",
+    )
+    training_note = models.CharField(
+        "訓練備註",
+        max_length=200,
+        blank=True,
+        help_text="給教練看的一句話，例：只做上肢與核心，禁跑跳",
+    )
+    rtp_progress = models.JSONField(
+        "RTP 已達成條件", default=list, blank=True, help_text="已勾選的 Return-to-Play 條件索引"
+    )
 
     class Meta:
         verbose_name = "傷患"
@@ -138,6 +198,21 @@ class Injury(TimeStampedModel):
     def current_pain_level(self):
         log = self.latest_pain
         return log.pain_during_activity if log else None
+
+    @property
+    def mode_guide(self):
+        return TRAINING_MODE_GUIDE.get(self.training_mode, {})
+
+    @property
+    def priority(self):
+        """排序用：越大越該先看。急性期與高疼痛排前面。"""
+        status_weight = {
+            InjuryStatus.ACUTE: 300,
+            InjuryStatus.REHAB: 200,
+            InjuryStatus.RETURN_TO_RUN: 100,
+            InjuryStatus.RESOLVED: 0,
+        }
+        return status_weight.get(self.status, 0) + (self.current_pain_level or 0) * 10 + self.severity
 
     def pain_trend(self, days=28):
         """疼痛趨勢資料（給折線圖）。"""
@@ -194,6 +269,25 @@ class PainLog(TimeStampedModel):
     pain_at_rest = models.PositiveSmallIntegerField("靜態疼痛 (0-10)", default=0, validators=PAIN_VALIDATORS)
     pain_during_activity = models.PositiveSmallIntegerField(
         "活動時疼痛 (0-10)", default=0, validators=PAIN_VALIDATORS
+    )
+    pain_before = models.PositiveSmallIntegerField(
+        "今早／運動前疼痛 (0-10)", null=True, blank=True, validators=PAIN_VALIDATORS
+    )
+    pain_after_session = models.PositiveSmallIntegerField(
+        "運動結束後疼痛 (0-10)", null=True, blank=True, validators=PAIN_VALIDATORS
+    )
+    load_intensity = models.PositiveSmallIntegerField(
+        "今日強度（幾分力 0-10）",
+        null=True,
+        blank=True,
+        validators=PAIN_VALIDATORS,
+        help_text="用幾分力做：投球力度、跑速、重量。10 = 全力",
+    )
+    load_volume = models.CharField(
+        "今日總量",
+        max_length=120,
+        blank=True,
+        help_text="做了多少：例 投 30 球 / 慢跑 3km / 深蹲 60kg×3×8",
     )
     swelling = models.BooleanField("腫脹", default=False)
     rom_limited = models.BooleanField("活動度受限", default=False)

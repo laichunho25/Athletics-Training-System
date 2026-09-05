@@ -13,7 +13,11 @@ python manage.py migrate --no-input
 
 # 載入基礎資料（項目 / 動作庫 / 恢復手段 / 替代動作對照表）
 # loaddata 是冪等的：相同 pk 會被覆寫，不會重複新增
-python manage.py loaddata events exercises recovery_methods exercise_modifications
+python manage.py loaddata events exercises recovery_methods exercise_modifications food_items
+
+# 補齊訓練活動庫（課表挑得到的動作＝數據分析追蹤得到的項目）
+# 可重複執行：只補沒有的動作，教練自己改過的預設值與說明不會被蓋掉
+python manage.py seed_activities
 
 # 有設定 ADMIN_USERNAME / ADMIN_PASSWORD 時自動建立管理員（可重複執行）
 python manage.py create_admin --skip-if-unset

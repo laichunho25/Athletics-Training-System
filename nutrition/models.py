@@ -53,6 +53,8 @@ class NutritionTarget(TimeStampedModel):
             carb=models.Sum("carb_g"),
             protein=models.Sum("protein_g"),
             fat=models.Sum("fat_g"),
+            fiber=models.Sum("fiber_g"),
+            sodium=models.Sum("sodium_mg"),
         )
         return {k: v or 0 for k, v in agg.items()}
 
@@ -78,6 +80,63 @@ class MealType(models.TextChoices):
     SNACK = "SNACK", "加餐"
 
 
+class FoodItem(models.Model):
+    """食物字典：每 100 g 的營養值。
+
+    相片辨識回來的品項會對進這張表換算份量，沒有 AI 金鑰時也能靠關鍵字比對
+    把「雞胸肉 白飯 西蘭花」這種文字描述估算成一份營養表。
+    """
+
+    name_zh = models.CharField("名稱", max_length=60, unique=True)
+    aliases = models.CharField(
+        "別名", max_length=200, blank=True, help_text="逗號分隔，例：雞胸,雞扒,chicken breast"
+    )
+    category = models.CharField("分類", max_length=40, blank=True)
+    kcal_per_100g = models.PositiveIntegerField("熱量 (kcal/100g)", default=0)
+    carb_per_100g = models.DecimalField("碳水 (g/100g)", max_digits=5, decimal_places=1, default=0)
+    protein_per_100g = models.DecimalField(
+        "蛋白質 (g/100g)", max_digits=5, decimal_places=1, default=0
+    )
+    fat_per_100g = models.DecimalField("脂肪 (g/100g)", max_digits=5, decimal_places=1, default=0)
+    fiber_per_100g = models.DecimalField(
+        "膳食纖維 (g/100g)", max_digits=5, decimal_places=1, default=0
+    )
+    sodium_mg_per_100g = models.PositiveIntegerField("鈉 (mg/100g)", default=0)
+    typical_serving_g = models.PositiveIntegerField("常見一份 (g)", default=100)
+    serving_label = models.CharField("一份的說法", max_length=40, blank=True, help_text="例：一碗、一隻")
+
+    class Meta:
+        verbose_name = "食物字典"
+        verbose_name_plural = "食物字典"
+        ordering = ["category", "name_zh"]
+
+    def __str__(self):
+        return f"{self.name_zh}（{self.kcal_per_100g} kcal/100g）"
+
+    @property
+    def keywords(self):
+        words = [self.name_zh] + [a.strip() for a in self.aliases.split(",")]
+        return [w.lower() for w in words if w]
+
+    def nutrients_for(self, grams):
+        """換算指定克數的營養值。"""
+        ratio = grams / 100.0
+        return {
+            "kcal": round(self.kcal_per_100g * ratio),
+            "carb_g": round(float(self.carb_per_100g) * ratio, 1),
+            "protein_g": round(float(self.protein_per_100g) * ratio, 1),
+            "fat_g": round(float(self.fat_per_100g) * ratio, 1),
+            "fiber_g": round(float(self.fiber_per_100g) * ratio, 1),
+            "sodium_mg": round(self.sodium_mg_per_100g * ratio),
+        }
+
+
+class AnalysisSource(models.TextChoices):
+    MANUAL = "MANUAL", "手動輸入"
+    PHOTO_AI = "PHOTO_AI", "相片辨識（AI）"
+    DICTIONARY = "DICTIONARY", "文字比對食物字典"
+
+
 class MealLog(TimeStampedModel):
     athlete = models.ForeignKey(AthleteProfile, on_delete=models.CASCADE, related_name="meals")
     date = models.DateField("日期")
@@ -87,7 +146,19 @@ class MealLog(TimeStampedModel):
     carb_g = models.PositiveIntegerField("碳水 (g)", default=0)
     protein_g = models.PositiveIntegerField("蛋白質 (g)", default=0)
     fat_g = models.PositiveIntegerField("脂肪 (g)", default=0)
+    fiber_g = models.PositiveIntegerField("膳食纖維 (g)", default=0)
+    sodium_mg = models.PositiveIntegerField("鈉 (mg)", default=0)
     photo = models.ImageField("餐點照片", upload_to="meals/", null=True, blank=True)
+    items = models.JSONField(
+        "辨識出的品項",
+        default=list,
+        blank=True,
+        help_text='[{"name": "白飯", "grams": 200, "kcal": 260, ...}]',
+    )
+    analysis_source = models.CharField(
+        "營養來源", max_length=15, choices=AnalysisSource.choices, default=AnalysisSource.MANUAL
+    )
+    analysis_note = models.TextField("辨識說明 / 評估", blank=True)
 
     class Meta:
         verbose_name = "飲食紀錄"

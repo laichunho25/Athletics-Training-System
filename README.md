@@ -10,7 +10,7 @@
 ```bash
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py loaddata events exercises recovery_methods exercise_modifications
+python manage.py loaddata events exercises recovery_methods exercise_modifications food_items
 python manage.py seed_demo --weeks 8      # 建立示範資料
 python manage.py seed_templates           # 建立短跑課表模板（需先有教練帳號）
 python manage.py seed_projects            # 建立公開報名項目
@@ -181,7 +181,7 @@ python manage.py rebuild_analytics --athlete 1
 
 ## 基礎資料與課表模板
 
-`core/fixtures/` 的四份 fixture 由 `loaddata` 載入，pk 固定，可重複執行：
+`core/fixtures/` 的五份 fixture 由 `loaddata` 載入，pk 固定，可重複執行：
 
 | Fixture | 內容 |
 | --- | --- |
@@ -189,6 +189,7 @@ python manage.py rebuild_analytics --athlete 1
 | `exercises.json` | 動作字典（64 個動作，以 `code` 供模板引用） |
 | `recovery_methods.json` | 恢復手段 |
 | `exercise_modifications.json` | 替代動作對照表（55 筆，13 個身體部位全覆蓋） |
+| `food_items.json` | 食物字典（每 100g 營養值），沒有 `ANTHROPIC_API_KEY` 時的餐點估算來源 |
 
 替代動作表是傷患期自動降階的依據：某部位疼痛時，教練依 `contraindicated_body_parts`
 與 `max_pain_level` 查出可執行的替代動作。

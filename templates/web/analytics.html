@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}數據分析{% endblock %}
 
 {% block content %}
@@ -204,7 +205,7 @@
             {% for g in activity_groups %}
               <optgroup label="{{ g.label }}">
                 {% for d in g.rows %}
-                  <option value="{{ d.id }}">{{ d.display_name }}</option>
+                  <option value="{{ d.id }}"{% if d.note %} title="{{ d.note }}"{% endif %}>{{ d.display_name }}</option>
                 {% endfor %}
               </optgroup>
             {% endfor %}
@@ -281,6 +282,9 @@
       <span class="small c-dim">勾 2 個以上</span>
     </div>
     <div style="padding:14px 18px">
+      {% if multi_error %}
+        <div class="alert red">{{ multi_error }}</div>
+      {% endif %}
       <form method="get">
         <input type="hidden" name="athlete" value="{{ athlete.id }}">
         <input type="hidden" name="domain" value="{{ domain }}">
@@ -308,6 +312,33 @@
           {% endif %}
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------ 活動庫的動作說明 -->
+  <div class="card pad0 mb">
+    <div class="card-head" data-fold-default="closed">
+      <span>動作說明</span>
+      <span class="small c-dim">{{ activity_notes|length }} 個分類</span>
+    </div>
+    <div style="padding:14px 18px">
+      <div class="small c-dim mb">
+        這裡寫的是「這個動作在做什麼、練到什麼」。做的時候要注意什麼寫在課表的訓練要點裡。
+      </div>
+      {% for g in activity_notes %}
+        <div class="mb" data-fold-key="note-{{ g.value }}">
+          <h3 class="small c-accent" style="margin:0 0 4px">{{ g.label }}</h3>
+          {% for d in g.rows %}
+            <div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">
+              <strong>{{ d.name }}</strong>
+              {% if d.name_en %}<span class="c-dim">（{{ d.name_en }}）</span>{% endif %}
+              <div class="c-dim">{{ d.note }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% empty %}
+        <div class="empty">活動庫還沒有寫說明的動作。</div>
+      {% endfor %}
     </div>
   </div>
   {% endif %}
@@ -1142,90 +1173,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'js/fold.js' %}" data-page="analytics"></script>
 <script>
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
-
-// ---- 顯示欄收合／展開 ---------------------------------------------------
-// 這一頁欄位多，一次全攤開來看很累。每一條標題列（card-head、h2）右邊插一顆 ▾，
-// 按一下把它底下那一段收起來，只剩標題；再按一下展開。
-// 「底下那一段」＝標題之後的兄弟節點，一直數到下一條同級標題為止，
-// 所以同一張卡裡的「比較」「新增一筆紀錄」「紀錄明細」各自收各自的。
-// 收起了哪幾欄記在 localStorage，換頁回來維持上次的樣子。
-(function () {
-  const KEY = 'atm-fold:analytics:';
-  const read = (k) => { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } };
-  const write = (k, v) => { try { localStorage.setItem(KEY + k, v); } catch (e) {} };
-
-  const wrap = document.querySelector('.wrap');
-  if (!wrap) { return; }
-
-  const panels = [];
-  const used = {};
-
-  function following(head, isHead) {
-    const out = [];
-    let n = head.nextElementSibling;
-    while (n && !isHead(n)) { out.push(n); n = n.nextElementSibling; }
-    return out;
-  }
-
-  function keyFor(head) {
-    const label = (head.querySelector('span, b') || head).textContent
-      .replace(/\s+/g, ' ').trim().slice(0, 40) || 'panel';
-    used[label] = (used[label] || 0) + 1;
-    return used[label] > 1 ? label + '#' + used[label] : label;
-  }
-
-  function attach(head, targets) {
-    if (!targets.length) { return; }
-    const key = keyFor(head);
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'foldbtn';
-    btn.title = '收起／展開這一欄';
-    head.appendChild(btn);
-
-    function apply(folded, remember) {
-      head.dataset.folded = folded ? '1' : '0';
-      btn.setAttribute('aria-expanded', folded ? 'false' : 'true');
-      targets.forEach((el) => { el.classList.toggle('foldhidden', folded); });
-      if (remember) { write(key, folded ? '1' : '0'); }
-      // 收起時圖表的框是 display:none，量不到寬高；展開之後要叫它重新量一次再畫
-      if (!folded && window.Chart) {
-        requestAnimationFrame(() => {
-          targets.forEach((el) => {
-            el.querySelectorAll('canvas').forEach((cv) => {
-              const chart = Chart.getChart(cv);
-              if (chart) { chart.resize(); }
-            });
-          });
-        });
-      }
-    }
-
-    const saved = read(key);
-    apply(saved === null ? head.dataset.foldDefault === 'closed' : saved === '1', false);
-    btn.addEventListener('click', () => apply(head.dataset.folded !== '1', true));
-    panels.push(apply);
-  }
-
-  const isCardHead = (el) => el.classList.contains('card-head');
-  wrap.querySelectorAll('.card-head').forEach((head) => {
-    attach(head, following(head, isCardHead));
-  });
-
-  const isH2 = (el) => el.tagName === 'H2';
-  Array.prototype.forEach.call(wrap.children, (el) => {
-    if (el.tagName === 'H2') { attach(el, following(el, isH2)); }
-  });
-
-  document.querySelectorAll('[data-fold-all]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const folded = btn.dataset.foldAll === '1';
-      panels.forEach((apply) => apply(folded, true));
-    });
-  });
-})();
 
 {% if item %}
 const pts = {{ chart_points|safe }};
@@ -1573,6 +1523,9 @@ const pts = {{ chart_points|safe }};
 // ---- 多項目一起分析：一條線一個項目，一天取當天最好的那一組 ----
 (function () {
   const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b07cff', '#3fd0d6', '#ff8f3f', '#8496aa'];
+  // 多項目的表格與圖是掛在「項目分析」那張卡裡的，沒挑主項目時畫布不存在
+  const canvas = document.getElementById('multiChart');
+  if (!canvas) { return; }
   const series = {{ multi_series|safe }};
   const dates = [...new Set(series.flatMap(s => s.points.map(p => p.date)))].sort();
   const sets = series.map((s, i) => {
@@ -1586,7 +1539,7 @@ const pts = {{ chart_points|safe }};
       pointRadius: 3, tension: .2, spanGaps: true
     };
   });
-  new Chart(document.getElementById('multiChart'), {
+  new Chart(canvas, {
     data: { labels: dates, datasets: sets },
     options: {
       scales: { y: { title: { display: true, text: '各項目的當日最佳' } } },

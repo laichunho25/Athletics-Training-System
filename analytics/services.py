@@ -1246,7 +1246,8 @@ def multi_item_analysis(athlete, items, days=365):
     或「同一個方式、不同距離」，重量訓練也有相近的動作。
     這些項目各自的趨勢分開看沒意思，並排看才知道哪一種練得起來。
     """
-    result = {"items": list(items), "rows": [], "series": [], "units": [], "note": ""}
+    items = [i for i in items if i is not None]
+    result = {"items": items, "rows": [], "series": [], "units": [], "note": ""}
     if not items:
         return result
 
@@ -1303,9 +1304,8 @@ def multi_item_analysis(athlete, items, days=365):
     elif len(directions) > 1:
         result["note"] = "挑到的項目有的越大越好、有的越小越好，看走勢就好，別直接比高低。"
     else:
-        result["note"] = (
-            "單位一致（" + (result["units"][0] or "無單位") + "），可以直接並排比。"
-        )
+        only = result["units"][0] if result["units"] else ""
+        result["note"] = "單位一致（" + (only or "無單位") + "），可以直接並排比。"
     result["rows"].sort(key=lambda r: (r["empty"], -r["count"]))
     return result
 

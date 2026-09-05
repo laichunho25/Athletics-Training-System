@@ -1,11 +1,16 @@
 """nutrition/services.py 的計算測試（BMR / TDEE / 三大營養素）。"""
 
-from django.test import TestCase
+from datetime import timedelta
 
+from django.test import TestCase
+from django.urls import reverse
+
+from accounts.models import BodyMetricLog
 from core.models import Sex
 from core.test_factories import TODAY, make_athlete
 from nutrition import services as nu
-from nutrition.models import NutritionGoal
+from nutrition import vision
+from nutrition.models import AnalysisSource, MealLog, MealType, NutritionGoal
 
 
 class MifflinStJeorTests(TestCase):
@@ -132,3 +137,198 @@ class ReadinessTests(TestCase):
         )
         bad = an.readiness_score(self.athlete, TODAY)["score"]
         self.assertGreater(good, bad)
+
+
+class KatchMcArdleTests(TestCase):
+    def test_formula(self):
+        self.assertEqual(nu.katch_mcardle(60), round(370 + 21.6 * 60))
+
+    def test_more_lean_mass_means_higher_bmr(self):
+        self.assertGreater(nu.katch_mcardle(62), nu.katch_mcardle(58))
+
+
+class BodyCompositionInsightTests(TestCase):
+    """InBody × 營養：沒資料要說沒資料，有資料要算得出 Katch-McArdle 與 g/kg LBM。"""
+
+    def setUp(self):
+        self.athlete = make_athlete(weight_kg=68, height_cm=175)
+
+    def log(self, day, weight=68, fat_pct=10, **kwargs):
+        return BodyMetricLog.objects.create(
+            athlete=self.athlete, date=day, weight_kg=weight,
+            body_fat_pct=fat_pct, **kwargs
+        )
+
+    def test_no_measurement_means_no_data(self):
+        self.assertFalse(nu.body_composition_insight(self.athlete)["has_data"])
+
+    def test_katch_uses_lean_mass_from_the_latest_log(self):
+        log = self.log(TODAY)
+        insight = nu.body_composition_insight(self.athlete)
+        self.assertTrue(insight["has_data"])
+        self.assertEqual(insight["katch_bmr"], nu.katch_mcardle(log.lean_mass_kg))
+
+    def test_delta_compares_against_the_previous_measurement(self):
+        self.log(TODAY - timedelta(days=30), weight=70)
+        self.log(TODAY, weight=68)
+        rows = {r["label"]: r for r in nu.body_composition_insight(self.athlete)["rows"]}
+        self.assertEqual(rows["體重"]["delta"]["value"], -2.0)
+
+    def test_body_fat_above_the_band_is_flagged(self):
+        self.log(TODAY, fat_pct=20)
+        notes = nu.body_composition_insight(self.athlete)["notes"]
+        self.assertTrue(any("競賽參考帶" in n for n in notes))
+
+    def test_body_fat_below_the_band_warns_about_low_energy_availability(self):
+        self.log(TODAY, fat_pct=4)
+        notes = nu.body_composition_insight(self.athlete)["notes"]
+        self.assertTrue(any("RED-S" in n for n in notes))
+
+    def test_leg_asymmetry_over_five_percent_is_flagged(self):
+        self.log(TODAY, muscle_leg_r=10, muscle_leg_l=9)
+        notes = nu.body_composition_insight(self.athlete)["notes"]
+        self.assertTrue(any("左右差" in n for n in notes))
+
+    def test_protein_is_expressed_per_kg_of_lean_mass(self):
+        log = self.log(TODAY)
+        target = nu.calculate_targets(self.athlete, TODAY)
+        insight = nu.body_composition_insight(self.athlete, target=target)
+        self.assertEqual(
+            insight["protein"]["per_kg_lean"],
+            round(target.protein_g / log.lean_mass_kg, 2),
+        )
+
+
+class SupplementPlanTests(TestCase):
+    """補充餐單：差多少就補多少，補完的量不該離缺口太遠。"""
+
+    def setUp(self):
+        self.athlete = make_athlete(weight_kg=68, height_cm=175)
+
+    def test_eating_nothing_leaves_the_whole_target_as_a_gap(self):
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        self.assertEqual(plan["gaps"]["kcal"], plan["target"].target_kcal)
+        self.assertTrue(plan["picks"])
+        self.assertFalse(plan["on_track"])
+
+    def test_picks_do_not_wildly_overshoot_the_gap(self):
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        self.assertLessEqual(plan["picked_kcal"], plan["gaps"]["kcal"] * 1.5)
+
+    def test_hitting_the_target_needs_no_supplements(self):
+        target = nu.calculate_targets(self.athlete, TODAY)
+        MealLog.objects.create(
+            athlete=self.athlete, date=TODAY, meal_type=MealType.LUNCH,
+            description="全日", kcal=target.target_kcal, carb_g=target.carb_g,
+            protein_g=target.protein_g, fat_g=target.fat_g,
+        )
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        self.assertTrue(plan["on_track"])
+        self.assertEqual(plan["picks"], [])
+
+    def test_rest_day_timing_advice_differs_from_training_day(self):
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        self.assertTrue(any("沒有排訓練" in line for line in plan["timing"]))
+
+
+class MealVisionFallbackTests(TestCase):
+    """沒有 API 金鑰時，一律退回食物字典比對，不能整個壞掉。"""
+
+    fixtures = ["food_items"]
+
+    def test_named_food_with_grams_is_matched(self):
+        result = vision.analyze_meal(description="白飯 200g")
+        self.assertEqual(result["source"], AnalysisSource.DICTIONARY)
+        self.assertEqual(len(result["items"]), 1)
+        self.assertEqual(result["items"][0]["grams"], 200)
+
+    def test_food_without_grams_uses_the_typical_serving(self):
+        result = vision.analyze_meal(description="雞胸肉")
+        self.assertEqual(result["items"][0]["grams"], 150)
+
+    def test_alias_in_english_is_matched(self):
+        result = vision.analyze_meal(description="banana")
+        self.assertEqual(result["items"][0]["name"], "香蕉")
+
+    def test_unknown_food_yields_no_items_but_still_returns(self):
+        result = vision.analyze_meal(description="外星料理")
+        self.assertEqual(result["items"], [])
+        self.assertEqual(vision.totals(result["items"])["kcal"], 0)
+
+    def test_photo_without_api_key_falls_back_with_a_message(self):
+        result = vision.analyze_meal(
+            image_bytes=b"not-a-real-photo", filename="a.jpg", description="白飯 200g"
+        )
+        self.assertEqual(result["source"], AnalysisSource.DICTIONARY)
+        self.assertTrue(result["error"])
+        self.assertTrue(result["items"])
+
+    def test_totals_sum_every_macro(self):
+        result = vision.analyze_meal(description="白飯 200g、雞胸肉 150g")
+        total = vision.totals(result["items"])
+        self.assertEqual(
+            total["kcal"], sum(round(i["kcal"]) for i in result["items"])
+        )
+        self.assertGreater(total["protein_g"], 40)
+
+
+class NutritionPageTests(TestCase):
+    """營養頁的新動作：加一餐、改份量、刪除。"""
+
+    fixtures = ["food_items"]
+
+    def setUp(self):
+        self.athlete = make_athlete("nutpage", weight_kg=68, height_cm=175)
+        self.client.login(username="nutpage", password="test-pw-12345")
+        self.url = reverse("web:nutrition")
+
+    def test_page_renders_plan_and_inbody_panels(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("plan", r.context)
+        self.assertFalse(r.context["insight"]["has_data"])
+
+    def test_meal_add_from_text_stores_items_and_totals(self):
+        self.client.post(self.url, {
+            "action": "meal_add", "meal_type": MealType.LUNCH,
+            "description": "白飯 200g、雞胸肉 150g",
+        })
+        meal = MealLog.objects.get(athlete=self.athlete)
+        self.assertEqual(len(meal.items), 2)
+        self.assertEqual(meal.analysis_source, AnalysisSource.DICTIONARY)
+        self.assertEqual(meal.kcal, vision.totals(meal.items)["kcal"])
+
+    def test_meal_add_without_anything_is_rejected(self):
+        self.client.post(self.url, {"action": "meal_add", "description": ""})
+        self.assertFalse(MealLog.objects.exists())
+
+    def test_regrams_rescales_the_whole_meal(self):
+        self.client.post(self.url, {
+            "action": "meal_add", "meal_type": MealType.LUNCH, "description": "白飯 200g",
+        })
+        meal = MealLog.objects.get(athlete=self.athlete)
+        before = meal.kcal
+        self.client.post(self.url, {
+            "action": "meal_regrams", "meal_id": meal.id, "grams_0": 100,
+        })
+        meal.refresh_from_db()
+        self.assertEqual(meal.items[0]["grams"], 100)
+        self.assertAlmostEqual(meal.kcal, before / 2, delta=2)
+
+    def test_meal_delete_removes_the_row(self):
+        self.client.post(self.url, {
+            "action": "meal_add", "meal_type": MealType.SNACK, "description": "香蕉",
+        })
+        meal = MealLog.objects.get(athlete=self.athlete)
+        self.client.post(self.url, {"action": "meal_delete", "meal_id": meal.id})
+        self.assertFalse(MealLog.objects.exists())
+
+    def test_meals_feed_the_supplement_plan_gaps(self):
+        r = self.client.get(self.url)
+        empty_gap = r.context["plan"]["gaps"]["kcal"]
+        self.client.post(self.url, {
+            "action": "meal_add", "meal_type": MealType.LUNCH,
+            "description": "白飯 200g、雞胸肉 150g",
+        })
+        r = self.client.get(self.url)
+        self.assertLess(r.context["plan"]["gaps"]["kcal"], empty_gap)

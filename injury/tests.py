@@ -1,11 +1,14 @@
 """傷患封鎖與課表自動調整的測試。"""
 
+from datetime import date, timedelta
+
 from django.test import TestCase
+from django.urls import reverse
 
 from core.models import AthleteStatus, SessionStatus, SessionType
 from core.test_factories import TODAY, make_athlete, make_session
 from injury import services as inj
-from injury.models import Injury, InjuryStatus, PainLog
+from injury.models import Injury, InjuryStatus, PainLog, TrainingMode
 
 
 def make_injury(athlete, body_part="HAMSTRING", pain=0, status=InjuryStatus.ACUTE):
@@ -168,3 +171,185 @@ class RtpChecklistTests(TestCase):
         report = inj.rtp_checklist(injury)
         self.assertTrue(report["criteria"])
         self.assertTrue(report["note"])
+
+
+class LoadVerdictTests(TestCase):
+    """傷後加減量的三大標準：當下 ≤3、運動後不加劇、隔天早上完全恢復。"""
+
+    def setUp(self):
+        self.athlete = make_athlete()
+        self.injury = Injury.objects.create(
+            athlete=self.athlete,
+            body_part="SHOULDER",
+            injury_type="TENDINOPATHY",
+            onset_date=TODAY,
+            severity=2,
+            status=InjuryStatus.REHAB,
+        )
+
+    def log(self, day, before=2, during=2, after=2, **kwargs):
+        return PainLog.objects.create(
+            injury=self.injury,
+            date=day,
+            pain_before=before,
+            pain_at_rest=before,
+            pain_during_activity=during,
+            pain_after_session=after,
+            **kwargs,
+        )
+
+    def test_without_any_log_there_is_no_verdict(self):
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertFalse(v["has_data"])
+
+    def test_pain_over_three_during_activity_means_cut_back(self):
+        self.log(TODAY, before=2, during=5, after=2)
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertEqual(v["verdict"], "減量")
+        self.assertFalse(v["checks"][0]["ok"])
+
+    def test_pain_higher_after_session_means_cut_back(self):
+        self.log(TODAY, before=2, during=3, after=5)
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertEqual(v["verdict"], "減量")
+        self.assertFalse(v["checks"][1]["ok"])
+
+    def test_missing_next_morning_is_not_enough_data(self):
+        """第三條要拿隔天早上的數字比，今天填完還判斷不出來。"""
+        self.log(TODAY, before=2, during=2, after=2)
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertEqual(v["verdict"], "資料不足")
+        self.assertIsNone(v["checks"][2]["ok"])
+
+    def test_all_three_passed_allows_a_small_increase(self):
+        self.log(TODAY, before=2, during=3, after=2, load_intensity=7, load_volume="投 30 球")
+        self.log(TODAY + timedelta(days=1), before=2, during=2, after=2)
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertEqual(v["verdict"], "可小幅加量")
+        self.assertTrue(all(c["ok"] for c in v["checks"]))
+
+    def test_next_morning_worse_than_before_means_cut_back(self):
+        self.log(TODAY, before=2, during=3, after=2)
+        self.log(TODAY + timedelta(days=1), before=5, during=2, after=2)
+        v = inj.load_verdict(self.injury, TODAY)
+        self.assertEqual(v["verdict"], "減量")
+        self.assertFalse(v["checks"][2]["ok"])
+
+
+class PeaceLoveTests(TestCase):
+    def setUp(self):
+        self.athlete = make_athlete()
+
+    def test_fresh_acute_injury_gets_peace(self):
+        injury = make_injury(self.athlete, status=InjuryStatus.ACUTE)
+        injury.onset_date = date.today()
+        guide = inj.peace_love_guide(injury)
+        self.assertEqual(guide["phase"], "PEACE")
+        self.assertEqual(len(guide["steps"]), 5)
+
+    def test_rehab_phase_gets_love(self):
+        injury = make_injury(self.athlete, status=InjuryStatus.REHAB)
+        injury.onset_date = date.today() - timedelta(days=20)
+        guide = inj.peace_love_guide(injury)
+        self.assertEqual(guide["phase"], "LOVE")
+        self.assertEqual(len(guide["steps"]), 4)
+
+
+class MultiInjuryBoardTests(TestCase):
+    """多處受傷時：總覽依急性程度排序，當日處理方式取最保守的一級。"""
+
+    def setUp(self):
+        self.athlete = make_athlete()
+
+    def test_board_puts_the_most_urgent_first(self):
+        mild = make_injury(self.athlete, body_part="ANKLE", pain=1,
+                           status=InjuryStatus.RETURN_TO_RUN)
+        bad = make_injury(self.athlete, body_part="HAMSTRING", pain=8,
+                          status=InjuryStatus.ACUTE)
+        rows = inj.injury_board([mild, bad])
+        self.assertEqual(rows[0]["injury"], bad)
+        self.assertEqual(rows[0]["pain"], 8)
+
+    def test_team_mode_takes_the_most_conservative(self):
+        a = make_injury(self.athlete, body_part="ANKLE")
+        b = make_injury(self.athlete, body_part="KNEE")
+        a.training_mode = TrainingMode.GRADUAL
+        b.training_mode = TrainingMode.FULL_REST
+        self.assertEqual(inj.team_training_mode([a, b]), TrainingMode.FULL_REST)
+
+    def test_team_mode_is_none_without_injuries(self):
+        self.assertIsNone(inj.team_training_mode([]))
+
+
+class RtpProgressTests(TestCase):
+    def setUp(self):
+        self.injury = make_injury(make_athlete())
+
+    def test_nothing_checked_is_zero_percent(self):
+        rtp = inj.rtp_checklist(self.injury)
+        self.assertEqual(rtp["met"], 0)
+        self.assertFalse(rtp["cleared"])
+
+    def test_all_checked_clears_return_to_play(self):
+        rtp = inj.rtp_checklist(self.injury)
+        self.injury.rtp_progress = list(range(rtp["total"]))
+        rtp = inj.rtp_checklist(self.injury)
+        self.assertTrue(rtp["cleared"])
+        self.assertEqual(rtp["percent"], 100)
+
+
+class InjuryPageTests(TestCase):
+    """傷患頁的新動作：一次回報、切換處理方式、RTP 勾選。"""
+
+    def setUp(self):
+        self.athlete = make_athlete("injpage")
+        self.client.login(username="injpage", password="test-pw-12345")
+        self.a = make_injury(self.athlete, body_part="HAMSTRING", pain=2)
+        self.b = make_injury(self.athlete, body_part="ANKLE", pain=1)
+        self.url = reverse("web:injuries")
+
+    def test_page_renders_the_board_for_multiple_injuries(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.context["board"]), 2)
+        self.assertEqual(len(r.context["detail"]), 2)
+
+    def test_daily_report_writes_one_log_per_filled_row(self):
+        self.client.post(self.url, {
+            "action": "daily_report",
+            f"pain_before_{self.a.id}": 2,
+            f"pain_during_activity_{self.a.id}": 4,
+            f"pain_after_session_{self.a.id}": 3,
+            f"load_intensity_{self.a.id}": 7,
+            f"load_volume_{self.a.id}": "慢跑 3km",
+            # b 沒填「運動當下」，不該被寫入
+            f"pain_before_{self.b.id}": 1,
+        })
+        log = self.a.pain_logs.get(date=date.today())
+        self.assertEqual(log.pain_during_activity, 4)
+        self.assertEqual(log.load_volume, "慢跑 3km")
+        self.assertFalse(self.b.pain_logs.filter(date=date.today()).exists())
+
+    def test_set_training_mode_is_saved(self):
+        self.client.post(self.url, {
+            "action": "set_training_mode",
+            "injury_id": self.a.id,
+            "training_mode": TrainingMode.FULL_REST,
+            "training_note": "改水中跑",
+        })
+        self.a.refresh_from_db()
+        self.assertEqual(self.a.training_mode, TrainingMode.FULL_REST)
+        self.assertEqual(self.a.training_note, "改水中跑")
+
+    def test_team_mode_takes_the_most_conservative_of_the_two(self):
+        self.a.training_mode = TrainingMode.FULL_REST
+        self.a.save(update_fields=["training_mode"])
+        r = self.client.get(self.url)
+        self.assertEqual(r.context["team_mode"], TrainingMode.FULL_REST)
+
+    def test_rtp_checkboxes_persist(self):
+        self.client.post(self.url, {
+            "action": "rtp_toggle", "injury_id": self.a.id, "rtp": ["0", "2"],
+        })
+        self.a.refresh_from_db()
+        self.assertEqual(self.a.rtp_progress, [0, 2])

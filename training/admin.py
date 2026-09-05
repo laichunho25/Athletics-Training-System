@@ -55,10 +55,10 @@ class NeuromuscularTestAdmin(admin.ModelAdmin):
 class ActivityDefinitionAdmin(admin.ModelAdmin):
     """訓練活動名稱庫：排課表時可以挑的活動都在這裡。"""
 
-    list_display = ("name", "default_block", "default_sets", "default_reps",
+    list_display = ("name", "category", "default_block", "default_sets", "default_reps",
                     "default_distance", "default_weight", "default_intensity",
                     "default_rest", "use_count", "is_builtin", "is_active")
-    list_filter = ("default_block", "is_builtin", "is_active")
+    list_filter = ("category", "default_block", "is_builtin", "is_active")
     search_fields = ("name", "note", "default_key_points")
     list_editable = ("is_active",)
 

@@ -1,9 +1,11 @@
 """課表頁登的數據＝數據分析那一份，而且課別限制了能登哪個範疇。"""
 from datetime import date
+from unittest import mock
 
 from django.test import TestCase
 from django.urls import reverse
 
+from analytics import services as an
 from analytics.models import (
     MetricCategory,
     MetricDomain,
@@ -722,6 +724,31 @@ class MultiItemAnalysisTests(TestCase):
             f"&domain={MetricDomain.TRACK}&items={self.a.id}"
         )
         self.assertIsNone(page.context["multi"])
+
+    def test_junk_in_the_items_parameter_is_ignored(self):
+        """網址是使用者改得到的東西：亂七八糟的 items 不能讓整頁掛掉。"""
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.TRACK}&items=²,abc,,-3&items={self.a.id}"
+            f"&items={self.b.id}"
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context["picked_ids"], [self.a.id, self.b.id])
+
+    def test_a_broken_analysis_does_not_take_the_page_down(self):
+        """一起分析算不出來時，其餘欄位照常顯示，畫面上說一句就好。"""
+        with mock.patch.object(
+            an, "multi_item_analysis", side_effect=ValueError("boom")
+        ):
+            with self.assertLogs("core.views", level="ERROR"):
+                page = self.client.get(
+                    f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+                    f"&domain={MetricDomain.TRACK}&items={self.a.id},{self.b.id}"
+                )
+        self.assertEqual(page.status_code, 200)
+        self.assertIsNone(page.context["multi"])
+        self.assertEqual(page.context["multi_series"], "[]")
+        self.assertContains(page, "一起分析時出了問題")
 
 
 class StatusAwareAdviceTests(TestCase):

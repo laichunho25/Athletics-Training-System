@@ -4,6 +4,9 @@ djangorestframework>=3.16
 django-filter>=25.1
 Pillow>=11.0                # ImageField（頭像 / 餐點照片）
 
+# ---- 選用：餐點相片辨識 ----
+anthropic>=0.40             # 沒裝或沒設 ANTHROPIC_API_KEY 就自動退回食物字典估算
+
 # ---- 部署（Render）----
 gunicorn>=23.0              # WSGI 伺服器
 whitenoise[brotli]>=6.8     # 靜態檔（CSS / Chart.js）

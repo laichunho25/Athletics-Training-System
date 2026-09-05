@@ -355,6 +355,11 @@ class ActivityCategory(models.TextChoices):
     LOWER = "LOWER", "下肢力量"
     CORE = "CORE", "核心"
     PLYO = "PLYO", "增強式／爆發力"
+    # 增強式的東西多，四大部份分開列，挑動作時才不用在一長串裡找
+    PLYO_BASIC = "PLYO_BASIC", "增強式：基礎與進階跳躍"
+    PLYO_TRACK = "PLYO_TRACK", "增強式：田徑專項"
+    PLYO_UPPER = "PLYO_UPPER", "增強式：上肢與全身旋轉"
+    PLYO_POGO = "PLYO_POGO", "增強式：踝彈跳 Pogo"
     ACCESSORY = "ACCESSORY", "輔助／預防傷害"
     RECOVERY = "RECOVERY", "恢復／放鬆"
 

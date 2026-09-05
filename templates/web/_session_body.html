@@ -744,7 +744,7 @@
           {% for g in activity_groups %}
             <optgroup label="{{ g.label }}">
               {% for d in g.rows %}
-                <option value="{{ d.id }}">{{ d.display_name }}</option>
+                <option value="{{ d.id }}"{% if d.note %} title="{{ d.note }}"{% endif %}>{{ d.display_name }}</option>
               {% endfor %}
             </optgroup>
           {% endfor %}

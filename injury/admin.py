@@ -24,22 +24,25 @@ class TreatmentLogInline(admin.TabularInline):
 @admin.register(Injury)
 class InjuryAdmin(admin.ModelAdmin):
     list_display = ("athlete", "body_part", "side", "injury_type", "onset_date",
-                    "severity", "status", "treatment_status", "current_pain_level",
-                    "expected_return_date")
-    list_filter = ("status", "treatment_status", "body_part", "injury_type", "athlete")
+                    "severity", "status", "treatment_status", "training_mode",
+                    "current_pain_level", "expected_return_date")
+    list_filter = ("status", "treatment_status", "training_mode", "body_part",
+                   "injury_type", "athlete")
     inlines = [TreatmentLogInline, PainLogInline]
     fieldsets = (
         ("傷患", {"fields": ("athlete", ("body_part", "side"), ("injury_type", "severity"),
                            ("onset_date", "expected_return_date"), "mechanism", "status")}),
         ("治療方向", {"fields": ("treatment_status", "treatment_direction",
                              "next_review_date", "diagnosis", "practitioner")}),
+        ("訓練處理", {"fields": ("training_mode", "training_note", "rtp_progress")}),
     )
 
 
 @admin.register(PainLog)
 class PainLogAdmin(admin.ModelAdmin):
-    list_display = ("injury", "date", "pain_at_rest", "pain_during_activity",
-                    "swelling", "rom_limited", "blocks_high_intensity")
+    list_display = ("injury", "date", "pain_before", "pain_at_rest",
+                    "pain_during_activity", "pain_after_session", "load_intensity",
+                    "load_volume", "swelling", "rom_limited", "blocks_high_intensity")
     list_filter = ("swelling", "rom_limited")
 
 

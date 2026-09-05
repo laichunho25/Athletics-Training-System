@@ -181,13 +181,199 @@ RTP_CRITERIA = [
 
 
 def rtp_checklist(injury):
+    """RTP 檢核表；已勾選的條件存在 injury.rtp_progress（索引清單）。"""
+    done = set(injury.rtp_progress or [])
+    criteria = [
+        {"index": i, "item": c, "met": i in done} for i, c in enumerate(RTP_CRITERIA)
+    ]
+    met = sum(1 for c in criteria if c["met"])
     return {
         "injury": str(injury),
         "status": injury.get_status_display(),
         "days_since_onset": injury.days_since_onset,
-        "criteria": [{"item": c, "met": None} for c in RTP_CRITERIA],
+        "criteria": criteria,
+        "met": met,
+        "total": len(criteria),
+        "percent": round(met / len(criteria) * 100) if criteria else 0,
+        "cleared": met == len(criteria),
         "note": "全部條件達標方可回歸完整訓練；任一未達標請維持 RTP 階段。",
     }
+
+
+# ------------------------------------------------------- PEACE & LOVE 現場處置
+
+#: 急性期（受傷後 1-3 天）現場處置。取代舊的 RICE：早期發炎是修復的一部分，
+#: 所以不再一律冰敷與吃消炎藥，改成保護、抬高、加壓、衛教。
+PEACE_STEPS = [
+    ("P", "Protect 保護", "立即停止運動、卸下負重或用拐杖護具限制患部活動，避免二次傷害。"),
+    ("E", "Elevate 抬高", "把受傷肢體抬到高於心臟，靠重力促進回流、減少腫脹。"),
+    ("A", "Avoid 避免消炎", "避免長時間冰敷與過度使用消炎藥（NSAIDs）——早期發炎是組織修復的必要過程。"),
+    ("C", "Compress 壓迫", "用彈性繃帶或壓力襪包裹患部，限制關節腔與組織間的腫脹。"),
+    ("E", "Educate 衛教", "聽身體的聲音、找專業人員評估，別盲目推拿或提早復出。"),
+]
+
+#: 亞急性期與復健期（紅腫退了之後）。
+LOVE_STEPS = [
+    ("L", "Load 適度負重", "在不引起明顯疼痛的前提下及早負重，刺激纖維重新正確排列。"),
+    ("O", "Optimism 保持樂觀", "心理因素影響康復速度，建立信心能顯著提升復健成效。"),
+    ("V", "Vascularisation 促進循環", "做不痛的低衝擊有氧（定速腳踏車、水中跑），增加患部血流。"),
+    ("E", "Exercise 運動復健", "在指導下逐步恢復關節活動度、肌力、核心穩定與本體覺。"),
+]
+
+
+def peace_love_guide(injury):
+    """依受傷天數決定現在該跑 PEACE 還是 LOVE。"""
+    days = injury.days_since_onset
+    acute = days <= 3 and injury.status == InjuryStatus.ACUTE
+    return {
+        "days": days,
+        "phase": "PEACE" if acute else "LOVE",
+        "phase_label": "急性期現場處置 PEACE" if acute else "復健期 LOVE",
+        "why": (
+            "受傷 1-3 天：目標是限制組織進一步受損、控制發炎、緩解疼痛。"
+            if acute
+            else "急性疼痛與紅腫減退後：目標轉為組織修復與功能重建。"
+        ),
+        "steps": PEACE_STEPS if acute else LOVE_STEPS,
+        "escalate": (
+            "無法負重、關節變形、劇烈刺痛或腫脹持續不退 → 24-72 小時內看復健科 / 骨科 / 運動醫學科，"
+            "必要時 X 光排除骨折、超聲波或 MRI 評估韌帶與肌肉。"
+        ),
+    }
+
+
+# ---------------------------------------------------------------- 負荷三大標準
+
+#: 運動當下可接受的疼痛上限（10 分制）。超過就要當場調整。
+PAIN_DURING_LIMIT = 3
+
+
+def load_verdict(injury, on_date=None):
+    """用三大標準判斷昨天／今天的運動量合不合適，並給下一步加減量建議。
+
+    三大標準（傷後運動的通用原則）：
+      1. 運動當下不應有明顯疼痛（輕微 1-3 分可接受）
+      2. 運動結束後疼痛不應比運動前高
+      3. 休息一晚後疼痛應完全回到運動前的水平
+    第 3 條要用「隔天早上」的數字，所以拿當日之後最近一筆紀錄的 pain_before 來比。
+    """
+    on_date = on_date or date.today()
+    log = injury.pain_logs.filter(date__lte=on_date).order_by("-date").first()
+    if log is None:
+        return {"has_data": False, "checks": [], "verdict": "", "advice": "先記一次今日回報，系統才判斷得出加量或減量。"}
+
+    nxt = injury.pain_logs.filter(date__gt=log.date).order_by("date").first()
+    before = log.pain_before
+    during = log.pain_during_activity
+    after = log.pain_after_session
+
+    def check(label, ok, detail):
+        return {"label": label, "ok": ok, "detail": detail}
+
+    checks = []
+    # 1. 運動當下
+    if during is None:
+        checks.append(check("運動當下疼痛 ≤ 3", None, "未記錄"))
+    else:
+        checks.append(
+            check(
+                "運動當下疼痛 ≤ 3",
+                during <= PAIN_DURING_LIMIT,
+                f"記錄 {during}/10"
+                + ("" if during <= PAIN_DURING_LIMIT else "，超過門檻應當場降強度或停下"),
+            )
+        )
+    # 2. 運動後不加劇
+    if after is None or before is None:
+        checks.append(check("運動後疼痛不加劇", None, "需要同時填運動前與運動後"))
+    else:
+        checks.append(
+            check(
+                "運動後疼痛不加劇",
+                after <= before,
+                f"運動前 {before} → 運動後 {after}",
+            )
+        )
+    # 3. 隔天恢復
+    if nxt is None or nxt.pain_before is None or before is None:
+        checks.append(check("隔天早上完全恢復", None, "等明天的回報才判斷得出"))
+    else:
+        checks.append(
+            check(
+                "隔天早上完全恢復",
+                nxt.pain_before <= before,
+                f"{log.date} 前 {before} → {nxt.date} 早上 {nxt.pain_before}",
+            )
+        )
+
+    failed = [c for c in checks if c["ok"] is False]
+    unknown = [c for c in checks if c["ok"] is None]
+
+    if failed:
+        verdict, tone = "減量", "red"
+        advice = (
+            "有標準沒過，代表現在的強度或總量超過負荷。下一次先降一項——"
+            "強度（幾分力、幾公斤、幾分速）與總量（球數、距離、組數）不要同時降兩項，"
+            "才知道是哪一項太多。"
+        )
+    elif unknown:
+        verdict, tone = "資料不足", "dim"
+        advice = "把運動前 / 運動中 / 運動後三個數字都填上，明天再填一次早上的數字，系統就判斷得出。"
+    else:
+        verdict, tone = "可小幅加量", "green"
+        advice = (
+            "三個標準都過了，身體能適應這個強度與總量。下一次只加一項，"
+            "幅度約 10%，加完再用同樣三個標準檢查一次。"
+        )
+
+    return {
+        "has_data": True,
+        "log": log,
+        "next_log": nxt,
+        "checks": checks,
+        "verdict": verdict,
+        "tone": tone,
+        "advice": advice,
+    }
+
+
+def injury_board(injuries):
+    """多筆傷患時的總覽列：一眼看完每一處在哪一階、怎麼練、痛幾分。"""
+    rows = []
+    for i in injuries:
+        rows.append(
+            {
+                "injury": i,
+                "label": (
+                    f"{i.get_side_display()}{i.get_body_part_display()}"
+                    if i.side != "NA"
+                    else i.get_body_part_display()
+                ),
+                "pain": i.current_pain_level,
+                "mode": i.get_training_mode_display(),
+                "mode_tone": (i.mode_guide or {}).get("tone", "dim"),
+                "stage": i.get_treatment_status_display(),
+                "days": i.days_since_onset,
+            }
+        )
+    return sorted(rows, key=lambda r: -r["injury"].priority)
+
+
+def team_training_mode(injuries):
+    """整個人今天的處理方式＝所有傷患中最保守的那一級。"""
+    from injury.models import TrainingMode
+
+    order = [
+        TrainingMode.FULL_REST,
+        TrainingMode.REHAB_ONLY,
+        TrainingMode.MODIFIED,
+        TrainingMode.GRADUAL,
+        TrainingMode.FULL,
+    ]
+    modes = [i.training_mode for i in injuries if i.training_mode in order]
+    if not modes:
+        return None
+    return min(modes, key=lambda m: order.index(m))
 
 
 # ------------------------------------------------------------------ 治療方向

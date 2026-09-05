@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}營養與恢復{% endblock %}
 
 {% block content %}
@@ -14,32 +15,38 @@
   {% include "web/_athlete_links.html" %}
 </div>
 
+<div class="foldbar">
+  <button type="button" class="btn ghost sm" data-fold-all="1">全部收起</button>
+  <button type="button" class="btn ghost sm" data-fold-all="0">全部展開</button>
+  <span class="small c-dim">每一欄標題右邊的 ▾ 可以單獨收起，下次回來記得你上次的樣子。</span>
+</div>
+
 <div class="grid grid-4 mb">
   <div class="card stat">
     <div class="label">目標熱量</div>
     <div class="value c-accent">{{ t.target_kcal }}<span style="font-size:14px"> kcal</span></div>
-    <div class="hint">BMR {{ t.bmr_kcal }} · TDEE {{ t.tdee_kcal }}</div>
+    <div class="hint">已吃 {{ eaten.kcal|default:0 }} · 還差 {{ plan.gaps.kcal }} kcal</div>
   </div>
   <div class="card stat">
     <div class="label">碳水</div>
     <div class="value c-blue">{{ t.carb_g }}<span style="font-size:14px"> g</span></div>
-    <div class="hint">{{ t.macro_kcal_split.carb }} kcal</div>
+    <div class="hint">已吃 {{ eaten.carb|default:0 }} · 還差 {{ plan.gaps.carb }} g</div>
   </div>
   <div class="card stat">
     <div class="label">蛋白質</div>
     <div class="value c-green">{{ t.protein_g }}<span style="font-size:14px"> g</span></div>
-    <div class="hint">{{ t.macro_kcal_split.protein }} kcal</div>
+    <div class="hint">已吃 {{ eaten.protein|default:0 }} · 還差 {{ plan.gaps.protein }} g</div>
   </div>
   <div class="card stat">
     <div class="label">脂肪 / 水份</div>
     <div class="value sm c-yellow">{{ t.fat_g }} g<span class="c-dim" style="font-size:14px"> · {{ t.water_ml }} ml</span></div>
-    <div class="hint">{{ t.macro_kcal_split.fat }} kcal</div>
+    <div class="hint">脂肪還差 {{ plan.gaps.fat }} g · 水還差 {{ plan.water_gap }} ml</div>
   </div>
 </div>
 
 <div class="grid grid-2 mb">
   <div class="card pad0">
-    <div class="card-head">
+    <div class="card-head" data-fold-key="macro">
       <span>三大營養素熱量分配</span>
       <form method="post">
         {% csrf_token %}
@@ -56,14 +63,14 @@
   </div>
 
   <!-- ------------------------------------------------------- 晨間問卷 -->
-  <div class="card">
-    <div class="between mb">
-      <h2 style="margin:0">今日晨間問卷</h2>
+  <div class="card pad0">
+    <div class="card-head" data-fold-key="morning">
+      <span>今日晨間問卷</span>
       <span class="badge {% if readiness.score >= 75 %}b-green{% elif readiness.score >= 55 %}b-yellow{% else %}b-red{% endif %}">
         準備度 {{ readiness.score|default:"—" }} · {{ readiness.label }}
       </span>
     </div>
-    <form method="post">
+    <form method="post" style="padding:16px 18px">
       {% csrf_token %}
       <input type="hidden" name="action" value="morning">
       <div class="row">
@@ -103,15 +110,276 @@
   </div>
 </div>
 
+<!-- ------------------------------------------------- 相片辨識 + 今日飲食 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="meal-add">
+    <span>加一餐（可上傳相片）</span>
+    {% if photo_ai %}
+      <span class="badge b-green">相片辨識已啟用</span>
+    {% else %}
+      <span class="badge b-dim">未設定 ANTHROPIC_API_KEY · 用文字比對食物字典</span>
+    {% endif %}
+  </div>
+  <form method="post" enctype="multipart/form-data" style="padding:16px 18px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="meal_add">
+    <div class="row">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+      </div>
+      <div class="field">
+        <label>餐次</label>
+        <select name="meal_type">
+          {% for value, label in meal_types %}
+            <option value="{{ value }}" {% if value == 'LUNCH' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>食物相片</label>
+        <input type="file" name="photo" accept="image/*">
+      </div>
+    </div>
+    <div class="field">
+      <label>吃了什麼（有相片時當作補充提示，沒相片時系統就靠這一行估算）</label>
+      <input type="text" name="description" placeholder="例：白飯 200g、雞胸 150g、西蘭花一碟、香蕉一條">
+    </div>
+    <button class="btn" type="submit">分析並記錄</button>
+    <span class="small c-dim" style="margin-left:8px">
+      拍整盤、光線足、旁邊放隻筷子或飯碗當比例尺，估份量會準很多。存好之後可以再改每一項的公克數。
+    </span>
+  </form>
+</div>
+
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="meals">
+    <span>今日飲食紀錄（{{ meals|length }} 餐）</span>
+    <span class="small c-dim">
+      合計 {{ eaten.kcal|default:0 }} kcal · 碳水 {{ eaten.carb|default:0 }}g ·
+      蛋白 {{ eaten.protein|default:0 }}g · 脂肪 {{ eaten.fat|default:0 }}g ·
+      纖維 {{ eaten.fiber|default:0 }}g · 鈉 {{ eaten.sodium|default:0 }}mg
+    </span>
+  </div>
+  <div style="padding:16px 18px">
+    {% for m in meals %}
+      <div class="card mb" style="background:var(--bg)">
+        <div class="between mb">
+          <div>
+            <strong>{{ m.get_meal_type_display }}</strong>
+            <span class="badge b-dim">{{ m.get_analysis_source_display }}</span>
+            <span class="small c-dim">{{ m.description|truncatechars:60 }}</span>
+          </div>
+          <div class="flex">
+            <span class="badge b-orange">{{ m.kcal }} kcal</span>
+            <span class="badge b-blue">碳 {{ m.carb_g }}g</span>
+            <span class="badge b-green">蛋 {{ m.protein_g }}g</span>
+            <span class="badge b-yellow">脂 {{ m.fat_g }}g</span>
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="meal_delete">
+              <input type="hidden" name="meal_id" value="{{ m.id }}">
+              <button class="btn ghost sm" type="submit">刪除</button>
+            </form>
+          </div>
+        </div>
+
+        {% if m.photo %}
+          <img src="{{ m.photo.url }}" alt="{{ m.get_meal_type_display }}"
+               style="max-width:220px;border-radius:8px;margin-bottom:10px">
+        {% endif %}
+
+        {% if m.items %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="meal_regrams">
+          <input type="hidden" name="meal_id" value="{{ m.id }}">
+          <table>
+            <thead>
+              <tr>
+                <th>品項</th><th class="num">份量 (g)</th><th class="num">kcal</th>
+                <th class="num">碳水</th><th class="num">蛋白</th><th class="num">脂肪</th><th class="num">把握度</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for it in m.items %}
+              <tr>
+                <td>{{ it.name }}</td>
+                <td class="num"><input type="number" min="0" step="1" style="width:80px"
+                                       name="grams_{{ forloop.counter0 }}" value="{{ it.grams }}"></td>
+                <td class="num">{{ it.kcal }}</td>
+                <td class="num">{{ it.carb_g }}</td>
+                <td class="num">{{ it.protein_g }}</td>
+                <td class="num">{{ it.fat_g }}</td>
+                <td class="num c-dim small">{{ it.confidence|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          <button class="btn ghost sm mt" type="submit">改份量後重算</button>
+        </form>
+        {% endif %}
+
+        {% if m.analysis_note %}
+          <div class="small c-dim mt" style="white-space:pre-line">{{ m.analysis_note }}</div>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="empty small">今天還沒有飲食紀錄——上面加一餐，下面的補充餐單就會跟著算。</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ------------------------------------------------------- 補充餐單 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="supplement-plan">
+    <span>今日補充餐單</span>
+    <span class="flex">
+      {% if plan.sessions %}
+        <span class="badge b-orange">訓練 {{ plan.sessions|length }} 節 · 多消耗約 {{ plan.training_kcal }} kcal</span>
+      {% else %}
+        <span class="badge b-dim">今日無訓練</span>
+      {% endif %}
+      {% if plan.on_track %}
+        <span class="badge b-green">已達標</span>
+      {% else %}
+        <span class="badge b-yellow">還差 {{ plan.gaps.kcal }} kcal</span>
+      {% endif %}
+    </span>
+  </div>
+  <div style="padding:16px 18px">
+    {% if plan.picks %}
+      <div class="small c-dim mb">
+        目標已經把今天的訓練消耗算進去了。下面這幾樣加起來約 {{ plan.picked_kcal }} kcal，
+        補的就是訓練多出來、還沒吃回來的部分。
+      </div>
+      <table>
+        <thead>
+          <tr><th>補什麼</th><th>為什麼</th><th class="num">kcal</th><th class="num">碳水</th><th class="num">蛋白</th><th class="num">脂肪</th><th>主要補</th></tr>
+        </thead>
+        <tbody>
+        {% for p in plan.picks %}
+          <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td class="small c-dim">{{ p.why }}</td>
+            <td class="num">{{ p.kcal }}</td>
+            <td class="num">{{ p.carb_g }}</td>
+            <td class="num">{{ p.protein_g }}</td>
+            <td class="num">{{ p.fat_g }}</td>
+            <td><span class="badge b-dim">{{ p.fills }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert green" style="margin:0 0 12px">
+        ✅ 今天的熱量與蛋白已經接近目標，不需要另外加餐。
+      </div>
+    {% endif %}
+
+    <h3 class="mt">吃的時機</h3>
+    <ul style="padding-left:18px;margin:0">
+      {% for line in plan.timing %}<li class="small">{{ line }}</li>{% endfor %}
+    </ul>
+    {% if plan.water_gap %}
+      <div class="alert blue" style="margin:12px 0 0">💧 今天還差 {{ plan.water_gap }} ml 水，分次補、不要一次灌。</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ------------------------------------------------- InBody × 營養分析 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="inbody">
+    <span>體組成（InBody）× 營養</span>
+    {% if insight.has_data %}
+      <span class="small c-dim">最新量測 {{ insight.latest.date }}（{{ insight.days_since }} 天前）</span>
+    {% endif %}
+  </div>
+  <div style="padding:16px 18px">
+    {% if insight.has_data %}
+      <div class="grid grid-2">
+        <div>
+          <h3>身體數據與變化</h3>
+          <table>
+            <thead><tr><th>項目</th><th class="num">最新</th><th class="num">與上次比</th></tr></thead>
+            <tbody>
+            {% for r in insight.rows %}
+              <tr>
+                <td>{{ r.label }}</td>
+                <td class="num">{{ r.value }}</td>
+                <td class="num">
+                  {% if r.delta %}
+                    <span class="{% if r.delta.flat %}c-dim{% elif r.delta.good %}c-green{% else %}c-accent{% endif %}">{{ r.delta.text }}</span>
+                  {% else %}<span class="c-dim">—</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+
+          <h3 class="mt">基礎代謝三種算法</h3>
+          <table>
+            <tbody>
+            {% for b in insight.bmr_rows %}
+              <tr><td class="small">{{ b.label }}</td><td class="num">{{ b.value }} kcal</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          {% if insight.protein %}
+          <h3>蛋白質 vs 去脂體重</h3>
+          <table>
+            <tbody>
+              <tr><td>今日蛋白目標</td><td class="num">{{ insight.protein.target_g }} g</td></tr>
+              <tr><td>換算每公斤體重</td><td class="num">{{ insight.protein.per_kg }} g/kg</td></tr>
+              <tr><td>換算每公斤去脂體重</td><td class="num">{{ insight.protein.per_kg_lean }} g/kg LBM</td></tr>
+            </tbody>
+          </table>
+          {% endif %}
+
+          {% if insight.segments %}
+          <h3 class="mt">部位肌肉／脂肪</h3>
+          <table>
+            <thead><tr><th>部位</th><th class="num">肌肉 (kg)</th><th class="num">脂肪率 (%)</th></tr></thead>
+            <tbody>
+            {% for s in insight.segments %}
+              <tr>
+                <td>{{ s.part }}</td>
+                <td class="num">{{ s.muscle|default:"—" }}</td>
+                <td class="num">{{ s.fat|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+        </div>
+      </div>
+
+      {% for n in insight.notes %}
+        <div class="alert yellow" style="margin:12px 0 0">{{ n }}</div>
+      {% empty %}
+        <div class="alert green" style="margin:12px 0 0">✅ 體組成與目前的營養目標沒有明顯衝突。</div>
+      {% endfor %}
+    {% else %}
+      <div class="empty small">
+        尚無體組成紀錄。到「身體數據」頁上傳一張 InBody 報告，這裡就會用去脂體重重算 BMR
+        與每公斤去脂體重的蛋白需求。
+      </div>
+    {% endif %}
+  </div>
+</div>
+
 <!-- ------------------------------------------------------- 睡眠/痠痛 -->
 <div class="card pad0 mb">
-  <div class="card-head"><span>近 14 天睡眠與痠痛</span></div>
+  <div class="card-head" data-fold-key="sleep"><span>近 14 天睡眠與痠痛</span></div>
   <div class="chart-box"><canvas id="sleep"></canvas></div>
 </div>
 
 <div class="grid grid-2 mb">
   <div class="card pad0">
-    <div class="card-head"><span>本週營養達成率</span></div>
+    <div class="card-head" data-fold-key="compliance"><span>本週營養達成率</span></div>
     <table>
       <thead><tr><th>日期</th><th>日類型</th><th class="num">目標 kcal</th><th class="num">實際</th><th class="num">達成率</th></tr></thead>
       <tbody>
@@ -133,7 +401,7 @@
   </div>
 
   <div class="card pad0">
-    <div class="card-head"><span>恢復手段</span></div>
+    <div class="card-head" data-fold-key="recovery-methods"><span>恢復手段</span></div>
     <table>
       <thead><tr><th>方式</th><th>分類</th><th class="num">建議時長</th></tr></thead>
       <tbody>
@@ -148,7 +416,7 @@
 </div>
 
 <div class="card pad0">
-  <div class="card-head"><span>常見補充劑參考</span></div>
+  <div class="card-head" data-fold-key="supplements" data-fold-default="closed"><span>常見補充劑參考</span></div>
   <table>
     <thead><tr><th>補充劑</th><th>劑量</th><th>時機</th><th>目的</th></tr></thead>
     <tbody>
@@ -165,6 +433,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'js/fold.js' %}" data-page="nutrition"></script>
 <script>
 new Chart(document.getElementById('macro'), {
   type: 'doughnut',

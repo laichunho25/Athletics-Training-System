@@ -254,6 +254,10 @@ ACTIVITY_CATEGORY_TO_METRIC = {
     "LOWER": MetricCategory.LOWER.value,
     "CORE": MetricCategory.CORE.value,
     "PLYO": MetricCategory.PLYO.value,
+    "PLYO_BASIC": MetricCategory.PLYO.value,
+    "PLYO_TRACK": MetricCategory.PLYO.value,
+    "PLYO_UPPER": MetricCategory.PLYO.value,
+    "PLYO_POGO": MetricCategory.PLYO.value,
     "ACCESSORY": MetricCategory.FULL.value,
     "TRACK": MetricCategory.OTHER.value,
     "RECOVERY": MetricCategory.WARMUP.value,
@@ -612,7 +616,10 @@ def track_item_for(method, distance_m, user=None):
 
 #: 這些活動分類屬於重量訓練；治療康復／恢復訓練那種兩個範疇都可以的課，
 #: 就靠活動本身的分類決定數據要記在哪一邊。
-STRENGTH_ACTIVITY_CATEGORIES = {"UPPER", "LOWER", "CORE", "PLYO", "ACCESSORY"}
+STRENGTH_ACTIVITY_CATEGORIES = {
+    "UPPER", "LOWER", "CORE", "ACCESSORY",
+    "PLYO", "PLYO_BASIC", "PLYO_TRACK", "PLYO_UPPER", "PLYO_POGO",
+}
 
 
 def domain_for_activity(session_type, activity_category):
