@@ -143,11 +143,23 @@ class ExerciseLibraryStructureTests(TestCase):
 
     def test_relay_and_middle_distance_movements_are_not_filed_as_sprints(self):
         self.assertEqual(
-            ActivityDefinition.objects.get(name="400m 間歇").discipline.name, "中長跑"
+            ActivityDefinition.objects.get(name="間歇跑").discipline.name, "中長跑"
         )
         self.assertEqual(
             ActivityDefinition.objects.get(name="接力交棒練習").discipline.name, "接力"
         )
+
+    def test_event_specific_movements_carry_no_preset_distance(self):
+        """專項動作的距離是排課那天才填的，項目庫裡不預設、名字裡也不寫米數。"""
+        rows = ActivityDefinition.objects.filter(
+            is_builtin=True,
+            category__in=(ActivityCategory.TRACK, ActivityCategory.PLYO_TRACK),
+        )
+        self.assertTrue(rows.exists())
+        for row in rows:
+            with self.subTest(name=row.name):
+                self.assertEqual(row.default_distance, "")
+                self.assertNotRegex(row.name, r"\d+\s*(m|米|公尺)")
 
     def test_a_coach_submission_waits_for_an_admin(self):
         """教練加的動作先掛待確認：只有自己看得到，別人的挑選清單裡沒有。"""

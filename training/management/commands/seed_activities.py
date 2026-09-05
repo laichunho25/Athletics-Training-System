@@ -69,26 +69,27 @@ ACTIVITIES = [
      "body weight", "", "不休", "90/90、世界最偉大伸展、蜘蛛人弓步"),
 
     # -------------------------------------------------------- 田徑專項
-    ("100m 反複跑", "100m Repetition", C_TRACK, M, "2 組", "3 次", "100 米", "",
+    # 專項動作在項目庫裡不寫死距離——同一個「加速跑」今天跑 30 米、下星期跑
+    # 60 米都是它；距離在訓練日曆挑了動作之後才填當天的數字。
+    ("反覆跑", "Repetition Run", C_TRACK, M, "2 組", "3 次", "", "",
      "80%-90%", "每次：5 分鐘 / 每組：15 分鐘", "起跑加速段保持前傾，最高速段放鬆"),
-    ("60m 加速跑", "60m Acceleration", C_TRACK, M, "3 組", "4 次", "60 米", "",
-     "90%-95%", "每次：3 分鐘 / 每組：8 分鐘", "前 20 米推蹬，逐步抬起軀幹"),
-    ("30m 起跑", "30m Block Start", C_TRACK, M, "2 組", "5 次", "30 米", "",
+    ("加速跑", "Acceleration Run", C_TRACK, M, "3 組", "4 次", "", "",
+     "90%-95%", "每次：3 分鐘 / 每組：8 分鐘", "前段推蹬，逐步抬起軀幹"),
+    ("起跑", "Block Start", C_TRACK, M, "2 組", "5 次", "", "",
      "95%-100%", "每次：3 分鐘 / 每組：10 分鐘", "起跑器角度固定，第一步不要拉太遠"),
-    ("150m 節奏跑", "150m Tempo Run", C_TRACK, M, "2 組", "3 次", "150 米", "",
-     "75%-85%", "每次：4 分鐘 / 每組：10 分鐘", "維持步幅，最後 30 米不掉速"),
-    ("200m 反複跑", "200m Repetition", C_TRACK, M, "2 組", "3 次", "200 米", "",
-     "85%-90%", "每次：6 分鐘 / 每組：12 分鐘", "彎道放鬆，直道加速"),
-    ("400m 間歇", "400m Interval", C_TRACK, M, "1 組", "4 次", "400 米", "", "80%-85%",
-     "每次：4 分鐘", "配速平均，前後 200 米差距 <2 秒"),
-    ("飛行加速跑", "Flying Sprint", C_TRACK, M, "3 組", "3 次", "30 米加速 + 30 米計時",
-     "", "95%-100%", "每次：4 分鐘", "進入計時段前已達最高速，肩頸放鬆"),
-    ("上坡跑", "Hill Sprint", C_TRACK, M, "3 組", "5 次", "40 米", "", "最大努力",
+    ("節奏跑", "Tempo Run", C_TRACK, M, "2 組", "3 次", "", "",
+     "75%-85%", "每次：4 分鐘 / 每組：10 分鐘", "維持步幅，最後一段不掉速"),
+    ("間歇跑", "Interval Run", C_TRACK, M, "1 組", "4 次", "", "", "80%-85%",
+     "每次：4 分鐘", "配速平均，前後半程差距 <2 秒"),
+    ("飛行加速跑", "Flying Sprint", C_TRACK, M, "3 組", "3 次", "",
+     "", "95%-100%", "每次：4 分鐘",
+     "距離分加速段與計時段兩截（例：30 米 + 30 米），進入計時段前已達最高速"),
+    ("上坡跑", "Hill Sprint", C_TRACK, M, "3 組", "5 次", "", "", "最大努力",
      "走回坡底 / 每組 5 分鐘", "身體前傾成一直線，手臂大幅擺動"),
-    ("雪橇加速拖行", "Sled Sprint", C_TRACK, M, "3 組", "4 次", "20 米",
+    ("雪橇加速拖行", "Sled Sprint", C_TRACK, M, "3 組", "4 次", "",
      "體重 10%-20%", "最大努力", "每次：3 分鐘", "重量不要大到破壞跑姿"),
-    ("接力交棒練習", "Relay Baton Exchange", C_TRACK, M, "3 組", "4 次", "接力區 30 米",
-     "", "80%-90%", "每次：3 分鐘", "起跑點固定，交接不回頭看"),
+    ("接力交棒練習", "Relay Baton Exchange", C_TRACK, M, "3 組", "4 次", "",
+     "", "80%-90%", "每次：3 分鐘", "起跑點固定，交接不回頭看，距離填當天的接力區長度"),
 
     # -------------------------------------------------------- 上肢力量
     ("啞鈴三頭伸展", "Triceps Extension (Dumbbell)", C_UP, M, "3 組", "12 次", "",
@@ -211,16 +212,16 @@ ACTIVITIES = [
     # ------------------------------ 增強式（二）田徑專項增強式訓練
     ("跨欄架跳", "Hurdle Jump / Hurdle Hop", C_PLY2, M, "4 組", "5 次", "",
      "body weight", "最大努力", "2 分鐘", "落地即彈，接觸時間越短越好"),
-    ("跨步跳", "Bounding", C_PLY2, M, "3 組", "", "30 米", "body weight", "最大努力",
+    ("跨步跳", "Bounding", C_PLY2, M, "3 組", "", "", "body weight", "最大努力",
      "3 分鐘", "追求每一步的距離而不是速度"),
-    ("單腳跨步跳", "Single-Leg Bounding", C_PLY2, M, "3 組", "左/右腳各 1 趟", "20 米",
+    ("單腳跨步跳", "Single-Leg Bounding", C_PLY2, M, "3 組", "左/右腳各 1 趟", "",
      "body weight", "最大努力", "3 分鐘", "同一腳連續推進，骨盆不要掉，量力而為"),
     ("側向欄架跳", "Lateral Hurdle Hop", C_PLY2, M, "3 組", "來回 6 次", "",
      "低欄架 / 標誌桶", "最大努力", "2 分鐘", "落地膝蓋不內扣，往側邊推而不是往上跳"),
     ("落下跳接欄架跳", "Depth Jump to Hurdle Hop", C_PLY2, M, "3 組", "3-4 次", "",
      "30cm 跳箱 + 欄架", "最大努力", "3 分鐘", "落地那一下就要轉成往前，中間不停頓"),
     ("高遠衝力跳躍步", "Galloping / Skipping for Height & Distance", C_PLY2, M, "3 組",
-     "", "30 米", "body weight", "最大努力", "2 分鐘",
+     "", "", "body weight", "最大努力", "2 分鐘",
      "一趟追高度、一趟追距離，擺臂與提膝要對得上"),
 
     # ---------------------- 增強式（三）上肢與全身旋轉爆發力訓練
@@ -336,9 +337,9 @@ CATEGORY_DISCIPLINE = {
     C_REC: "恢復與放鬆",
 }
 
-#: 少數動作照分類會歸錯（400m 間歇不是短跑、交棒練習屬於接力），逐項指定。
+#: 少數動作照分類會歸錯（間歇跑不是短跑、交棒練習屬於接力），逐項指定。
 NAME_DISCIPLINE = {
-    "400m 間歇": "中長跑",
+    "間歇跑": "中長跑",
     "接力交棒練習": "接力",
 }
 
@@ -356,9 +357,17 @@ def kind_for(category, block):
     return "主課動作" if block == M else "輔助動作"
 
 
-#: 舊版清單裡中英混在一起的名字 → 現在中英分兩欄之後的名字。
-#: 只改系統內建的那幾筆，而且目標名稱已經存在時就跳過，不會撞名。
+#: 舊名 → 新名。只改系統內建的那幾筆；目標名稱已經存在的話就不改名，
+#: 改成把舊的那筆收起來（is_active=False），課表上已經用過的紀錄不受影響。
+#: 專項動作原本把距離寫進名字（100m 反複跑），現在距離改成排課時才填，
+#: 名字裡的米數就要拿掉，不同距離共用同一個動作。
 RENAMES = {
+    "100m 反複跑": "反覆跑",
+    "200m 反複跑": "反覆跑",
+    "60m 加速跑": "加速跑",
+    "30m 起跑": "起跑",
+    "150m 節奏跑": "節奏跑",
+    "400m 間歇": "間歇跑",
     "背蹲舉 Back Squat": "槓鈴深蹲",
     "硬舉 Deadlift": "硬舉",
     "抓舉 Snatch": "抓舉",
@@ -417,14 +426,28 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         disciplines, kinds = self._seed_structure()
 
-        renamed = 0
+        renamed = retired = 0
         for old_name, new_name in RENAMES.items():
             row = ActivityDefinition.objects.filter(name=old_name, is_builtin=True).first()
-            if row is None or ActivityDefinition.objects.filter(name=new_name).exists():
+            if row is None:
+                continue
+            if ActivityDefinition.objects.filter(name=new_name).exists():
+                # 兩個舊名指向同一個新名（100m / 200m 反複跑），留一個就夠；
+                # 多出來的收起來不再出現在挑選清單，但不刪，舊紀錄還查得到。
+                if row.is_active:
+                    row.is_active = False
+                    row.save(update_fields=["is_active", "updated_at"])
+                    retired += 1
                 continue
             row.name = new_name
             row.save(update_fields=["name", "updated_at"])
             renamed += 1
+
+        # 專項動作不預設距離：距離在訓練日曆挑了動作之後才填。
+        # 只清系統內建的那幾筆，教練自己加的動作照他自己寫的來。
+        cleared = ActivityDefinition.objects.filter(
+            is_builtin=True, category__in=(C_TRACK, C_PLY2)
+        ).exclude(default_distance="").update(default_distance="")
 
         created = updated = 0
         for (
@@ -486,7 +509,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"活動清單：新增 {created} 項、補齊 {updated} 項、"
-                f"更名 {renamed} 項，"
+                f"更名 {renamed} 項、收起重覆 {retired} 項、"
+                f"清掉預設距離 {cleared} 項，"
                 f"目前共 {ActivityDefinition.objects.count()} 項；"
                 f"另對齊 {synced} 個數據項目的分類／英文名；"
                 f"目錄共 {SportType.objects.count()} 個運動種類、"

@@ -792,7 +792,13 @@
     <div class="row">
       <div class="field"><label>組數</label><input type="text" name="sets" id="f_sets" placeholder="3 組"></div>
       <div class="field"><label>次數</label><input type="text" name="reps" id="f_reps" placeholder="左/右腳 15 次"></div>
-      <div class="field"><label>距離</label><input type="text" name="distance" id="f_distance" placeholder="30 米"></div>
+      <div class="field">
+        <label>距離</label>
+        <input type="text" name="distance" id="f_distance" placeholder="30 米">
+        <div class="small c-dim" id="f_distance_hint" hidden style="margin-top:4px">
+          專項動作的距離不預設，在這裡填今天要跑的米數（例：30 米、150 米）。
+        </div>
+      </div>
     </div>
     <div class="row">
       <div class="field"><label>重量</label><input type="text" name="weight" id="f_weight" placeholder="body weight"></div>

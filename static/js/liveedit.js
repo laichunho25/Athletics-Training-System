@@ -219,11 +219,21 @@
 
   var DETAIL_FIELDS = ['sets', 'reps', 'distance', 'weight', 'intensity', 'rest', 'key_points'];
 
+  // 專項動作（田徑專項、田徑專項增強式）在項目庫裡不預設距離——
+  // 同一個「加速跑」今天 30 米、下星期 60 米，距離挑完動作才填。
+  var DISTANCE_CATEGORIES = ['TRACK', 'PLYO_TRACK'];
+
+  function showDistanceHint(on) {
+    var hint = document.getElementById('f_distance_hint');
+    if (hint) { hint.hidden = !on; }
+  }
+
   function clearDetails() {
     DETAIL_FIELDS.forEach(function (f) {
       var el = document.getElementById('f_' + f);
       if (el) { el.value = ''; }
     });
+    showDistanceHint(false);
   }
 
   function resetActivityForm() {
@@ -257,6 +267,10 @@
         var el = document.getElementById('f_' + f);
         if (el) { el.value = found[f] || ''; }
       });
+      var wants = DISTANCE_CATEGORIES.indexOf(found.category) !== -1 && !found.distance;
+      showDistanceHint(wants);
+      var dist = document.getElementById('f_distance');
+      if (wants && dist) { dist.focus(); }
     } else {
       if (defId) { defId.value = ''; }
       clearDetails();
