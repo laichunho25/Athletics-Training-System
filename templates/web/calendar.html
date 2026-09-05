@@ -58,7 +58,11 @@
   <span class="badge b-green">已完成</span>
   <span class="badge b-yellow">部分完成</span>
   <span class="badge b-red">缺席</span>
-  <span>· 點日期上的 ＋ 新增 program；<strong>把課表直接拖到另一天就是改日期</strong>；點課表可分區排熱身／正課／補充／恢復</span>
+  {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
+  <span>· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復
+    <span class="no-touch"><br>· <strong>把課表直接拖到另一天就是改日期</strong></span>
+    <span class="only-touch"><br>· 要改日期，點進課表按抬頭的「日期」那一格</span>
+  </span>
 </div>
 
 <!-- ------------------------------------------------- 新增 program 對話框 -->

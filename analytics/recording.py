@@ -4,6 +4,7 @@
 兩邊寫進去的是同一張 MetricRecord，所以在哪邊登都一樣，不用重打第二次。
 """
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import F
@@ -145,6 +146,99 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     if problems:
         message += " " + "；".join(problems)
     return created, message
+
+
+
+# ------------------------------------------- 課表的一行 → 這一行要登的組數
+#
+# 教練在課表寫了「深蹲 3 組 × 5 次 @ 100kg，休 2 分鐘」，這一行本身已經說明
+# 待會兒要記幾組、每一組的目標是什麼。與其叫運動員練完再把同一批數字打第二次，
+# 排課的時候就先把那 3 組空白紀錄開好——練完只要填「完成數值」那一格。
+
+#: 一行課表最多先開幾組（寫錯成「30 組」時不要一次塞三十列進去）
+MAX_PLANNED_SETS = 20
+
+
+def _first_int(text):
+    """「3 組」「3-4 組」「左/右腳 15 次」→ 3 / 3 / 15；沒有數字回 None。"""
+    hit = re.search(r"\d+", text or "")
+    return int(hit.group()) if hit else None
+
+
+def _first_decimal(text):
+    """「100kg」「82.5 公斤」→ Decimal；「body weight」這種純文字回 None。"""
+    hit = re.search(r"\d+(?:\.\d+)?", text or "")
+    return Decimal(hit.group()) if hit else None
+
+
+#: 休息時間裡的時間單位 → 換算成秒的倍數
+_REST_UNITS = {"分鐘": 60, "分": 60, "min": 60, "m": 60, "秒": 1, "sec": 1, "s": 1}
+
+
+def _rest_seconds(text):
+    """「30s」「每組 2 分鐘」「1 分 30 秒」→ 秒數；「walk back」這種回 None。
+
+    「每次 5 分鐘 / 每組 15 分鐘」這種一格寫兩件事的，只取斜線前的第一段。
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    head = re.split(r"[/、;；]", text)[0]
+    pairs = re.findall(r"(\d+(?:\.\d+)?)\s*(分鐘|分|秒|min|sec|s|m)", head, re.I)
+    if pairs:
+        return round(sum(float(n) * _REST_UNITS[u.lower()] for n, u in pairs))
+    # 只寫了一個數字（例：90）就當成秒
+    hit = re.search(r"\d+(?:\.\d+)?", head)
+    return round(float(hit.group())) if hit else None
+
+
+def planned_sets_for(activity):
+    """課表這一行要開幾組、每一組先帶什麼進去。
+
+    「組數」那一格看得出數字才會開（教練沒寫組數＝還沒定，不先開空列）。
+    """
+    count = _first_int(activity.sets)
+    if not count or count < 1:
+        return []
+    count = min(count, MAX_PLANNED_SETS)
+    row = {
+        "weight_kg": _first_decimal(activity.weight),
+        "reps": _first_int(activity.reps),
+        "rest_sec": _rest_seconds(activity.rest),
+        "intensity": (activity.intensity or "").strip()[:20],
+    }
+    return [dict(row, set_no=i if count > 1 else None) for i in range(1, count + 1)]
+
+
+def open_planned_records(activity, item, *, athlete, session):
+    """依課表這一行的組數，先開好同樣筆數的空白紀錄。
+
+    這一行（同一個項目、同一個區塊）底下已經有紀錄就不動——
+    運動員填好的成績永遠不會被排課的動作蓋掉。回傳開了幾筆。
+    """
+    if item is None:
+        return 0
+    rows = planned_sets_for(activity)
+    if not rows:
+        return 0
+    if MetricRecord.objects.filter(
+        session=session, item=item, block=activity.block
+    ).exists():
+        return 0
+    MetricRecord.objects.bulk_create(
+        [
+            MetricRecord(
+                athlete=athlete,
+                item=item,
+                session=session,
+                date=session.date,
+                block=activity.block,
+                **row,
+            )
+            for row in rows
+        ]
+    )
+    return len(rows)
 
 
 # ------------------------------------------------ 修改已經登進去的紀錄

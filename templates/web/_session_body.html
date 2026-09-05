@@ -63,22 +63,24 @@
             data-options="{% for v, l in status_choices %}{{ v }}|{{ l }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-can="{{ can_log|yesno:'1,0' }}">{{ s.get_status_display }}</span>
     </div>
+    {% comment %}
+      完成度／實際時長／課後 RPE／滿意度這四個是練完才填的，
+      入口只有下面「訓練後檢討和反饋」那一張表（一次填完，比逐格點快）。
+      這裡只負責顯示，不再是第二個輸入口。
+    {% endcomment %}
     <div class="meta">
       <span class="lbl">完成度</span>
-      <span class="cell" data-edit="session:{{ s.id }}:completion_pct" data-kind="number"
-            data-value="{{ s.completion_pct }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.completion_pct }}</span>
+      <span class="ro">{{ s.completion_pct }}</span>
       <span class="small c-dim">%</span>
     </div>
     <div class="meta">
       <span class="lbl">實際時長</span>
-      <span class="cell" data-edit="session:{{ s.id }}:actual_duration_min" data-kind="number"
-            data-value="{{ s.actual_duration_min|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.actual_duration_min|default:"—" }}</span>
+      <span class="ro">{{ s.actual_duration_min|default:"—" }}</span>
       <span class="small c-dim">分</span>
     </div>
     <div class="meta">
       <span class="lbl">課後 RPE</span>
-      <span class="cell" data-edit="session:{{ s.id }}:session_rpe" data-kind="number"
-            data-value="{{ s.session_rpe|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{{ s.session_rpe|default:"—" }}</span>
+      <span class="ro">{{ s.session_rpe|default:"—" }}</span>
       <span class="small c-dim">/10</span>
     </div>
     <div class="meta">
@@ -88,11 +90,15 @@
     </div>
     <div class="meta">
       <span class="lbl">訓練滿意度</span>
-      <span class="cell rating" data-edit="session:{{ s.id }}:satisfaction" data-kind="rating"
-            data-value="{{ s.satisfaction|default_if_none:'' }}" data-can="{{ can_log|yesno:'1,0' }}">{% if s.satisfaction %}{{ s.satisfaction }} / 5{% else %}—{% endif %}</span>
+      <span class="ro">{% if s.satisfaction %}{{ s.satisfaction }} / 5{% else %}—{% endif %}</span>
       {% if s.avg_activity_satisfaction %}<span class="small c-dim">各項平均 {{ s.avg_activity_satisfaction }}</span>{% endif %}
     </div>
   </div>
+  {% if can_log %}
+  <div class="small c-dim mt">
+    上面四個課後數字在<a href="#recap">訓練後檢討和反饋</a>一次填完。
+  </div>
+  {% endif %}
 
   <div class="field mt">
     <label>課表概要</label>
@@ -112,6 +118,7 @@
   </div>
 
   {% if b.activities %}
+  <div class="acttablewrap">
   <table class="acttable">
     <thead>
       <tr>
@@ -174,6 +181,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <div class="pad c-dim small">這一區還沒有內容，按右上角「＋ 加入活動」從活動清單挑一個。</div>
   {% endif %}
@@ -185,11 +193,22 @@
   <div class="card-head">
     <span>本課數據紀錄
       <span class="c-dim small">· {{ metric_record_count }} 筆</span></span>
+    {% if metric_domains and can_log %}
+    <form method="post" style="margin-left:auto">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="plan_sets">
+      <button class="btn ghost sm" type="submit"
+              title="課表上寫了組數的動作，照組數先開好空白紀錄；已經有紀錄的動作不動">
+        依課表開組
+      </button>
+    </form>
+    {% endif %}
     <span class="small c-dim">
       {% if metric_domains %}
         課別「{{ s.get_session_type_display }}」對應
         {% for value, label in metric_domains %}<strong>{{ label }}</strong>{% if not forloop.last %} / {% endif %}{% endfor %}
-        · 這裡登的就是數據分析那一份，不用再輸入一次
+        · 上面課表寫了組數的動作，加進來時已經照組數開好空白列——練完只要填「完成數值」。
+        這裡登的就是數據分析那一份，不用再輸入一次
       {% else %}
         這個課別沒有對應的數據紀錄範疇（田徑場訓練 / 重量訓練 / 治療康復 / 恢復訓練 / 比賽才有）
       {% endif %}
@@ -599,10 +618,18 @@
   </form>
 </div>
 
-<!-- --------------------------------------------- 舊有的專項 / 力量明細表 -->
+<!-- --------------------------------------------- 舊有的專項 / 力量明細表
+     這兩張是換成「本課數據紀錄」之前的舊表。有舊資料的課才會出現，
+     而且預設收起來——現在只有一個地方登數據，不會再有人填錯地方。 -->
+{% if track_sets or strength_sets %}
+<details class="legacy mb">
+  <summary>舊格式明細 <span class="badge b-dim">存檔</span>
+    <span class="small c-dim">換成「本課數據紀錄」之前登的資料，仍可點下去改；新的紀錄請登在上面</span>
+  </summary>
+{% endif %}
 {% if track_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>田徑專項組數 <span class="badge b-dim">舊格式</span></span><span class="small c-dim">新的紀錄請登在上面「本課數據紀錄」；這裡的數字仍可直接點下去改</span></div>
+  <div class="card-head"><span>田徑專項組數</span></div>
   <table>
     <thead>
       <tr><th>#</th><th>內容</th><th class="num">距離</th><th class="num">目標</th><th class="num">實際</th>
@@ -630,7 +657,7 @@
 
 {% if strength_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>力量訓練組數 <span class="badge b-dim">舊格式</span></span><span class="small c-dim">新的紀錄請登在上面「本課數據紀錄」；這裡的數字仍可直接點下去改</span></div>
+  <div class="card-head"><span>力量訓練組數</span></div>
   <table>
     <thead>
       <tr><th>動作</th><th class="num">組</th><th class="num">次</th><th class="num">重量</th>
@@ -656,6 +683,7 @@
   </table>
 </div>
 {% endif %}
+{% if track_sets or strength_sets %}</details>{% endif %}
 
 <!-- --------------------------------------- 訓練後檢討和反饋 / 教練評語 -->
 <div class="grid grid-2">
@@ -666,17 +694,16 @@
     </div>
     {% if can_log %}
     {% comment %}
-      課後才填的四個數字（時長／RPE／完成度／滿意度）跟上面抬頭是同一組欄位：
-      上面適合改單一個值，這裡適合練完一次填完。填過之後預設收起來，不再佔一整塊版面。
+      課後才填的四個數字（時長／RPE／完成度／滿意度）只有這一個入口——
+      抬頭那邊只顯示不給改，免得同一件事有兩個地方填。填過之後預設收起來。
     {% endcomment %}
-    <details class="recap" {% if not s.session_rpe %}open{% endif %}>
+    <details class="recap" id="recap" {% if not s.session_rpe %}open{% endif %}>
       <summary>{% if s.session_rpe %}修改課後數字與反饋{% else %}練完後在這裡一次填完{% endif %}</summary>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="complete">
       <div class="small c-dim mb">
-        這四個數字跟上面課表抬頭的「實際時長／課後 RPE／完成度／滿意度」是同一組；
-        改單一個值可以直接點抬頭那一格。
+        練完在這裡一次填完，上面課表抬頭那四格會跟著更新（負荷 ＝ RPE × 時長）。
       </div>
       <div class="row">
         <div class="field">

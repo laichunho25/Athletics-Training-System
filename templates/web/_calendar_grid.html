@@ -9,7 +9,8 @@
     {% for cell in week %}
       <div class="day {% if not cell.in_month %}other{% endif %} {% if cell.is_today %}today{% endif %}"
            data-date="{{ cell.date|date:'Y-m-d' }}">
-        <div class="daynum">
+        {# data-dow 給手機版用：一週一列時，日期旁邊要看得到星期幾 #}
+        <div class="daynum" data-dow="{{ cell.date|date:'D' }}">
           <span>{{ cell.date|date:"j" }}</span>
           <button type="button" class="addday" title="在 {{ cell.date }} 新增 program"
                   data-date="{{ cell.date|date:'Y-m-d' }}">＋</button>

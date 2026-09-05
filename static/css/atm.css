@@ -594,8 +594,40 @@ code {
   transition: opacity .12s;
 }
 .cal .day:hover .addday { opacity: 1; }
+/* 手機／平板沒有 hover，＋ 要一直看得見——不然建課表這件事在手機上沒有入口 */
+@media (hover: none) {
+  .cal .addday { opacity: .6; border-color: var(--border); }
+}
 .cal .addday:hover { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .cal .day.today .addday { opacity: .7; }
+
+/* ------------------------------------------------ 手機版日曆：一週一列
+   7 欄擠在 375px 裡＝每格 50px，課表名稱全被切掉，還要捲 550px 的高度。
+   窄螢幕改成一週一列（週一…週日直向排），一格吃滿整個寬度，
+   日期與當天的課一眼看得完，＋ 也點得到。 */
+@media (max-width: 700px) {
+  .cal { grid-template-columns: 1fr; gap: 0; background: transparent; }
+  .cal .dow { display: none; }
+  .cal .day {
+    min-height: 0; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
+  }
+  /* 空白日子縮成一條細線，不用為了沒課的日子捲一整頁 */
+  .cal .day:not(:has(.ev)) { padding: 4px 10px; opacity: .5; }
+  .cal .day.other { display: none; }          /* 上／下個月補格在清單裡沒有意義 */
+  .cal .daynum {
+    margin: 0; flex: 0 0 68px; font-size: 12.5px; justify-content: flex-start; gap: 8px;
+  }
+  .cal .daynum::after {
+    content: attr(data-dow); color: var(--text-faint); font-size: 11px;
+  }
+  .cal .day.today .daynum { color: var(--accent); font-weight: 700; }
+  .cal .ev {
+    flex: 1 1 100%; margin-left: 68px; white-space: normal; font-size: 13px;
+    padding: 7px 9px;
+  }
+  .cal .addday { opacity: .6; margin-left: auto; }
+}
 
 /* 課別色條（左邊界顏色代表狀態，底色代表類別） */
 .cal .ev.t-track    { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
@@ -700,6 +732,25 @@ details > summary::-webkit-details-marker { display: none; }
   letter-spacing: .6px; font-family: var(--mono); text-transform: uppercase;
 }
 
+/* 只顯示不給改的數字（例：課後 RPE，入口只有下面那張表）。
+   刻意不做成 .cell 的樣子，才不會有人一直點它等它變輸入框。 */
+.ro { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* 舊格式明細：預設收起，點開才看得到 */
+.legacy > summary {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; cursor: pointer; list-style: none;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+  color: var(--text-dim); font-size: 12.5px;
+}
+.legacy > summary::-webkit-details-marker { display: none; }
+.legacy > summary::before { content: "▸"; transition: transform .15s ease; }
+.legacy[open] > summary::before { transform: rotate(90deg); }
+.legacy[open] > summary { margin-bottom: 12px; }
+
+/* 課表主表：欄多（活動＋六個欄位＋滿意度＋寫入者），窄螢幕橫向捲，
+   格子不會被壓成直排。捲的是表格自己，整頁不會跟著左右晃。 */
+.acttablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .acttable td, .acttable th { vertical-align: top; }
 .acttable tr.sub td { border-top: 0; padding-top: 0; color: var(--text-dim); font-size: 12px; }
 .acttable tr.sub .tag {
@@ -822,6 +873,12 @@ tr.failedrow > td { background: color-mix(in srgb, var(--red) 10%, transparent);
 tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
 /* ------------------------------------------------------------ 響應式 */
 .only-mobile { display: none; }
+/* 只在有／沒有滑鼠的裝置上出現（拖動改日期在觸控螢幕上不成立） */
+.only-touch { display: none; }
+@media (hover: none) {
+  .no-touch { display: none; }
+  .only-touch { display: inline; }
+}
 
 @media (max-width: 1180px) {
   .topsearch { display: none; }
@@ -1049,4 +1106,19 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 @media (max-width: 520px) {
   .userbox .uinfo { display: none; }
   .topbar { gap: 8px; }
+}
+
+/* ------------------------------------------------ 手機版對話框與表單
+   「加入活動」那個框在 375px 下只有 345px 寬，.row 還硬排兩欄，
+   一個挑動作的 select 剩 160px，動作名稱看不完。窄螢幕一律單欄。 */
+@media (max-width: 700px) {
+  .dlg { width: 96vw; padding: 16px 14px; max-height: 88vh; overflow: auto; }
+  .dlg .row, .dlg .field { display: block; }
+  .dlg .row > .field { margin-bottom: 12px; }
+  .dlg select[size] { width: 100%; }
+  .dlg .flex { flex-wrap: wrap; }
+  .dlg .btn { flex: 1 1 auto; }
+
+  /* 課表主表在手機上橫捲；欄位收窄一點，一次多看得到一兩欄 */
+  .acttable { min-width: 620px; }
 }

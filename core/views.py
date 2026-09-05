@@ -48,6 +48,7 @@ from analytics.recording import (
     create_records,
     edit_message,
     move_record,
+    open_planned_records,
     resequence,
     update_records,
 )
@@ -1273,6 +1274,8 @@ def session_detail(request, pk):
             _delete_row(request, SessionNote, request.POST.get("id"), "記事")
         elif action == "add_metric":
             _add_metric(request, session)
+        elif action == "plan_sets":
+            _open_planned_sets(request, session)
         elif action == "edit_metric":
             _edit_metrics(request, session)
         elif action == "delete_metric":
@@ -1564,6 +1567,44 @@ def _sync_block_activity(request, session, name, block):
     return f"已把「{name}」加進課表的{label}。"
 
 
+def _open_planned_sets(request, session):
+    """把整堂課的課表行，一次過依組數開好還沒開的紀錄列。
+
+    加活動時已經開過一次；這裡是給「先加了活動、之後才補上組數」的行，
+    還有舊課表補開用的。已經有紀錄的行一律不動。
+    """
+    if not _can_log_metrics(request, session):
+        messages.error(request, "只有運動員本人或管理員可以開這堂課的紀錄列。")
+        return
+
+    opened, rows = 0, 0
+    for activity in session.activities.select_related("definition"):
+        item = item_for_activity(
+            session.session_type,
+            activity.name,
+            activity.definition.category if activity.definition_id else "",
+            user=request.user,
+            name_en=activity.definition.name_en if activity.definition_id else "",
+        )
+        made = open_planned_records(
+            activity, item, athlete=session.athlete, session=session
+        )
+        if made:
+            opened += made
+            rows += 1
+
+    if opened:
+        messages.success(
+            request,
+            f"已依課表開好 {opened} 組空白紀錄（{rows} 個動作），練完填完成數值就好。",
+        )
+    else:
+        messages.info(
+            request,
+            "沒有可以開的組：課表上的動作要嘛已經有紀錄，要嘛「組數」那一格還沒寫數字。",
+        )
+
+
 def _can_log_metrics(request, session):
     """能不能動這堂課的數據——跟登記 RPE 同一個門檻（本人或管理員）。"""
     return liveedit.can_edit(session, request.user, "session_rpe") or liveedit.is_admin(
@@ -1694,7 +1735,7 @@ def _add_activity(request, session):
     last = session.activities.filter(block=block).order_by("-order").first()
     order = (last.order + 1) if last else 1
 
-    added, linked = [], []
+    added, linked, opened = [], [], 0
     for name in names:
         # 名字對得上活動庫就掛上去（統計用得到），自己打的名字也照樣加得進來
         row_def = definition or _definition_for_name(name)
@@ -1706,7 +1747,7 @@ def _add_activity(request, session):
                 return request.POST.get(key, "").strip()
             return defaults.get(key, "")
 
-        SessionActivity.objects.create(
+        activity = SessionActivity.objects.create(
             session=session,
             block=block,
             order=order,
@@ -1729,17 +1770,25 @@ def _add_activity(request, session):
                 use_count=F("use_count") + 1
             )
         # 課表寫了什麼動作，數據分析就有同名項目可以登
-        if item_for_activity(
+        item = item_for_activity(
             session.session_type,
             name,
             row_def.category if row_def else "",
             user=request.user,
             name_en=row_def.name_en if row_def else "",
-        ):
+        )
+        if item is not None:
             linked.append(name)
+            # 寫了「3 組」就先開好 3 組空白紀錄，連重量／次數／休息一起帶進去，
+            # 運動員練完只要填「完成數值」那一格，不用把同一批數字再打一次
+            opened += open_planned_records(
+                activity, item, athlete=session.athlete, session=session
+            )
 
     msg = f"已加入 {'、'.join(added)} 到{BlockType(block).label}。"
-    if linked:
+    if opened:
+        msg += f"（已依組數在「本課數據紀錄」開好 {opened} 組，練完只要填完成數值）"
+    elif linked:
         msg += f"（{len(linked)} 項已同步到數據分析的項目清單）"
     messages.success(request, msg)
 
