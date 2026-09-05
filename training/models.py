@@ -508,6 +508,13 @@ class ActivityDefinition(TimeStampedModel):
         related_name="activities",
         verbose_name="訓練動作種類",
     )
+    extra_disciplines = models.ManyToManyField(
+        Discipline,
+        blank=True,
+        related_name="extra_activities",
+        verbose_name="也屬於的運動項目",
+        help_text="同一個動作常常好幾種運動都在練（例：深蹲在田徑與體能訓練都用得到）",
+    )
     status = models.CharField(
         "狀態", max_length=10, choices=LibraryStatus.choices, default=LibraryStatus.APPROVED
     )
@@ -539,6 +546,15 @@ class ActivityDefinition(TimeStampedModel):
     @property
     def is_approved(self):
         return self.status == LibraryStatus.APPROVED
+
+    @property
+    def all_disciplines(self):
+        """這個動作掛在哪些運動項目底下（主項目排前面，不重複）。"""
+        rows = [self.discipline] if self.discipline_id else []
+        for extra in self.extra_disciplines.all():
+            if extra.id != self.discipline_id:
+                rows.append(extra)
+        return rows
 
     def defaults_payload(self):
         """挑選時要帶進課表的預設值。"""

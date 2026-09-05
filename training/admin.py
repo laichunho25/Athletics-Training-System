@@ -79,6 +79,8 @@ class ActivityDefinitionAdmin(admin.ModelAdmin):
                    "category", "default_block", "is_builtin", "is_active")
     search_fields = ("name", "name_en", "note", "default_key_points")
     list_editable = ("is_active",)
+    # 同一個動作好幾種運動都在練，這裡挑它還要收在哪些運動項目底下
+    filter_horizontal = ("extra_disciplines",)
     actions = [approve_selected, reject_selected]
 
 

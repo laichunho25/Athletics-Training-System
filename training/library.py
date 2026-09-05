@@ -63,9 +63,19 @@ def visible_definitions(user):
     return (
         ActivityDefinition.objects.filter(visible_filter(user), is_active=True)
         .select_related("discipline__sport", "movement_kind")
+        .prefetch_related("extra_disciplines__sport")
         .order_by("discipline__sport__order", "discipline__order", "category",
                   "-use_count", "name")
     )
+
+
+def definition_disciplines(definition):
+    """一個動作掛在哪些運動項目底下（主項目排前面）。
+
+    同一個動作常常好幾種運動都在練——深蹲在田徑也在體能訓練——所以
+    項目庫允許把它加進別的運動種類，挑選清單每一個都要出現。
+    """
+    return definition.all_disciplines
 
 
 def library_groups(definitions):
@@ -79,19 +89,26 @@ def library_groups(definitions):
     labels = dict(ActivityCategory.choices)
     groups = {}
     for d in definitions:
-        disc = d.discipline
-        if disc is not None:
-            key = ("d", disc.id)
-            label = disc.full_label
-            sort = (0, disc.sport.order, disc.sport.name, disc.order, disc.name)
-        else:
+        homes = definition_disciplines(d)
+        if not homes:
             key = ("c", d.category)
             label = labels.get(d.category, "其他")
-            sort = (1, 0, "", 0, label)
-        group = groups.setdefault(
-            key, {"value": key[1], "label": label, "sort": sort, "rows": []}
-        )
-        group["rows"].append(d)
+            groups.setdefault(
+                key,
+                {"value": key[1], "label": label, "sort": (1, 0, "", 0, label), "rows": []},
+            )["rows"].append(d)
+            continue
+        for disc in homes:
+            key = ("d", disc.id)
+            groups.setdefault(
+                key,
+                {
+                    "value": disc.id,
+                    "label": disc.full_label,
+                    "sort": (0, disc.sport.order, disc.sport.name, disc.order, disc.name),
+                    "rows": [],
+                },
+            )["rows"].append(d)
     return sorted(groups.values(), key=lambda g: g["sort"])
 
 
@@ -110,9 +127,11 @@ def library_tree(user, sport=None, discipline=None):
     )
     kinds = list(MovementKind.objects.filter(where).order_by("order", "name"))
 
+    library = list(visible_definitions(user))
     counts = {}
-    for d in visible_definitions(user):
-        counts[d.discipline_id] = counts.get(d.discipline_id, 0) + 1
+    for d in library:
+        for disc in definition_disciplines(d):
+            counts[disc.id] = counts.get(disc.id, 0) + 1
 
     by_sport = {}
     for disc in disciplines:
@@ -132,7 +151,11 @@ def library_tree(user, sport=None, discipline=None):
 
     rows = []
     if discipline is not None:
-        picked = [d for d in visible_definitions(user) if d.discipline_id == discipline.id]
+        picked = [
+            d
+            for d in library
+            if discipline.id in {disc.id for disc in definition_disciplines(d)}
+        ]
         by_kind = {}
         for d in picked:
             by_kind.setdefault(d.movement_kind_id, []).append(d)
@@ -162,3 +185,55 @@ def pending_submissions(user):
             .order_by("name")
         ),
     }
+
+
+def library_catalog(user, definitions=None):
+    """兩欄連動挑選用的資料：運動種類 → 運動項目 → 動作。
+
+    課表、本課數據紀錄、數據分析三處都是「先挑田徑、再挑短跑，相關的動作
+    才列出來」，共用這一份 JSON，前端只要照 sport → discipline 往下走。
+    """
+    from training.models import ActivityCategory
+
+    labels = dict(ActivityCategory.choices)
+    rows = list(visible_definitions(user)) if definitions is None else list(definitions)
+    sports = {}
+
+    def bucket(sport_key, sport_name, sport_order, disc_key, disc_name, disc_order):
+        sport = sports.setdefault(
+            sport_key,
+            {"id": sport_key, "name": sport_name, "order": sport_order, "disciplines": {}},
+        )
+        return sport["disciplines"].setdefault(
+            disc_key,
+            {"id": disc_key, "name": disc_name, "order": disc_order, "activities": []},
+        )
+
+    for d in rows:
+        entry = {"id": d.id, "name": d.name, "name_en": d.name_en, "note": d.note}
+        homes = definition_disciplines(d)
+        if not homes:
+            # 還沒歸到運動項目的舊資料，用分類名稱擺在「其他」底下，免得挑不到
+            bucket("other", "其他", 999, f"c{d.category}",
+                   labels.get(d.category, "其他"), 999)["activities"].append(entry)
+            continue
+        for disc in homes:
+            bucket(disc.sport_id, disc.sport.name, disc.sport.order,
+                   disc.id, disc.name, disc.order)["activities"].append(entry)
+
+    out = []
+    for sport in sorted(sports.values(), key=lambda s: (s["order"], str(s["name"]))):
+        out.append(
+            {
+                "id": sport["id"],
+                "name": sport["name"],
+                "disciplines": [
+                    {"id": d["id"], "name": d["name"], "activities": d["activities"]}
+                    for d in sorted(
+                        sport["disciplines"].values(),
+                        key=lambda d: (d["order"], str(d["name"])),
+                    )
+                ],
+            }
+        )
+    return out

@@ -452,6 +452,18 @@
       </div>
     </div>
 
+    <div class="row" data-libpick data-target="#metricName">
+      <div class="field" style="flex:1">
+        <label>或從<a href="{% url 'web:library' %}">運動練習項目庫</a>挑：先運動種類 → 運動項目</label>
+        <select data-lp="sport"></select>
+        <select data-lp="discipline" style="margin-top:6px"></select>
+      </div>
+      <div class="field" style="flex:1">
+        <label>再挑動作（挑了就會填進上面的項目名稱）</label>
+        <select data-lp="activity" size="6" style="height:auto"></select>
+      </div>
+    </div>
+
     <div class="setgridwrap">
       <table class="setgrid">
       <thead>
@@ -737,20 +749,24 @@
 
     <input type="hidden" name="definition" id="actDefId">
 
-    <div class="row">
+    <div class="row" data-libpick>
       <div class="field" style="flex:1">
-        <label>從訓練活動庫挑（點一個再按「加進名單」，可以連續加多項）</label>
-        <select id="actPick" size="8" style="height:auto">
-          {% for g in activity_groups %}
-            <optgroup label="{{ g.label }}">
-              {% for d in g.rows %}
-                <option value="{{ d.id }}"{% if d.note %} title="{{ d.note }}"{% endif %}>{{ d.display_name }}</option>
-              {% endfor %}
-            </optgroup>
-          {% endfor %}
-        </select>
+        <label>① 先挑運動種類 → 運動項目</label>
+        <select data-lp="sport"></select>
+        <select data-lp="discipline" style="margin-top:6px"></select>
+        <div class="small c-dim" style="margin-top:6px">
+          例：先挑「田徑」再挑「短跑」，右邊就只列短跑的動作。清單來自
+          <a href="{% url 'web:library' %}">運動練習項目庫</a>。
+        </div>
+      </div>
+      <div class="field" style="flex:1">
+        <label>② 挑動作（點一個再按「加進名單」，可以連續加多項）</label>
+        <select id="actPick" data-lp="activity" size="8" style="height:auto"></select>
         <button type="button" class="btn ghost sm" id="actPickAdd" style="margin-top:6px">加進名單</button>
       </div>
+    </div>
+
+    <div class="row">
       <div class="field" style="flex:1">
         <label>或打名稱搜活動庫</label>
         <input type="text" id="actSearch" list="libnames" placeholder="打「深蹲」就會跳出活動庫的選項">
@@ -858,3 +874,4 @@
 </dialog>
 
 {{ library_data|json_script:"library-json" }}
+{{ library_catalog|json_script:"libcat-json" }}

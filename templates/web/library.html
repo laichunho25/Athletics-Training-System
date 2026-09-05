@@ -119,6 +119,43 @@
                   {% if d.default_key_points %}
                     <div class="c-dim">訓練要點：{{ d.default_key_points }}</div>
                   {% endif %}
+                  <div class="c-dim" style="margin-top:4px">
+                    收在：
+                    {% for home in d.all_disciplines %}
+                      <span class="badge">{{ home.sport.name }} · {{ home.name }}</span>
+                      {% if home.id != d.discipline_id %}
+                        <form method="post" style="display:inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="remove_from_discipline">
+                          <input type="hidden" name="activity" value="{{ d.id }}">
+                          <input type="hidden" name="discipline" value="{{ home.id }}">
+                          <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
+                          <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
+                          <button class="linkbtn" type="submit" title="從這個運動項目移走">移走</button>
+                        </form>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                  <details>
+                    <summary class="small c-accent" style="cursor:pointer">加入別的運動種類</summary>
+                    <form method="post" class="flex" style="margin:6px 0 2px;gap:6px">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="add_to_discipline">
+                      <input type="hidden" name="activity" value="{{ d.id }}">
+                      <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
+                      <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
+                      <select name="discipline" required>
+                        {% for opt in tree.disciplines %}
+                          <option value="{{ opt.id }}">{{ opt.sport.name }} · {{ opt.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <button class="btn ghost sm" type="submit">加入</button>
+                    </form>
+                    <div class="c-dim">
+                      同一個動作好幾種運動都在練的話，加進去之後兩邊的清單都挑得到，
+                      左邊的目錄也會一起算進去。
+                    </div>
+                  </details>
                 </div>
               {% endfor %}
             </div>

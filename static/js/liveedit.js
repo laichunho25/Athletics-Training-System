@@ -336,7 +336,11 @@
       }
     });
 
-    setInterval(function () { poll(region); }, POLL_MS);
+    setInterval(function () {
+      poll(region, function () {
+        if (window.ATM && window.ATM.mountLibPickers) { window.ATM.mountLibPickers(); }
+      });
+    }, POLL_MS);
   }
 
   function mountCalendar() {

@@ -114,6 +114,7 @@ from training.models import (
 )
 from training.library import (
     ensure_activity_library,
+    library_catalog,
     is_library_admin,
     library_groups,
     library_tree,
@@ -1378,6 +1379,8 @@ def _session_context(request, session):
             for d in library
         ],
         "activity_groups": library_groups(library),
+        # 「先挑田徑、再挑短跑，動作才列出來」——課表與本課數據紀錄共用這一份
+        "library_catalog": library_catalog(request.user, library),
         # 新增動作時挑的是項目庫的「運動項目 ＋ 訓練動作種類」，不再是一個平的分類
         "library_disciplines": catalog["disciplines"],
         "library_kinds": catalog["kinds"],
@@ -2294,6 +2297,7 @@ def analytics_view(request):
             # 「從運動練習項目庫挑」——課表上寫得出來的動作，這裡就登得到數據
             "activity_library": activity_library,
             "activity_groups": library_groups(activity_library),
+            "library_catalog": library_catalog(request.user, activity_library),
             "item": item,
             "item_record_count": (
                 MetricRecord.objects.filter(athlete=athlete, item=item).count()
@@ -2892,6 +2896,35 @@ def library_view(request):
                     created_by=request.user,
                 )
                 messages.success(request, f"已加入動作「{name}」{pending_note}。")
+            return redirect(back)
+
+        if action in ("add_to_discipline", "remove_from_discipline"):
+            activity = ActivityDefinition.objects.filter(
+                pk=request.POST.get("activity")
+            ).first()
+            target = Discipline.objects.select_related("sport").filter(
+                pk=request.POST.get("discipline")
+            ).first()
+            if activity is None or target is None:
+                messages.error(request, "找不到要處理的動作或運動項目。")
+            elif action == "add_to_discipline":
+                if target.id == activity.discipline_id:
+                    messages.info(
+                        request, f"「{activity.name}」本來就在「{target.full_label}」底下。"
+                    )
+                else:
+                    # 只是多掛一個位置（不是新東西），不用再等管理員確認
+                    activity.extra_disciplines.add(target)
+                    messages.success(
+                        request,
+                        f"已把「{activity.name}」也加進「{target.full_label}」，"
+                        "兩邊的清單都挑得到。",
+                    )
+            else:
+                activity.extra_disciplines.remove(target)
+                messages.info(
+                    request, f"已把「{activity.name}」從「{target.full_label}」移走。"
+                )
             return redirect(back)
 
         messages.error(request, "不認得的操作。")

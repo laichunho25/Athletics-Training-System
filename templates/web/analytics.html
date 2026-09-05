@@ -202,10 +202,20 @@
             <div class="empty">項目庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
           {% endif %}
           <div class="small c-dim" style="margin-bottom:4px">
+            先挑運動種類與運動項目（例：田徑 → 短跑），右邊才列出相關的動作。
             每個動作在做什麼、預設練幾組幾次，都寫在
             <a href="{% url 'web:library' %}">運動練習項目庫</a>裡。
           </div>
-          <select name="definition" size="8" style="height:auto" required>
+        </div>
+        <div class="row" data-libpick>
+          <div class="field" style="flex:1">
+            <label>運動種類 → 運動項目</label>
+            <select data-lp="sport"></select>
+            <select data-lp="discipline" style="margin-top:6px"></select>
+          </div>
+          <div class="field" style="flex:1">
+            <label>訓練動作</label>
+          <select name="definition" data-lp="activity" size="8" style="height:auto" required>
             {% for g in activity_groups %}
               <optgroup label="{{ g.label }}">
                 {% for d in g.rows %}
@@ -214,6 +224,7 @@
               </optgroup>
             {% endfor %}
           </select>
+          </div>
         </div>
         <div class="flex">
           <button class="btn sm" type="submit">加進清單</button>
@@ -1151,7 +1162,9 @@
 {% endblock %}
 
 {% block scripts %}
+{{ library_catalog|json_script:"libcat-json" }}
 <script src="{% static 'js/fold.js' %}" data-page="analytics"></script>
+<script src="{% static 'js/libpick.js' %}"></script>
 <script>
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
 
