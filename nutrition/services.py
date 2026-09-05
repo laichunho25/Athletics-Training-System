@@ -83,6 +83,9 @@ def calculate_targets(athlete, on_date=None, day_type=None, goal=NutritionGoal.M
     """計算（並可選擇儲存）某日的營養目標。"""
     on_date = on_date or date.today()
     day_type = day_type or infer_day_type(athlete, on_date)
+    # 表單傳來的值不一定在選項內（舊分頁、手改網址）：認不得就當「維持」，不要整頁掛掉
+    if goal not in GOAL_ADJUSTMENT:
+        goal = NutritionGoal.MAINTAIN
     weight = float(athlete.current_weight_kg)
 
     bmr = mifflin_st_jeor(weight, athlete.height_cm, athlete.age, athlete.sex)

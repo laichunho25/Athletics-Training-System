@@ -52,9 +52,9 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="recalc">
         <select name="goal" style="width:auto;display:inline-block">
-          <option value="MAINTAIN">維持體重</option>
-          <option value="GAIN">增重／增肌</option>
-          <option value="CUT">減脂</option>
+          {% for value, label in goals %}
+            <option value="{{ value }}" {% if value == t.goal %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
         <button class="btn sm" type="submit">重新計算</button>
       </form>

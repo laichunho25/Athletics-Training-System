@@ -82,6 +82,7 @@ from nutrition import vision as nuvision
 from nutrition.models import (
     MealLog,
     MealType,
+    NutritionGoal,
     NutritionTarget,
     RecoveryLog,
     RecoveryMethod,
@@ -2469,6 +2470,7 @@ def nutrition_view(request):
             "supplements": nu.COMMON_SUPPLEMENTS,
             "meals": meals,
             "meal_types": MealType.choices,
+            "goals": NutritionGoal.choices,
             "eaten": target.actual_intake(),
             "plan": plan,
             "insight": insight,
