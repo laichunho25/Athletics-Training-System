@@ -679,6 +679,68 @@ def item_for_activity(session_type, name, activity_category="", user=None, name_
     )
 
 
+def rename_item(item, new_name, athlete=None):
+    """把一個項目改名。
+
+    田徑練習的項目是登記錄時照課表的活動名稱開出來的（「150m 反覆跑」），
+    名字打錯、或事後想叫得更清楚，都不該只能刪掉重記——紀錄要留著。
+
+    athlete 給得出來的話，那名運動員課表上「叫舊名字、而且真的有登過這個項目」
+    的活動也一起改名，免得下次按「登記錄」又照舊名開出第二個項目。
+    回傳 (改了沒有, 給使用者看的一句話)。
+    """
+    from training.models import SessionActivity
+
+    new_name = (new_name or "").strip()[:60]
+    if not new_name:
+        return False, _("請填新的項目名稱。")
+    old_name = item.name
+    if new_name == old_name:
+        return False, _("名稱沒有變動。")
+    clash = (
+        MetricItem.objects.filter(domain=item.domain, name=new_name)
+        .exclude(pk=item.pk)
+        .first()
+    )
+    if clash is not None:
+        return False, _("「%(v0)s」在這個範疇已經有了，換一個名稱。") % {"v0": clash.name}
+
+    fields = ["name"]
+    item.name = new_name
+    if item.name_en:
+        # 舊的英文名講的是舊名字，留著只會讓清單顯示「新名（舊 English）」
+        item.name_en = ""
+        fields.append("name_en")
+    was_builtin = item.is_builtin
+    if was_builtin:
+        # 改過名就不再是內建項目：內建的那一個下次開頁會被補回來（空的，
+        # 沒有紀錄就不會出現在清單上），改了名的這一個連同紀錄留在原地。
+        item.is_builtin = False
+        fields.append("is_builtin")
+    item.save(update_fields=fields)
+
+    renamed_rows = 0
+    if athlete is not None:
+        session_ids = [
+            sid
+            for sid in MetricRecord.objects.filter(
+                athlete=athlete, item=item
+            ).values_list("session_id", flat=True)
+            if sid
+        ]
+        if session_ids:
+            renamed_rows = SessionActivity.objects.filter(
+                session_id__in=session_ids, name=old_name
+            ).update(name=new_name)
+
+    text = _("已把「%(v0)s」改名為「%(v1)s」。") % {"v0": old_name, "v1": new_name}
+    if renamed_rows:
+        text += _("課表上 %(v0)s 行同名的活動也一起改了。") % {"v0": renamed_rows}
+    if was_builtin:
+        text += _("這本來是系統內建項目，改名後算成自訂項目。")
+    return True, text
+
+
 #: 重量訓練項目用得到的單位。大部分動作記的是重量（kg），
 #: 平板支撐、懸垂、登階那種撐時間的動作就切成「秒」。
 STRENGTH_UNITS = [("kg", "kg（重量）"), ("秒", "秒（時間）")]

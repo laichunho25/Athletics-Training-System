@@ -1102,6 +1102,22 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
   color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1;
   padding: 0 10px; font-family: inherit;
 }
+/* 清單上的 ✎：按一下改這一項的名稱（紀錄照樣留在同一個項目底下） */
+.itemlist .itemedit {
+  background: none; border: 0; border-bottom: 1px solid var(--border);
+  color: var(--text-faint); cursor: pointer; font-size: 12px; line-height: 1;
+  padding: 0 6px; font-family: inherit;
+}
+.itemlist .itemrow:hover .itemedit { color: var(--text-dim); }
+.itemlist .itemedit:hover { color: var(--accent); background: var(--surface-2); }
+
+/* 「數據分析已經有相關紀錄，要不要加在一起分析」那一句提問 */
+.mergeask {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.mergeask .badge { margin: 2px 4px 0 0; }
+
 /* 清單上的 📌：按一下把這一項釘進「主要必看的訓練項目」 */
 .itemlist .itempin {
   background: none; border: 0; border-bottom: 1px solid var(--border);

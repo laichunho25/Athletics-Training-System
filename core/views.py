@@ -43,6 +43,7 @@ from analytics.models import (
     item_for_name,
     metric_category_for_activity,
     pinned_items,
+    rename_item,
     session_types_for_domain,
     set_item_unit,
     toggle_pin,
@@ -1715,6 +1716,10 @@ def _session_metric_context(request, session):
             records = session_records(session, item, block=activity.block)
 
     unit = (item.unit or "").strip().lower() if item else ""
+    # 登了記錄的這一項，數據分析裡是不是已經有講同一件事的項目
+    # （150m 節奏跑／150m 反覆跑）——有的話就在下面問一句要不要一起分析
+    related = an.related_items(session.athlete, item) if item else []
+    related_ids = ([item.id] + [r["item"].id for r in related]) if related else []
     return {
         "record_domains": _record_domains(session),
         "record_domain": domain,
@@ -1723,6 +1728,9 @@ def _session_metric_context(request, session):
         "log_activity": activity,
         "log_item": item,
         "log_records": records,
+        # 數據分析已經有的相關紀錄（那一句「要不要加在一起分析」的提問）
+        "log_related": related,
+        "log_related_csv": ",".join(str(i) for i in related_ids[:MULTI_ITEM_LIMIT]),
         "log_filled": sum(1 for r in records if r.value is not None),
         # 「距離」那一格的預設：課表那一行寫的米數，不用再打一次
         "log_distance": plan_distance(activity),
@@ -2391,6 +2399,19 @@ def analytics_view(request):
                 )
             return redirect(back)
 
+        if action == "rename_item":
+            # 田徑練習的項目是照課表的活動名稱開出來的，名字打錯或想寫清楚一點，
+            # 不該只能刪掉重記——改名之後紀錄照樣掛在同一個項目底下。
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            ok, text = rename_item(
+                item, request.POST.get("name", ""), athlete=athlete
+            )
+            if ok:
+                messages.success(request, text)
+            else:
+                messages.error(request, text)
+            return redirect(f"{back}&item={item.id}")
+
         if action == "item_unit":
             # 重量訓練以 kg 為主，撐時間的動作（平板支撐、懸垂…）可以換成秒
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
@@ -2598,6 +2619,16 @@ def analytics_view(request):
     # 可以勾來一起分析的項目：這個範疇底下有紀錄的都列出來
     multi_choices = [row["item"] for row in overview if row["count"]]
 
+    # ---- 「數據分析已經有相關紀錄，要不要加在一起分析」----
+    # 課表上的活動按了「登記錄」就會開出一個同名項目，而清單裡常常已經有一個
+    # 講同一件事的項目（150m 節奏跑／150m 反覆跑）。分開看看不出所以然，
+    # 所以在項目分析上面問一句；已經在一起分析的時候就不再問。
+    related = [] if len(picked_items) > 1 else an.related_items(athlete, item)
+    related_csv = ",".join(
+        str(i)
+        for i in ([item.id] + [r["item"].id for r in related])[:MULTI_ITEM_LIMIT]
+    ) if related else ""
+
     # ---- 體組成 × 重量訓練 ----
     # 脂肪比例、肌肉比例、體重與「每公斤體重舉得起多少」擺在一起看，
     # 再推演體脂降下來／去脂體重加上去之後，比值會變成多少。
@@ -2674,6 +2705,9 @@ def analytics_view(request):
             "picked_csv": ",".join(str(i) for i in picked_ids),
             "multi_series": jdump(multi_series),
             "multi_error": multi_error,
+            # 「已經有相關紀錄，要不要加在一起分析」那一句提問
+            "related": related,
+            "related_csv": related_csv,
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,

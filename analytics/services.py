@@ -7,6 +7,7 @@
     session_load = session_rpe × actual_duration_min      單位 AU (Arbitrary Unit)
 """
 
+import re
 import statistics
 from datetime import date, timedelta
 
@@ -1226,6 +1227,87 @@ def metric_comparison(athlete, item, mode="all", days=1825):
         if g["is_best"] and result["best_group"] is None:
             result["best_group"] = g
     return result
+
+
+# ------------------------------------------- 相關的項目（要不要加在一起分析）
+#
+# 課表上一個活動按了「登記錄」，數據分析裡常常已經有一個講同一件事的項目：
+# 同一個距離不同方式（150m 節奏跑／150m 反覆跑）、同一個動作換個寫法。
+# 這種時候分開看看不出所以然，所以在畫面上問一句「要不要加在一起分析」。
+
+
+#: 名稱裡「不決定這是哪一件事」的部分：括號註解、數字（連同 m / kg / 秒）、分隔符
+_NAME_NOISE = re.compile(
+    r"[（(][^)）]*[)）]|\d+(?:\.\d+)?\s*(?:m|米|公尺|kg|公斤|秒|s)?|[\s·・\-_/、]+",
+    re.IGNORECASE,
+)
+
+
+def name_core(name):
+    """把距離、括號註解、空白拿掉，剩下的就是「這是哪一件事」。
+
+    「150m 反覆跑」→「反覆跑」、「30m 衝刺」→「衝刺」，
+    所以同一種練法的不同距離認得出是一夥的。
+    """
+    return _NAME_NOISE.sub("", name or "").strip().lower()
+
+
+def _relation(item, other):
+    """other 跟 item 是哪一種「相關」；不相關回 None。"""
+    from analytics.models import MetricDomain
+
+    if item.domain == MetricDomain.TRACK.value:
+        if item.track_distance_m and item.track_distance_m == other.track_distance_m:
+            return _("同樣是 %(v0)s m") % {"v0": item.track_distance_m}
+        if item.track_method and item.track_method == other.track_method:
+            return _("同樣是%(v0)s") % {"v0": other.get_track_method_display()}
+    core = name_core(item.name)
+    if core and core == name_core(other.name):
+        return _("名稱講的是同一件事")
+    return None
+
+
+def related_items(athlete, item, days=365, limit=6):
+    """同一個範疇裡跟這個項目相關、而且這名運動員已經有紀錄的其他項目。
+
+    回傳 [{item, reason, count, days, last_date}]，紀錄多的排前面；
+    沒有相關的就回空清單（畫面上那句提問也就不出現）。
+    """
+    from analytics.models import MetricItem, MetricRecord
+
+    if item is None:
+        return []
+    candidates = [
+        other
+        for other in MetricItem.objects.filter(domain=item.domain, is_active=True).exclude(
+            pk=item.pk
+        )
+        if _relation(item, other)
+    ]
+    if not candidates:
+        return []
+
+    since = date.today() - timedelta(days=days)
+    rows = []
+    for other in candidates:
+        dates = list(
+            MetricRecord.objects.filter(
+                athlete=athlete, item=other, date__gte=since
+            ).values_list("date", flat=True)
+        )
+        if not dates:
+            continue
+        rows.append(
+            {
+                "item": other,
+                "reason": _relation(item, other),
+                "count": len(dates),
+                "days": len(set(dates)),
+                "last_date": max(dates),
+            }
+        )
+    rows.sort(key=lambda r: (-r["count"], r["item"].name))
+    return rows[:limit]
 
 
 def multi_item_analysis(athlete, items, days=365):

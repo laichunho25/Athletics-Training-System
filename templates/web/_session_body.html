@@ -298,6 +298,23 @@
     <div class="pad c-dim small">{% translate "訓練紀錄由這名運動員本人（或管理員）填寫。" %}</div>
   {% else %}
 
+  {% if log_related %}
+  <!-- 這一項在數據分析已經有講同一件事的項目（150m 節奏跑／150m 反覆跑）：
+       分開看各自只有那幾筆，所以在這裡先問一句要不要加在一起分析。 -->
+  <div class="alert blue mergeask" style="margin:14px 18px 0">
+    <div>
+      <strong>{% blocktranslate with v0=log_item.name v1=log_related|length %}數據分析已經有 {{ v1 }} 項跟「{{ v0 }}」相關的紀錄{% endblocktranslate %}</strong>
+      <div class="small">
+        {% for r in log_related %}
+          <span class="badge b-dim" title="{{ r.reason }}｜{% blocktranslate with v0=r.days v1=r.count v2=r.last_date %}{{ v0 }} 天 / {{ v1 }} 組，最近 {{ v2 }}{% endblocktranslate %}">{{ r.item.name }} · {{ r.count }}{% translate "組" %}</span>
+        {% endfor %}
+      </div>
+      <div class="small">{% translate "要把它們加在一起分析嗎？這一堂課照樣登在這裡，不受影響。" %}</div>
+    </div>
+    <a class="btn sm" href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}&domain={{ record_domain }}&item={{ log_item.id }}&items={{ log_related_csv }}">{% translate "加在一起分析 →" %}</a>
+  </div>
+  {% endif %}
+
   <!-- ------------------------------------------------------ 新增一筆紀錄 -->
   <div class="card-head" style="border-top:1px solid var(--border)">
     <span>{% translate "新增一筆紀錄" %}</span>
