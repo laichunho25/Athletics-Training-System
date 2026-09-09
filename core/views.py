@@ -27,6 +27,7 @@ from accounts.body_brands import BRAND_PRESETS, GENERIC, detect_brand, form_pres
 from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, User
 from analytics import body_strength as bs
+from analytics import dimensions as dim
 from analytics import services as an
 from analytics.models import (
     STRENGTH_UNITS,
@@ -1651,7 +1652,8 @@ def _session_context(request, session):
         "block_reason": reason,
         "is_coach": request.user.role in (Role.COACH, Role.ADMIN),
         "can_edit_plan": liveedit.can_edit(session, request.user, "title"),
-        "can_log": liveedit.can_edit(session, request.user, "session_rpe"),
+        # 跟 _can_log_metrics 同一個門檻（本人或管理員），畫面上看得到的按鈕才按得動
+        "can_log": _can_log_metrics(request, session),
         "can_comment": liveedit.can_edit(session, request.user, "coach_comment"),
         "version": session.content_version,
         "session_types": program_type_choices(),
@@ -1756,6 +1758,9 @@ def _session_record_post(request, session, action):
     """課表頁「訓練紀錄」的送出：登記錄、改紀錄、刪紀錄、換組序。"""
     domain = _record_domain(session, request.POST.get("rdomain"))
     back = f"{reverse('web:session_detail', args=[session.pk])}?rdomain={domain}"
+    # 改／刪回來要停在原地：紀錄明細回 #rec，下面那幾張分範疇的表回 #dom-<範疇>
+    raw_anchor = request.POST.get("anchor", "")
+    anchor = raw_anchor if re.fullmatch(r"[\w-]{1,40}", raw_anchor) else "rec"
 
     if not _can_log_metrics(request, session):
         messages.error(request, _("只有這名運動員本人（或管理員）能登這堂課的數據。"))
@@ -1821,7 +1826,7 @@ def _session_record_post(request, session, action):
             messages.success(request, text)
         else:
             messages.info(request, text)
-        return redirect(f"{back}&log={request.POST.get('log', '')}#rec")
+        return redirect(f"{back}&log={request.POST.get('log', '')}#{anchor}")
 
     if action == "delete_record":
         record = get_object_or_404(mine, pk=request.POST.get("record_id"))
@@ -1830,7 +1835,7 @@ def _session_record_post(request, session, action):
         # 刪掉中間那一組之後，剩下的組號補回 1、2、3…
         resequence(session.athlete_id, item_id, on_date)
         messages.info(request, _("已刪除一筆紀錄。"))
-        return redirect(f"{back}&log={request.POST.get('log', '')}#rec")
+        return redirect(f"{back}&log={request.POST.get('log', '')}#{anchor}")
 
     # move_record：↑ ↓ 把一組往前／往後挪
     direction = "up" if request.POST.get("up") else "down"
@@ -1840,7 +1845,7 @@ def _session_record_post(request, session, action):
             request,
             _("這一組已經在最前面了。") if direction == "up" else _("這一組已經在最後面了。"),
         )
-    return redirect(f"{back}&log={request.POST.get('log', '')}#rec")
+    return redirect(f"{back}&log={request.POST.get('log', '')}#{anchor}")
 
 
 def _can_log_metrics(request, session):
@@ -2527,7 +2532,7 @@ def analytics_view(request):
     # ---- 數據紀錄 ----
     domain = request.GET.get("domain")
     if domain not in MetricDomain.values:
-        domain = MetricDomain.COMPETITION
+        domain = MetricDomain.TRACK
     requested_item = request.GET.get("item")
     item = None
     if requested_item:
@@ -2632,11 +2637,20 @@ def analytics_view(request):
     # ---- 體組成 × 重量訓練 ----
     # 脂肪比例、肌肉比例、體重與「每公斤體重舉得起多少」擺在一起看，
     # 再推演體脂降下來／去脂體重加上去之後，比值會變成多少。
-    body_strength = bs.strength_ratio_report(athlete)
+    # 這一段只在重量訓練範疇出現——田徑練習那邊看的是跑的數字，
+    # 擺體組成只會佔版面，順便也省下這幾個算不便宜的查詢。
+    is_strength = domain == MetricDomain.STRENGTH
+    body_strength = bs.strength_ratio_report(athlete) if is_strength else bs.empty_report(athlete)
     # 自己填一組假設的體重／體脂，看重訓的數字與該用的訓練重量變成怎樣
     body_whatif = bs.custom_plan(
         body_strength, request.GET.get("wf_weight"), request.GET.get("wf_fat")
-    )
+    ) if is_strength else None
+
+    # ---- 多面向分析：動作重量 × 肌肉脂肪比例 × 訓練時間 ----
+    # 分訓練時期或分年份切開，同一段時間的三件事擺在同一列上比。
+    dims = dim.multi_dimension_report(
+        athlete, request.GET.get("dmode", "phase")
+    ) if is_strength else None
 
     return render(
         request,
@@ -2711,8 +2725,17 @@ def analytics_view(request):
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,
-            # 體組成 × 重量訓練比值
+            # 體組成 × 重量訓練比值（只在重量訓練範疇顯示）
+            "is_strength": is_strength,
             "body_strength": body_strength,
+            # 多面向分析：動作重量 × 體組成 × 訓練時間
+            "dims": dims,
+            "dim_labels": jdump([g["label"] for g in dims["groups"]] if dims else []),
+            "dim_hours": jdump([g["hours"] for g in dims["groups"]] if dims else []),
+            "dim_fat": jdump([g["fat_pct"] for g in dims["groups"]] if dims else []),
+            "dim_muscle": jdump([g["muscle_pct"] for g in dims["groups"]] if dims else []),
+            "dim_per_bw": jdump([g["avg_per_bw"] for g in dims["groups"]] if dims else []),
+            "dim_tonnage": jdump([g["tonnage"] for g in dims["groups"]] if dims else []),
             "body_whatif": body_whatif,
             "bs_labels": jdump([p["date"] for p in body_strength["series"]]),
             "bs_per_bw": jdump([p["per_bw"] for p in body_strength["series"]]),

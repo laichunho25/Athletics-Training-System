@@ -116,6 +116,27 @@ def _ratio(value, base):
     return round(value / base, 2) if value is not None and base else None
 
 
+def empty_report(athlete=None):
+    """不是重量訓練範疇時給的空報告。
+
+    這一段只顯示在「重量訓練紀錄」，但樣板照樣會取到這幾個欄位，
+    所以給一份空的骨架，省下體測與紀錄那幾個查詢。
+    """
+    return {
+        "has_body": False,
+        "has_strength": False,
+        "body": None,
+        "previous": None,
+        "bands": fat_bands(athlete.sex) if athlete is not None else fat_bands(""),
+        "lifts": [],
+        "focus": None,
+        "series": [],
+        "scenarios": [],
+        "recommendation": None,
+        "notes": [],
+    }
+
+
 def strength_ratio_report(athlete, days=730):
     """脂肪比例／肌肉比例／體重 × 重量訓練比值的完整分析。"""
     bodies = list(athlete.body_metrics.order_by("date"))

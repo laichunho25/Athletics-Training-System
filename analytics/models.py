@@ -76,9 +76,11 @@ class WeeklySummary(TimeStampedModel):
 
 
 class MetricDomain(models.TextChoices):
-    COMPETITION = "COMPETITION", _("比賽數據")
+    # 排序＝數據分析頁上分頁的次序。平日練得最多的是田徑練習，其次重量訓練，
+    # 比賽一年只有幾場，擺最後；預設打開的也是第一個（田徑練習訓練紀錄）。
     TRACK = "TRACK", _("田徑練習訓練紀錄")
     STRENGTH = "STRENGTH", _("重量訓練紀錄")
+    COMPETITION = "COMPETITION", _("比賽數據")
 
 
 #: 訓練日曆上的課別 ←→ 數據分析的紀錄範疇。

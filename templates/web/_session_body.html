@@ -270,12 +270,13 @@
     </span>
   </div>
 
-  {% if record_domains|length > 1 %}
   {% comment %}
-    治療康復／恢復訓練那天可能是跑的、也可能是舉的，
-    所以這種課別要先挑登哪一個範疇，挑完再按活動那一行的「登記錄」。
+    這一課登進去的數字，在數據分析屬於哪一個範疇——一律寫在這裡講明白。
+    治療康復／恢復訓練那天可能是跑的、也可能是舉的，這種課別給一個下拉自己挑；
+    其餘課別只有一個範疇，就直接寫出來，不用讓人猜。
   {% endcomment %}
   <div class="pushbar">
+    {% if record_domains|length > 1 %}
     <form method="get" class="flex">
       <label class="unitpick">{% translate "登哪一個範疇" %}
         <select name="rdomain">
@@ -285,10 +286,17 @@
         </select>
       </label>
       <button class="btn ghost sm" type="submit">{% translate "換範疇" %}</button>
-      <span class="small c-dim">{% translate "換了之後再按活動那一行的「登記錄」" %}</span>
+      <span class="small c-dim">{% translate "換了之後再按活動那一行的「登記錄」；這裡挑的就是數據分析那邊歸到哪一類" %}</span>
     </form>
+    {% else %}
+    <div class="flex">
+      <span class="small">{% translate "這一課登的數字歸到" %}
+        <span class="badge b-orange">{{ record_domain_label }}</span>
+      </span>
+      <span class="small c-dim">{% blocktranslate with v0=s.get_session_type_display %}「{{ v0 }}」的課只登這一個範疇，數據分析那邊就在這一類底下看得到{% endblocktranslate %}</span>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
   {% if not log_activity %}
     <div class="pad c-dim small">
@@ -683,11 +691,13 @@
   </form>
 </div>
 
-<!-- ------------------------- 這堂課登了的數據（照範疇分開列，唯讀）
+<!-- ------------------------- 這堂課登了的數據（照範疇分開列，可以直接改）
      田徑練習訓練紀錄與重量訓練紀錄的內容，全部來自上面「新增一筆紀錄／
-     紀錄明細」填進去的東西——同一份數據不用在課表上再登第二次。 -->
+     紀錄明細」填進去的東西——同一份數據不用在課表上再登第二次。
+     這裡每一格也改得動、每一列也刪得掉：改完立刻反映在數據分析，
+     不用先回上面挑活動、再進紀錄明細。 -->
 {% for t in record_tables %}
-<div class="card pad0 mb">
+<div class="card pad0 mb" id="dom-{{ t.domain }}">
   <div class="card-head">
     <span>{{ t.label }}</span>
     <span class="small c-dim">
@@ -695,6 +705,22 @@
       · <a href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}&domain={{ t.domain }}">{% translate "到數據分析看趨勢 →" %}</a>
     </span>
   </div>
+
+  <!-- 一張表一組 form：✓ 只存那一列，最下面的按鈕一次過存整張表 -->
+  <form method="post" id="dtEdit{{ forloop.counter }}" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="edit_record">
+    <input type="hidden" name="rdomain" value="{{ t.domain }}">
+    <input type="hidden" name="rest_unit" value="min">
+    <input type="hidden" name="anchor" value="dom-{{ t.domain }}">
+  </form>
+  <form method="post" id="dtDel{{ forloop.counter }}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_record">
+    <input type="hidden" name="rdomain" value="{{ t.domain }}">
+    <input type="hidden" name="anchor" value="dom-{{ t.domain }}">
+  </form>
+
   <div class="acttablewrap">
   <table class="acttable">
     <thead>
@@ -706,34 +732,100 @@
         <th class="num">{% translate "重量" %}</th><th class="num">{% translate "強度" %}</th>
         <th class="num">{% translate "次數" %}</th><th class="num">{% translate "休息" %}</th>
         <th style="width:44px">{% translate "完成" %}</th><th>{% translate "情境" %}</th>
+        <th style="width:56px"></th>
       </tr>
     </thead>
     <tbody>
     {% for row in t.items %}
       {% for r in row.records %}
-      <tr>
+      <tr{% if not r.completed %} class="failedrow"{% endif %}>
         {% if forloop.first %}
         <td rowspan="{{ row.records|length }}">
           <span class="strong">{{ row.item.name }}</span>
           {% if row.item.unit %}<span class="small c-dim">（{{ row.item.unit }}）</span>{% endif %}
+          <div class="small">
+            <a href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}&domain={{ t.domain }}&item={{ row.item.id }}">{% translate "改名／看趨勢" %}</a>
+          </div>
         </td>
         <td rowspan="{{ row.records|length }}" class="small c-dim">{{ row.block_label|default:"—" }}</td>
         {% endif %}
-        <td class="num">{{ r.set_no|default:"—" }}</td>
-        <td class="num dist">{{ r.distance_display|default:"—" }}</td>
-        <td class="num">{{ r.target_value|default:"—" }}</td>
-        <td class="num c-accent">{{ r.value|default:"—" }}</td>
-        <td class="num">{% if r.weight_kg %}{{ r.weight_kg }} kg{% else %}—{% endif %}</td>
-        <td class="num">{{ r.intensity|default:"—" }}</td>
-        <td class="num">{{ r.reps|default:"—" }}</td>
-        <td class="num">{{ r.rest_display|default:"—" }}</td>
-        <td class="num">{% if r.completed %}<span class="c-green">✓</span>{% else %}<span class="c-red">✕</span>{% endif %}</td>
-        <td class="small c-dim">{{ r.context|default:"—" }}</td>
+        <td class="num setcell">
+          <input class="editnum setno" type="number" step="1" min="1"
+                 name="set_no_{{ r.id }}" form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.set_no|default_if_none:'' }}" placeholder="—"
+                 title="{% translate '組號——改成想要的次序，存檔後會重排成 1、2、3…' %}">
+        </td>
+        <td class="num dist">
+          <input class="editnum" type="number" step="any" min="0" name="distance_m_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.distance_m|default_if_none:'' }}" placeholder="—">
+        </td>
+        <td class="num">
+          <input class="editnum" type="number" step="any" name="target_value_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.target_value|default_if_none:'' }}" placeholder="—">
+        </td>
+        <td class="num">
+          <input class="editnum" type="number" step="any" name="value_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.value|default_if_none:'' }}" placeholder="—">
+        </td>
+        <td class="num">
+          <input class="editnum" type="number" step="any" min="0" name="weight_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.weight_kg|default_if_none:'' }}" placeholder="—"
+                 title="{% translate '重量 (kg)' %}">
+        </td>
+        <td class="num">
+          <input class="editnum" type="text" maxlength="20" name="intensity_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.intensity }}" placeholder="—"
+                 title="{% translate '強度要求（例：90%）' %}">
+        </td>
+        <td class="num">
+          <input class="editnum sm" type="number" step="1" min="0" name="reps_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.reps|default_if_none:'' }}" placeholder="—">
+        </td>
+        <td class="num">
+          <input class="editnum sm" type="number" step="any" min="0" name="rest_sec_{{ r.id }}"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.rest_min|default_if_none:'' }}" placeholder="—"
+                 title="{% translate '休息時間（分鐘）' %}{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
+        </td>
+        <td>
+          <select name="completed_{{ r.id }}" form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %} class="editsel">
+            <option value="1" {% if r.completed %}selected{% endif %}>✅</option>
+            <option value="0" {% if not r.completed %}selected{% endif %}>❌</option>
+          </select>
+        </td>
+        <td>
+          <input class="editnum wide" type="text" name="context_{{ r.id }}" maxlength="120"
+                 form="dtEdit{{ forloop.parentloop.parentloop.counter }}"{% if not can_log %} disabled{% endif %}
+                 value="{{ r.context }}" placeholder="{% translate '情境' %}">
+        </td>
+        <td style="white-space:nowrap">
+          {% if can_log %}
+          <button class="linkbtn" type="submit" form="dtEdit{{ forloop.parentloop.parentloop.counter }}"
+                  name="only" value="{{ r.id }}" title="{% translate '只存這一列' %}">✓</button>
+          <button class="linkbtn" type="submit" form="dtDel{{ forloop.parentloop.parentloop.counter }}"
+                  name="record_id" value="{{ r.id }}" title="{% translate '刪除這一組' %}"
+                  onclick="return confirm('{% translate "刪除這一組紀錄？數據分析那邊也會一起少一組。" %}')">×</button>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     {% endfor %}
     </tbody>
   </table>
+  </div>
+  <div class="flex" style="padding:12px 16px;border-top:1px solid var(--border)">
+    {% if can_log %}
+      <button class="btn sm" type="submit" form="dtEdit{{ forloop.counter }}">{% translate "儲存全部更改" %}</button>
+      <span class="small c-dim">{% translate "每一格都可以直接改：按該列的 ✓ 存單筆、按這裡一次過存整張表， × 刪掉那一組。改完數據分析立刻跟著變。" %}</span>
+    {% else %}
+      <span class="small c-dim">{% translate "訓練紀錄由這名運動員本人（或管理員）修改。" %}</span>
+    {% endif %}
   </div>
 </div>
 {% endfor %}

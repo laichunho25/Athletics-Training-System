@@ -782,6 +782,7 @@
   </div>
 </div>
 
+{% if is_strength %}
 <!-- =============================================== 三、體組成 × 重量訓練 -->
 <h2 id="bodystrength">{% translate "體組成 × 重量訓練" %}</h2>
 <div class="subtitle" style="margin:-6px 0 14px">
@@ -1045,6 +1046,137 @@
     <a href="{% url 'web:nutrition' %}?athlete={{ athlete.id }}#bodygoal">{% translate "怎麼吃才走得到 → 運動營養與恢復" %}</a>
   </div>
 </div>
+{% endif %}
+
+<!-- ====================================== 四、多面向分析（重量×體組成×時間） -->
+{% if dims %}
+<h2 id="dims">{% translate "多面向分析：動作重量 × 肌肉脂肪比例 × 訓練時間" %}</h2>
+<div class="subtitle" style="margin:-6px 0 14px">
+  {% translate "同一段時間裡「舉了多重、身體是什麼成分、花了多少小時」三件事擺在同一列上比。可以按訓練時期看（一般準備期／專項準備期／賽前期…），也可以按年份看。" %}
+</div>
+
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="dim-chart">
+    <span>{% translate "三條線一起看" %}</span>
+    <span class="small c-dim">
+      {% for m, label in dims.modes %}
+        <a class="btn ghost sm{% if dims.mode == m %} on{% endif %}"
+           href="?athlete={{ athlete.id }}&domain={{ domain }}{% if item %}&item={{ item.id }}{% endif %}&dmode={{ m }}#dims">{{ label }}</a>
+      {% endfor %}
+    </span>
+  </div>
+  {% if dims.has_data %}
+    <div class="chart-box tall"><canvas id="dimChart"></canvas></div>
+  {% endif %}
+  {% for n in dims.notes %}
+    <div class="alert yellow" style="margin:0 16px 14px">{{ n }}</div>
+  {% endfor %}
+  {% if dims.insights %}
+  <div style="padding:4px 16px 16px">
+    {% for line in dims.insights %}
+      <div class="alert blue" style="margin:0 0 8px">{{ line }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if dims.has_data %}
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="dim-table">
+    <span>{% if dims.mode == 'year' %}{% translate "每一年的三面向" %}{% else %}{% translate "每一個訓練時期的三面向" %}{% endif %}</span>
+    <span class="small c-dim">{% translate "相對力量 ＝ 期間內各動作最佳估算 1RM ÷ 期間平均體重的平均值" %}</span>
+  </div>
+  <div class="cmptablewrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{% if dims.mode == 'year' %}{% translate "年份" %}{% else %}{% translate "訓練時期" %}{% endif %}</th>
+        <th class="num">{% translate "課次" %}</th>
+        <th class="num">{% translate "訓練時數" %}</th>
+        <th class="num">{% translate "總負荷" %}</th>
+        <th class="num">{% translate "體重" %}</th>
+        <th class="num">{% translate "體脂率" %}</th>
+        <th class="num">{% translate "肌肉率" %}</th>
+        <th class="num">{% translate "相對力量" %}</th>
+        <th class="num">{% translate "最重的動作" %}</th>
+        <th class="num">{% translate "總噸位" %}</th>
+        <th class="num">{% translate "每小時噸位" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in dims.groups %}
+      <tr>
+        <td>
+          <strong>{{ g.label }}</strong>
+          {% if g.sublabel %}<div class="small c-dim">{{ g.sublabel }}</div>{% endif %}
+          <div class="small c-dim">{{ g.start }} → {{ g.end }}</div>
+        </td>
+        <td class="num">{{ g.sessions }}</td>
+        <td class="num">{{ g.hours }} h</td>
+        <td class="num">{{ g.load }}</td>
+        <td class="num">{% if g.weight %}{{ g.weight }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
+        <td class="num">{% if g.fat_pct %}{{ g.fat_pct }}%{% else %}<span class="c-dim">—</span>{% endif %}</td>
+        <td class="num">{% if g.muscle_pct %}{{ g.muscle_pct }}%{% else %}<span class="c-dim">—</span>{% endif %}</td>
+        <td class="num">{% if g.avg_per_bw %}<strong>{{ g.avg_per_bw }}×</strong>{% else %}<span class="c-dim">—</span>{% endif %}</td>
+        <td class="num">
+          {% if g.best_lift %}{{ g.best_lift.name }}<div class="small c-dim">{{ g.best_lift.best_e1rm }} kg</div>
+          {% else %}<span class="c-dim">—</span>{% endif %}
+        </td>
+        <td class="num">{% if g.tonnage %}{{ g.tonnage }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
+        <td class="num">{% if g.tonnage_per_hour %}{{ g.tonnage_per_hour }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+{% if dims.lifts %}
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="dim-lifts">
+    <span>{% translate "每個體能動作在各段的重量" %}</span>
+    <span class="small c-dim">{% translate "上：估算 1RM（kg）　下：每公斤體重" %}</span>
+  </div>
+  <div class="cmptablewrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{% translate "動作" %}</th>
+        {% for g in dims.groups %}<th class="num">{{ g.label }}{% if g.sublabel %}<div class="small c-dim">{{ g.sublabel }}</div>{% endif %}</th>{% endfor %}
+        <th class="num">{% translate "頭尾變化" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in dims.lifts %}
+      <tr>
+        <td><strong>{{ row.name }}</strong><div class="small c-dim">{% blocktranslate with v0=row.sets %}{{ v0 }} 組{% endblocktranslate %}</div></td>
+        {% for c in row.cells %}
+          <td class="num">
+            {% if c and c.best_e1rm %}
+              {{ c.best_e1rm }} kg
+              <div class="small c-dim">{% if c.per_bw %}{{ c.per_bw }}×{% else %}—{% endif %}</div>
+            {% else %}<span class="c-dim">—</span>{% endif %}
+          </td>
+        {% endfor %}
+        <td class="num">
+          {% if row.change_pct %}
+            <span class="{% if row.change_pct > 0 %}c-green{% else %}c-red{% endif %}">{% if row.change_pct > 0 %}+{% endif %}{{ row.change_pct }}%</span>
+            {% if row.per_bw_change_pct %}<div class="small c-dim">{% blocktranslate with v0=row.per_bw_change_pct %}比值 {{ v0 }}%{% endblocktranslate %}</div>{% endif %}
+          {% else %}<span class="c-dim">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="small c-dim" style="padding:10px 16px 14px;border-top:1px solid var(--border)">
+    {% translate "估算 1RM 用 Epley 公式（重量 × (1 + (次數−1)/30)），只算單位是 kg、而且標了「已完成」的組。" %}
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
 {% endif %}
 
 {% endblock %}
@@ -1596,6 +1728,37 @@ new Chart(document.getElementById('bsChart'), {
       y:  { position: 'left', title: { display: true, text: '{% translate "× 體重" %}' } },
       y1: { position: 'right', grid: { drawOnChartArea: false },
             title: { display: true, text: '{% translate "% / kg" %}' } }
+    }
+  }
+});
+{% endif %}
+
+{% if dims.has_data %}
+// ---- 多面向：訓練時數（柱）× 體脂／肌肉率與相對力量（線） ----------------
+// 一根柱是一段時間練了多少小時，線是同一段的身體成分與相對力量：
+// 柱高線平＝時間沒換到東西；柱矮線升＝那一段的安排效率高。
+new Chart(document.getElementById('dimChart'), {
+  data: {
+    labels: {{ dim_labels|safe }},
+    datasets: [
+      { type: 'bar', label: '{% translate "訓練時數 (h)" %}', data: {{ dim_hours|safe }},
+        backgroundColor: BLUE + '55', borderColor: BLUE, borderWidth: 1, yAxisID: 'y2' },
+      { type: 'line', label: '{% translate "相對力量 (× 體重)" %}', data: {{ dim_per_bw|safe }},
+        borderColor: ACC, backgroundColor: ACC, tension: .2, pointRadius: 4, spanGaps: true, yAxisID: 'y' },
+      { type: 'line', label: '{% translate "體脂率 (%)" %}', data: {{ dim_fat|safe }},
+        borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4], tension: .2,
+        pointRadius: 3, spanGaps: true, yAxisID: 'y1' },
+      { type: 'line', label: '{% translate "肌肉率 (%)" %}', data: {{ dim_muscle|safe }},
+        borderColor: GREEN, backgroundColor: GREEN, borderDash: [2, 3], tension: .2,
+        pointRadius: 3, spanGaps: true, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    scales: {
+      y:  { position: 'left', title: { display: true, text: '{% translate "× 體重" %}' } },
+      y1: { position: 'right', grid: { drawOnChartArea: false },
+            title: { display: true, text: '%' } },
+      y2: { display: false }
     }
   }
 });
