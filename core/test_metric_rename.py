@@ -159,7 +159,7 @@ class RelatedItemsTests(TrackItemBase):
             f"{self.url()}?athlete={self.athlete.id}"
             f"&domain={MetricDomain.TRACK}&item={self.item.id}"
         )
-        self.assertContains(page, "數據分析已經有")
+        self.assertContains(page, "是同一件事")
         self.assertContains(page, "加在一起分析")
         self.assertEqual(
             page.context["related_csv"], f"{self.item.id},{other.id}"

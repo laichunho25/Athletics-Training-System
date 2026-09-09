@@ -187,10 +187,32 @@
                 data-value="{{ a.name }}" data-can="{{ can }}">{{ a.name }}</span>
           {% if row.name_en %}<div class="small c-dim">{{ row.name_en }}</div>{% endif %}
           {% comment %}
-            排課寫了什麼（組數／次數／距離／重量／強度／休息）縮成一句話。
-            這些不再是輸入欄——每一組的數字一律在下面的「訓練紀錄」填。
+            排課寫了什麼（組數／次數／重量／強度／休息／在哪一區）——加進課表
+            之後照樣改得動：點一下就地改，跟活動名稱、距離同一個做法。
+            每一組實際做出來的數字仍然一律在下面的「訓練紀錄」填。
           {% endcomment %}
-          {% if row.plan %}<div class="planline">{{ row.plan }}</div>{% endif %}
+          <div class="planline">
+            <span class="lbl">{% translate "組" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:sets" data-kind="text"
+                  data-value="{{ a.sets }}" data-can="{{ can }}">{{ a.sets|default:"—" }}</span>
+            <span class="lbl">{% translate "次" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:reps" data-kind="text"
+                  data-value="{{ a.reps }}" data-can="{{ can }}">{{ a.reps|default:"—" }}</span>
+            <span class="lbl">{% translate "重量" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:weight" data-kind="text"
+                  data-value="{{ a.weight }}" data-can="{{ can }}">{{ a.weight|default:"—" }}</span>
+            <span class="lbl">{% translate "強度" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:intensity" data-kind="text"
+                  data-value="{{ a.intensity }}" data-can="{{ can }}">{{ a.intensity|default:"—" }}</span>
+            <span class="lbl">{% translate "休息" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:rest" data-kind="text"
+                  data-value="{{ a.rest }}" data-can="{{ can }}">{{ a.rest|default:"—" }}</span>
+            <span class="lbl">{% translate "區塊" %}</span>
+            <span class="cell" data-edit="activity:{{ a.id }}:block" data-kind="select"
+                  data-value="{{ a.block }}"
+                  data-options="{% for bt in blocks %}{{ bt.value }}|{{ bt.label }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                  data-can="{{ can }}">{{ a.get_block_display }}</span>
+          </div>
         </td>
         <td class="num dist">
           <span class="cell distcell" data-edit="activity:{{ a.id }}:distance" data-kind="text"
@@ -311,13 +333,12 @@
        分開看各自只有那幾筆，所以在這裡先問一句要不要加在一起分析。 -->
   <div class="alert blue mergeask" style="margin:14px 18px 0">
     <div>
-      <strong>{% blocktranslate with v0=log_item.name v1=log_related|length %}數據分析已經有 {{ v1 }} 項跟「{{ v0 }}」相關的紀錄{% endblocktranslate %}</strong>
       <div class="small">
+        {% blocktranslate with v0=log_item.name %}「{{ v0 }}」與這幾項是同一件事{% endblocktranslate %}
         {% for r in log_related %}
           <span class="badge b-dim" title="{{ r.reason }}｜{% blocktranslate with v0=r.days v1=r.count v2=r.last_date %}{{ v0 }} 天 / {{ v1 }} 組，最近 {{ v2 }}{% endblocktranslate %}">{{ r.item.name }} · {{ r.count }}{% translate "組" %}</span>
         {% endfor %}
       </div>
-      <div class="small">{% translate "要把它們加在一起分析嗎？這一堂課照樣登在這裡，不受影響。" %}</div>
     </div>
     <a class="btn sm" href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}&domain={{ record_domain }}&item={{ log_item.id }}&items={{ log_related_csv }}">{% translate "加在一起分析 →" %}</a>
   </div>

@@ -8,9 +8,14 @@
 {% if nav_athletes %}
 {% if page in nav_scoped_pages %}
 <form method="get" class="athletepick" action="">
-  {% for key, value in request.GET.items %}{% if key != 'athlete' %}
+  {% comment %}
+    換人之後留在同一頁、同一個範疇——網址上其餘的參數照樣帶過去。
+    這一份由 context processor 先算好（樣板直接寫 request.GET.items 會
+    被網址上那個叫 items 的參數蓋掉）。
+  {% endcomment %}
+  {% for key, value in nav_query %}
     <input type="hidden" name="{{ key }}" value="{{ value }}">
-  {% endif %}{% endfor %}
+  {% endfor %}
 {% else %}
 <form method="get" class="athletepick" action="{% url 'web:dashboard' %}">
 {% endif %}

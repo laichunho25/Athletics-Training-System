@@ -7,10 +7,7 @@
 <div class="between mb">
   <div>
     <h1>{% translate "數據分析" %}</h1>
-    <div class="subtitle" style="margin:0">
-      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} ·
- 日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢{% endblocktranslate %}
-    </div>
+    <div class="subtitle" style="margin:0">{{ athlete.user.get_full_name|default:athlete.user.username }}</div>
   </div>
   {% include "web/_athlete_links.html" %}
 </div>
@@ -64,10 +61,6 @@
   <div class="card pad0 mb">
     <div class="card-head">
       <span>{% translate "主要必看的訓練項目" %}</span>
-      <span class="small c-dim">
-        {% if has_pins %}{% translate "從下面的清單 📌 釘出來的" %}
-        {% else %}{% translate "還沒釘任何項目 · 先看最常做的動作（近 365 天）" %}{% endif %}
-      </span>
     </div>
     <div class="itemlist">
       {% for t in tops %}
@@ -76,8 +69,7 @@
            class="{% if item and t.item.id == item.id %}active{% endif %}">
           <span class="name">
             <span class="rank">{{ forloop.counter }}</span>
-            <span class="ellip" title="{{ t.item.display_name }}{% if t.item.unit %}（{{ t.item.unit }}）{% endif %}">{{ t.item.name }}</span>
-            <span class="meta" title="{% blocktranslate with v0=t.days v1=t.count %}近 365 天練過 {{ v0 }} 天、共 {{ v1 }} 組{% endblocktranslate %}">{% blocktranslate with v0=t.days v1=t.count %}{{ v0 }}d/{{ v1 }}組{% endblocktranslate %}</span>
+            <span class="ellip" title="{{ t.item.display_name }}{% if t.item.unit %}（{{ t.item.unit }}）{% endif %} · {% blocktranslate with v0=t.days v1=t.count %}近 365 天練過 {{ v0 }} 天、共 {{ v1 }} 組{% endblocktranslate %}">{{ t.item.name }}</span>
           </span>
           <span class="meta" title="{% blocktranslate with v0=t.best|default:'—' v1=t.item.unit %}最佳 {{ v0 }}{{ v1 }}{% endblocktranslate %}{% if t.change_pct != None %}{% blocktranslate with v0=t.change_pct %}；期內變化 {{ v0 }}%{% endblocktranslate %}{% endif %}">
             {% if t.best != None %}{{ t.best }}{{ t.item.unit }}{% else %}—{% endif %}
@@ -102,9 +94,6 @@
       {% empty %}
         <div class="empty">{% translate "這個範疇還沒有任何紀錄" %}</div>
       {% endfor %}
-    </div>
-    <div class="small c-dim" style="padding:10px 16px 12px;border-top:1px solid var(--border)">
-      {% translate "點一個動作就能看到它每一次的紀錄內容與比較；下面清單右邊的 📌 可以把常看的項目釘上來。" %}
     </div>
   </div>
   {% endif %}
@@ -221,7 +210,7 @@
               <option disabled>{% translate "這個範疇還沒有任何紀錄" %}</option>
             {% endfor %}
           </select>
-          <span class="small c-dim">{% translate "按住 Ctrl（Mac 是 ⌘）可以複選。 相近的訓練項目——同一個距離不同方式、或同一個方式不同距離—— 勾起來才看得出哪一種練得起來。" %}</span>
+          <span class="small c-dim">{% translate "按住 Ctrl（Mac 是 ⌘）可以複選" %}</span>
         </div>
         <div class="flex">
           <button class="btn sm" type="submit">{% translate "一起分析" %}</button>
@@ -243,14 +232,12 @@
   {% if related %}
   <div class="alert blue mergeask" id="mergeAsk" data-item="{{ item.id }}">
     <div>
-      <strong>{% blocktranslate with v0=related|length %}數據分析已經有 {{ v0 }} 項相關紀錄{% endblocktranslate %}</strong>
       <div class="small">
-        {% blocktranslate with v0=item.name %}「{{ v0 }}」跟這幾項講的是同一件事：{% endblocktranslate %}
+        {% blocktranslate with v0=item.name %}「{{ v0 }}」與這幾項是同一件事{% endblocktranslate %}
         {% for r in related %}
           <span class="badge b-dim" title="{{ r.reason }}｜{% blocktranslate with v0=r.days v1=r.count v2=r.last_date %}{{ v0 }} 天 / {{ v1 }} 組，最近 {{ v2 }}{% endblocktranslate %}">{{ r.item.name }} · {{ r.count }}{% translate "組" %}</span>
         {% endfor %}
       </div>
-      <div class="small">{% translate "要把它們加在一起分析嗎？（分開看的話，各自的趨勢都只有自己那幾筆）" %}</div>
     </div>
     <div class="flex">
       <a class="btn sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ item.id }}&compare={{ compare }}&items={{ related_csv }}">{% translate "加在一起分析" %}</a>

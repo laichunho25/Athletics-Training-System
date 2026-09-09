@@ -837,7 +837,13 @@ details > summary::-webkit-details-marker { display: none; }
 .acttable .planline {
   color: var(--text-dim); font-size: 11.5px; margin-top: 2px;
   font-family: var(--mono);
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px;
 }
+/* 排課那一行的欄名（組／次／重量…）：標示用，比數值再淡一點 */
+.acttable .planline .lbl {
+  font-family: var(--font); opacity: .7;
+}
+.acttable .planline .cell { color: var(--text); }
 /* 「距離」那一欄：正課跑 30m 還是 150m 是兩回事，所以加底色與粗體重點顯示。
    課表的活動表、訓練紀錄的表單與明細、數據分析的明細都共用這一份。 */
 th.dist, td.dist {

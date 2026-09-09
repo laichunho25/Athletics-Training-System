@@ -75,3 +75,35 @@ class NavContextTests(TestCase):
         make_athlete("a_nav2", coach=self.coach)
         r = self.client.get(reverse("web:athlete_list"))
         self.assertEqual(len(r.context["nav_athletes"]), 2)
+
+
+class SwitcherQueryTests(TestCase):
+    """切換器要原樣帶走網址上其餘的參數，連叫 items 的那個也不例外。
+
+    「多項目一起分析」送出來的網址帶 ?items=12,13。樣板以前寫
+    request.GET.items，Django 會先把 items 當字典鍵去查，拿到的是那串字
+    而不是所有參數，整頁就炸掉——教練／管理員一按「一起分析」就出錯。
+    """
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete("a_sw", coach=self.coach)
+        self.client.login(username="coach1", password=PW)
+
+    def test_a_query_param_named_items_does_not_break_the_page(self):
+        r = self.client.get(
+            reverse("web:analytics"),
+            {"athlete": self.athlete.id, "domain": "TRACK", "items": "1,2"},
+        )
+        self.assertEqual(r.status_code, 200)
+
+    def test_the_switcher_keeps_the_other_params_but_drops_athlete(self):
+        r = self.client.get(
+            reverse("web:analytics"),
+            {"athlete": self.athlete.id, "domain": "TRACK", "items": "1,2"},
+        )
+        pairs = r.context["nav_query"]
+        self.assertIn(("items", "1,2"), pairs)
+        self.assertIn(("domain", "TRACK"), pairs)
+        self.assertNotIn("athlete", [k for k, _v in pairs])
+        self.assertContains(r, 'name="items" value="1,2"')

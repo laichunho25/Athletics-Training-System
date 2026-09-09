@@ -32,6 +32,16 @@ NAV_PAGES = {
 }
 
 
+def nav_query(request):
+    """目前網址上除了 ?athlete= 以外的參數，攤成 [(鍵, 值)]（複選的每個值一項）。"""
+    return [
+        (key, value)
+        for key, values in request.GET.lists()
+        if key != "athlete"
+        for value in values
+    ]
+
+
 def athlete_nav(request):
     """
     目前檢視中的運動員，供整個外框（頂欄切換器、側欄連結、麵包屑）共用。
@@ -41,12 +51,23 @@ def athlete_nav(request):
     """
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
-        return {"nav_athlete": None, "nav_athletes": (), "nav_athlete_qs": "", "nav_pages": NAV_PAGES}
+        return {
+            "nav_athlete": None,
+            "nav_athletes": (),
+            "nav_athlete_qs": "",
+            "nav_query": (),
+            "nav_pages": NAV_PAGES,
+        }
 
     athlete = current_athlete(request)
     return {
         "nav_athlete": athlete,
         "nav_athletes": athlete_switcher(request),
+        # 切換器要把目前網址上其餘的參數原樣帶過去，才不會換個人就把
+        # 範疇、比較模式、勾了哪幾個項目全部弄丟。這一份在這裡先算好：
+        # 樣板寫 request.GET.items 會先被當成字典鍵去查，網址上剛好有一個
+        # 叫 items 的參數（多項目一起分析）時就會拿到那個字串而炸掉。
+        "nav_query": nav_query(request),
         # 側欄連結直接接在 url 後面：?athlete=12（沒有運動員時是空字串）
         "nav_athlete_qs": f"?athlete={athlete.id}" if athlete else "",
         "nav_scoped_pages": ATHLETE_SCOPED_PAGES,

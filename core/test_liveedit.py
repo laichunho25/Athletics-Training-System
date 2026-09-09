@@ -344,3 +344,53 @@ class PageRenderTests(LiveEditBase):
         ).content.decode()
         self.assertIn('data-can="0"', page)    # 別人寫的 → 鎖住
         self.assertIn('data-can="1"', page)    # 自己的打卡欄位 → 可改
+
+
+class ActivityPlanEditTests(LiveEditBase):
+    """加進課表之後，排課寫的那幾項（組數／次數／重量／強度／休息／區塊）照樣改得動。
+
+    以前活動一旦加進去，這幾項就只剩活動名稱底下那一句唯讀的文字，
+    要改得先刪掉整項再加一次。
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.activity = SessionActivity.objects.create(
+            session=self.session,
+            block=BlockType.WARMUP,
+            order=1,
+            name="槓鈴深蹲",
+            sets="3 組",
+            created_by=self.coach.user,
+        )
+
+    def test_every_planned_field_can_be_changed_in_place(self):
+        self.login(self.coach.user)
+        for field, value in (
+            ("sets", "5 組"),
+            ("reps", "3 次"),
+            ("weight", "80kg"),
+            ("intensity", "85%"),
+            ("rest", "每組 3 分鐘"),
+        ):
+            with self.subTest(field=field):
+                res = self.edit(f"activity:{self.activity.id}:{field}", value)
+                self.assertEqual(res.status_code, 200)
+                self.activity.refresh_from_db()
+                self.assertEqual(getattr(self.activity, field), value)
+
+    def test_an_activity_added_to_the_wrong_block_can_be_moved(self):
+        self.login(self.coach.user)
+        res = self.edit(f"activity:{self.activity.id}:block", BlockType.MAIN)
+        self.assertEqual(res.status_code, 200)
+        self.activity.refresh_from_db()
+        self.assertEqual(self.activity.block, BlockType.MAIN)
+
+    def test_the_session_page_shows_those_fields_as_editable_cells(self):
+        self.login(self.coach.user)
+        page = self.client.get(reverse("web:session_detail", args=[self.session.id]))
+        for field in ("sets", "reps", "weight", "intensity", "rest", "block"):
+            with self.subTest(field=field):
+                self.assertContains(
+                    page, f'data-edit="activity:{self.activity.id}:{field}"'
+                )
