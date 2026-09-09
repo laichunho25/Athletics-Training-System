@@ -157,7 +157,9 @@
   <div class="card-head" data-fold-key="meals">
     <span>{% blocktranslate with v0=meals|length %}今日飲食紀錄（{{ v0 }} 餐）{% endblocktranslate %}</span>
     <span class="small c-dim">
-      {% blocktranslate with v0=eaten.kcal|default:0 v1=eaten.carb|default:0 v2=eaten.protein|default:0 v3=eaten.fat|default:0 v4=eaten.fiber|default:0 v5=eaten.sodium|default:0 %}合計 {{ v0 }} kcal · 碳水 {{ v1 }}g · 蛋白 {{ v2 }}g · 脂肪 {{ v3 }}g · 纖維 {{ v4 }}g · 鈉 {{ v5 }}mg{% endblocktranslate %}
+      {% blocktranslate with v0=eaten.kcal|default:0 v1=eaten.carb|default:0 v2=eaten.protein|default:0 v3=eaten.fat|default:0 v4=eaten.fiber|default:0 v5=eaten.sodium|default:0 %}合計 {{ v0 }} kcal · 碳水 {{ v1 }}g ·
+ 蛋白 {{ v2 }}g · 脂肪 {{ v3 }}g ·
+ 纖維 {{ v4 }}g · 鈉 {{ v5 }}mg{% endblocktranslate %}
     </span>
   </div>
   <div style="padding:16px 18px">
@@ -249,7 +251,8 @@
   <div style="padding:16px 18px">
     {% if plan.picks %}
       <div class="small c-dim mb">
-        {% blocktranslate with v0=plan.picked_kcal %}目標已經把今天的訓練消耗算進去了。下面這幾樣加起來約 {{ v0 }} kcal， 補的就是訓練多出來、還沒吃回來的部分。{% endblocktranslate %}
+        {% blocktranslate with v0=plan.picked_kcal %}目標已經把今天的訓練消耗算進去了。下面這幾樣加起來約 {{ v0 }} kcal，
+ 補的就是訓練多出來、還沒吃回來的部分。{% endblocktranslate %}
       </div>
       <table>
         <thead>
@@ -282,6 +285,115 @@
     {% if plan.water_gap %}
       <div class="alert blue" style="margin:12px 0 0">{% blocktranslate with v0=plan.water_gap %}💧 今天還差 {{ v0 }} ml 水，分次補、不要一次灌。{% endblocktranslate %}</div>
     {% endif %}
+  </div>
+</div>
+
+<!-- --------------------------------- 體重／體脂方向：怎麼吃才換得到力量 -->
+<div class="card pad0 mb" id="bodygoal">
+  <div class="card-head" data-fold-key="body-goal">
+    <span>{% translate "體重與體脂方向：吃出重訓的比值" %}</span>
+    {% if body_goal.has_plan %}
+      <span class="badge {% if body_goal.rec.direction == 'FUEL' %}b-red{% elif body_goal.rec.direction == 'GAIN' %}b-green{% else %}b-yellow{% endif %}">
+        {% if body_goal.rec.direction == 'CUT' %}{% translate "減脂" %}
+        {% elif body_goal.rec.direction == 'TRIM' %}{% translate "小幅修" %}
+        {% elif body_goal.rec.direction == 'GAIN' %}{% translate "增去脂體重" %}
+        {% else %}{% translate "先把飯吃夠" %}{% endif %}
+      </span>
+    {% endif %}
+  </div>
+  <div style="padding:16px 18px">
+  {% if body_goal.has_plan %}
+    <div class="alert {% if body_goal.rec.direction == 'FUEL' %}red{% elif body_goal.rec.direction == 'GAIN' %}green{% else %}yellow{% endif %}" style="margin:0 0 14px">
+      {{ body_goal.rec.headline }}
+    </div>
+
+    <!-- 先講「值得做」，再講「怎麼做」——方向要吸引人，運動員才走得下去 -->
+    {% for line in body_goal.why %}
+      <div class="small" style="margin-bottom:6px">✦ {{ line }}</div>
+    {% endfor %}
+
+    <div class="grid grid-4 mb mt">
+      <div class="card stat">
+        <div class="label">{% translate "目標體重" %}</div>
+        <div class="value">{{ body_goal.rec.target_weight }} <span class="small">kg</span></div>
+        <div class="hint">{% blocktranslate with v0=body_goal.rec.weight_now v1=body_goal.rec.weight_delta %}現在 {{ v0 }} kg（{{ v1 }} kg）{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "目標體脂" %}</div>
+        <div class="value">{{ body_goal.rec.target_fat_pct }}<span class="small">%</span></div>
+        <div class="hint">{% blocktranslate with v0=body_goal.rec.fat_pct_now %}現在 {{ v0 }}%{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "每日熱量" %}</div>
+        <div class="value {% if body_goal.kcal_delta < 0 %}c-blue{% else %}c-green{% endif %}">
+          {% if body_goal.kcal_goal %}{{ body_goal.kcal_goal }}{% else %}—{% endif %} <span class="small">kcal</span>
+        </div>
+        <div class="hint">{% blocktranslate with v0=body_goal.kcal_now|default:"—" v1=body_goal.kcal_delta %}今日目標 {{ v0 }} kcal，調 {{ v1 }} kcal{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "需時" %}</div>
+        <div class="value">{{ body_goal.rec.weeks }} <span class="small">{% translate "週" %}</span></div>
+        <div class="hint">{{ body_goal.rec.rate_text }}</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div>
+        <h3>{% translate "三大營養素要怎麼調" %}</h3>
+        <table>
+          <thead><tr><th>{% translate "項目" %}</th><th class="num">{% translate "今日目標" %}</th><th class="num">{% translate "走這個方向" %}</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>{% translate "熱量" %}</td>
+              <td class="num">{{ body_goal.kcal_now|default:"—" }} kcal</td>
+              <td class="num"><strong>{{ body_goal.kcal_goal|default:"—" }} kcal</strong></td>
+            </tr>
+            <tr>
+              <td>{% translate "蛋白質" %}</td>
+              <td class="num">{{ body_goal.protein_now|default:"—" }} g</td>
+              <td class="num"><strong>{{ body_goal.protein_goal }} g</strong></td>
+            </tr>
+            <tr>
+              <td>{% translate "碳水（不動）" %}</td>
+              <td class="num">{{ body_goal.carb_g|default:"—" }} g</td>
+              <td class="num">{{ body_goal.carb_g|default:"—" }} g</td>
+            </tr>
+            <tr>
+              <td>{% translate "脂肪（差額從這裡調）" %}</td>
+              <td class="num">{{ body_goal.target.fat_g|default:"—" }} g</td>
+              <td class="num"><strong>{{ body_goal.fat_goal|default:"—" }} g</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="small c-dim" style="margin-top:8px">
+          {% blocktranslate with v0=body_goal.rec.protein_per_kg_lean %}蛋白目標按去脂體重給（{{ v0 }} g/kg LBM）——守肌肉靠的是這個數字，不是體重。碳水是訓練的燃料，先不動；熱量差額全部從脂肪調。{% endblocktranslate %}
+        </div>
+        <form method="post" class="mt">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="recalc">
+          <input type="hidden" name="goal" value="{{ body_goal.goal_choice }}">
+          <button class="btn">{% translate "把今日營養目標改成這個方向" %}</button>
+        </form>
+      </div>
+
+      <div>
+        <h3>{% translate "這一段要做的事" %}</h3>
+        <ul style="padding-left:18px;margin:0">
+          {% for a in body_goal.actions %}<li class="small" style="margin-bottom:6px">{{ a }}</li>{% endfor %}
+        </ul>
+        {% if body_goal.rec.payoff %}
+          <div class="alert green" style="margin:12px 0 0">
+            {% blocktranslate with v0=body_goal.rec.focus.item.display_name v1=body_goal.rec.payoff.e1rm v2=body_goal.rec.payoff.per_bw %}走到目標時，{{ v0 }} 的推估 1RM 約 {{ v1 }} kg、每公斤體重 {{ v2 }}×。{% endblocktranslate %}
+            <a href="{% url 'web:analytics' %}?athlete={{ athlete.id }}&domain=STRENGTH#bodystrength">{% translate "看完整推演" %}</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="empty small">
+      {% translate "還算不出方向：需要一次體組成量測（體重＋體脂率）與幾筆「幾公斤 × 幾次」的重量訓練紀錄。補齊之後，這裡會給出目標體重、目標體脂、每日熱量與蛋白，以及走完能換到多少相對力量。" %}
+    </div>
+  {% endif %}
   </div>
 </div>
 

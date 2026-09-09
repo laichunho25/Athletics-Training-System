@@ -461,3 +461,109 @@ def supplement_plan(athlete, on_date=None, target=None):
         "on_track": gaps["kcal"] <= 150 and gaps["protein"] <= 15,
         "water_gap": _gap(target.water_ml, drunk),
     }
+
+
+# ------------------------------------------------- 體重／體脂方向 → 怎麼吃
+
+#: 每個方向給的執行重點：這一段是運動員照著做的部分，寫成一句一個動作。
+DIRECTION_ACTIONS = {
+    "CUT": [
+        _("赤字只從脂肪與精緻碳水扣，訓練前後的碳水一律不動——那是拿來跑的，不是拿來胖的。"),
+        _("休息日把碳水降下來、訓練日照吃：一週的赤字靠休息日湊，高強度日不要餓著練。"),
+        _("每餐 0.4 g/kg 蛋白、分 4 餐，睡前再加一份慢消化蛋白，減脂期守肌肉靠這個。"),
+        _("重訓的重量不要降。減脂期減的是量不是強度，強度一降，掉的就會是肌肉。"),
+        _("每週固定同一天、同一時間、同一狀態量體重與體脂，只看週平均，不看單日跳動。"),
+    ],
+    "TRIM": [
+        _("小赤字就好：一天少一份精緻碳水或一份油，不用改整個菜單。"),
+        _("賽前期或高強度週先暫停赤字，回到維持量，比賽完再修。"),
+        _("蛋白與訓練前後的碳水維持原樣，只動訓練以外的時段。"),
+    ],
+    "GAIN": [
+        _("盈餘放在訓練後：練完 30–60 分鐘那一餐加碳水加蛋白，增的才會進肌肉。"),
+        _("每天多一餐加餐（果仁、乳酪、朱古力奶），不要靠正餐硬塞到脹。"),
+        _("重訓要有漸進超負荷：熱量加了但重量沒加，加的就是脂肪。"),
+        _("每兩週檢查一次體脂率：體重升、體脂率也升得快，就把盈餘收一半。"),
+    ],
+    "FUEL": [
+        _("先把熱量吃回維持量以上，這不是增肌是止血——能量供應不足會拖垮荷爾蒙、骨質與睡眠。"),
+        _("碳水優先補回來：肝醣是速度與力量的燃料，低碳水撐不起高強度訓練。"),
+        _("這一段先不要量體脂追數字，看的是晨脈、睡眠、月經（女生）與訓練感覺。"),
+        _("同時把這件事告訴教練與隊醫，RED-S 不是靠自己調飲食就能解決的。"),
+    ],
+}
+
+
+def body_goal_plan(athlete, target=None, report=None):
+    """把數據分析算出來的體重／體脂方向，翻成今天餐桌上的數字。
+
+    數據分析頁回答的是「改變體脂與體重，重訓比值會變成多少」；
+    這裡回答「那要怎麼吃」——每日熱量、蛋白下限、執行重點，
+    以及做完之後相對力量能換到多少，讓方向本身變得值得做。
+    """
+    from analytics import body_strength as bs
+
+    report = report or bs.strength_ratio_report(athlete)
+    rec = report.get("recommendation")
+    if rec is None:
+        return {"has_plan": False, "report": report}
+
+    if target is None:
+        target = NutritionTarget.objects.filter(athlete=athlete, date=date.today()).first()
+
+    kcal_now = target.target_kcal if target else None
+    kcal_goal = kcal_now + rec["kcal_delta"] if kcal_now else None
+
+    # 蛋白照去脂體重給；碳水不動（那是訓練的燃料），差額全部從脂肪調
+    protein_g = rec["protein_g"]
+    protein_now = target.protein_g if target else None
+    carb_g = target.carb_g if target else None
+    fat_g = None
+    if kcal_goal and carb_g is not None:
+        fat_g = max(round((kcal_goal - carb_g * 4 - protein_g * 4) / 9), round(MIN_FAT_G_PER_KG * float(athlete.current_weight_kg)))
+
+    payoff = rec.get("payoff")
+    focus = rec.get("focus")
+    why = []
+    if payoff and focus and payoff.get("gain_pct"):
+        why.append(
+            _("走完這 %(weeks)s 週，%(name)s 每公斤體重舉得起的會從 %(now)s 變成 %(then)s（+%(gain).1f%%）——"
+              "起跑與跳躍靠的就是這個比值。")
+            % {
+                "weeks": rec["weeks"],
+                "name": focus["item"].display_name,
+                "now": _ratio_text(focus.get("per_bw")),
+                "then": _ratio_text(payoff.get("per_bw")),
+                "gain": payoff["gain_pct"],
+            }
+        )
+    if rec["direction"] in ("CUT", "TRIM"):
+        why.append(
+            _("減下來的 %(kg)s kg 是純負重：力量一分沒少，每一步、每一跳要抬的重量卻少了這麼多。")
+            % {"kg": abs(rec["weight_delta"])}
+        )
+    elif rec["direction"] == "GAIN":
+        why.append(
+            _("加的是去脂體重，絕對力量跟著上去；只要體脂率守住，相對力量就不會被體重吃掉。")
+        )
+
+    return {
+        "has_plan": True,
+        "report": report,
+        "rec": rec,
+        "target": target,
+        "kcal_now": kcal_now,
+        "kcal_goal": kcal_goal,
+        "kcal_delta": rec["kcal_delta"],
+        "protein_now": protein_now,
+        "protein_goal": protein_g,
+        "carb_g": carb_g,
+        "fat_goal": fat_g,
+        "actions": DIRECTION_ACTIONS.get(rec["direction"], []),
+        "why": why,
+        "goal_choice": rec["goal"],
+    }
+
+
+def _ratio_text(value):
+    return f"{value:.2f}×" if value else "—"

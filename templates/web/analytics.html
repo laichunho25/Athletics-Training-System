@@ -8,7 +8,8 @@
   <div>
     <h1>{% translate "數據分析" %}</h1>
     <div class="subtitle" style="margin:0">
-      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} · 日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢{% endblocktranslate %}
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} ·
+ 日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢{% endblocktranslate %}
     </div>
   </div>
   {% include "web/_athlete_links.html" %}
@@ -1145,6 +1146,147 @@
   </div>
 </div>
 
+<!-- =============================================== 三、體組成 × 重量訓練 -->
+<h2 id="bodystrength">{% translate "體組成 × 重量訓練" %}</h2>
+<div class="subtitle" style="margin:-6px 0 14px">
+  {% translate "同一個 100kg 深蹲，70kg 的人與 85kg 的人不是同一件事。田徑場上起作用的是「每公斤體重舉得起多少」——這一段把脂肪比例、肌肉比例、體重跟重訓的數字放在一起算。" %}
+</div>
+
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="bs-now">
+    <span>{% translate "現況：體重、脂肪、肌肉與相對力量" %}</span>
+    {% if body_strength.body %}
+      <span class="small c-dim">{% blocktranslate with v0=body_strength.body.date %}體測 {{ v0 }}{% endblocktranslate %}</span>
+    {% endif %}
+  </div>
+  <div style="padding:16px 18px">
+  {% if body_strength.has_body and body_strength.has_strength %}
+    <div class="grid grid-4 mb">
+      <div class="card stat">
+        <div class="label">{% translate "體重" %}</div>
+        <div class="value">{{ body_strength.body.weight }} <span class="small">kg</span></div>
+        <div class="hint">{% blocktranslate with v0=body_strength.body.date %}{{ v0 }} 量測{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "脂肪比例" %}</div>
+        <div class="value">{{ body_strength.body.fat_pct|default:"—" }}<span class="small">%</span></div>
+        <div class="hint">{% blocktranslate with v0=body_strength.bands.0 v1=body_strength.bands.1 %}專項參考帶 {{ v0 }}–{{ v1 }}%{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "肌肉比例（去脂體重佔比）" %}</div>
+        <div class="value">{{ body_strength.body.muscle_pct|default:"—" }}<span class="small">%</span></div>
+        <div class="hint">{% blocktranslate with v0=body_strength.body.lean|default:"—" %}去脂體重 {{ v0 }} kg{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "主項相對力量" %}</div>
+        <div class="value c-accent">{{ body_strength.focus.per_bw|default:"—" }}<span class="small">× BW</span></div>
+        <div class="hint">{{ body_strength.focus.item.display_name }}</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>{% translate "動作" %}</th>
+          <th class="num">{% translate "估算 1RM" %}</th>
+          <th class="num">{% translate "每公斤體重" %}</th>
+          <th class="num">{% translate "每公斤去脂體重" %}</th>
+          <th>{% translate "取自" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for l in body_strength.lifts %}
+        <tr>
+          <td><strong>{{ l.item.display_name }}</strong></td>
+          <td class="num">{{ l.e1rm }} kg</td>
+          <td class="num">{{ l.per_bw|default:"—" }}×</td>
+          <td class="num">{{ l.per_lean|default:"—" }}×</td>
+          <td class="small c-dim">{{ l.date }}{% if l.reps %}{% blocktranslate with v0=l.reps %} · {{ v0 }} 次{% endblocktranslate %}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="small c-dim" style="margin-top:8px">
+      {% translate "估算 1RM 用 Epley 公式（重量 × (1 + (次數−1)/30)），取近兩年最重的一組換算；只算單位是 kg 的動作。" %}
+    </div>
+  {% elif not body_strength.has_strength %}
+    <div class="empty small">{% translate "重量訓練還沒有登過「幾公斤 × 幾次」的紀錄，先到上面的重量訓練範疇登幾組。" %}</div>
+  {% else %}
+    <div class="empty small">{% translate "還沒有體組成紀錄。到「身體數據」頁上傳一張體測報告，這裡就分得出「變強」與「只是體重變了」。" %}</div>
+  {% endif %}
+  </div>
+</div>
+
+{% if body_strength.series %}
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="bs-trend">
+    <span>{% blocktranslate with v0=body_strength.focus.item.display_name %}{{ v0 }}：相對力量 vs 體脂與體重{% endblocktranslate %}</span>
+    <span class="small c-dim">{% translate "每一點是當天最重的一組，配上當下最近一次體測" %}</span>
+  </div>
+  <div class="chart-box tall"><canvas id="bsChart"></canvas></div>
+  {% for n in body_strength.notes %}
+    <div class="alert yellow" style="margin:0 16px 14px">{{ n }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if body_strength.scenarios %}
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="bs-what-if">
+    <span>{% translate "如果體脂／肌肉改變，重訓的數字會變成怎樣" %}</span>
+    <span class="small c-dim">{% blocktranslate with v0=body_strength.focus.item.display_name %}以 {{ v0 }} 推演{% endblocktranslate %}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>{% translate "情境" %}</th>
+        <th class="num">{% translate "體重" %}</th>
+        <th class="num">{% translate "脂肪比例" %}</th>
+        <th class="num">{% translate "去脂體重" %}</th>
+        <th class="num">{% translate "估算 1RM" %}</th>
+        <th class="num">{% translate "每公斤體重" %}</th>
+        <th class="num">{% translate "比值變化" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in body_strength.scenarios %}
+      <tr {% if s.kind == 'NOW' %}style="background:var(--surface-2)"{% endif %}>
+        <td>{% if s.kind == 'NOW' %}<strong>{{ s.label }}</strong>{% else %}{{ s.label }}{% endif %}</td>
+        <td class="num">{{ s.weight }} kg{% if s.weight_delta %} <span class="small c-dim">{% if s.weight_delta > 0 %}+{% endif %}{{ s.weight_delta }}</span>{% endif %}</td>
+        <td class="num">{{ s.fat_pct|default:"—" }}%</td>
+        <td class="num">{{ s.lean }} kg</td>
+        <td class="num">{{ s.e1rm }} kg</td>
+        <td class="num"><strong>{{ s.per_bw|default:"—" }}×</strong></td>
+        <td class="num">
+          {% if s.gain_pct %}<span class="{% if s.gain_pct > 0 %}c-green{% else %}c-red{% endif %}">{% if s.gain_pct > 0 %}+{% endif %}{{ s.gain_pct }}%</span>
+          {% else %}<span class="c-dim">—</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="small c-dim" style="padding:10px 16px 14px;border-top:1px solid var(--border)">
+    {% translate "減脂情境假設去脂體重守得住（蛋白吃夠、重訓強度不降），所以絕對力量不變、只有負重變輕；增肌情境的絕對力量按去脂體重的 0.67 次方推估（肌肉出力約與橫切面積成正比）。這是推估值，實際還是以下一次量測與真正舉起來的重量為準。" %}
+  </div>
+</div>
+{% endif %}
+
+{% if body_strength.recommendation %}
+<div class="alert {% if body_strength.recommendation.direction == 'FUEL' %}red{% elif body_strength.recommendation.direction == 'GAIN' %}green{% else %}yellow{% endif %} mb">
+  <strong>{% translate "該往哪走：" %}</strong>{{ body_strength.recommendation.headline }}
+  <div class="small" style="margin-top:6px">
+    {% blocktranslate with v0=body_strength.recommendation.target_weight v1=body_strength.recommendation.target_fat_pct v2=body_strength.recommendation.weeks %}目標 {{ v0 }} kg / 體脂 {{ v1 }}%，約 {{ v2 }} 週{% endblocktranslate %}
+    · {{ body_strength.recommendation.rate_text }}
+    {% if body_strength.recommendation.payoff.gain_pct %}
+      · <span class="c-green">{% blocktranslate with v0=body_strength.recommendation.payoff.gain_pct %}相對力量 +{{ v0 }}%{% endblocktranslate %}</span>
+    {% endif %}
+  </div>
+  <div class="small" style="margin-top:6px">
+    <a href="{% url 'web:nutrition' %}?athlete={{ athlete.id }}#bodygoal">{% translate "怎麼吃才走得到 → 運動營養與恢復" %}</a>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -1676,5 +1818,34 @@ new Chart(document.getElementById('c4'), {
   },
   options: { plugins: { legend: { position: 'right' } }, cutout: '58%' }
 });
+
+{% if body_strength.series %}
+// ---- 體組成 × 重量訓練：相對力量與體脂／體重放同一張圖 ----
+// 相對力量在左軸、體脂率與體重在右軸：三條線一起看才分得出
+// 「比值變好」是因為真的舉得更重，還是只是體重掉了。
+new Chart(document.getElementById('bsChart'), {
+  data: {
+    labels: {{ bs_labels|safe }},
+    datasets: [
+      { type: 'line', label: '{% translate "相對力量 (× 體重)" %}', data: {{ bs_per_bw|safe }},
+        borderColor: ACC, backgroundColor: ACC + '33', fill: true, tension: .2,
+        pointRadius: 3, spanGaps: true, yAxisID: 'y' },
+      { type: 'line', label: '{% translate "體脂率 (%)" %}', data: {{ bs_fat|safe }},
+        borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4], tension: .2,
+        pointRadius: 2, spanGaps: true, yAxisID: 'y1' },
+      { type: 'line', label: '{% translate "體重 (kg)" %}', data: {{ bs_weight|safe }},
+        borderColor: BLUE, backgroundColor: BLUE, borderDash: [2, 3], tension: .2,
+        pointRadius: 2, spanGaps: true, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    scales: {
+      y:  { position: 'left', title: { display: true, text: '{% translate "× 體重" %}' } },
+      y1: { position: 'right', grid: { drawOnChartArea: false },
+            title: { display: true, text: '{% translate "% / kg" %}' } }
+    }
+  }
+});
+{% endif %}
 </script>
 {% endblock %}

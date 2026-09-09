@@ -25,6 +25,7 @@ from django.utils.translation import gettext_lazy as _
 from accounts.body_brands import BRAND_PRESETS, GENERIC, detect_brand, form_presets
 from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, User
+from analytics import body_strength as bs
 from analytics import services as an
 from analytics.models import (
     STRENGTH_UNITS,
@@ -2446,6 +2447,11 @@ def analytics_view(request):
 
     activity_library = list(visible_definitions(request.user))
 
+    # ---- 體組成 × 重量訓練 ----
+    # 脂肪比例、肌肉比例、體重與「每公斤體重舉得起多少」擺在一起看，
+    # 再推演體脂降下來／去脂體重加上去之後，比值會變成多少。
+    body_strength = bs.strength_ratio_report(athlete)
+
     return render(
         request,
         "web/analytics.html",
@@ -2518,6 +2524,12 @@ def analytics_view(request):
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,
+            # 體組成 × 重量訓練比值
+            "body_strength": body_strength,
+            "bs_labels": jdump([p["date"] for p in body_strength["series"]]),
+            "bs_per_bw": jdump([p["per_bw"] for p in body_strength["series"]]),
+            "bs_fat": jdump([p["fat_pct"] for p in body_strength["series"]]),
+            "bs_weight": jdump([p["weight"] for p in body_strength["series"]]),
             "phase_guide": PHASE_GUIDE,
             "cmp_labels": jdump(
                 [g["label"] for g in comparison["groups"]] if comparison else []
@@ -2594,6 +2606,8 @@ def nutrition_view(request):
     meals = list(MealLog.objects.filter(athlete=athlete, date=today))
     plan = nu.supplement_plan(athlete, today, target=target)
     insight = nu.body_composition_insight(athlete, target=target)
+    # 數據分析算出「體脂與體重該往哪走」，這裡翻成今天餐桌上的數字
+    body_goal = nu.body_goal_plan(athlete, target=target)
 
     return render(
         request,
@@ -2614,6 +2628,7 @@ def nutrition_view(request):
             "eaten": target.actual_intake(),
             "plan": plan,
             "insight": insight,
+            "body_goal": body_goal,
             "photo_ai": nuvision.api_available(),
             "today": today,
             "macro_labels": jdump([_("碳水"), _("蛋白質"), _("脂肪")]),
