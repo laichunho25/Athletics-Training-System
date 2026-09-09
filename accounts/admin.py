@@ -65,6 +65,7 @@ class BodyMetricLogInline(admin.TabularInline):
     extra = 0
     fields = (
         "date",
+        "brand",
         "weight_kg",
         "body_fat_pct",
         "muscle_mass_kg",

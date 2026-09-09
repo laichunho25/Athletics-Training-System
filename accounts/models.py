@@ -16,6 +16,8 @@ from core.models import (
     format_mark,
 )
 
+from accounts.body_brands import BRAND_CHOICES, GENERIC, SEGMENT_NAMES
+
 
 class User(AbstractUser):
     role = models.CharField(_("角色"), max_length=10, choices=Role.choices, default=Role.ATHLETE)
@@ -210,6 +212,13 @@ class BodyMetricLog(TimeStampedModel):
     )
     date = models.DateField(_("日期"))
     measured_at = models.TimeField(_("量測時間"), null=True, blank=True)
+    brand = models.CharField(
+        _("量測品牌"),
+        max_length=10,
+        choices=BRAND_CHOICES,
+        default=GENERIC,
+        help_text=_("報告紙上的項目名依品牌而異（InBody／HOWBODY／通用）。"),
+    )
     device = models.CharField(_("量測機型"), max_length=40, blank=True, help_text=_("例：RD-545AS"))
 
     # ------------------------------------------------------------ 全身數據
@@ -234,6 +243,30 @@ class BodyMetricLog(TimeStampedModel):
     )
     bmr_kcal = models.PositiveIntegerField(_("基礎代謝量 (kcal)"), null=True, blank=True)
     metabolic_age = models.PositiveSmallIntegerField(_("體內年齡 (歲)"), null=True, blank=True)
+
+    # ------------------------------- InBody / HOWBODY 報告紙才有的身體成分
+    body_fat_mass_kg = models.DecimalField(
+        _("體脂肪量 (kg)"), max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    fat_free_mass_kg = models.DecimalField(
+        _("去脂體重 (kg)"), max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    tbw_liters = models.DecimalField(
+        _("身體總水分 (L)"), max_digits=4, decimal_places=1, null=True, blank=True
+    )
+    protein_kg = models.DecimalField(
+        _("蛋白質 (kg)"), max_digits=4, decimal_places=2, null=True, blank=True
+    )
+    mineral_kg = models.DecimalField(
+        _("無機鹽／礦物質 (kg)"), max_digits=4, decimal_places=2, null=True, blank=True
+    )
+    whr = models.DecimalField(
+        _("腰臀圍比 WHR"), max_digits=3, decimal_places=2, null=True, blank=True
+    )
+    ecw_tbw = models.DecimalField(
+        _("細胞外水分比 ECW/TBW"), max_digits=4, decimal_places=3, null=True, blank=True
+    )
+    score = models.PositiveSmallIntegerField(_("體組成分數"), null=True, blank=True)
 
     # -------------------------------------------------------- 部位肌肉量
     muscle_arm_r = models.DecimalField(
@@ -306,24 +339,33 @@ class BodyMetricLog(TimeStampedModel):
 
     @property
     def fat_mass_kg(self):
+        """磅有印體脂肪量（InBody／HOWBODY）就用它的，沒有才用體脂率換算。"""
+        if self.body_fat_mass_kg is not None:
+            return round(float(self.body_fat_mass_kg), 1)
         if self.body_fat_pct is None:
             return None
         return round(float(self.weight_kg) * float(self.body_fat_pct) / 100, 1)
 
     @property
     def lean_mass_kg(self):
+        if self.fat_free_mass_kg is not None:
+            return round(float(self.fat_free_mass_kg), 1)
         fat = self.fat_mass_kg
         return round(float(self.weight_kg) - fat, 1) if fat is not None else None
 
     @property
     def segments(self):
-        """部位資料整理成表格用的列：(部位, 肌肉量, 脂肪率, 肌肉品質點數)。"""
+        """部位資料整理成表格用的列：(部位, 肌肉量, 脂肪率, 肌肉品質點數)。
+
+        部位怎麼叫跟著量測品牌走（InBody 叫右下肢、HOWBODY 叫右腿）。
+        """
+        part_names = SEGMENT_NAMES.get(self.brand, SEGMENT_NAMES[GENERIC])
         rows = [
-            ("右上肢", self.muscle_arm_r, self.fat_arm_r, self.mq_arm_r),
-            ("左上肢", self.muscle_arm_l, self.fat_arm_l, self.mq_arm_l),
-            ("右腳", self.muscle_leg_r, self.fat_leg_r, self.mq_leg_r),
-            ("左腳", self.muscle_leg_l, self.fat_leg_l, self.mq_leg_l),
-            ("軀幹", self.muscle_trunk, self.fat_trunk, None),
+            (part_names["arm_r"], self.muscle_arm_r, self.fat_arm_r, self.mq_arm_r),
+            (part_names["arm_l"], self.muscle_arm_l, self.fat_arm_l, self.mq_arm_l),
+            (part_names["leg_r"], self.muscle_leg_r, self.fat_leg_r, self.mq_leg_r),
+            (part_names["leg_l"], self.muscle_leg_l, self.fat_leg_l, self.mq_leg_l),
+            (part_names["trunk"], self.muscle_trunk, self.fat_trunk, None),
         ]
         return [
             {"part": part, "muscle": muscle, "fat": fat, "quality": quality}

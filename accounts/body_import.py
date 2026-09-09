@@ -35,6 +35,8 @@ import io
 import re
 from datetime import date, datetime
 
+from accounts.body_brands import brand_aliases, detect_brand
+
 #: 檔案裡的欄名 → BodyMetricLog 的欄位名。key 一律先正規化（去空白、轉小寫）。
 FIELD_ALIASES = {
     # 全身
@@ -88,18 +90,22 @@ FIELD_ALIASES = {
     "備註": "note", "备注": "note", "note": "note", "memo": "note",
 }
 
+#: InBody / HOWBODY 報告紙上的叫法（骨骼肌肉量、體脂肪量、右下肢…）也一併認得
+FIELD_ALIASES.update(brand_aliases())
+
 #: 文字欄位（不轉數字）
 TEXT_FIELDS = {"note"}
 
 #: 這幾個欄位是整數
 INT_FIELDS = {
     "muscle_mass_index", "muscle_quality_score", "bmr_kcal", "metabolic_age",
-    "mq_arm_r", "mq_arm_l", "mq_leg_r", "mq_leg_l", "resting_hr", "hrv",
+    "mq_arm_r", "mq_arm_l", "mq_leg_r", "mq_leg_l", "resting_hr", "hrv", "score",
 }
 
 DATE_KEYS = {"日期", "date", "測量日期", "量測日期", "测量日期", "measurementdate", "datetime"}
 TIME_KEYS = {"時間", "时间", "time", "測量時間", "量測時間"}
 DEVICE_KEYS = {"機型", "机型", "device", "型號", "model", "裝置"}
+BRAND_KEYS = {"品牌", "厂牌", "廠牌", "brand", "maker", "製造商"}
 MBA_KEYS = {"mba判定", "mba", "mba判定結果"}
 
 #: 磅上的評價字（標準／多／高…），只是文字標籤，解析時要丟掉
@@ -170,7 +176,8 @@ def _split_label_value(cell):
     label, value = text[: match.start()], text[match.start():]
     for candidate in (label, _strip_ratings(label)):
         norm = _norm_key(candidate)
-        if norm in FIELD_ALIASES or norm in (DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS):
+        known = DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS | BRAND_KEYS
+        if norm in FIELD_ALIASES or norm in known:
             return (candidate, value)
     return None
 
@@ -219,7 +226,15 @@ def _assign(record, key, value):
         return record["measured_at"] is not None
     if norm in DEVICE_KEYS:
         record["device"] = str(value).strip()[:40]
+        brand = detect_brand(value)
+        if brand:
+            record["brand"] = brand
         return True
+    if norm in BRAND_KEYS:
+        brand = detect_brand(value)
+        if brand:
+            record["brand"] = brand
+        return bool(brand)
     if norm in MBA_KEYS:
         record["mba_rating"] = str(value).strip()[:20]
         return True
@@ -242,7 +257,7 @@ def _looks_like_header(row):
         1
         for cell in row
         if _norm_key(cell) in FIELD_ALIASES
-        or _norm_key(cell) in DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS
+        or _norm_key(cell) in DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS | BRAND_KEYS
     )
     return known >= 2 and known >= len([c for c in row if c]) / 2
 
@@ -298,7 +313,7 @@ def parse_body_composition(text, default_date=None):
                     continue
                 # 認得的項目名，數值在下一行
                 if _norm_key(cell) in FIELD_ALIASES or _norm_key(cell) in (
-                    DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS
+                    DATE_KEYS | TIME_KEYS | DEVICE_KEYS | MBA_KEYS | BRAND_KEYS
                 ):
                     pending = cell
                     continue
@@ -309,6 +324,14 @@ def parse_body_composition(text, default_date=None):
                 key = cell
 
             # App 的畫面會把量測日期單獨放一行（例：「2026年06月07日 (週日)」）
+            # 有些報告紙／App 會把機型單獨印一行（例：「InBody 570」）
+            brand = detect_brand(key)
+            if brand:
+                record["brand"] = brand
+                record.setdefault("device", str(key).strip()[:40])
+                pending = None
+                continue
+
             on_date = _to_date(key)
             if on_date:
                 record["date"] = on_date

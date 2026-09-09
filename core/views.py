@@ -22,6 +22,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils.translation import gettext_lazy as _
 
+from accounts.body_brands import BRAND_PRESETS, GENERIC, detect_brand, form_presets
 from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, User
 from analytics import services as an
@@ -308,6 +309,15 @@ BODY_NUMBER_FIELDS = {
     "body_water_pct": False,
     "bmr_kcal": True,
     "metabolic_age": True,
+    # InBody / HOWBODY 報告紙才有的項目
+    "body_fat_mass_kg": False,
+    "fat_free_mass_kg": False,
+    "tbw_liters": False,
+    "protein_kg": False,
+    "mineral_kg": False,
+    "whr": False,
+    "ecw_tbw": False,
+    "score": True,
     "muscle_arm_r": False,
     "muscle_arm_l": False,
     "muscle_leg_r": False,
@@ -377,6 +387,9 @@ def _body_context(athlete):
         "body_history": history,
         "body_chart": chart,
         "body_today_iso": date.today().isoformat(),
+        "body_brand_presets": jdump(form_presets()),
+        "body_brand_choices": [(key, str(p["name"])) for key, p in BRAND_PRESETS.items()],
+        "body_brand_default": latest.brand if latest and latest.brand else GENERIC,
     }
 
 
@@ -434,11 +447,19 @@ def _body_save(request, athlete):
     if values["weight_kg"] is None:
         raise ValueError(_("體重是必填的。"))
     values["device"] = request.POST.get("device", "").strip()[:40]
+    brand = (request.POST.get("brand") or "").strip().upper()
+    if brand not in BRAND_PRESETS:
+        # 使用者直接打品牌名（"inbody 570"）也認；認不出就當通用
+        brand = detect_brand(brand) or detect_brand(values["device"]) or GENERIC
+    values["brand"] = brand
     values["mba_rating"] = request.POST.get("mba_rating", "").strip()[:20]
     values["note"] = request.POST.get("note", "").strip()
     values["measured_at"] = request.POST.get("measured_at") or None
     values["source"] = BodyMetricLog.Source.MANUAL
     values["source_file"] = ""
+    # 那個牌子沒有印的項目表單上是收起來的，別留下上一次量測的舊值
+    for field in BRAND_PRESETS[brand]["hidden"]:
+        values[field] = None if field != "mba_rating" else ""
 
     _unused, created = BodyMetricLog.objects.update_or_create(
         athlete=athlete, date=on_date, defaults=values

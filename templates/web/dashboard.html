@@ -8,7 +8,8 @@
   <div>
     <h1>{{ athlete.user.get_full_name|default:athlete.user.username }}</h1>
     <div class="subtitle" style="margin:0">
-      {% blocktranslate with v0=athlete.primary_event.display_name v1=athlete.age v2=athlete.height_cm v3=athlete.current_weight_kg %}{{ v0 }} · {{ v1 }} 歲 · {{ v2 }} cm / {{ v3 }} kg ·{% endblocktranslate %}
+      {% blocktranslate with v0=athlete.primary_event.display_name v1=athlete.age v2=athlete.height_cm v3=athlete.current_weight_kg %}{{ v0 }} · {{ v1 }} 歲 ·
+ {{ v2 }} cm / {{ v3 }} kg ·{% endblocktranslate %}
       <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
     </div>
   </div>
@@ -173,6 +174,7 @@
     <div class="between mb">
       <div class="small c-dim">
         {% blocktranslate with v0=body_latest.date %}最新體組成 · {{ v0 }}{% endblocktranslate %}{% if body_latest.measured_at %} {{ body_latest.measured_at|time:"H:i" }}{% endif %}
+        {% if body_latest.brand and body_latest.brand != 'GENERIC' %} · {{ body_latest.get_brand_display }}{% endif %}
         {% if body_latest.device %} · {{ body_latest.device }}{% endif %}
         <span class="badge b-dim">{{ body_latest.get_source_display }}</span>
       </div>
@@ -199,6 +201,12 @@
       <div class="bodycell"><span>{% translate "基礎代謝量" %}</span><b>{{ body_latest.bmr_kcal|default:"—" }} <em>kcal</em></b></div>
       <div class="bodycell"><span>{% translate "肌肉質量指數" %}</span><b>{{ body_latest.muscle_quality_score|default:"—" }}</b></div>
       <div class="bodycell"><span>{% translate "體內年齡" %}</span><b>{{ body_latest.metabolic_age|default:"—" }} <em>{% translate "歲" %}</em></b></div>
+      {% if body_latest.tbw_liters %}<div class="bodycell"><span>{% translate "身體總水分" %}</span><b>{{ body_latest.tbw_liters }} <em>L</em></b></div>{% endif %}
+      {% if body_latest.protein_kg %}<div class="bodycell"><span>{% translate "蛋白質" %}</span><b>{{ body_latest.protein_kg }} <em>kg</em></b></div>{% endif %}
+      {% if body_latest.mineral_kg %}<div class="bodycell"><span>{% translate "無機鹽／礦物質" %}</span><b>{{ body_latest.mineral_kg }} <em>kg</em></b></div>{% endif %}
+      {% if body_latest.whr %}<div class="bodycell"><span>{% translate "腰臀圍比" %}</span><b>{{ body_latest.whr }}</b></div>{% endif %}
+      {% if body_latest.ecw_tbw %}<div class="bodycell"><span>ECW/TBW</span><b>{{ body_latest.ecw_tbw }}</b></div>{% endif %}
+      {% if body_latest.score %}<div class="bodycell"><span>{% translate "體組成分數" %}</span><b>{{ body_latest.score }}</b></div>{% endif %}
     </div>
 
     {% if body_latest.mba_rating or body_latest.note %}
@@ -336,66 +344,93 @@
         <input type="date" name="date" value="{{ body_today_iso }}" required></div>
       <div class="field"><label>{% translate "量測時間" %}</label>
         <input type="time" name="measured_at"></div>
-      <div class="field"><label>{% translate "量測機型" %}</label>
-        <input type="text" name="device" maxlength="40" placeholder="{% translate '例：RD-545AS' %}"></div>
+      <div class="field"><label>{% translate "量測品牌" %}</label>
+        <select name="brand" id="bodyBrand">
+          {% for value, name in body_brand_choices %}
+            <option value="{{ value }}" {% if value == body_brand_default %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select></div>
+      <div class="field" data-body-field="device"><label>{% translate "量測機型" %}</label>
+        <input type="text" name="device" id="bodyDevice" maxlength="40" placeholder="{% translate '例：RD-545AS' %}"></div>
     </div>
+    <div class="small c-dim mb" id="bodyBrandHint" style="display:none"></div>
 
-    <div class="small c-dim mb">{% translate "全身數據" %}</div>
+    <div class="small c-dim mb" data-body-section="whole">{% translate "全身數據" %}</div>
     <div class="row">
-      <div class="field"><label>{% translate "體重 (kg) *" %}</label>
+      <div class="field" data-body-field="weight_kg"><label>{% translate "體重 (kg) *" %}</label>
         <input type="number" name="weight_kg" step="0.1" min="20" max="250" required></div>
-      <div class="field"><label>{% translate "體脂肪率 (%)" %}</label>
+      <div class="field" data-body-field="body_fat_pct"><label>{% translate "體脂肪率 (%)" %}</label>
         <input type="number" name="body_fat_pct" step="0.1" min="1" max="70"></div>
-      <div class="field"><label>{% translate "肌肉量 (kg)" %}</label>
+      <div class="field" data-body-field="muscle_mass_kg"><label>{% translate "肌肉量 (kg)" %}</label>
         <input type="number" name="muscle_mass_kg" step="0.01" min="1" max="150"></div>
-      <div class="field"><label>BMI</label>
+      <div class="field" data-body-field="bmi"><label>BMI</label>
         <input type="number" name="bmi" step="0.1" min="8" max="60"></div>
     </div>
     <div class="row">
-      <div class="field"><label>{% translate "肌肉量判定指數" %}</label>
+      <div class="field" data-body-field="body_fat_mass_kg"><label>{% translate "體脂肪量 (kg)" %}</label>
+        <input type="number" name="body_fat_mass_kg" step="0.01" min="0" max="150"></div>
+      <div class="field" data-body-field="fat_free_mass_kg"><label>{% translate "去脂體重 (kg)" %}</label>
+        <input type="number" name="fat_free_mass_kg" step="0.01" min="1" max="200"></div>
+      <div class="field" data-body-field="tbw_liters"><label>{% translate "身體總水分 (L)" %}</label>
+        <input type="number" name="tbw_liters" step="0.1" min="1" max="99"></div>
+      <div class="field" data-body-field="protein_kg"><label>{% translate "蛋白質 (kg)" %}</label>
+        <input type="number" name="protein_kg" step="0.01" min="0" max="50"></div>
+    </div>
+    <div class="row">
+      <div class="field" data-body-field="mineral_kg"><label>{% translate "無機鹽／礦物質 (kg)" %}</label>
+        <input type="number" name="mineral_kg" step="0.01" min="0" max="20"></div>
+      <div class="field" data-body-field="whr"><label>{% translate "腰臀圍比 WHR" %}</label>
+        <input type="number" name="whr" step="0.01" min="0.5" max="1.5"></div>
+      <div class="field" data-body-field="ecw_tbw"><label>{% translate "細胞外水分比 ECW/TBW" %}</label>
+        <input type="number" name="ecw_tbw" step="0.001" min="0.3" max="0.5"></div>
+      <div class="field" data-body-field="score"><label>{% translate "體組成分數" %}</label>
+        <input type="number" name="score" step="1" min="0" max="120"></div>
+    </div>
+    <div class="row">
+      <div class="field" data-body-field="muscle_mass_index"><label>{% translate "肌肉量判定指數" %}</label>
         <input type="number" name="muscle_mass_index" step="1"></div>
-      <div class="field"><label>{% translate "肌肉質量指數" %}</label>
+      <div class="field" data-body-field="muscle_quality_score"><label>{% translate "肌肉質量指數" %}</label>
         <input type="number" name="muscle_quality_score" step="1"></div>
-      <div class="field"><label>{% translate "內臟脂肪等級" %}</label>
+      <div class="field" data-body-field="visceral_fat_level"><label>{% translate "內臟脂肪等級" %}</label>
         <input type="number" name="visceral_fat_level" step="0.1" min="0" max="60"></div>
-      <div class="field"><label>{% translate "推定骨量 (kg)" %}</label>
+      <div class="field" data-body-field="bone_mass_kg"><label>{% translate "推定骨量 (kg)" %}</label>
         <input type="number" name="bone_mass_kg" step="0.01" min="0" max="10"></div>
     </div>
     <div class="row">
-      <div class="field"><label>{% translate "體水分率 (%)" %}</label>
+      <div class="field" data-body-field="body_water_pct"><label>{% translate "體水分率 (%)" %}</label>
         <input type="number" name="body_water_pct" step="0.1" min="20" max="90"></div>
-      <div class="field"><label>{% translate "基礎代謝量 (kcal)" %}</label>
+      <div class="field" data-body-field="bmr_kcal"><label>{% translate "基礎代謝量 (kcal)" %}</label>
         <input type="number" name="bmr_kcal" step="1" min="500" max="5000"></div>
-      <div class="field"><label>{% translate "體內年齡 (歲)" %}</label>
+      <div class="field" data-body-field="metabolic_age"><label>{% translate "體內年齡 (歲)" %}</label>
         <input type="number" name="metabolic_age" step="1" min="5" max="120"></div>
-      <div class="field"><label>{% translate "MBA 判定" %}</label>
+      <div class="field" data-body-field="mba_rating"><label>{% translate "MBA 判定" %}</label>
         <input type="text" name="mba_rating" maxlength="20" placeholder="{% translate '例：業餘' %}"></div>
     </div>
 
     <details class="mb">
-      <summary class="small c-accent" style="cursor:pointer;margin-bottom:12px">{% translate "部位數據（右／左上肢、右／左腳、軀幹）" %}</summary>
-      <div class="small c-dim mb">{% translate "部位肌肉量 (kg)" %}</div>
+      <summary class="small c-accent" style="cursor:pointer;margin-bottom:12px" data-body-section="segments">{% translate "部位數據（右／左上肢、右／左腳、軀幹）" %}</summary>
+      <div class="small c-dim mb" data-body-section="seg_muscle">{% translate "部位肌肉量 (kg)" %}</div>
       <div class="row">
-        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="muscle_arm_r" step="0.01"></div>
-        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="muscle_arm_l" step="0.01"></div>
-        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="muscle_leg_r" step="0.01"></div>
-        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="muscle_leg_l" step="0.01"></div>
-        <div class="field"><label>{% translate "軀幹" %}</label><input type="number" name="muscle_trunk" step="0.01"></div>
+        <div class="field" data-body-field="muscle_arm_r"><label>{% translate "右上肢" %}</label><input type="number" name="muscle_arm_r" step="0.01"></div>
+        <div class="field" data-body-field="muscle_arm_l"><label>{% translate "左上肢" %}</label><input type="number" name="muscle_arm_l" step="0.01"></div>
+        <div class="field" data-body-field="muscle_leg_r"><label>{% translate "右腳" %}</label><input type="number" name="muscle_leg_r" step="0.01"></div>
+        <div class="field" data-body-field="muscle_leg_l"><label>{% translate "左腳" %}</label><input type="number" name="muscle_leg_l" step="0.01"></div>
+        <div class="field" data-body-field="muscle_trunk"><label>{% translate "軀幹" %}</label><input type="number" name="muscle_trunk" step="0.01"></div>
       </div>
-      <div class="small c-dim mb">{% translate "部位脂肪率 (%)" %}</div>
+      <div class="small c-dim mb" data-body-section="seg_fat">{% translate "部位脂肪率 (%)" %}</div>
       <div class="row">
-        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="fat_arm_r" step="0.1"></div>
-        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="fat_arm_l" step="0.1"></div>
-        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="fat_leg_r" step="0.1"></div>
-        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="fat_leg_l" step="0.1"></div>
-        <div class="field"><label>{% translate "軀幹" %}</label><input type="number" name="fat_trunk" step="0.1"></div>
+        <div class="field" data-body-field="fat_arm_r"><label>{% translate "右上肢" %}</label><input type="number" name="fat_arm_r" step="0.1"></div>
+        <div class="field" data-body-field="fat_arm_l"><label>{% translate "左上肢" %}</label><input type="number" name="fat_arm_l" step="0.1"></div>
+        <div class="field" data-body-field="fat_leg_r"><label>{% translate "右腳" %}</label><input type="number" name="fat_leg_r" step="0.1"></div>
+        <div class="field" data-body-field="fat_leg_l"><label>{% translate "左腳" %}</label><input type="number" name="fat_leg_l" step="0.1"></div>
+        <div class="field" data-body-field="fat_trunk"><label>{% translate "軀幹" %}</label><input type="number" name="fat_trunk" step="0.1"></div>
       </div>
-      <div class="small c-dim mb">{% translate "部位肌肉品質點數" %}</div>
+      <div class="small c-dim mb" data-body-section="seg_quality">{% translate "部位肌肉品質點數" %}</div>
       <div class="row">
-        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="mq_arm_r" step="1"></div>
-        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="mq_arm_l" step="1"></div>
-        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="mq_leg_r" step="1"></div>
-        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="mq_leg_l" step="1"></div>
+        <div class="field" data-body-field="mq_arm_r"><label>{% translate "右上肢" %}</label><input type="number" name="mq_arm_r" step="1"></div>
+        <div class="field" data-body-field="mq_arm_l"><label>{% translate "左上肢" %}</label><input type="number" name="mq_arm_l" step="1"></div>
+        <div class="field" data-body-field="mq_leg_r"><label>{% translate "右腳" %}</label><input type="number" name="mq_leg_r" step="1"></div>
+        <div class="field" data-body-field="mq_leg_l"><label>{% translate "左腳" %}</label><input type="number" name="mq_leg_l" step="1"></div>
       </div>
       <div class="row">
         <div class="field"><label>{% translate "靜息心率" %}</label><input type="number" name="resting_hr" step="1"></div>
@@ -685,6 +720,68 @@ new Chart(document.getElementById('bodyChart'), {
     document.getElementById('newComp').style.display =
       document.getElementById('compPick').value === '__new__' ? 'block' : 'none';
   }
+
+  // 體組成：選了品牌就把欄位名換成那台機報告紙上的叫法，沒印的項目收起來
+  const BODY_PRESETS = {{ body_brand_presets|safe }};
+
+  function applyBodyBrand() {
+    const pick = document.getElementById('bodyBrand');
+    if (!pick) return;
+    const preset = BODY_PRESETS[pick.value] || BODY_PRESETS.GENERIC;
+    const dlg = document.getElementById('bodyDlg');
+
+    dlg.querySelectorAll('[data-body-field]').forEach(box => {
+      const name = box.dataset.bodyField;
+      const label = box.querySelector('label');
+      const input = box.querySelector('input, select, textarea');
+      if (label && !label.dataset.defaultText) label.dataset.defaultText = label.textContent.trim();
+      if (input && input.placeholder && !input.dataset.defaultPlaceholder) {
+        input.dataset.defaultPlaceholder = input.placeholder;
+      }
+      if (label) label.textContent = preset.labels[name] || label.dataset.defaultText;
+
+      const hide = preset.hidden.indexOf(name) !== -1;
+      box.style.display = hide ? 'none' : '';
+      if (input) {
+        // 收起來的欄位不要跟著送出（後端也會清掉，這裡先擋一層）
+        input.disabled = hide;
+        if (hide) input.value = '';
+      }
+    });
+
+    if (preset.device_placeholder) {
+      const device = document.getElementById('bodyDevice');
+      if (device) device.placeholder = preset.device_placeholder;
+    }
+    dlg.querySelectorAll('[data-body-section]').forEach(head => {
+      const slot = head.dataset.bodySection;
+      if (!head.dataset.defaultText) head.dataset.defaultText = head.textContent.trim();
+      const title = slot in preset.sections ? preset.sections[slot] : head.dataset.defaultText;
+      head.style.display = title ? '' : 'none';
+      if (title) head.textContent = title;
+    });
+
+    const hint = document.getElementById('bodyBrandHint');
+    hint.textContent = preset.hint || '';
+    hint.style.display = preset.hint ? '' : 'none';
+  }
+
+  // 機型欄打了 "InBody 570" 之類的字，品牌自己跟著跳
+  function syncBodyBrandFromDevice() {
+    const typed = (document.getElementById('bodyDevice').value || '').toLowerCase();
+    const pick = document.getElementById('bodyBrand');
+    for (const [key, preset] of Object.entries(BODY_PRESETS)) {
+      if ((preset.keywords || []).some(word => typed.includes(word)) && pick.value !== key) {
+        pick.value = key;
+        applyBodyBrand();
+        return;
+      }
+    }
+  }
+
+  document.getElementById('bodyBrand').addEventListener('change', applyBodyBrand);
+  document.getElementById('bodyDevice').addEventListener('input', syncBodyBrandFromDevice);
+  applyBodyBrand();
 
   // 分期：換一段分期就把該段現有的值填回表單
   function fillPhase() {

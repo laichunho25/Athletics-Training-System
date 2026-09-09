@@ -5,6 +5,7 @@ from datetime import date
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.body_brands import HOWBODY, INBODY, detect_brand
 from accounts.body_import import parse_body_composition
 from accounts.models import BodyMetricLog
 from core.test_factories import make_admin, make_athlete, make_coach
@@ -136,6 +137,82 @@ class BodyImportParserTests(TestCase):
         self.assertEqual(records, [])
 
 
+class BodyBrandTests(TestCase):
+    """24/7 Fitness 現時的兩款機：InBody 與 HOWBODY 的叫法要認得。"""
+
+    def test_reads_inbody_report_items(self):
+        text = "\n".join(
+            [
+                "InBody 570",
+                "2026年06月07日",
+                "體重,69.20 kg",
+                "骨骼肌肉量,32.10 kg",
+                "體脂肪量,11.30 kg",
+                "體脂肪率,16.30 %",
+                "去脂體重,57.90 kg",
+                "身體總水分,42.4 L",
+                "蛋白質,11.40 kg",
+                "無機鹽,3.98 kg",
+                "內臟脂肪等級,8",
+                "腰臀圍比,0.85",
+                "細胞外水分比,0.376",
+                "InBody 分數,78",
+                "右下肢肌肉量,9.85 kg",
+            ]
+        )
+        records, unknown = parse_body_composition(text)
+
+        self.assertEqual(len(records), 1)
+        row = records[0]
+        self.assertEqual(row["brand"], INBODY)
+        self.assertEqual(row["weight_kg"], 69.20)
+        self.assertEqual(row["muscle_mass_kg"], 32.10)
+        self.assertEqual(row["body_fat_mass_kg"], 11.30)
+        self.assertEqual(row["fat_free_mass_kg"], 57.90)
+        self.assertEqual(row["tbw_liters"], 42.4)
+        self.assertEqual(row["protein_kg"], 11.40)
+        self.assertEqual(row["mineral_kg"], 3.98)
+        self.assertEqual(row["whr"], 0.85)
+        self.assertEqual(row["ecw_tbw"], 0.376)
+        self.assertEqual(row["score"], 78)
+        self.assertEqual(row["muscle_leg_r"], 9.85)
+        self.assertEqual(unknown, [])
+
+    def test_reads_howbody_report_items(self):
+        text = "\n".join(
+            [
+                "品牌,HOWBODY",
+                "體重,69.20 kg",
+                "骨骼肌肉量,32.10 kg",
+                "體脂肪量,11.30 kg",
+                "身體水分,42.4 L",
+                "礦物質,3.98 kg",
+                "身體年齡,30 歲",
+                "健康分數,82",
+                "右腿肌肉量,9.85 kg",
+                "左臂脂肪率,18.2 %",
+            ]
+        )
+        records, unknown = parse_body_composition(text)
+
+        row = records[0]
+        self.assertEqual(row["brand"], HOWBODY)
+        self.assertEqual(row["muscle_mass_kg"], 32.10)
+        self.assertEqual(row["body_fat_mass_kg"], 11.30)
+        self.assertEqual(row["tbw_liters"], 42.4)
+        self.assertEqual(row["mineral_kg"], 3.98)
+        self.assertEqual(row["metabolic_age"], 30)
+        self.assertEqual(row["score"], 82)
+        self.assertEqual(row["muscle_leg_r"], 9.85)
+        self.assertEqual(row["fat_arm_l"], 18.2)
+        self.assertEqual(unknown, [])
+
+    def test_detect_brand_from_free_text(self):
+        self.assertEqual(detect_brand("InBody 270"), INBODY)
+        self.assertEqual(detect_brand("howbody h30"), HOWBODY)
+        self.assertEqual(detect_brand("RD-545AS"), "")
+
+
 class BodyMetricViewTests(TestCase):
     def setUp(self):
         self.coach = make_coach()
@@ -167,6 +244,48 @@ class BodyMetricViewTests(TestCase):
         self.assertEqual(BodyMetricLog.objects.filter(athlete=self.athlete).count(), 1)
         log.refresh_from_db()
         self.assertEqual(float(log.weight_kg), 68.4)
+
+    def test_manual_entry_keeps_brand_and_brand_only_fields(self):
+        self._login_coach()
+        self.client.post(
+            self.url,
+            {
+                "action": "save",
+                "date": "2026-06-07",
+                "brand": "INBODY",
+                "device": "InBody 570",
+                "weight_kg": "69.2",
+                "muscle_mass_kg": "32.1",
+                "body_fat_mass_kg": "11.3",
+                "tbw_liters": "42.4",
+                "protein_kg": "11.4",
+                "mineral_kg": "3.98",
+                "score": "78",
+                # InBody 不印這幾項，表單上是收起來的
+                "bone_mass_kg": "3.0",
+                "mba_rating": "業餘",
+            },
+        )
+
+        log = BodyMetricLog.objects.get(athlete=self.athlete, date=date(2026, 6, 7))
+        self.assertEqual(log.brand, INBODY)
+        self.assertEqual(float(log.body_fat_mass_kg), 11.3)
+        self.assertEqual(float(log.tbw_liters), 42.4)
+        self.assertEqual(log.score, 78)
+        self.assertIsNone(log.bone_mass_kg)
+        self.assertEqual(log.mba_rating, "")
+        # 磅有印體脂肪量就直接用它，不用體脂率倒推
+        self.assertEqual(log.fat_mass_kg, 11.3)
+
+    def test_brand_typed_into_device_is_recognised(self):
+        self._login_coach()
+        self.client.post(
+            self.url,
+            {"action": "save", "date": "2026-06-07", "brand": "", "device": "HOWBODY H30",
+             "weight_kg": "69.2"},
+        )
+        log = BodyMetricLog.objects.get(athlete=self.athlete, date=date(2026, 6, 7))
+        self.assertEqual(log.brand, HOWBODY)
 
     def test_weight_is_required(self):
         self._login_coach()
@@ -259,7 +378,7 @@ class BodyMetricViewTests(TestCase):
         self.assertIn("體組成紀錄 (Record History)", html)
         self.assertIn("bodyChart", html)            # 時間與身體變化圖表
         self.assertIn("身體變化走勢", html)
-        self.assertIn("右腳", html)                 # 部位數據表
+        self.assertIn("右腳", html)                 # 部位數據表（通用機的叫法）
         self.assertIn("-1.3", html)                 # 與上一次相比體重的變化
 
     def test_athlete_sees_own_body_section(self):
@@ -271,3 +390,7 @@ class BodyMetricViewTests(TestCase):
         # 免費的瀏覽器端截圖辨識
         self.assertIn("辨識圖片文字", html)
         self.assertIn("body-ocr", html)
+        # 品牌選單與各牌子的欄位對照表
+        self.assertIn("量測品牌", html)
+        self.assertIn("HOWBODY", html)
+        self.assertIn("SMM (kg)", html)     # InBody 的欄位對照
