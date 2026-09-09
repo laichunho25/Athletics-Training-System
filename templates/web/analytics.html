@@ -1236,37 +1236,161 @@
     <span>{% translate "如果體脂／肌肉改變，重訓的數字會變成怎樣" %}</span>
     <span class="small c-dim">{% blocktranslate with v0=body_strength.focus.item.display_name %}以 {{ v0 }} 推演{% endblocktranslate %}</span>
   </div>
-  <table>
+  <table id="bsScenarios">
     <thead>
       <tr>
-        <th>{% translate "情境" %}</th>
-        <th class="num">{% translate "體重" %}</th>
-        <th class="num">{% translate "脂肪比例" %}</th>
-        <th class="num">{% translate "去脂體重" %}</th>
-        <th class="num">{% translate "估算 1RM" %}</th>
-        <th class="num">{% translate "每公斤體重" %}</th>
-        <th class="num">{% translate "比值變化" %}</th>
+        <th data-sort="text" style="cursor:pointer">{% translate "情境" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "體重" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "脂肪比例" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "去脂體重" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "估算 1RM" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "每公斤體重" %} <span class="sort-mark small c-dim"></span></th>
+        <th class="num" data-sort="num" style="cursor:pointer">{% translate "比值變化" %} <span class="sort-mark small c-dim"></span></th>
       </tr>
     </thead>
     <tbody>
     {% for s in body_strength.scenarios %}
       <tr {% if s.kind == 'NOW' %}style="background:var(--surface-2)"{% endif %}>
-        <td>{% if s.kind == 'NOW' %}<strong>{{ s.label }}</strong>{% else %}{{ s.label }}{% endif %}</td>
-        <td class="num">{{ s.weight }} kg{% if s.weight_delta %} <span class="small c-dim">{% if s.weight_delta > 0 %}+{% endif %}{{ s.weight_delta }}</span>{% endif %}</td>
-        <td class="num">{{ s.fat_pct|default:"—" }}%</td>
-        <td class="num">{{ s.lean }} kg</td>
-        <td class="num">{{ s.e1rm }} kg</td>
-        <td class="num"><strong>{{ s.per_bw|default:"—" }}×</strong></td>
-        <td class="num">
+        <td>{% if s.kind == 'NOW' or s.kind == 'CUSTOM' %}<strong>{{ s.label }}</strong>{% else %}{{ s.label }}{% endif %}</td>
+        <td class="num" data-v="{{ s.weight }}">{{ s.weight }} kg{% if s.weight_delta %} <span class="small c-dim">{% if s.weight_delta > 0 %}+{% endif %}{{ s.weight_delta }}</span>{% endif %}</td>
+        <td class="num" data-v="{{ s.fat_pct|default:0 }}">{{ s.fat_pct|default:"—" }}%</td>
+        <td class="num" data-v="{{ s.lean }}">{{ s.lean }} kg</td>
+        <td class="num" data-v="{{ s.e1rm }}">{{ s.e1rm }} kg</td>
+        <td class="num" data-v="{{ s.per_bw|default:0 }}"><strong>{{ s.per_bw|default:"—" }}×</strong></td>
+        <td class="num" data-v="{{ s.gain_pct|default:0 }}">
           {% if s.gain_pct %}<span class="{% if s.gain_pct > 0 %}c-green{% else %}c-red{% endif %}">{% if s.gain_pct > 0 %}+{% endif %}{{ s.gain_pct }}%</span>
           {% else %}<span class="c-dim">—</span>{% endif %}
         </td>
       </tr>
     {% endfor %}
+    {% if body_whatif.has_plan %}
+      {% with s=body_whatif.scenario %}
+      <tr style="outline:1px solid var(--accent);outline-offset:-1px">
+        <td>{% if s.kind == 'NOW' or s.kind == 'CUSTOM' %}<strong>{{ s.label }}</strong>{% else %}{{ s.label }}{% endif %}</td>
+        <td class="num" data-v="{{ s.weight }}">{{ s.weight }} kg{% if s.weight_delta %} <span class="small c-dim">{% if s.weight_delta > 0 %}+{% endif %}{{ s.weight_delta }}</span>{% endif %}</td>
+        <td class="num" data-v="{{ s.fat_pct|default:0 }}">{{ s.fat_pct|default:"—" }}%</td>
+        <td class="num" data-v="{{ s.lean }}">{{ s.lean }} kg</td>
+        <td class="num" data-v="{{ s.e1rm }}">{{ s.e1rm }} kg</td>
+        <td class="num" data-v="{{ s.per_bw|default:0 }}"><strong>{{ s.per_bw|default:"—" }}×</strong></td>
+        <td class="num" data-v="{{ s.gain_pct|default:0 }}">
+          {% if s.gain_pct %}<span class="{% if s.gain_pct > 0 %}c-green{% else %}c-red{% endif %}">{% if s.gain_pct > 0 %}+{% endif %}{{ s.gain_pct }}%</span>
+          {% else %}<span class="c-dim">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endwith %}
+    {% endif %}
     </tbody>
   </table>
   <div class="small c-dim" style="padding:10px 16px 14px;border-top:1px solid var(--border)">
+    {% translate "點欄位標題可以照體重、體脂或比值排序，看得出哪一條路換到的比值最多。" %}
     {% translate "減脂情境假設去脂體重守得住（蛋白吃夠、重訓強度不降），所以絕對力量不變、只有負重變輕；增肌情境的絕對力量按去脂體重的 0.67 次方推估（肌肉出力約與橫切面積成正比）。這是推估值，實際還是以下一次量測與真正舉起來的重量為準。" %}
+  </div>
+</div>
+{% endif %}
+
+{% if body_strength.has_body and body_strength.has_strength %}
+<div class="card pad0 mb" id="whatif">
+  <div class="card-head" data-fold-key="bs-custom">
+    <span>{% translate "自己填一組數值：目標體重與體脂下，訓練該用多少公斤" %}</span>
+    <span class="small c-dim">{% translate "填一項也算得出來" %}</span>
+  </div>
+  <div style="padding:16px 18px">
+    <form method="get">
+      <input type="hidden" name="athlete" value="{{ athlete.id }}">
+      {% if domain %}<input type="hidden" name="domain" value="{{ domain }}">{% endif %}
+      {% if item %}<input type="hidden" name="item" value="{{ item.id }}">{% endif %}
+      <div class="grid grid-3">
+        <div class="field">
+          <label>{% translate "假設體重（kg）" %}</label>
+          <input type="number" step="0.1" min="30" max="200" name="wf_weight"
+                 value="{{ request.GET.wf_weight|default:'' }}" placeholder="{{ body_strength.body.weight }}">
+        </div>
+        <div class="field">
+          <label>{% translate "假設脂肪比例（%）" %}</label>
+          <input type="number" step="0.1" min="3" max="50" name="wf_fat"
+                 value="{{ request.GET.wf_fat|default:'' }}" placeholder="{{ body_strength.body.fat_pct|default:'' }}">
+        </div>
+        <div class="field" style="align-self:end">
+          <button class="btn">{% translate "推算訓練重量" %}</button>
+          {% if body_whatif.has_plan %}
+            <a class="btn ghost" href="?athlete={{ athlete.id }}{% if domain %}&domain={{ domain }}{% endif %}#whatif">{% translate "清除" %}</a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="small c-dim">
+        {% translate "只填體重＝當作去脂體重守住、變動全在脂肪；只填體脂＝當作去脂體重守住、脂肪掉到那個比例。" %}
+      </div>
+    </form>
+
+  {% if body_whatif.has_plan %}
+    {% for w in body_whatif.warnings %}
+      <div class="alert red" style="margin:12px 0 0">{{ w }}</div>
+    {% endfor %}
+
+    <div class="grid grid-4 mt mb">
+      <div class="card stat">
+        <div class="label">{% translate "目標體重" %}</div>
+        <div class="value">{{ body_whatif.scenario.weight }} <span class="small">kg</span></div>
+        <div class="hint">{% blocktranslate with v0=body_whatif.weight_delta %}{{ v0 }} kg{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "目標脂肪比例" %}</div>
+        <div class="value">{{ body_whatif.scenario.fat_pct|default:"—" }}<span class="small">%</span></div>
+        <div class="hint">{% blocktranslate with v0=body_whatif.fat_delta %}脂肪 {{ v0 }} kg{% endblocktranslate %}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "主項相對力量" %}</div>
+        <div class="value c-accent">{{ body_whatif.scenario.per_bw|default:"—" }}<span class="small">× BW</span></div>
+        <div class="hint">
+          {% if body_whatif.scenario.gain_pct %}{% if body_whatif.scenario.gain_pct > 0 %}+{% endif %}{{ body_whatif.scenario.gain_pct }}%{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="card stat">
+        <div class="label">{% translate "需時" %}</div>
+        <div class="value">{{ body_whatif.weeks }} <span class="small">{% translate "週" %}</span></div>
+        <div class="hint">{% blocktranslate with v0=body_whatif.per_week v1=body_whatif.kcal_delta %}每週 {{ v0 }} kg · 每日 {{ v1 }} kcal{% endblocktranslate %}</div>
+      </div>
+    </div>
+
+    <h3>{% translate "到那個體重時，各動作的訓練重量" %}</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>{% translate "動作" %}</th>
+          <th class="num">{% translate "現在 1RM" %}</th>
+          <th class="num">{% translate "目標 1RM" %}</th>
+          <th class="num">{% translate "每公斤體重" %}</th>
+          {% for l in body_whatif.lifts.0.loads %}<th class="num">{{ l.pct }}%</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for l in body_whatif.lifts %}
+        <tr>
+          <td><strong>{{ l.item.display_name }}</strong></td>
+          <td class="num c-dim">{{ l.e1rm }} kg</td>
+          <td class="num"><strong>{{ l.e1rm_new }} kg</strong></td>
+          <td class="num">{{ l.per_bw_new|default:"—" }}×
+            {% if l.gain_pct %}<span class="small {% if l.gain_pct > 0 %}c-green{% else %}c-red{% endif %}">{% if l.gain_pct > 0 %}+{% endif %}{{ l.gain_pct }}%</span>{% endif %}
+          </td>
+          {% for w in l.loads %}<td class="num">{{ w.weight }}</td>{% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="small c-dim" style="margin-top:8px">
+      {% translate "百分比欄是該強度的訓練重量（已取整到 2.5 kg）：95% ≈ 2 次、90% ≈ 3 次、85% ≈ 5 次、80% ≈ 6 次、75% ≈ 8 次。把這幾個數字寫進課表，體組成的目標就變成每一次上槓的重量。" %}
+    </div>
+
+    <div class="alert green mt">
+      {% translate "決定用這組數值？" %}
+      <a class="btn" style="margin-left:8px"
+         href="{% url 'web:nutrition' %}?athlete={{ athlete.id }}&goal_weight={{ body_whatif.scenario.weight }}&goal_fat={{ body_whatif.scenario.fat_pct }}#bodygoal">
+        {% translate "帶去運動營養與恢復，做出調整方案 →" %}
+      </a>
+    </div>
+  {% elif request.GET.wf_weight or request.GET.wf_fat %}
+    <div class="alert yellow mt">{% translate "體重請填 30–200 kg、脂肪比例請填 3–50%，這樣才算得出來。" %}</div>
+  {% endif %}
   </div>
 </div>
 {% endif %}
@@ -1295,6 +1419,39 @@
 <script src="{% static 'js/libpick.js' %}"></script>
 <script>
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
+
+// ---- 情境表排序：點欄位標題就照那一欄排，再點一次反向 --------------------
+// 情境本來按「現況 → 減脂 → 增肌」排，但要比較的是「哪一條路換到的比值最多」，
+// 所以讓每一欄都能排；數值欄讀 data-v，避免把 "72.5 kg" 當字串比。
+(function () {
+  const table = document.getElementById('bsScenarios');
+  if (!table) { return; }
+  const heads = [...table.tHead.rows[0].cells];
+  const body = table.tBodies[0];
+  let sorted = null, asc = false;
+
+  heads.forEach((th, col) => {
+    const kind = th.dataset.sort;
+    if (!kind) { return; }
+    th.addEventListener('click', () => {
+      asc = sorted === col ? !asc : (kind === 'text');
+      sorted = col;
+      const rows = [...body.rows];
+      rows.sort((a, b) => {
+        const ca = a.cells[col], cb = b.cells[col];
+        if (kind === 'num') {
+          return (parseFloat(ca.dataset.v) || 0) - (parseFloat(cb.dataset.v) || 0);
+        }
+        return ca.textContent.trim().localeCompare(cb.textContent.trim());
+      });
+      if (!asc) { rows.reverse(); }
+      rows.forEach(r => body.appendChild(r));
+      heads.forEach(h => { const m = h.querySelector('.sort-mark'); if (m) { m.textContent = ''; } });
+      const mark = th.querySelector('.sort-mark');
+      if (mark) { mark.textContent = asc ? '\u25b2' : '\u25bc'; }
+    });
+  });
+})();
 
 {% if item %}
 const pts = {{ chart_points|safe }};

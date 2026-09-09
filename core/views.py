@@ -7,6 +7,7 @@ import re
 from datetime import date, datetime, timedelta
 from datetime import timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -2451,6 +2452,10 @@ def analytics_view(request):
     # 脂肪比例、肌肉比例、體重與「每公斤體重舉得起多少」擺在一起看，
     # 再推演體脂降下來／去脂體重加上去之後，比值會變成多少。
     body_strength = bs.strength_ratio_report(athlete)
+    # 自己填一組假設的體重／體脂，看重訓的數字與該用的訓練重量變成怎樣
+    body_whatif = bs.custom_plan(
+        body_strength, request.GET.get("wf_weight"), request.GET.get("wf_fat")
+    )
 
     return render(
         request,
@@ -2526,6 +2531,7 @@ def analytics_view(request):
             "comparison": comparison,
             # 體組成 × 重量訓練比值
             "body_strength": body_strength,
+            "body_whatif": body_whatif,
             "bs_labels": jdump([p["date"] for p in body_strength["series"]]),
             "bs_per_bw": jdump([p["per_bw"] for p in body_strength["series"]]),
             "bs_fat": jdump([p["fat_pct"] for p in body_strength["series"]]),
@@ -2578,6 +2584,16 @@ def nutrition_view(request):
         elif action == "recalc":
             nu.calculate_targets(athlete, today, goal=request.POST.get("goal", "MAINTAIN"))
             messages.success(request, _("已重新計算今日營養目標。"))
+            # 從數據分析帶過來的自訂目標要留著，不然算完就掉了
+            if request.POST.get("goal_weight") or request.POST.get("goal_fat"):
+                params = urlencode(
+                    {
+                        k: request.POST.get(k, "")
+                        for k in ("goal_weight", "goal_fat")
+                        if request.POST.get(k)
+                    }
+                )
+                return redirect(f"{reverse('web:nutrition')}?{params}#bodygoal")
         elif action == "meal_add":
             _save_meal(request, athlete)
         elif action == "meal_regrams":
@@ -2607,7 +2623,11 @@ def nutrition_view(request):
     plan = nu.supplement_plan(athlete, today, target=target)
     insight = nu.body_composition_insight(athlete, target=target)
     # 數據分析算出「體脂與體重該往哪走」，這裡翻成今天餐桌上的數字
-    body_goal = nu.body_goal_plan(athlete, target=target)
+    body_goal = nu.body_goal_plan(
+        athlete,
+        target=target,
+        custom=(request.GET.get("goal_weight"), request.GET.get("goal_fat")),
+    )
 
     return render(
         request,

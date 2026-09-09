@@ -494,17 +494,25 @@ DIRECTION_ACTIONS = {
 }
 
 
-def body_goal_plan(athlete, target=None, report=None):
+def body_goal_plan(athlete, target=None, report=None, custom=None):
     """把數據分析算出來的體重／體脂方向，翻成今天餐桌上的數字。
 
     數據分析頁回答的是「改變體脂與體重，重訓比值會變成多少」；
     這裡回答「那要怎麼吃」——每日熱量、蛋白下限、執行重點，
     以及做完之後相對力量能換到多少，讓方向本身變得值得做。
+
+    `custom` 是運動員在數據分析頁自己填的 (體重, 體脂%)；有填就照他決定的
+    數值走，系統建議退到旁邊，但速度與下限的提醒照樣給。
     """
     from analytics import body_strength as bs
 
     report = report or bs.strength_ratio_report(athlete)
     rec = report.get("recommendation")
+    custom_plan = None
+    if custom and any(custom):
+        custom_plan = bs.custom_plan(report, custom[0], custom[1])
+        if custom_plan.get("has_plan"):
+            rec = custom_plan["rec"]
     if rec is None:
         return {"has_plan": False, "report": report}
 
@@ -525,7 +533,7 @@ def body_goal_plan(athlete, target=None, report=None):
     payoff = rec.get("payoff")
     focus = rec.get("focus")
     why = []
-    if payoff and focus and payoff.get("gain_pct"):
+    if payoff and focus and (payoff.get("gain_pct") or 0) > 0:
         why.append(
             _("走完這 %(weeks)s 週，%(name)s 每公斤體重舉得起的會從 %(now)s 變成 %(then)s（+%(gain).1f%%）——"
               "起跑與跳躍靠的就是這個比值。")
@@ -562,8 +570,53 @@ def body_goal_plan(athlete, target=None, report=None):
         "actions": DIRECTION_ACTIONS.get(rec["direction"], []),
         "why": why,
         "goal_choice": rec["goal"],
+        "is_custom": bool(rec.get("custom")),
+        "custom_plan": custom_plan,
+        "warnings": (custom_plan or {}).get("warnings", []),
+        "phases": phase_schedule(rec, kcal_now),
     }
 
 
 def _ratio_text(value):
     return f"{value:.2f}×" if value else "—"
+
+
+#: 調整方案切成幾段；段數再多也只是把同一件事寫得更碎
+MAX_PHASES = 4
+
+
+def phase_schedule(rec, kcal_now):
+    """把整段目標切成幾個檢查點：每一段要到哪個體重體脂、當週吃多少。
+
+    一次給一個遙遠的目標很難走；切成幾段，每一段都有可以量得到的中繼點，
+    最後一段回到維持量，把成果穩住而不是一路餓下去。
+    """
+    weeks = rec.get("weeks") or 0
+    if not weeks or kcal_now is None:
+        return []
+
+    steps = min(MAX_PHASES, weeks)
+    w0, wt = rec["weight_now"], rec["target_weight"]
+    f0, ft = rec.get("fat_pct_now"), rec.get("target_fat_pct")
+    kcal_goal = kcal_now + rec["kcal_delta"]
+    rows = []
+    for i in range(1, steps + 1):
+        share = i / steps
+        week_to = max(1, int(round(weeks * share)))
+        last = i == steps
+        if i == 1:
+            note = _("建立節奏：同一天同一時間量體重與體脂，這一段先求穩定不求快。")
+        elif last:
+            note = _("收尾：回到維持量，讓體重在目標上下 0.5 kg 站穩兩週再談下一步。")
+        else:
+            note = _("檢查點：連續兩週沒動就把熱量再調 10%，有動就一個字都不要改。")
+        rows.append(
+            {
+                "week_to": week_to,
+                "weight": round(w0 + (wt - w0) * share, 1),
+                "fat_pct": round(f0 + (ft - f0) * share, 1) if f0 and ft else None,
+                "kcal": kcal_now if last and rec["kcal_delta"] else kcal_goal,
+                "note": note,
+            }
+        )
+    return rows

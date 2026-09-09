@@ -234,3 +234,143 @@ class PageTests(TestCase):
                 self.assertEqual(
                     self.client.get(url, {"athlete": empty.id}).status_code, 200
                 )
+
+
+class CustomPlanTests(TestCase):
+    def setUp(self):
+        self.athlete = make_athlete("wf1")
+        add_body(self.athlete, TODAY, 80, 20)      # 去脂 64.0 / 脂肪 16.0
+        add_lift(self.athlete, squat_item(), TODAY, 160, 1)
+        self.report = bs.strength_ratio_report(self.athlete)
+
+    def test_both_inputs_are_used_as_given(self):
+        plan = bs.custom_plan(self.report, "75", "14")
+
+        self.assertTrue(plan["has_plan"])
+        self.assertEqual(plan["scenario"]["weight"], 75.0)
+        self.assertEqual(plan["scenario"]["fat_pct"], 14.0)
+        self.assertEqual(plan["scenario"]["lean"], 64.5)      # 75 × 0.86
+        self.assertGreater(plan["scenario"]["per_bw"], self.report["focus"]["per_bw"])
+
+    def test_weight_only_keeps_lean_mass(self):
+        plan = bs.custom_plan(self.report, "75", None)
+
+        self.assertEqual(plan["scenario"]["lean"], 64.0)      # 去脂體重守住
+        self.assertEqual(plan["scenario"]["e1rm"], 160.0)     # 絕對力量不變
+        self.assertEqual(plan["scenario"]["per_bw"], 2.13)    # 160 / 75
+
+    def test_fat_pct_only_derives_the_weight(self):
+        plan = bs.custom_plan(self.report, None, "16")
+
+        self.assertEqual(plan["scenario"]["lean"], 64.0)
+        self.assertEqual(plan["scenario"]["weight"], 76.2)    # 64 / 0.84
+
+    def test_training_loads_follow_the_projected_1rm(self):
+        plan = bs.custom_plan(self.report, "75", None)
+        lift = plan["lifts"][0]
+
+        self.assertEqual(lift["e1rm_new"], 160.0)
+        # 2.5 kg 一跳，寫得進課表
+        self.assertEqual([w["pct"] for w in lift["loads"]], [95, 90, 85, 80, 75])
+        self.assertEqual(lift["loads"][0]["weight"], 152.5)
+        self.assertTrue(all(w["weight"] % 2.5 == 0 for w in lift["loads"]))
+
+    def test_pace_and_daily_kcal_come_from_the_gap(self):
+        plan = bs.custom_plan(self.report, "76", None)   # 掉 4 kg 脂肪
+
+        self.assertEqual(plan["weeks"], 10)              # 每週 0.4 kg（體重的 0.5%）
+        self.assertLess(plan["kcal_delta"], 0)
+        self.assertEqual(plan["rec"]["goal"], "LOSE")
+
+    def test_too_fast_and_below_band_are_flagged(self):
+        plan = bs.custom_plan(self.report, "68", "4")
+
+        self.assertTrue(plan["has_plan"])
+        self.assertTrue(plan["warnings"])
+        self.assertEqual(plan["rec"]["direction"], "FUEL")
+
+    def test_lean_loss_is_flagged(self):
+        plan = bs.custom_plan(self.report, "60", None)   # 低於去脂體重 64
+
+        self.assertTrue(any("去脂體重" in str(w) for w in plan["warnings"]))
+
+    def test_junk_and_empty_input_means_no_plan(self):
+        for weight, fat in (("", ""), ("abc", None), ("500", None), (None, "90")):
+            with self.subTest(weight=weight, fat=fat):
+                self.assertFalse(bs.custom_plan(self.report, weight, fat)["has_plan"])
+
+
+class CustomToNutritionTests(TestCase):
+    def setUp(self):
+        self.athlete = make_athlete("wf2")
+        add_body(self.athlete, TODAY, 80, 20)
+        add_lift(self.athlete, squat_item(), TODAY, 160, 1)
+        self.target = nu.calculate_targets(self.athlete, TODAY)
+
+    def test_custom_values_drive_the_nutrition_plan(self):
+        plan = nu.body_goal_plan(self.athlete, target=self.target, custom=("75", "14"))
+
+        self.assertTrue(plan["has_plan"] and plan["is_custom"])
+        self.assertEqual(plan["rec"]["target_weight"], 75.0)
+        self.assertEqual(plan["rec"]["target_fat_pct"], 14.0)
+        self.assertEqual(plan["kcal_goal"], self.target.target_kcal + plan["kcal_delta"])
+        self.assertTrue(plan["actions"])
+
+    def test_no_custom_values_falls_back_to_the_recommendation(self):
+        plan = nu.body_goal_plan(self.athlete, target=self.target, custom=(None, None))
+
+        self.assertFalse(plan["is_custom"])
+        self.assertEqual(plan["rec"], plan["report"]["recommendation"])
+
+    def test_phases_end_at_the_target_and_back_at_maintenance(self):
+        plan = nu.body_goal_plan(self.athlete, target=self.target, custom=("76", None))
+        phases = plan["phases"]
+
+        self.assertTrue(phases)
+        self.assertEqual(phases[-1]["week_to"], plan["rec"]["weeks"])
+        self.assertEqual(phases[-1]["weight"], 76.0)
+        # 中間段吃調整後的熱量，最後一段回到維持量
+        self.assertEqual(phases[0]["kcal"], plan["kcal_goal"])
+        self.assertEqual(phases[-1]["kcal"], plan["kcal_now"])
+
+
+class CustomPageTests(TestCase):
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete("wf_page", coach=self.coach)
+        add_body(self.athlete, TODAY, 80, 20)
+        add_lift(self.athlete, squat_item(), TODAY, 160, 1)
+        self.client.force_login(self.coach.user)
+
+    def test_analytics_shows_the_custom_projection(self):
+        res = self.client.get(
+            reverse("web:analytics"),
+            {"athlete": self.athlete.id, "domain": "STRENGTH", "wf_weight": "75", "wf_fat": "14"},
+        )
+
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.context["body_whatif"]["has_plan"])
+        self.assertContains(res, "到那個體重時，各動作的訓練重量")
+        # 帶去營養頁的連結要把決定好的數值一起帶過去
+        self.assertContains(res, "goal_weight=75.0")
+
+    def test_nutrition_accepts_the_values_and_builds_the_phases(self):
+        res = self.client.get(
+            reverse("web:nutrition"),
+            {"athlete": self.athlete.id, "goal_weight": "75", "goal_fat": "14"},
+        )
+
+        self.assertEqual(res.status_code, 200)
+        plan = res.context["body_goal"]
+        self.assertTrue(plan["is_custom"])
+        self.assertEqual(plan["rec"]["target_weight"], 75.0)
+        self.assertContains(res, "調整方案：一段一段走")
+
+    def test_recalc_keeps_the_custom_values(self):
+        res = self.client.post(
+            reverse("web:nutrition"),
+            {"action": "recalc", "goal": "LOSE", "goal_weight": "75", "goal_fat": "14"},
+        )
+
+        self.assertEqual(res.status_code, 302)
+        self.assertIn("goal_weight=75", res["Location"])

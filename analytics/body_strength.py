@@ -445,3 +445,196 @@ def _read_the_trend(report):
             % {"w": weight_chg, "name": name, "r": abs(ratio_chg)}
         )
     return notes
+
+
+# --------------------------------------------------- 自訂假設 → 訓練計劃
+
+#: 目標達成後的訓練負荷表：%1RM → 這個強度大概做幾次
+TRAINING_LOADS = ((0.95, 2), (0.90, 3), (0.85, 5), (0.80, 6), (0.75, 8))
+
+#: 自訂數值的合理範圍，超出就當成打錯字
+WEIGHT_RANGE = (30.0, 200.0)
+FAT_PCT_RANGE = (3.0, 50.0)
+
+#: 每週掉超過體重這個百分比就算太急
+MAX_SAFE_RATE_PCT = 1.0
+
+
+def _as_float(value, limits):
+    """把畫面上填進來的字串轉成數字；空白、亂填或超出範圍都當成沒填。"""
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    low, high = limits
+    return number if low <= number <= high else None
+
+
+def training_loads(e1rm):
+    """由估算 1RM 推出各強度該用幾公斤——這是把假設接回訓練課表的那一步。"""
+    if not e1rm:
+        return []
+    return [
+        {"pct": int(pct * 100), "reps": reps, "weight": round(e1rm * pct / 2.5) * 2.5}
+        for pct, reps in TRAINING_LOADS
+    ]
+
+
+def custom_plan(report, weight=None, fat_pct=None):
+    """運動員自己填「體重 X kg、體脂 Y%」，推出重訓的數字與該用的訓練重量。
+
+    只填一項也算得出來：只填體重，當作去脂體重守住、變動全在脂肪；
+    只填體脂，當作去脂體重守住、脂肪掉到那個比例。兩項都填就照填的算。
+    """
+    body, focus = report.get("body"), report.get("focus")
+    weight = _as_float(weight, WEIGHT_RANGE)
+    fat_pct = _as_float(fat_pct, FAT_PCT_RANGE)
+    if not body or not focus or not body.get("lean") or body.get("fat_mass") is None:
+        return {"has_plan": False, "weight_in": weight, "fat_pct_in": fat_pct}
+    if weight is None and fat_pct is None:
+        return {"has_plan": False, "weight_in": None, "fat_pct_in": None}
+
+    lean0, fat0, w0 = body["lean"], body["fat_mass"], body["weight"]
+    warnings = []
+
+    if weight is not None and fat_pct is not None:
+        lean_new = round(weight * (1 - fat_pct / 100), 1)
+        fat_new = round(weight - lean_new, 1)
+    elif weight is not None:
+        lean_new, fat_new = lean0, round(weight - lean0, 1)
+        if fat_new < 0:
+            # 只靠掉脂肪到不了這個體重，剩下的只能從去脂體重扣
+            lean_new, fat_new = round(weight, 1), 0.0
+            warnings.append(
+                _("這個體重低於現在的去脂體重（%(v0)s kg），代表連肌肉都要掉——"
+                  "先把目標放在體脂率，不要只追體重數字。") % {"v0": lean0}
+            )
+    else:
+        lean_new = lean0
+        weight = round(lean0 / (1 - fat_pct / 100), 1)
+        fat_new = round(weight - lean_new, 1)
+
+    weight = round(lean_new + fat_new, 1)
+    scenario = _scenario(
+        _("自訂目標"), "CUSTOM", body, focus["e1rm"], lean_new, fat_new,
+        focus["item"].unit or "kg",
+    )
+
+    # ---- 每個動作在目標體重下的推估值與該用的訓練重量 ----
+    factor = (lean_new / lean0) ** LEAN_EXPONENT if lean0 else 1.0
+    lifts = []
+    for row in report.get("lifts", []):
+        e1rm_new = round(row["e1rm"] * factor, 1)
+        per_bw_new = _ratio(e1rm_new, weight)
+        lifts.append(
+            {
+                "item": row["item"],
+                "e1rm": row["e1rm"],
+                "per_bw": row["per_bw"],
+                "e1rm_new": e1rm_new,
+                "per_bw_new": per_bw_new,
+                "gain_pct": (
+                    round((per_bw_new - row["per_bw"]) / row["per_bw"] * 100, 1)
+                    if per_bw_new and row["per_bw"]
+                    else None
+                ),
+                "loads": training_loads(e1rm_new),
+            }
+        )
+
+    weight_delta = round(weight - w0, 1)
+    lean_delta = round(lean_new - lean0, 1)
+    fat_delta = round(fat_new - fat0, 1)
+    low, high = report["bands"]
+
+    # ---- 需時：減脂照緩降速度，增去脂體重照每週上限，取比較久的那個 ----
+    weeks_fat = abs(fat_delta) / max(w0 * CUT_RATE_PCT / 100, 0.1) if fat_delta < -0.05 else 0
+    weeks_lean = lean_delta / LEAN_GAIN_KG_PER_WEEK if lean_delta > 0.05 else 0
+    weeks_gain_fat = fat_delta / max(w0 * CUT_RATE_PCT / 100, 0.1) if fat_delta > 0.05 else 0
+    weeks = max(1, int(round(max(weeks_fat, weeks_lean, weeks_gain_fat))))
+
+    per_week = round(weight_delta / weeks, 2)
+    kcal_delta = int(round(per_week * KCAL_PER_KG / 7))
+    if lean_delta > 0.05 and fat_delta >= -0.05:
+        kcal_delta = max(kcal_delta, LEAN_GAIN_KCAL)
+
+    if fat_delta < -0.05 and lean_delta > 0.05:
+        warnings.append(
+            _("同時要掉脂肪又要加去脂體重（體態重組）是走得到的，但比單做一邊慢："
+              "熱量抓在維持量附近、蛋白拉到 2.4 g/kg 去脂體重、重訓強度一點都不能降。")
+        )
+    if abs(per_week) > w0 * MAX_SAFE_RATE_PCT / 100:
+        warnings.append(
+            _("照這個目標算，每週要變動 %(v0)s kg，超過體重的 %(v1)s%%——"
+              "把週數拉長一點，急降連肌肉一起掉，比值反而變差。")
+            % {"v0": abs(per_week), "v1": f"{MAX_SAFE_RATE_PCT:g}"}
+        )
+    if scenario["fat_pct"] is not None and scenario["fat_pct"] < low:
+        warnings.append(
+            _("目標體脂 %(v0)s%% 低於這個性別的參考帶下緣（%(v1)s%%）。"
+              "再低下去掉的是肌肉、骨質與荷爾蒙，力量會跟著掉。")
+            % {"v0": scenario["fat_pct"], "v1": f"{low:g}"}
+        )
+    if lean_delta < -0.5:
+        warnings.append(
+            _("這個目標會少掉 %(v0)s kg 去脂體重，絕對力量會跟著下來——"
+              "如果不是刻意要降量級，把去脂體重守住再談體重。") % {"v0": abs(lean_delta)}
+        )
+
+    # ---- 用同一份格式餵給營養頁，那邊就不必再認一種資料 ----
+    if scenario["fat_pct"] is not None and scenario["fat_pct"] < low:
+        direction = "FUEL"
+    elif lean_delta > 0.05 and fat_delta >= -0.05:
+        direction = "GAIN"
+    elif fat_delta < -0.05:
+        direction = "CUT" if (body["fat_pct"] or 0) > high else "TRIM"
+    else:
+        direction = "GAIN" if weight_delta > 0 else "TRIM"
+
+    headline = _("自訂目標：%(w)s kg / 體脂 %(f)s%%（去脂體重 %(l)s kg）。"
+                 "%(name)s 每公斤體重舉得起的會從 %(now)s 變成 %(then)s。") % {
+        "w": weight,
+        "f": scenario["fat_pct"],
+        "l": round(lean_new, 1),
+        "name": focus["item"].display_name,
+        "now": f"{focus['per_bw']:.2f}×" if focus["per_bw"] else "—",
+        "then": f"{scenario['per_bw']:.2f}×" if scenario["per_bw"] else "—",
+    }
+    protein_per_kg = 2.4 if direction in ("CUT", "TRIM") else 2.0
+    rec = {
+        "direction": direction,
+        "goal": "LOSE" if kcal_delta < 0 else ("GAIN" if kcal_delta > 0 else "MAINTAIN"),
+        "headline": headline,
+        "fat_pct_now": body["fat_pct"],
+        "target_fat_pct": scenario["fat_pct"],
+        "weight_now": w0,
+        "target_weight": weight,
+        "weight_delta": weight_delta,
+        "lean_delta": lean_delta,
+        "weeks": weeks,
+        "rate_text": _("每週約 %(v0)s kg") % {"v0": per_week},
+        "kcal_delta": kcal_delta,
+        "protein_per_kg_lean": protein_per_kg,
+        "protein_g": int(round(protein_per_kg * lean_new)),
+        "payoff": scenario,
+        "focus": focus,
+        "custom": True,
+    }
+
+    return {
+        "has_plan": True,
+        "weight_in": weight,
+        "fat_pct_in": scenario["fat_pct"],
+        "scenario": scenario,
+        "lifts": lifts,
+        "weight_delta": weight_delta,
+        "lean_delta": lean_delta,
+        "fat_delta": fat_delta,
+        "weeks": weeks,
+        "per_week": per_week,
+        "kcal_delta": kcal_delta,
+        "warnings": warnings,
+        "rec": rec,
+    }

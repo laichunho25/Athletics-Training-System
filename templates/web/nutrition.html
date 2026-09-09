@@ -293,6 +293,7 @@
   <div class="card-head" data-fold-key="body-goal">
     <span>{% translate "體重與體脂方向：吃出重訓的比值" %}</span>
     {% if body_goal.has_plan %}
+      {% if body_goal.is_custom %}<span class="badge">{% translate "自訂目標" %}</span>{% endif %}
       <span class="badge {% if body_goal.rec.direction == 'FUEL' %}b-red{% elif body_goal.rec.direction == 'GAIN' %}b-green{% else %}b-yellow{% endif %}">
         {% if body_goal.rec.direction == 'CUT' %}{% translate "減脂" %}
         {% elif body_goal.rec.direction == 'TRIM' %}{% translate "小幅修" %}
@@ -306,6 +307,17 @@
     <div class="alert {% if body_goal.rec.direction == 'FUEL' %}red{% elif body_goal.rec.direction == 'GAIN' %}green{% else %}yellow{% endif %}" style="margin:0 0 14px">
       {{ body_goal.rec.headline }}
     </div>
+
+    {% for w in body_goal.warnings %}
+      <div class="alert red" style="margin:0 0 10px">{{ w }}</div>
+    {% endfor %}
+    {% if body_goal.is_custom %}
+      <div class="small c-dim" style="margin-bottom:10px">
+        {% translate "這是你在數據分析頁自己決定的數值。" %}
+        <a href="?athlete={{ athlete.id }}#bodygoal">{% translate "回到系統建議" %}</a> ·
+        <a href="{% url 'web:analytics' %}?athlete={{ athlete.id }}&domain=STRENGTH&wf_weight={{ body_goal.rec.target_weight }}&wf_fat={{ body_goal.rec.target_fat_pct }}#whatif">{% translate "回去改數值" %}</a>
+      </div>
+    {% endif %}
 
     <!-- 先講「值得做」，再講「怎麼做」——方向要吸引人，運動員才走得下去 -->
     {% for line in body_goal.why %}
@@ -372,6 +384,10 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="recalc">
           <input type="hidden" name="goal" value="{{ body_goal.goal_choice }}">
+          {% if body_goal.is_custom %}
+            <input type="hidden" name="goal_weight" value="{{ body_goal.rec.target_weight }}">
+            <input type="hidden" name="goal_fat" value="{{ body_goal.rec.target_fat_pct }}">
+          {% endif %}
           <button class="btn">{% translate "把今日營養目標改成這個方向" %}</button>
         </form>
       </div>
@@ -381,6 +397,29 @@
         <ul style="padding-left:18px;margin:0">
           {% for a in body_goal.actions %}<li class="small" style="margin-bottom:6px">{{ a }}</li>{% endfor %}
         </ul>
+        {% if body_goal.phases %}
+          <h3 class="mt">{% translate "調整方案：一段一段走" %}</h3>
+          <table>
+            <thead><tr><th>{% translate "到第幾週" %}</th><th class="num">{% translate "體重" %}</th><th class="num">{% translate "體脂" %}</th><th class="num">{% translate "每日熱量" %}</th></tr></thead>
+            <tbody>
+            {% for p in body_goal.phases %}
+              <tr>
+                <td>
+                  {% blocktranslate with v0=p.week_to %}第 {{ v0 }} 週{% endblocktranslate %}
+                  <div class="small c-dim">{{ p.note }}</div>
+                </td>
+                <td class="num">{{ p.weight }} kg</td>
+                <td class="num">{{ p.fat_pct|default:"—" }}%</td>
+                <td class="num">{{ p.kcal }} kcal</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          <div class="small c-dim" style="margin-top:8px">
+            {% translate "每一段都有量得到的中繼點：到了就照計畫走下去，沒到就先檢查有沒有照吃、有沒有照練，再動熱量。最後一段回到維持量，把成果站穩。" %}
+          </div>
+        {% endif %}
+
         {% if body_goal.rec.payoff %}
           <div class="alert green" style="margin:12px 0 0">
             {% blocktranslate with v0=body_goal.rec.focus.item.display_name v1=body_goal.rec.payoff.e1rm v2=body_goal.rec.payoff.per_bw %}走到目標時，{{ v0 }} 的推估 1RM 約 {{ v1 }} kg、每公斤體重 {{ v2 }}×。{% endblocktranslate %}
