@@ -1,4 +1,6 @@
 from datetime import timedelta
+
+from django.db.models import Q
 from django.utils.translation import gettext as _
 
 from rest_framework import status, viewsets
@@ -32,14 +34,20 @@ class CompetitionViewSet(viewsets.ModelViewSet):
     queryset = Competition.objects.all()
     serializer_class = CompetitionSerializer
     permission_classes = [IsCoachOrAdmin]
-    filterset_fields = ["level", "is_target"]
+    filterset_fields = ["athlete", "level", "is_target", "is_warmup"]
+
+    def get_queryset(self):
+        # 賽事是掛在運動員底下的，看不到那名運動員就看不到他的賽事
+        return super().get_queryset().filter(
+            Q(athlete__in=athlete_ids_visible_to(self.request.user)) | Q(athlete__isnull=True)
+        )
 
     @action(detail=False, methods=["get"])
     def target(self, request):
         """目前的主目標賽事（含倒數）。"""
         from datetime import date
 
-        comp = Competition.objects.filter(is_target=True, date__gte=date.today()).first()
+        comp = self.get_queryset().filter(is_target=True, date__gte=date.today()).first()
         if comp is None:
             return Response({"detail": _("尚未設定主目標賽事。")}, status=status.HTTP_404_NOT_FOUND)
         return Response(self.get_serializer(comp).data)

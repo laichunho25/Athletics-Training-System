@@ -495,7 +495,9 @@ def athlete_dashboard(athlete, on_date=None):
     target = (
         macro.target_competition
         if macro
-        else Competition.objects.filter(is_target=True, date__gte=on_date).first()
+        else Competition.objects.filter(
+            athlete=athlete, is_target=True, date__gte=on_date
+        ).first()
     )
     phase = macro.current_phase if macro else None
 

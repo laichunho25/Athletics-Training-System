@@ -104,6 +104,7 @@ from planning.models import (
     TrainingSession,
     project_athletes,
     projects_for,
+    weeks_between,
 )
 from programs.models import Application, Project
 from programs.services import ImportError_ as ProgramImportError
@@ -271,9 +272,13 @@ def dashboard(request):
             # 「距離目標賽事 / 目前分期」兩張卡片的編輯用資料
             "macro": macro,
             "phases": macro.phases.all() if macro else [],
-            "competitions": Competition.objects.filter(
+            "competitions": athlete_competitions(athlete).filter(
                 date__gte=date.today() - timedelta(days=30)
-            ).order_by("date"),
+            ),
+            # 熱身賽要挑「為了哪一場重要比賽而備戰」，所以只列重要比賽
+            "key_competitions": athlete_competitions(athlete).filter(
+                is_warmup=False, date__gte=date.today()
+            ),
             "competition_levels": CompetitionLevel.choices,
             "phase_types": PhaseType.choices,
             "can_edit_plan": _can_edit_plan(request.user, athlete),
@@ -842,9 +847,29 @@ def _plan_int(raw, low, high, default):
     return max(low, min(high, value))
 
 
+def athlete_competitions(athlete):
+    """這名運動員自己的賽事。
+
+    賽事是一人一份的：別人加的目標賽事不會出現在這裡。athlete 留空的是
+    舊資料（欄位加上去之前建的），誰先拿來用就歸誰——見 _save_target。
+    """
+    return Competition.objects.filter(
+        Q(athlete=athlete) | Q(athlete__isnull=True)
+    ).order_by("date")
+
+
 def _save_target(request, athlete):
     """存目標賽事：順便把備戰大週期（起始日、週數、基準負荷）一起定下來。"""
     choice = request.POST.get("competition", "")
+    is_warmup = request.POST.get("comp_is_warmup") == "1"
+    prep_for = None
+    if is_warmup and request.POST.get("comp_prep_for"):
+        prep_for = athlete_competitions(athlete).filter(
+            pk=request.POST["comp_prep_for"], is_warmup=False
+        ).first()
+        if prep_for is None:
+            raise ValueError(_("找不到要備戰的那一場重要比賽。"))
+
     if choice == "__new__":
         name = request.POST.get("comp_name", "").strip()
         if not name:
@@ -854,23 +879,48 @@ def _save_target(request, athlete):
         except ValueError:
             raise ValueError(_("比賽日期格式要是 YYYY-MM-DD。"))
         competition, created = Competition.objects.get_or_create(
+            athlete=athlete,
             name=name,
             date=comp_date,
             defaults={
                 "venue": request.POST.get("comp_venue", "").strip(),
                 "level": request.POST.get("comp_level", "REGIONAL"),
                 "is_target": True,
+                "is_warmup": is_warmup,
+                "prep_for": prep_for,
             },
         )
-        if not created and not competition.is_target:
+        if not created:
             competition.is_target = True
-            competition.save(update_fields=["is_target", "updated_at"])
+            competition.is_warmup = is_warmup
+            competition.prep_for = prep_for
+            competition.save(
+                update_fields=["is_target", "is_warmup", "prep_for", "updated_at"]
+            )
     elif choice:
-        competition = get_object_or_404(Competition, pk=choice)
+        # 只挑得到自己的賽事；舊資料（athlete 留空的）第一次被選中就歸這名運動員
+        competition = athlete_competitions(athlete).filter(pk=choice).first()
+        if competition is None:
+            raise ValueError(_("找不到這一場賽事。"))
+        changed = []
+        if competition.athlete_id is None:
+            competition.athlete = athlete
+            changed.append("athlete")
+        if competition.is_warmup != is_warmup:
+            competition.is_warmup = is_warmup
+            changed.append("is_warmup")
+        if competition.prep_for_id != (prep_for.id if prep_for else None):
+            competition.prep_for = prep_for
+            changed.append("prep_for")
+        if changed:
+            competition.save(update_fields=changed + ["updated_at"])
     else:
         raise ValueError(_("要選一個目標賽事。"))
 
-    total_weeks = _plan_int(request.POST.get("total_weeks"), 1, 52, 16)
+    # 熱身賽只是路上的一站：週期要排到它備戰的那一場重要比賽為止
+    # 熱身賽沒指定備戰對象時，planning_anchor 就是它自己
+    anchor = competition.planning_anchor
+
     baseline = _plan_int(request.POST.get("baseline_weekly_load"), 100, 20000, 1800)
 
     raw_start = request.POST.get("start_date", "").strip()
@@ -879,9 +929,15 @@ def _save_target(request, athlete):
             start = date.fromisoformat(raw_start)
         except ValueError:
             raise ValueError(_("開始日期格式要是 YYYY-MM-DD。"))
+        if start > anchor.date:
+            raise ValueError(_("備戰開始日期不能晚過比賽日期。"))
+        # 填了開始日期就不用自己數週數：由開始日（對齊週一）算到比賽日
+        start = an.monday_of(start)
+        total_weeks = weeks_between(start, anchor.date)
     else:
         # 沒填就從比賽日往回數，湊成完整的 N 週（由週一開始）
-        start = an.monday_of(competition.date - timedelta(weeks=total_weeks - 1))
+        total_weeks = _plan_int(request.POST.get("total_weeks"), 1, 52, 16)
+        start = an.monday_of(anchor.date - timedelta(weeks=total_weeks - 1))
 
     macro = athlete.macrocycles.filter(is_active=True).first()
     structural = True
@@ -906,10 +962,16 @@ def _save_target(request, athlete):
     if structural:
         _rebuild_cycle(macro)
 
-    messages.success(
-        request,
-        _("目標賽事已設為「%(v0)s」（%(v1)s）：%(v2)s 起共 %(v3)s 週，%(v4)s。") % {"v0": competition.name, "v1": competition.date, "v2": start, "v3": total_weeks, "v4": competition.countdown_display},
-    )
+    if anchor.id != competition.id:
+        messages.success(
+            request,
+            _("目標賽事已設為熱身賽「%(v0)s」（%(v1)s），週期以重要比賽「%(v2)s」（%(v3)s）計算：%(v4)s 起共 %(v5)s 週。") % {"v0": competition.name, "v1": competition.date, "v2": anchor.name, "v3": anchor.date, "v4": start, "v5": total_weeks},
+        )
+    else:
+        messages.success(
+            request,
+            _("目標賽事已設為「%(v0)s」（%(v1)s）：%(v2)s 起共 %(v3)s 週，%(v4)s。") % {"v0": competition.name, "v1": competition.date, "v2": start, "v3": total_weeks, "v4": competition.countdown_display},
+        )
 
 
 def _save_phase(request, athlete):
@@ -1252,6 +1314,22 @@ def _calendar_context(athlete, request):
     for s in sessions:
         by_day.setdefault(s.date, []).append(s)
 
+    # 比賽也要在日曆上看得到：填了比賽日期，那一格就標出來（多天賽事整段都標）
+    meets = list(
+        athlete_competitions(athlete)
+        .filter(date__lte=grid_end)
+        .filter(Q(end_date__isnull=True, date__gte=grid_start) | Q(end_date__gte=grid_start))
+        .select_related("prep_for")
+    )
+    meets_by_day = {}
+    for m in meets:
+        day = m.date
+        finish = m.end_date if m.end_date and m.end_date > m.date else m.date
+        while day <= finish:
+            if grid_start <= day <= grid_end:
+                meets_by_day.setdefault(day, []).append(m)
+            day += timedelta(days=1)
+
     weeks, cursor = [], grid_start
     while cursor <= grid_end:
         row = []
@@ -1262,6 +1340,7 @@ def _calendar_context(athlete, request):
                     "in_month": cursor.month == month,
                     "is_today": cursor == today,
                     "sessions": by_day.get(cursor, []),
+                    "meets": meets_by_day.get(cursor, []),
                 }
             )
             cursor += timedelta(days=1)
@@ -1283,7 +1362,7 @@ def _calendar_context(athlete, request):
         "month_load": sum(s.session_load for s in sessions if first <= s.date <= last),
         "month_count": sum(1 for s in sessions if first <= s.date <= last),
         "today_iso": today.isoformat(),
-        "cal_version": _stamp(sessions),
+        "cal_version": f"{_stamp(sessions)}|{_stamp(meets)}",
         "can_move": {s.id: liveedit.can_edit(s, request.user, "date") for s in sessions},
     }
 
@@ -2302,7 +2381,9 @@ def analytics_view(request):
 
     # 比賽數據以「一場比賽」為單位分析；其餘範疇看的是最常做的動作
     meets = an.competition_report(athlete) if is_competition else []
-    competitions = Competition.objects.order_by("-date")[:60] if is_competition else []
+    competitions = (
+        athlete_competitions(athlete).order_by("-date")[:60] if is_competition else []
+    )
 
     analysis = an.metric_analysis(athlete, item) if item else None
 

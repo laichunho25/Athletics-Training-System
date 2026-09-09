@@ -15,6 +15,12 @@
           <button type="button" class="addday" title="{% blocktranslate with v0=cell.date %}在 {{ v0 }} 新增 program{% endblocktranslate %}"
                   data-date="{{ cell.date|date:'Y-m-d' }}">＋</button>
         </div>
+        {% for m in cell.meets %}
+          <span class="ev meet {% if m.is_warmup %}warmup{% endif %}"
+                title="{{ m.name }}｜{{ m.date }}｜{{ m.kind_display }}{% if m.venue %}｜{{ m.venue }}{% endif %}{% if m.is_warmup and m.prep_for %}{% blocktranslate with v0=m.prep_for.name %}｜為「{{ v0 }}」備戰{% endblocktranslate %}{% endif %}">
+            {% if m.is_warmup %}🎽{% else %}🏆{% endif %} {{ m.name }}
+          </span>
+        {% endfor %}
         {% for s in cell.sessions %}
           {% with movable=can_move|lookup:s.id %}
           <a class="ev t-{{ s.session_type|lower }} {% if s.status == 'COMPLETED' %}done{% elif s.status == 'PARTIAL' %}partial{% elif s.status == 'SKIPPED' %}skipped{% else %}planned{% endif %} {% if movable %}movable{% endif %}"

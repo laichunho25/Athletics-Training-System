@@ -8,7 +8,8 @@
   <div>
     <h1>{% translate "訓練日曆" %}</h1>
     <div class="subtitle" style="margin:0">
-      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username v1=month_count v2=month_load %}{{ v0 }} · 本月 {{ v1 }} 課 / {{ v2 }} AU{% endblocktranslate %}
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username v1=month_count v2=month_load %}{{ v0 }} ·
+ 本月 {{ v1 }} 課 / {{ v2 }} AU{% endblocktranslate %}
     </div>
   </div>
   {% include "web/_athlete_links.html" %}
@@ -20,10 +21,16 @@
     <div>
       <strong>{{ macro }}</strong>
       <span class="small c-dim">
-        {% blocktranslate with v0=macro.start_date v1=macro.end_date v2=macro.current_week_number|default:"—" v3=macro.total_weeks %}{{ v0 }} → {{ v1 }} · 第 {{ v2 }} / {{ v3 }} 週{% endblocktranslate %}
+        {% blocktranslate with v0=macro.start_date v1=macro.end_date v2=macro.current_week_number|default:"—" v3=macro.total_weeks %}{{ v0 }} → {{ v1 }} ·
+ 第 {{ v2 }} / {{ v3 }} 週{% endblocktranslate %}
       </span>
     </div>
-    <span class="badge b-blue">{{ macro.target_competition.countdown_display }}</span>
+    <span>
+      <span class="badge b-blue">{{ macro.target_competition.countdown_display }}</span>
+      {% if macro.target_competition.is_warmup and macro.target_competition.prep_for %}
+        <span class="badge b-yellow">{% blocktranslate with v0=macro.target_competition.prep_for.name %}熱身賽 · 為「{{ v0 }}」備戰{% endblocktranslate %}</span>
+      {% endif %}
+    </span>
   </div>
   <div class="flex mt small" style="flex-wrap:wrap">
     {% for p in phases %}
@@ -57,6 +64,8 @@
   <span class="badge b-green">{% translate "已完成" %}</span>
   <span class="badge b-yellow">{% translate "部分完成" %}</span>
   <span class="badge b-red">{% translate "缺席" %}</span>
+  <span class="badge b-orange">🏆 {% translate "重要比賽" %}</span>
+  <span class="badge b-yellow">🎽 {% translate "熱身賽" %}</span>
   {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
   <span>{% translate "· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復" %}
     <span class="no-touch"><br>· <strong>{% translate "把課表直接拖到另一天就是改日期" %}</strong></span>

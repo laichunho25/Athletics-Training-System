@@ -19,7 +19,8 @@ class CompetitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Competition
         fields = [
-            "id", "name", "date", "end_date", "venue", "level", "is_target",
+            "id", "athlete", "name", "date", "end_date", "venue", "level", "is_target",
+            "is_warmup", "prep_for",
             "days_remaining", "weeks_remaining", "countdown_display",
         ]
 

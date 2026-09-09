@@ -15,6 +15,21 @@ class CompetitionLevel(models.TextChoices):
 
 
 class Competition(TimeStampedModel):
+    """一場比賽。每一場都掛在某一名運動員底下，別人的下拉選單看不到。
+
+    熱身賽（is_warmup）可以指定它是為了哪一場重要比賽而備戰（prep_for）；
+    排備戰週期時對準的是那一場重要比賽，不是熱身賽本身。
+    """
+
+    athlete = models.ForeignKey(
+        AthleteProfile,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="competitions",
+        verbose_name=_("所屬運動員"),
+        help_text=_("每名運動員的賽事各自獨立；留空是舊資料，誰先用就歸誰"),
+    )
     name = models.CharField(_("賽事名稱"), max_length=150)
     date = models.DateField(_("比賽日期"))
     end_date = models.DateField(_("結束日期"), null=True, blank=True)
@@ -23,6 +38,18 @@ class Competition(TimeStampedModel):
         _("層級"), max_length=10, choices=CompetitionLevel.choices, default=CompetitionLevel.REGIONAL
     )
     is_target = models.BooleanField(_("主目標賽事"), default=False)
+    is_warmup = models.BooleanField(
+        _("熱身賽"), default=False, help_text=_("練兵性質的比賽，不是備戰週期的終點")
+    )
+    prep_for = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="warmups",
+        verbose_name=_("為哪一場重要比賽備戰"),
+        help_text=_("只有熱身賽用得著；總週數會以這一場重要比賽來計算"),
+    )
 
     class Meta:
         verbose_name = _("賽事")
@@ -31,6 +58,17 @@ class Competition(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.date})"
+
+    @property
+    def kind_display(self):
+        return _("熱身賽") if self.is_warmup else _("重要比賽")
+
+    @property
+    def planning_anchor(self):
+        """排週期時真正對準的比賽：熱身賽對準它要備戰的那一場重要比賽。"""
+        if self.is_warmup and self.prep_for_id and self.prep_for_id != self.id:
+            return self.prep_for
+        return self
 
     @property
     def days_remaining(self):
@@ -67,6 +105,22 @@ class CompetitionEntry(TimeStampedModel):
 
     def __str__(self):
         return f"{self.athlete} @ {self.competition.name} - {self.event.code}"
+
+
+#: 一份備戰大週期最長排幾週
+MAX_MACRO_WEEKS = 52
+
+
+def weeks_between(start_date, target_date):
+    """備戰開始日（自動對齊該週週一）到比賽日之間，一共跨了幾個訓練週。
+
+    比賽當週也算一週，所以同一週開始又同一週比賽 = 1 週。
+    """
+    monday = start_date - timedelta(days=start_date.weekday())
+    span = (target_date - monday).days
+    if span < 0:
+        return 1
+    return max(1, min(MAX_MACRO_WEEKS, span // 7 + 1))
 
 
 # 16 週預設分期模板：(期別, 起始週, 結束週, 重心, 週負荷係數)

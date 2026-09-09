@@ -17,8 +17,11 @@ from training.models import StrengthSet, TrackSet
 
 @admin.register(Competition)
 class CompetitionAdmin(admin.ModelAdmin):
-    list_display = ("name", "date", "level", "is_target", "countdown_display")
-    list_filter = ("level", "is_target")
+    list_display = (
+        "name", "athlete", "date", "level", "is_target", "is_warmup", "prep_for",
+        "countdown_display",
+    )
+    list_filter = ("level", "is_target", "is_warmup")
 
 
 @admin.register(CompetitionEntry)

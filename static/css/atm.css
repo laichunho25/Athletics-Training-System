@@ -523,6 +523,15 @@ td.num, th.num { text-align: right; }
 .cal .ev.planned { border-left: 3px solid var(--blue); }
 .cal .ev.partial { border-left: 3px solid var(--yellow); }
 .cal .ev.skipped { border-left: 3px solid var(--red); }
+/* 比賽：重要比賽用強調色，熱身賽淡一級——一眼分得出哪一天是正賽 */
+.cal .ev.meet {
+  border-left: 3px solid var(--accent); font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.cal .ev.meet.warmup {
+  border-left: 3px solid var(--yellow); font-weight: 600;
+  background: color-mix(in srgb, var(--yellow) 14%, var(--surface));
+}
 
 /* ---------------------------------------------------------------- 表單 */
 label {

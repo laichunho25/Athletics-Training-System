@@ -94,6 +94,7 @@ class Command(BaseCommand):
         )
 
         comp, _ = Competition.objects.get_or_create(
+            athlete=athlete,
             name=TARGET_COMPETITION[0],
             date=TARGET_COMPETITION[1],
             defaults={"level": "REGIONAL", "is_target": True, "venue": "香港大球場"},

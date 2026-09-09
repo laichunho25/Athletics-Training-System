@@ -227,3 +227,135 @@ class PlanEditTests(TestCase):
             user=self.athlete.user,
         )
         self.assertTrue(Macrocycle.objects.filter(athlete=self.athlete).exists())
+
+
+class TargetCompetitionTests(TestCase):
+    """目標賽事：一人一份、日曆看得到、週數由開始日算到重要比賽。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.coach = make_coach()
+        cls.ann = make_athlete("ann", coach=cls.coach)
+        cls.bob = make_athlete("bob", coach=cls.coach)
+        cls.monday = date.today() - timedelta(days=date.today().weekday())
+
+    def post(self, athlete, data, user=None):
+        self.client.force_login(user or self.coach.user)
+        return self.client.post(
+            reverse("web:athlete_plan_edit", args=[athlete.id]), data
+        )
+
+    def add_meet(self, athlete, name, weeks_out, **extra):
+        self.post(
+            athlete,
+            {
+                "action": "set_target",
+                "competition": "__new__",
+                "comp_name": name,
+                "comp_date": (self.monday + timedelta(weeks=weeks_out)).isoformat(),
+                "total_weeks": 8,
+                **extra,
+            },
+        )
+        return Competition.objects.get(athlete=athlete, name=name)
+
+    def dashboard_competitions(self, athlete):
+        self.client.force_login(self.coach.user)
+        response = self.client.get(reverse("web:dashboard"), {"athlete": athlete.id})
+        return list(response.context["competitions"])
+
+    def test_each_athlete_only_sees_their_own_competitions(self):
+        ann_meet = self.add_meet(self.ann, "安的校運會", 10)
+
+        self.assertEqual(self.dashboard_competitions(self.ann), [ann_meet])
+        self.assertEqual(self.dashboard_competitions(self.bob), [])
+
+    def test_another_athlete_cannot_pick_someone_elses_competition(self):
+        ann_meet = self.add_meet(self.ann, "安的校運會", 10)
+
+        response = self.post(
+            self.bob, {"action": "set_target", "competition": ann_meet.id}
+        )
+        self.assertFalse(Macrocycle.objects.filter(athlete=self.bob).exists())
+        messages = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(any("找不到這一場賽事" in m for m in messages))
+
+    def test_start_date_decides_the_total_weeks(self):
+        """填了備戰開始日期就不用自己數週數：由開始日算到比賽日。"""
+        self.add_meet(
+            self.ann,
+            "全港學界",
+            12,
+            total_weeks=99,  # 有開始日期時這個值不會被採用
+            start_date=self.monday.isoformat(),
+        )
+        macro = Macrocycle.objects.get(athlete=self.ann)
+        self.assertEqual(macro.start_date, self.monday)
+        self.assertEqual(macro.total_weeks, 13)  # 比賽當週也算一週
+        self.assertEqual(macro.microcycles.count(), 13)
+
+    def test_start_date_cannot_be_after_the_competition(self):
+        self.add_meet(
+            self.ann, "全港學界", 4, start_date=(self.monday + timedelta(weeks=6)).isoformat()
+        )
+        self.assertFalse(Macrocycle.objects.filter(athlete=self.ann).exists())
+
+    def test_a_warmup_meet_counts_weeks_to_the_meet_it_prepares_for(self):
+        key = self.add_meet(self.ann, "全港學界", 16)
+
+        self.post(
+            self.ann,
+            {
+                "action": "set_target",
+                "competition": "__new__",
+                "comp_name": "分區熱身賽",
+                "comp_date": (self.monday + timedelta(weeks=5)).isoformat(),
+                "comp_is_warmup": "1",
+                "comp_prep_for": key.id,
+                "start_date": self.monday.isoformat(),
+            },
+        )
+        warmup = Competition.objects.get(athlete=self.ann, name="分區熱身賽")
+        self.assertTrue(warmup.is_warmup)
+        self.assertEqual(warmup.prep_for, key)
+        self.assertEqual(warmup.planning_anchor, key)
+
+        macro = Macrocycle.objects.get(athlete=self.ann)
+        self.assertEqual(macro.target_competition, warmup)
+        # 週數數到重要比賽（第 16 週那天）而不是熱身賽
+        self.assertEqual(macro.total_weeks, 17)
+
+        # 儀表板上要看得出這是熱身賽，以及它在為哪一場備戰
+        body = self.client.get(
+            reverse("web:dashboard"), {"athlete": self.ann.id}
+        ).content.decode()
+        self.assertIn("分區熱身賽", body)
+        self.assertIn("為「全港學界」", body)
+
+    def test_a_warmup_without_a_key_meet_falls_back_to_itself(self):
+        warmup = self.add_meet(
+            self.ann, "分區熱身賽", 5, comp_is_warmup="1", start_date=self.monday.isoformat()
+        )
+        self.assertEqual(warmup.planning_anchor, warmup)
+        self.assertEqual(Macrocycle.objects.get(athlete=self.ann).total_weeks, 6)
+
+    def test_the_competition_shows_up_in_the_training_calendar(self):
+        meet_date = self.monday + timedelta(weeks=2)
+        self.add_meet(self.ann, "全港學界", 2)
+        month = {"year": meet_date.year, "month": meet_date.month}
+
+        self.client.force_login(self.coach.user)
+        response = self.client.get(
+            reverse("web:calendar"), {"athlete": self.ann.id, **month}
+        )
+        self.assertContains(response, "全港學界")
+
+        cells = [c for week in response.context["weeks"] for c in week]
+        marked = [c["date"] for c in cells if c["meets"]]
+        self.assertEqual(marked, [meet_date])
+
+        # 別人的日曆不會出現這一場
+        other = self.client.get(
+            reverse("web:calendar"), {"athlete": self.bob.id, **month}
+        )
+        self.assertNotContains(other, "全港學界")

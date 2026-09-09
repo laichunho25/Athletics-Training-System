@@ -34,7 +34,13 @@
     <div class="value c-accent">{{ d.countdown|default:"—" }}</div>
     <div class="hint">
       {{ d.target_competition.name|default:_("尚未設定目標賽事") }}
-      {% if d.target_competition %}<br>{{ d.target_competition.date }} · {{ d.target_competition.get_level_display }}{% endif %}
+      {% if d.target_competition %}
+        <span class="badge {% if d.target_competition.is_warmup %}b-yellow{% else %}b-orange{% endif %}">{{ d.target_competition.kind_display }}</span>
+        <br>{{ d.target_competition.date }} · {{ d.target_competition.get_level_display }}
+        {% if d.target_competition.is_warmup and d.target_competition.prep_for %}
+          <br>{% blocktranslate with v0=d.target_competition.prep_for.name v1=d.target_competition.prep_for.date %}為「{{ v0 }}」（{{ v1 }}）備戰{% endblocktranslate %}
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 
@@ -524,15 +530,19 @@
 
     <div class="field">
       <label>{% translate "目標賽事" %}</label>
-      <select name="competition" id="compPick" onchange="toggleNewComp()">
-        <option value="">{% translate "— 請選擇 —" %}</option>
+      <select name="competition" id="compPick" onchange="targetChanged()">
+        <option value="" data-date="" data-warmup="0" data-prep="">{% translate "— 請選擇 —" %}</option>
         {% for c in competitions %}
-          <option value="{{ c.id }}" {% if macro and macro.target_competition_id == c.id %}selected{% endif %}>
-            {{ c.name }}（{{ c.date }}）
+          <option value="{{ c.id }}" data-date="{{ c.date|date:'Y-m-d' }}"
+                  data-warmup="{% if c.is_warmup %}1{% else %}0{% endif %}"
+                  data-prep="{{ c.prep_for_id|default_if_none:'' }}"
+                  {% if macro and macro.target_competition_id == c.id %}selected{% endif %}>
+            {{ c.name }}（{{ c.date }}）· {{ c.kind_display }}
           </option>
         {% endfor %}
-        <option value="__new__">{% translate "＋ 新增一個賽事…" %}</option>
+        <option value="__new__" data-date="" data-warmup="0" data-prep="">{% translate "＋ 新增一個賽事…" %}</option>
       </select>
+      <div class="small c-dim" style="margin-top:4px">{% translate "這裡只列這名運動員自己的賽事，別人加的看不到。" %}</div>
     </div>
 
     <div id="newComp" style="display:none">
@@ -543,7 +553,7 @@
         </div>
         <div class="field">
           <label>{% translate "比賽日期" %}</label>
-          <input type="date" name="comp_date" value="{{ today_iso }}">
+          <input type="date" name="comp_date" id="compDate" value="{{ today_iso }}" onchange="recalcWeeks()">
         </div>
       </div>
       <div class="row">
@@ -562,15 +572,43 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>{% translate "賽事性質" %}</label>
+      <div class="typepick">
+        <label class="typeopt">
+          <input type="radio" name="comp_is_warmup" value="0" id="kindKey" checked onchange="toggleWarmup()">
+          <span>{% translate "重要比賽" %}</span>
+        </label>
+        <label class="typeopt">
+          <input type="radio" name="comp_is_warmup" value="1" id="kindWarmup" onchange="toggleWarmup()">
+          <span>{% translate "熱身賽" %}</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" id="prepBox" style="display:none">
+      <label>{% translate "為哪一場重要比賽備戰" %}</label>
+      <select name="comp_prep_for" id="prepPick" onchange="recalcWeeks()">
+        <option value="" data-date="">{% translate "— 不指定（以熱身賽本身為終點）—" %}</option>
+        {% for c in key_competitions %}
+          <option value="{{ c.id }}" data-date="{{ c.date|date:'Y-m-d' }}">{{ c.name }}（{{ c.date }}）</option>
+        {% endfor %}
+      </select>
+      <div class="small c-dim" style="margin-top:4px">{% translate "選了之後，總週數會數到這一場重要比賽，不是數到熱身賽。" %}</div>
+    </div>
+
     <div class="row">
       <div class="field">
         <label>{% translate "備戰開始日期" %}</label>
-        <input type="date" name="start_date" value="{{ macro.start_date|date:'Y-m-d' }}">
+        <input type="date" name="start_date" id="startDate" value="{{ macro.start_date|date:'Y-m-d' }}"
+               onchange="recalcWeeks()">
         <div class="small c-dim" style="margin-top:4px">{% translate "留空＝由比賽日往回數，自動對齊週一" %}</div>
       </div>
       <div class="field">
         <label>{% translate "總週數" %}</label>
-        <input type="number" name="total_weeks" min="1" max="52" value="{{ macro.total_weeks|default:16 }}">
+        <input type="number" name="total_weeks" id="totalWeeks" min="1" max="52"
+               value="{{ macro.total_weeks|default:16 }}">
+        <div class="small c-dim" id="weeksHint" style="margin-top:4px">{% translate "填了開始日期就自動由開始日算到比賽日" %}</div>
       </div>
       <div class="field">
         <label>{% translate "基準週負荷 (AU)" %}</label>
@@ -720,6 +758,63 @@ new Chart(document.getElementById('bodyChart'), {
     document.getElementById('newComp').style.display =
       document.getElementById('compPick').value === '__new__' ? 'block' : 'none';
   }
+
+  // 熱身賽才要選「為哪一場重要比賽備戰」
+  function toggleWarmup() {
+    document.getElementById('prepBox').style.display =
+      document.getElementById('kindWarmup').checked ? 'block' : 'none';
+    recalcWeeks();
+  }
+
+  // 換了目標賽事：把它本身的性質與備戰對象帶出來，再重算週數
+  function targetChanged() {
+    toggleNewComp();
+    const opt = document.getElementById('compPick').selectedOptions[0];
+    if (opt && opt.value !== '__new__') {
+      document.getElementById('kindWarmup').checked = opt.dataset.warmup === '1';
+      document.getElementById('kindKey').checked = opt.dataset.warmup !== '1';
+      document.getElementById('prepPick').value = opt.dataset.prep || '';
+    }
+    toggleWarmup();
+  }
+
+  // 週期真正對準的比賽日：熱身賽指定了備戰對象就用那一場，否則用賽事本身
+  function anchorDate() {
+    if (document.getElementById('kindWarmup').checked) {
+      const prep = document.getElementById('prepPick').selectedOptions[0];
+      if (prep && prep.dataset.date) return prep.dataset.date;
+    }
+    const pick = document.getElementById('compPick');
+    if (pick.value === '__new__') return document.getElementById('compDate').value;
+    const opt = pick.selectedOptions[0];
+    return opt ? (opt.dataset.date || '') : '';
+  }
+
+  // 填了備戰開始日期，總週數就由系統數（開始日對齊週一，比賽當週也算一週）
+  function recalcWeeks() {
+    const weeks = document.getElementById('totalWeeks');
+    const hint = document.getElementById('weeksHint');
+    const start = document.getElementById('startDate').value;
+    const target = anchorDate();
+    if (!start || !target) {
+      weeks.readOnly = false;
+      hint.textContent = '{% translate "填了開始日期就自動由開始日算到比賽日" %}';
+      return;
+    }
+    const s = new Date(start + 'T00:00:00'), t = new Date(target + 'T00:00:00');
+    const monday = new Date(s);
+    monday.setDate(s.getDate() - ((s.getDay() + 6) % 7));   // 對齊該週週一
+    const span = Math.floor((t - monday) / 86400000);
+    const n = Math.max(1, Math.min(52, Math.floor(span / 7) + 1));
+    weeks.value = n;
+    weeks.readOnly = true;
+    hint.textContent = span < 0
+      ? '{% translate "開始日期晚過比賽日期了" %}'
+      : '{% translate "自動計算" %}：' + monday.toISOString().slice(0, 10) + ' → ' + target +
+        ' = ' + n + ' {% translate "週" %}';
+  }
+
+  targetChanged();
 
   // 體組成：選了品牌就把欄位名換成那台機報告紙上的叫法，沒印的項目收起來
   const BODY_PRESETS = {{ body_brand_presets|safe }};
