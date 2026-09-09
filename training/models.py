@@ -647,3 +647,90 @@ class SessionActivity(TimeStampedModel):
         if self.rest:
             bits.append(f"休 {self.rest}")
         return " ".join(bits)
+
+
+# ------------------------------------------------- 區塊 program（可重用的一區內容）
+
+
+class BlockProgram(TimeStampedModel):
+    """一區排好的內容（熱身／正課／補充練習／恢復練習）存成可重用的 program。
+
+    教練把今天的熱身排好之後按「儲存成 program」，下一課在同一區按「套用」，
+    整組活動連同組數／次數／休息一起寫進去，不用逐項再挑一次。
+    存下來的 program 全隊共用，但只有建立者（和管理員）改得動、刪得掉。
+    """
+
+    name = models.CharField(_("program 名稱"), max_length=120)
+    block = models.CharField(_("區塊"), max_length=12, choices=BlockType.choices)
+    session_type = models.CharField(
+        _("來源課別"), max_length=20, blank=True, help_text=_("存下來時那一堂課的課別，只作提示")
+    )
+    note = models.CharField(_("說明"), max_length=200, blank=True)
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="block_programs",
+        verbose_name=_("建立者"),
+    )
+    use_count = models.PositiveIntegerField(_("套用次數"), default=0)
+
+    class Meta:
+        verbose_name = _("區塊 program")
+        verbose_name_plural = _("區塊 program")
+        ordering = ["block", "-use_count", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["created_by", "block", "name"], name="unique_block_program_per_owner"
+            )
+        ]
+
+    def __str__(self):
+        return f"[{self.get_block_display()}] {self.name}"
+
+    @property
+    def item_count(self):
+        return self.items.count()
+
+    @property
+    def preview(self):
+        """下拉選單旁邊給人看的一行：頭三項活動的名字。"""
+        names = [i.name for i in self.items.all()[:3]]
+        if not names:
+            return ""
+        more = self.item_count - len(names)
+        return "、".join(names) + (f"…（共 {self.item_count} 項）" if more > 0 else "")
+
+
+class BlockProgramItem(models.Model):
+    """program 裡的一項活動——欄位跟課表那一列一樣，套用時原樣抄過去。"""
+
+    program = models.ForeignKey(
+        BlockProgram, on_delete=models.CASCADE, related_name="items", verbose_name=_("program")
+    )
+    order = models.PositiveSmallIntegerField(_("排序"), default=1)
+    definition = models.ForeignKey(
+        ActivityDefinition,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="program_items",
+        verbose_name=_("來源活動"),
+    )
+    name = models.CharField(_("活動名稱"), max_length=120)
+    sets = models.CharField(_("組數"), max_length=30, blank=True)
+    reps = models.CharField(_("次數"), max_length=30, blank=True)
+    distance = models.CharField(_("距離"), max_length=30, blank=True)
+    weight = models.CharField(_("重量"), max_length=40, blank=True)
+    intensity = models.CharField(_("強度"), max_length=40, blank=True)
+    rest = models.CharField(_("休息時間"), max_length=80, blank=True)
+    key_points = models.TextField(_("訓練要點"), blank=True)
+
+    class Meta:
+        verbose_name = _("program 活動")
+        verbose_name_plural = _("program 活動")
+        ordering = ["program", "order", "id"]
+
+    def __str__(self):
+        return f"{self.program.name} · {self.name}"

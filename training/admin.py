@@ -3,6 +3,8 @@ from django.utils.translation import gettext as _
 
 from training.models import (
     ActivityDefinition,
+    BlockProgram,
+    BlockProgramItem,
     Discipline,
     Exercise,
     LibraryStatus,
@@ -121,3 +123,20 @@ class DisciplineAdmin(LibraryNodeAdmin):
 @admin.register(MovementKind)
 class MovementKindAdmin(LibraryNodeAdmin):
     pass
+
+
+# ----------------------------------------- 區塊 program（可重用的一區內容）
+
+
+class BlockProgramItemInline(admin.TabularInline):
+    model = BlockProgramItem
+    extra = 0
+    autocomplete_fields = ["definition"]
+
+
+@admin.register(BlockProgram)
+class BlockProgramAdmin(admin.ModelAdmin):
+    list_display = ("name", "block", "item_count", "session_type", "use_count", "created_by")
+    list_filter = ("block", "session_type", "created_by")
+    search_fields = ("name", "note", "items__name")
+    inlines = [BlockProgramItemInline]

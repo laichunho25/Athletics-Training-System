@@ -665,6 +665,9 @@ code {
     flex: 1 1 100%; margin-left: 68px; white-space: normal; font-size: 13px;
     padding: 7px 9px;
   }
+  /* 課表外面包了一層（放 ⧉ 用），一週一列時要由它去吃整個寬度 */
+  .cal .evrow { flex: 1 1 100%; margin-left: 68px; }
+  .cal .evrow .ev { margin-left: 0; padding-right: 26px; }
   .cal .addday { opacity: .6; margin-left: auto; }
 }
 
@@ -787,6 +790,27 @@ details > summary::-webkit-details-marker { display: none; }
 .legacy[open] > summary::before { transform: rotate(90deg); }
 .legacy[open] > summary { margin-bottom: 12px; }
 
+/* 區塊 program：一區排好的內容存起來，下一課整組套用 */
+.progbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.progbar form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.progbar select { max-width: 320px; }
+.progbar input[type="text"] { min-width: 160px; }
+.progbar .progsave { margin-left: auto; }
+.progbar .progsave > summary {
+  cursor: pointer; color: var(--text-dim); list-style: none; font-family: var(--mono);
+}
+.progbar .progsave > summary::-webkit-details-marker { display: none; }
+.progbar .progsave > summary::before { content: "＋ "; }
+.progbar .progsave[open] { flex: 1 1 100%; margin-left: 0; }
+@media (max-width: 700px) {
+  .progbar { gap: 8px; }
+  .progbar select, .progbar input[type="text"] { flex: 1 1 100%; max-width: none; }
+  .progbar .progsave { margin-left: 0; flex: 1 1 100%; }
+}
+
 /* 課表主表：欄多（活動＋六個欄位＋滿意度＋寫入者），窄螢幕橫向捲，
    格子不會被壓成直排。捲的是表格自己，整頁不會跟著左右晃。 */
 .acttablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -812,6 +836,19 @@ details > summary::-webkit-details-marker { display: none; }
   border-left: 2px solid var(--border-strong);
   border-radius: var(--radius-sm); padding: 9px 12px;
 }
+
+/* 日曆：每一堂課右上角的 ⧉ ＝ 複製到其他日子（拖是搬，⧉ 是抄一份） */
+.cal .evrow { position: relative; display: block; }
+.cal .evrow .ev { padding-right: 22px; }
+.cal .copyev {
+  position: absolute; top: 1px; right: 1px; width: 18px; height: 18px;
+  line-height: 1; padding: 0; background: transparent; border: 1px solid transparent;
+  border-radius: 2px; color: var(--text-dim); font-size: 12px; cursor: pointer;
+  opacity: 0; transition: opacity .12s;
+}
+.cal .day:hover .copyev { opacity: 1; }
+@media (hover: none) { .cal .copyev { opacity: .6; border-color: var(--border); } }
+.cal .copyev:hover { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 /* 日曆：把課表拖到別的日期 */
 .cal .ev.movable { cursor: grab; }

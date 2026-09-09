@@ -115,6 +115,8 @@ from training.models import (
     ACTIVITY_FIELDS,
     ActivityCategory,
     ActivityDefinition,
+    BlockProgram,
+    BlockProgramItem,
     BlockType,
     Discipline,
     Exercise,
@@ -1284,6 +1286,14 @@ def calendar_view(request):
             f"{request.path}?athlete={athlete.id}&year={on_date.year}&month={on_date.month}"
         )
 
+    # ---- 把已建立的課表複製到其他日子 ----
+    if request.method == "POST" and request.POST.get("action") == "copy_session":
+        landed = _copy_session(request, athlete)
+        target = landed or date.today()
+        return redirect(
+            f"{request.path}?athlete={athlete.id}&year={target.year}&month={target.month}"
+        )
+
     ctx = _calendar_context(athlete, request)
     ctx.update(
         {
@@ -1294,6 +1304,102 @@ def calendar_view(request):
         }
     )
     return render(request, "web/calendar.html", ctx)
+
+
+#: 一次最多複製到幾天——手滑貼了一整年進去，不會就這樣建出 365 堂課
+MAX_COPY_DATES = 30
+
+
+def _copy_dates(request):
+    """把「日期」欄與「其他日期」欄裡的日子讀出來（重複的只算一次）。"""
+    raw = " ".join([request.POST.get("date", ""), request.POST.get("dates", "")])
+    dates, bad = [], []
+    for part in re.split(r"[\s,、]+", raw):
+        if not part:
+            continue
+        try:
+            picked = date.fromisoformat(part)
+        except ValueError:
+            bad.append(part)
+            continue
+        if picked not in dates:
+            dates.append(picked)
+    return dates, bad
+
+
+def _copy_session(request, athlete):
+    """把日曆上一堂已建立的課複製到其他日子，回傳第一個目標日期。
+
+    複製的是課表本身（名稱、課別、概要、時長、四區的活動），
+    練完才填的東西（狀態、RPE、實際時長、反饋、評語）一律不抄——
+    複製出來的是待練的課，不是別人練過的紀錄。
+    """
+    source = TrainingSession.objects.filter(
+        pk=request.POST.get("session"), athlete=athlete
+    ).first()
+    if source is None:
+        messages.error(request, _("找不到要複製的課表。"))
+        return None
+
+    dates, bad = _copy_dates(request)
+    if not dates:
+        messages.error(request, _("請選至少一個日期。"))
+        return None
+    dropped = dates[MAX_COPY_DATES:]
+    dates = dates[:MAX_COPY_DATES]
+
+    time_slot = request.POST.get("time_slot")
+    if time_slot not in ("AM", "PM"):
+        time_slot = source.time_slot
+    with_activities = bool(request.POST.get("copy_activities"))
+
+    rows = (
+        list(source.activities.select_related("definition").order_by("block", "order", "id"))
+        if with_activities
+        else []
+    )
+
+    copied = 0
+    for on_date in dates:
+        new_session = TrainingSession.objects.create(
+            athlete=athlete,
+            microcycle=_microcycle_for(athlete, on_date),
+            date=on_date,
+            time_slot=time_slot,
+            session_type=source.session_type,
+            title=source.title,
+            description=source.description,
+            assigned_by=source.assigned_by,
+            created_by=request.user,
+            planned_duration_min=source.planned_duration_min,
+        )
+        for row in rows:
+            _spawn_activity(
+                request,
+                new_session,
+                row.block,
+                row.order,
+                row.name,
+                {key: getattr(row, key) for key in ACTIVITY_VALUE_FIELDS},
+                definition=row.definition,
+            )
+        copied += 1
+
+    msg = _("已把「%(v0)s」複製到 %(v1)s 天：%(v2)s。") % {
+        "v0": source.title,
+        "v1": copied,
+        "v2": "、".join(d.isoformat() for d in dates),
+    }
+    if rows:
+        msg += _("（連同 %(v0)s 項活動）") % {"v0": len(rows)}
+    messages.success(request, msg)
+    if bad:
+        messages.warning(request, _("看不懂這些日期，已跳過：%(v0)s") % {"v0": "、".join(bad)})
+    if dropped:
+        messages.warning(
+            request, _("一次最多複製 %(v0)s 天，其餘的沒有建立。") % {"v0": MAX_COPY_DATES}
+        )
+    return dates[0]
 
 
 def _calendar_context(athlete, request):
@@ -1407,6 +1513,12 @@ def session_detail(request, pk):
             _new_definition(request, session)
         elif action == "delete_activity":
             _delete_row(request, SessionActivity, request.POST.get("id"), _("活動"))
+        elif action == "save_program":
+            _save_block_program(request, session)
+        elif action == "apply_program":
+            _apply_block_program(request, session)
+        elif action == "delete_program":
+            _delete_block_program(request)
         elif action == "add_note":
             _add_note(request, session)
         elif action == "delete_note":
@@ -1454,12 +1566,16 @@ def _session_context(request, session):
     # 活動名稱要中英對照；自己打的名稱對得上活動庫就借它的英文名
     english = {d.name: d.name_en for d in library if d.name_en}
 
+    programs_by_block = _block_programs_by_block(request.user)
+
     blocks = []
     for value, label, activities in session.activities_by_block():
         blocks.append(
             {
                 "value": value,
                 "label": label,
+                # 這一區存好的 program：挑一個就把整組活動帶進來
+                "programs": programs_by_block.get(value, []),
                 "activities": [
                     {
                         "a": a,
@@ -2002,6 +2118,172 @@ def _new_definition(request, session):
         post["block"] = definition.default_block
         request.POST = post
         _add_activity(request, session)
+
+
+# ------------------------------------------ 區塊 program（一區內容存起來重用）
+
+
+ACTIVITY_VALUE_FIELDS = ("sets", "reps", "distance", "weight", "intensity", "rest", "key_points")
+
+
+def _spawn_activity(request, session, block, order, name, values, definition=None):
+    """在課表某一區寫入一列活動，並同步開好數據紀錄（跟手動加活動一樣）。"""
+    activity = SessionActivity.objects.create(
+        session=session,
+        block=block,
+        order=order,
+        definition=definition,
+        name=name,
+        created_by=request.user,
+        **{key: values.get(key, "") for key in ACTIVITY_VALUE_FIELDS},
+    )
+    item = item_for_activity(
+        session.session_type,
+        name,
+        definition.category if definition else "",
+        user=request.user,
+        name_en=definition.name_en if definition else "",
+    )
+    opened = (
+        open_planned_records(activity, item, athlete=session.athlete, session=session)
+        if item is not None
+        else 0
+    )
+    return activity, opened
+
+
+def visible_block_programs(user):
+    """看得到哪些 program：存下來的全隊共用，誰排好的熱身別人都套得到。"""
+    return (
+        BlockProgram.objects.select_related("created_by")
+        .prefetch_related("items")
+        .order_by("block", "-use_count", "name")
+    )
+
+
+def _block_programs_by_block(user):
+    grouped = {value: [] for value in BlockType.values}
+    for program in visible_block_programs(user):
+        grouped.setdefault(program.block, []).append(program)
+    return grouped
+
+
+def _save_block_program(request, session):
+    """把某一區現在排好的活動存成 program，下一課同一區可以整組套用。"""
+    block = request.POST.get("block")
+    if block not in BlockType.values:
+        messages.error(request, _("不認得的課表區塊。"))
+        return
+
+    label = BlockType(block).label
+    rows = list(session.activities.filter(block=block).order_by("order", "id"))
+    if not rows:
+        messages.error(request, _("%(v0)s這一區還沒有活動，先加幾項再存成 program。") % {"v0": label})
+        return
+
+    name = (request.POST.get("program_name", "").strip() or f"{session.title} · {label}")[:120]
+    program, created = BlockProgram.objects.update_or_create(
+        created_by=request.user,
+        block=block,
+        name=name,
+        defaults={
+            "session_type": session.session_type,
+            "note": request.POST.get("program_note", "").strip()[:200],
+        },
+    )
+    program.items.all().delete()
+    BlockProgramItem.objects.bulk_create(
+        [
+            BlockProgramItem(
+                program=program,
+                order=i,
+                definition=row.definition,
+                name=row.name,
+                **{key: getattr(row, key) for key in ACTIVITY_VALUE_FIELDS},
+            )
+            for i, row in enumerate(rows, start=1)
+        ]
+    )
+    if created:
+        messages.success(
+            request,
+            _("已把%(v0)s的 %(v1)s 項活動存成 program「%(v2)s」，下一課在同一區挑它就整組帶進去。")
+            % {"v0": label, "v1": len(rows), "v2": program.name},
+        )
+    else:
+        messages.success(
+            request,
+            _("已更新 program「%(v0)s」，現在是 %(v1)s 項活動。") % {"v0": program.name, "v1": len(rows)},
+        )
+
+
+def _apply_block_program(request, session):
+    """把一個存好的 program 整組寫進課表的同一區。"""
+    program = (
+        visible_block_programs(request.user)
+        .filter(pk=request.POST.get("program"))
+        .first()
+    )
+    if program is None:
+        messages.error(request, _("找不到這個 program，重新整理看看。"))
+        return
+
+    block = program.block
+    label = BlockType(block).label
+    items = list(program.items.all())
+    if not items:
+        messages.error(request, _("program「%(v0)s」裡沒有活動。") % {"v0": program.name})
+        return
+
+    cleared, kept = 0, 0
+    if request.POST.get("replace"):
+        for activity in session.activities.filter(block=block):
+            if liveedit.can_delete(activity, request.user):
+                activity.delete()
+                cleared += 1
+            else:
+                kept += 1
+
+    last = session.activities.filter(block=block).order_by("-order").first()
+    order = (last.order + 1) if last else 1
+    opened = 0
+    for item in items:
+        _unused, count = _spawn_activity(
+            request,
+            session,
+            block,
+            order,
+            item.name,
+            {key: getattr(item, key) for key in ACTIVITY_VALUE_FIELDS},
+            definition=item.definition,
+        )
+        opened += count
+        order += 1
+
+    BlockProgram.objects.filter(pk=program.pk).update(use_count=F("use_count") + 1)
+
+    msg = _("已把 program「%(v0)s」的 %(v1)s 項活動加進%(v2)s。") % {
+        "v0": program.name, "v1": len(items), "v2": label}
+    if cleared:
+        msg += _("（先清掉原有的 %(v0)s 項）") % {"v0": cleared}
+    if kept:
+        msg += _("（有 %(v0)s 項是別人寫的，清不掉，留在原位）") % {"v0": kept}
+    if opened:
+        msg += _("（已依組數開好 %(v0)s 組數據紀錄）") % {"v0": opened}
+    messages.success(request, msg)
+
+
+def _delete_block_program(request):
+    program = BlockProgram.objects.filter(pk=request.POST.get("program")).first()
+    if program is None:
+        messages.error(request, _("這個 program 已經不在了。"))
+        return
+    if not (liveedit.is_admin(request.user) or program.created_by_id == request.user.id):
+        messages.error(request, _("只有建立者（或管理員）可以刪掉這個 program。"))
+        return
+    name = program.name
+    program.delete()
+    messages.success(request, _("已刪除 program「%(v0)s」。") % {"v0": name})
 
 
 def _add_note(request, session):

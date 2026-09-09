@@ -357,6 +357,39 @@
     }, POLL_MS);
   }
 
+  // 日曆上按 ⧉：把那一堂課複製到別的日子（原來那一堂留在原位）
+  function openCopyDialog(button) {
+    var dlg = document.getElementById('copyDlg');
+    if (!dlg) { return; }
+    var count = parseInt(button.dataset.count || '0', 10);
+    document.getElementById('copySession').value = button.dataset.session;
+    document.getElementById('copySrc').textContent =
+      button.dataset.title + '（' + button.dataset.date + '）';
+    document.getElementById('copySlot').value = button.dataset.slot || 'PM';
+    document.getElementById('copyCount').textContent =
+      count ? '（' + count + ' 項）' : '（這一課還沒有活動）';
+    // 預設複製到下一週的同一天——最常見的用法就是同一課下星期再練一次
+    var next = new Date(button.dataset.date + 'T00:00:00');
+    next.setDate(next.getDate() + 7);
+    document.getElementById('copyDate').value = next.toISOString().slice(0, 10);
+    document.getElementById('copyDates').value = '';
+    dlg.showModal();
+  }
+
+  // 「＋ 之後四週的同一天」：以上面選的日期為起點，往後每 7 天列一個
+  function fillWeekly() {
+    var start = document.getElementById('copyDate').value;
+    if (!start) { return; }
+    var box = document.getElementById('copyDates');
+    var lines = box.value ? box.value.split('\n') : [];
+    var cursor = new Date(start + 'T00:00:00');
+    for (var i = 0; i < 4; i += 1) {
+      cursor.setDate(cursor.getDate() + 7);
+      lines.push(cursor.toISOString().slice(0, 10));
+    }
+    box.value = lines.join('\n');
+  }
+
   function mountCalendar() {
     var wrap = document.getElementById('calwrap');
     var dialog = document.getElementById('progDlg');
@@ -366,7 +399,15 @@
       if (add && dialog) {
         document.getElementById('progDate').value = add.dataset.date;
         dialog.showModal();
+        return;
       }
+      var copy = event.target.closest('.copyev');
+      if (copy) {
+        event.preventDefault();
+        openCopyDialog(copy);
+        return;
+      }
+      if (event.target.id === 'copyWeekly') { fillWeekly(); }
     });
 
     if (!wrap) { return; }

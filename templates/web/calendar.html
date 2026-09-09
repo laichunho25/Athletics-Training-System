@@ -68,6 +68,7 @@
   <span class="badge b-yellow">🎽 {% translate "熱身賽" %}</span>
   {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
   <span>{% translate "· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復" %}
+    <br>· <strong>{% translate "課表右上角的 ⧉ 就是把整堂課（連活動）複製到其他日子" %}</strong>
     <span class="no-touch"><br>· <strong>{% translate "把課表直接拖到另一天就是改日期" %}</strong></span>
     <span class="only-touch"><br>{% translate "· 要改日期，點進課表按抬頭的「日期」那一格" %}</span>
   </span>
@@ -125,6 +126,59 @@
     </div>
 
     <button class="btn" type="submit">{% translate "加入日曆" %}</button>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------- 複製課表到其他日子 -->
+<dialog id="copyDlg" class="dlg">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="copy_session">
+    <input type="hidden" name="athlete" value="{{ athlete.id }}">
+    <input type="hidden" name="session" id="copySession">
+    <div class="between mb">
+      <h2 style="margin:0">{% translate "複製課表" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="copyDlg.close()">{% translate "關閉" %}</button>
+    </div>
+
+    <div class="small c-dim mb">
+      {% translate "複製的是課表本身：名稱、類別、概要、時長，以及熱身／正課／補充練習／恢復練習四區的活動。 練完才填的（狀態、RPE、實際時長、反饋、評語）不會跟著抄過去。" %}
+    </div>
+
+    <div class="field">
+      <label>{% translate "要複製的課表" %}</label>
+      <div id="copySrc" class="ro"></div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>{% translate "複製到" %}</label>
+        <input type="date" name="date" id="copyDate" required>
+      </div>
+      <div class="field">
+        <label>{% translate "時段" %}</label>
+        <select name="time_slot" id="copySlot">
+          <option value="AM">{% translate "上午" %}</option>
+          <option value="PM">{% translate "下午" %}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>{% translate "還要複製到哪些日子（一行一個，或用逗號分開）" %}</label>
+      <textarea name="dates" id="copyDates" rows="3" placeholder="2026-09-16&#10;2026-09-23"></textarea>
+      <div class="small c-dim mt">
+        {% translate "同一課要排一整個星期／一整個月，就在這裡把日期列出來，一次過建好（最多 30 天）。" %}
+        <button type="button" class="linkbtn" id="copyWeekly">{% translate "＋ 之後四週的同一天" %}</button>
+      </div>
+    </div>
+
+    <label class="flex small">
+      <input type="checkbox" name="copy_activities" value="1" checked>
+      {% translate "連同課表裡的活動一起複製" %}<span class="c-dim" id="copyCount"></span>
+    </label>
+
+    <button class="btn mt" type="submit">{% translate "複製" %}</button>
   </form>
 </dialog>
 

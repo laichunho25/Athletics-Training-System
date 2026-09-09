@@ -117,6 +117,48 @@
     </span>
   </div>
 
+  {% comment %}
+    區塊 program：這一區排好之後可以整組存起來，下一課挑一個就全部帶進來
+    （連組數／次數／休息一起），不用逐項再挑一次。
+  {% endcomment %}
+  <div class="progbar">
+    {% if b.programs %}
+    <form method="post" class="flex">
+      {% csrf_token %}
+      <select name="program" aria-label="{% translate '已儲存的 program' %}">
+        {% for p in b.programs %}
+          <option value="{{ p.id }}" title="{{ p.preview }}">
+            {{ p.name }}（{% blocktranslate with v0=p.item_count %}{{ v0 }} 項{% endblocktranslate %}{% if p.created_by %} · {{ p.created_by.get_full_name|default:p.created_by.username }}{% endif %}）
+          </option>
+        {% endfor %}
+      </select>
+      <button class="btn ghost sm" type="submit" name="action" value="apply_program">{% translate "套用到這一課" %}</button>
+      <label class="small c-dim flex" style="gap:4px">
+        <input type="checkbox" name="replace" value="1"> {% translate "先清空這一區" %}
+      </label>
+      <button class="linkbtn small" type="submit" name="action" value="delete_program"
+              onclick="return confirm('{% translate "刪掉選中的 program？課表上已經加進去的活動不會受影響。" %}')">{% translate "刪除" %}</button>
+    </form>
+    {% endif %}
+
+    {% if b.activities %}
+    <details class="progsave">
+      <summary class="small">{% translate "把這一區存成 program" %}</summary>
+      <form method="post" class="flex mt">
+        {% csrf_token %}
+        <input type="hidden" name="block" value="{{ b.value }}">
+        <input type="text" name="program_name" maxlength="120"
+               placeholder="{% blocktranslate with v0=b.label %}名稱，例：短跑{{ v0 }}（標準）{% endblocktranslate %}">
+        <input type="text" name="program_note" maxlength="200" placeholder="{% translate '說明（可留空）' %}">
+        <button class="btn ghost sm" type="submit" name="action" value="save_program">{% translate "儲存" %}</button>
+      </form>
+      <div class="small c-dim mt">
+        {% translate "存的是這一區現在的每一項活動（連組數／次數／距離／重量／強度／休息／訓練要點）。 同名的 program 會被覆蓋成現在這一份。" %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+
   {% if b.activities %}
   <div class="acttablewrap">
   <table class="acttable">
