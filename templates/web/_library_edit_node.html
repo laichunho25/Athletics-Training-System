@@ -1,0 +1,40 @@
+{% load i18n %}
+{# 目錄那三層（運動種類／運動項目／訓練動作種類）就地改名字與說明 #}
+{% if obj.can_edit %}
+<details style="margin:4px 0 8px">
+  <summary class="small c-accent" style="cursor:pointer">{% blocktranslate with v0=label %}修改{{ v0 }}{% endblocktranslate %}</summary>
+  <form method="post" style="margin:6px 0 2px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="edit_node">
+    <input type="hidden" name="model" value="{{ model }}">
+    <input type="hidden" name="id" value="{{ obj.id }}">
+    <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
+    <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
+    <div class="row">
+      <div class="field">
+        <label>{% translate "名稱" %}</label>
+        <input type="text" name="name" value="{{ obj.name }}" required>
+      </div>
+      <div class="field">
+        <label>{% translate "英文名稱" %}</label>
+        <input type="text" name="name_en" value="{{ obj.name_en }}">
+      </div>
+      {% if model == 'discipline' %}
+        <div class="field">
+          <label>{% translate "動作預設分類" %}</label>
+          <select name="activity_category">
+            {% for v, l in activity_categories %}
+              <option value="{{ v }}" {% if v == obj.activity_category %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label>{% translate "說明" %}</label>
+      <input type="text" name="note" maxlength="200" value="{{ obj.note }}">
+    </div>
+    <button class="btn sm" type="submit">{% translate "儲存" %}</button>
+  </form>
+</details>
+{% endif %}

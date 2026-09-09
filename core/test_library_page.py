@@ -226,3 +226,180 @@ class CascadingPickerTests(TestCase):
         )
         self.assertContains(page, 'id="libcat-json"')
         self.assertTrue(page.context["library_catalog"])
+
+
+class LibraryEditTests(TestCase):
+    """項目庫裡每一項的內容都改得動——但改得動的人有分。"""
+
+    fixtures = ["events"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_activities", verbosity=0, stdout=io.StringIO())
+        cls.coach = make_coach(username="lib-edit-coach").user
+        cls.athlete = make_athlete(username="lib-edit-ath", coach=None)
+        cls.admin = make_admin(username="lib-edit-admin")
+        cls.url = reverse("web:library")
+        cls.sprint = Discipline.objects.get(name="短跑")
+
+    def _own_row(self, user, **kwargs):
+        return ActivityDefinition.objects.create(
+            name=kwargs.pop("name", "沙地 30m 加速"),
+            discipline=self.sprint,
+            created_by=user,
+            status=kwargs.pop("status", LibraryStatus.PENDING),
+            **kwargs,
+        )
+
+    def test_admin_can_rewrite_a_movement(self):
+        row = ActivityDefinition.objects.get(name="單腳踝彈跳")
+        kind = MovementKind.objects.get(name="專項動作")
+        self.client.login(username="lib-edit-admin", password=PW)
+
+        self.client.post(
+            self.url,
+            {
+                "action": "edit_activity",
+                "activity": row.id,
+                "name": "單腳踝彈跳（改）",
+                "name_en": "Single Leg Pogo",
+                "note": "單腳踝彈跳，重點在腳踝剛性。",
+                "discipline": self.sprint.id,
+                "movement_kind": kind.id,
+                "default_block": "MAIN",
+                "sets": "4 組",
+                "reps": "12 次",
+                "rest": "60s",
+                "key_points": "腳踝鎖住，不要屈膝吸震。",
+            },
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.name, "單腳踝彈跳（改）")
+        self.assertEqual(row.note, "單腳踝彈跳，重點在腳踝剛性。")
+        self.assertEqual(row.default_sets, "4 組")
+        self.assertEqual(row.default_key_points, "腳踝鎖住，不要屈膝吸震。")
+        # 換了運動項目，分類跟著新的運動項目走
+        self.assertEqual(row.discipline, self.sprint)
+        self.assertEqual(row.category, self.sprint.activity_category)
+
+    def test_a_coach_can_edit_what_they_added_themselves(self):
+        row = self._own_row(self.coach)
+        self.client.login(username="lib-edit-coach", password=PW)
+
+        self.client.post(
+            self.url,
+            {
+                "action": "edit_activity",
+                "activity": row.id,
+                "name": "沙地 40m 加速",
+                "discipline": self.sprint.id,
+                "default_block": "MAIN",
+            },
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.name, "沙地 40m 加速")
+        # 改內容不影響「等不等管理員確認」
+        self.assertEqual(row.status, LibraryStatus.PENDING)
+
+    def test_a_coach_cannot_edit_someone_elses_movement(self):
+        row = ActivityDefinition.objects.get(name="單腳踝彈跳")
+        self.client.login(username="lib-edit-coach", password=PW)
+
+        page = self.client.post(
+            self.url,
+            {
+                "action": "edit_activity",
+                "activity": row.id,
+                "name": "被別人改掉的名字",
+                "discipline": self.sprint.id,
+                "default_block": "MAIN",
+            },
+            follow=True,
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.name, "單腳踝彈跳")
+        self.assertContains(page, "只有管理員或當初加這個動作的人可以修改它")
+
+    def test_the_edit_form_only_shows_for_what_you_may_change(self):
+        own = self._own_row(self.coach, name="沙地 30m 加速")
+        self.client.login(username="lib-edit-coach", password=PW)
+
+        page = self.client.get(f"{self.url}?discipline={self.sprint.id}")
+        body = page.content.decode()
+
+        self.assertIn("edit_activity", body)
+        self.assertIn(str(own.id), body)
+        # 自己那一項有修改表單，全庫共用的動作沒有
+        self.assertEqual(body.count('name="action" value="edit_activity"'), 1)
+
+    def test_renaming_onto_an_existing_movement_is_refused(self):
+        row = self._own_row(self.coach)
+        self.client.login(username="lib-edit-coach", password=PW)
+
+        page = self.client.post(
+            self.url,
+            {
+                "action": "edit_activity",
+                "activity": row.id,
+                "name": "單腳踝彈跳",
+                "discipline": self.sprint.id,
+                "default_block": "MAIN",
+            },
+            follow=True,
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.name, "沙地 30m 加速")
+        self.assertContains(page, "已經有另一個")
+
+    def test_admin_can_rename_a_catalogue_level(self):
+        self.client.login(username="lib-edit-admin", password=PW)
+
+        self.client.post(
+            self.url,
+            {
+                "action": "edit_node",
+                "model": "discipline",
+                "id": self.sprint.id,
+                "name": "短距離衝刺",
+                "name_en": "Sprints",
+                "note": "100m 到 400m。",
+                "activity_category": "PLYO",
+            },
+        )
+
+        self.sprint.refresh_from_db()
+        self.assertEqual(self.sprint.name, "短距離衝刺")
+        self.assertEqual(self.sprint.note, "100m 到 400m。")
+        self.assertEqual(self.sprint.activity_category, "PLYO")
+
+    def test_an_athlete_cannot_rename_someone_elses_catalogue_level(self):
+        self.client.login(username="lib-edit-ath", password=PW)
+
+        page = self.client.post(
+            self.url,
+            {"action": "edit_node", "model": "discipline", "id": self.sprint.id, "name": "亂改"},
+            follow=True,
+        )
+
+        self.sprint.refresh_from_db()
+        self.assertEqual(self.sprint.name, "短跑")
+        self.assertContains(page, "只有管理員或當初加這一項的人可以修改它")
+
+    def test_an_empty_name_is_refused(self):
+        row = self._own_row(self.coach)
+        self.client.login(username="lib-edit-coach", password=PW)
+
+        page = self.client.post(
+            self.url,
+            {"action": "edit_activity", "activity": row.id, "name": "  ",
+             "discipline": self.sprint.id, "default_block": "MAIN"},
+            follow=True,
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.name, "沙地 30m 加速")
+        self.assertContains(page, "請填動作名稱")

@@ -59,6 +59,17 @@ def visible_filter(user):
     return approved
 
 
+def can_edit(user, obj):
+    """誰可以改項目庫裡已經有的內容。
+
+    管理員任何一項都改得動；其他人只能改自己加進來的那些——已經確認、
+    別人課表正在用的動作如果誰都改得動，別人的課表會莫名其妙變樣。
+    """
+    if is_library_admin(user):
+        return True
+    return bool(user and user.is_authenticated and obj.created_by_id == user.id)
+
+
 def visible_definitions(user):
     """課表與數據分析的挑選清單：可挑選、且看得到的動作。"""
     return (
@@ -129,6 +140,9 @@ def library_tree(user, sport=None, discipline=None):
     kinds = list(MovementKind.objects.filter(where).order_by("order", "name"))
 
     library = list(visible_definitions(user))
+    # 畫面上「修改」要不要出現，逐項先問過權限，模板才不用自己判斷
+    for obj in (*sports, *disciplines, *kinds, *library):
+        obj.can_edit = can_edit(user, obj)
     counts = {}
     for d in library:
         for disc in definition_disciplines(d):

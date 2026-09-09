@@ -124,6 +124,7 @@ from training.models import (
     SportType,
 )
 from training.library import (
+    can_edit,
     ensure_activity_library,
     library_catalog,
     is_library_admin,
@@ -3138,6 +3139,81 @@ def library_view(request):
                     created_by=request.user,
                 )
                 messages.success(request, _("已加入動作「%(v0)s」%(v1)s。") % {"v0": name, "v1": pending_note})
+            return redirect(back)
+
+        if action == "edit_activity":
+            activity = ActivityDefinition.objects.filter(
+                pk=request.POST.get("activity")
+            ).first()
+            name = request.POST.get("name", "").strip()
+            target = Discipline.objects.filter(pk=request.POST.get("discipline")).first()
+            if activity is None:
+                messages.error(request, _("找不到要修改的動作。"))
+            elif not can_edit(request.user, activity):
+                messages.error(request, _("只有管理員或當初加這個動作的人可以修改它。"))
+            elif not name:
+                messages.error(request, _("請填動作名稱。"))
+            elif (
+                ActivityDefinition.objects.filter(name__iexact=name)
+                .exclude(pk=activity.pk)
+                .exists()
+            ):
+                messages.info(request, _("項目庫裡已經有另一個「%(v0)s」了。") % {"v0": name})
+            else:
+                block = request.POST.get("default_block")
+                activity.name = name
+                activity.name_en = request.POST.get("name_en", "").strip()
+                activity.note = request.POST.get("note", "").strip()
+                if target is not None:
+                    # 換到別的運動項目，分類跟著新的運動項目走（數據分析靠它分範疇）
+                    activity.discipline = target
+                    activity.category = target.activity_category
+                activity.movement_kind = MovementKind.objects.filter(
+                    pk=request.POST.get("movement_kind")
+                ).first()
+                if block in BlockType.values:
+                    activity.default_block = block
+                activity.default_sets = request.POST.get("sets", "").strip()
+                activity.default_reps = request.POST.get("reps", "").strip()
+                activity.default_distance = request.POST.get("distance", "").strip()
+                activity.default_weight = request.POST.get("weight", "").strip()
+                activity.default_intensity = request.POST.get("intensity", "").strip()
+                activity.default_rest = request.POST.get("rest", "").strip()
+                activity.default_key_points = request.POST.get("key_points", "").strip()
+                activity.save()
+                messages.success(request, _("已更新動作「%(v0)s」。") % {"v0": name})
+            return redirect(back)
+
+        if action == "edit_node":
+            obj, label = _library_object(request)
+            name = request.POST.get("name", "").strip()
+            dupes = (
+                type(obj).objects.exclude(pk=obj.pk).filter(name__iexact=name)
+                if obj is not None
+                else None
+            )
+            if isinstance(obj, Discipline):
+                # 運動項目的名字只要在同一個運動種類底下不重複就好
+                dupes = dupes.filter(sport=obj.sport)
+            if obj is None:
+                messages.error(request, _("找不到要修改的項目。"))
+            elif not can_edit(request.user, obj):
+                messages.error(request, _("只有管理員或當初加這一項的人可以修改它。"))
+            elif not name:
+                messages.error(request, _("請填名稱。"))
+            elif dupes.exists():
+                messages.info(request, _("項目庫裡已經有另一個「%(v0)s」了。") % {"v0": name})
+            else:
+                obj.name = name
+                obj.name_en = request.POST.get("name_en", "").strip()
+                obj.note = request.POST.get("note", "").strip()
+                fields = ["name", "name_en", "note", "updated_at"]
+                category = request.POST.get("activity_category")
+                if isinstance(obj, Discipline) and category in ActivityCategory.values:
+                    obj.activity_category = category
+                    fields.append("activity_category")
+                obj.save(update_fields=fields)
+                messages.success(request, _("已更新%(v0)s「%(v1)s」。") % {"v0": label, "v1": name})
             return redirect(back)
 
         if action in ("add_to_discipline", "remove_from_discipline"):
