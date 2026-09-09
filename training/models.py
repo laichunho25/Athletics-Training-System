@@ -648,6 +648,29 @@ class SessionActivity(TimeStampedModel):
             bits.append(f"休 {self.rest}")
         return " ".join(bits)
 
+    @property
+    def plan_summary(self):
+        """排課寫了什麼，不含活動名稱：3 組 · 15 次 · 30 米 · @ body weight · 休 30s
+
+        課表的活動表不再逐欄開輸入格（數字一律在「訓練紀錄」填），
+        排課的內容就縮成這一句寫在活動名稱底下。
+        """
+        bits = []
+        for value, suffix in (
+            (self.sets, _(" 組")),
+            (self.reps, _(" 次")),
+            (self.distance, ""),
+        ):
+            if value:
+                bits.append(f"{value}{suffix}")
+        if self.weight:
+            bits.append(f"@ {self.weight}")
+        if self.intensity:
+            bits.append(_("強度 %(v0)s") % {"v0": self.intensity})
+        if self.rest:
+            bits.append(_("休 %(v0)s") % {"v0": self.rest})
+        return " · ".join(bits)
+
 
 # ------------------------------------------------- 區塊 program（可重用的一區內容）
 

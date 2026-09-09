@@ -833,6 +833,22 @@ details > summary::-webkit-details-marker { display: none; }
 }
 .pad { padding: 13px 14px; }
 
+/* 活動那一格底下的小字：排課寫了幾組幾次幾米，實際做了多少看「登記錄」 */
+.acttable .planline {
+  color: var(--text-dim); font-size: 11.5px; margin-top: 2px;
+  font-family: var(--mono);
+}
+/* 「登記錄」那一欄：按鈕一行、已登幾組一行，窄一點不要跟活動名爭位 */
+.acttable .logcell { white-space: nowrap; }
+.acttable .logcell .btn { margin-bottom: 3px; }
+.acttable .logcell .small { display: block; }
+/* 正在登的那一行，按鈕亮起來 */
+.btn.ghost.on {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+
 /* 表格 / 徽章裡的純文字按鈕（例如取消分配的 ×） */
 .linkbtn {
   background: none; border: 0; color: var(--text-dim); cursor: pointer;
@@ -956,6 +972,10 @@ details > summary::-webkit-details-marker { display: none; }
 .detailtable { overflow-x: auto; }
 .detailtable table { min-width: 860px; }
 .detailchart .chart-box { height: 300px; }
+
+/* 課表上的紀錄明細：一堂課只有一天，不用分日，逐組平鋪就好 */
+.setdetail { overflow-x: auto; }
+.setdetail table { min-width: 760px; font-variant-numeric: tabular-nums; }
 tr.failedrow > td { background: color-mix(in srgb, var(--red) 10%, transparent); }
 tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
 /* ------------------------------------------------------------ 響應式 */

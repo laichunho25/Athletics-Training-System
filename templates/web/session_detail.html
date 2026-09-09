@@ -36,7 +36,9 @@
 {% block scripts %}
 <script src="{% static 'js/liveedit.js' %}"></script>
 <script src="{% static 'js/libpick.js' %}"></script>
+<script src="{% static 'js/setgrid.js' %}"></script>
 <script>
   ATM.mountSession();
+  ATM.mountSetGrid();
 </script>
 {% endblock %}

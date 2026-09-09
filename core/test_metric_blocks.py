@@ -1,4 +1,4 @@
-"""從課表哪一段（熱身／正課／補充／恢復）加進數據分析，以及 kg ↔ 秒 的單位切換。"""
+"""課表哪一段（熱身／正課／補充／恢復）登的紀錄，以及 kg ↔ 秒 的單位切換。"""
 from datetime import date
 
 from django.test import TestCase
@@ -18,7 +18,7 @@ TODAY = date(2026, 6, 1)
 
 
 class PushedBlockTests(TestCase):
-    """課表某一區加進數據分析之後，那一段的身分有跟著過去。"""
+    """課表某一行按「登記錄」之後，那一段的身分有跟著過去。"""
 
     def setUp(self):
         ensure_builtin_items()
@@ -43,10 +43,16 @@ class PushedBlockTests(TestCase):
         return reverse("web:analytics")
 
     def push(self, block=BlockType.MAIN, domain=MetricDomain.STRENGTH):
-        return self.client.post(
-            self.url(),
-            {"action": "push_metrics", "block": block, "domain": domain},
-        )
+        """課表那一區的每一行都按一次「登記錄」。"""
+        response = None
+        for activity in self.session.activities.filter(block=block).order_by(
+            "order", "id"
+        ):
+            response = self.client.post(
+                self.url(),
+                {"action": "log_activity", "id": activity.id, "rdomain": domain},
+            )
+        return response
 
     def test_the_block_travels_with_the_records(self):
         self.assertEqual(self.push().status_code, 302)
@@ -54,17 +60,20 @@ class PushedBlockTests(TestCase):
         self.assertEqual([r.block for r in recs], [BlockType.MAIN, BlockType.MAIN])
         self.assertEqual(recs[0].block_label, "正課")
 
-    def test_the_session_page_says_whether_a_block_was_pushed(self):
+    def test_the_session_page_says_whether_a_row_was_logged(self):
         page = self.client.get(self.url())
-        self.assertContains(page, "加入本課訓練到數據分析")
-        self.assertContains(page, "這一區還沒加進數據分析")
+        self.assertContains(page, "登記錄")
+        self.assertContains(page, "未登")
 
         self.push()
         page = self.client.get(self.url())
-        self.assertContains(page, "到數據分析填")
+        self.assertContains(page, "2 組 · 已填 0")
 
-    def test_an_unknown_block_is_refused(self):
-        self.push(block="NOT_A_BLOCK")
+    def test_an_unknown_activity_is_refused(self):
+        self.client.post(
+            self.url(),
+            {"action": "log_activity", "id": 99999, "rdomain": MetricDomain.STRENGTH},
+        )
         self.assertEqual(MetricRecord.objects.count(), 0)
 
     def test_the_block_can_be_changed_from_the_analytics_page(self):

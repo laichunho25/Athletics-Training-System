@@ -1,9 +1,9 @@
-"""課表某一區加進數據分析 → 依組數開好空白紀錄。
+"""課表某一行按「登記錄」→ 依組數開好空白紀錄。
 
-課表只排「今天要做什麼」，數字一律在數據分析登。
-教練在課表寫「深蹲 3 組 × 5 次 @ 100kg」，按那一區的
-「加入本課訓練到數據分析」之後，數據分析就先有 3 組空白列，
-運動員練完只要在那邊填「完成數值」，不用把同一批數字再打一次。
+課表只排「今天要做什麼」，數字在同一頁下面的「訓練紀錄」登。
+教練在課表寫「深蹲 3 組 × 5 次 @ 100kg」，按那一行的「登記錄」之後，
+底下就先有 3 組空白列，運動員練完只要填「完成數值」，
+不用把同一批數字再打一次；數據分析那邊看到的就是同一批紀錄。
 """
 
 from datetime import date
@@ -77,7 +77,7 @@ class PlannedSetsTests(TestCase):
 
 
 class PushBlockToAnalyticsTests(TestCase):
-    """課表那一區按「加入本課訓練到數據分析」之後開了什麼。"""
+    """課表那一區的每一行按「登記錄」之後開了什麼。"""
 
     def setUp(self):
         ensure_builtin_items()
@@ -104,13 +104,19 @@ class PushBlockToAnalyticsTests(TestCase):
         return self.client.post(self.url(), data)
 
     def push(self, block=BlockType.MAIN, domain=MetricDomain.STRENGTH):
-        return self.client.post(
-            self.url(),
-            {"action": "push_metrics", "block": block, "domain": domain},
-        )
+        """課表那一區的每一行都按一次「登記錄」。"""
+        response = None
+        for activity in self.session.activities.filter(block=block).order_by(
+            "order", "id"
+        ):
+            response = self.client.post(
+                self.url(),
+                {"action": "log_activity", "id": activity.id, "rdomain": domain},
+            )
+        return response
 
     def test_adding_an_activity_alone_records_nothing(self):
-        # 課表只排課：沒按「加入本課訓練到數據分析」之前，數據那邊一片空白
+        # 課表只排課：沒按「登記錄」之前，數據那邊一片空白
         self.add_activity()
         self.assertEqual(MetricRecord.objects.count(), 0)
         self.assertFalse(MetricItem.objects.filter(name="槓鈴深蹲").exists())
@@ -169,17 +175,22 @@ class PushBlockToAnalyticsTests(TestCase):
         self.assertEqual(MetricRecord.objects.filter(block=BlockType.WARMUP).count(), 2)
         self.assertEqual(MetricRecord.objects.filter(block=BlockType.MAIN).count(), 3)
 
-    def test_the_domain_is_the_one_picked_on_the_button(self):
-        # 課別是重量訓練，但這一區跑的是田徑——範疇由按鈕旁邊的選單決定
+    def test_the_domain_is_the_one_picked_on_the_page(self):
+        # 恢復訓練那天可能是跑的、也可能是舉的——範疇由紀錄區上面那個選單決定
+        self.session.session_type = SessionType.RECOVERY
+        self.session.save()
         self.add_activity(name="30m 衝刺", sets="4 組", weight="", rest="3 分鐘")
         self.push(domain=MetricDomain.TRACK)
         record = MetricRecord.objects.first()
         self.assertEqual(record.item.domain, MetricDomain.TRACK)
 
-    def test_an_unknown_domain_is_refused(self):
+    def test_an_unknown_domain_falls_back_to_the_課別_default(self):
+        # 範疇是課表上的選單挑的；網址被亂改就退回這個課別的第一個範疇
         self.add_activity()
         self.push(domain="NONSENSE")
-        self.assertEqual(MetricRecord.objects.count(), 0)
+        self.assertEqual(
+            MetricRecord.objects.first().item.domain, MetricDomain.STRENGTH
+        )
 
     def test_the_sets_written_afterwards_are_picked_up(self):
         activity = SessionActivity.objects.create(
@@ -234,14 +245,15 @@ class ActivityDefaultsFlowTests(TestCase):
                 "name": "保加利亞分腿蹲\n臥推",
             },
         )
-        self.client.post(
-            url,
-            {
-                "action": "push_metrics",
-                "block": BlockType.SUPPLEMENT,
-                "domain": MetricDomain.STRENGTH,
-            },
-        )
+        for activity in self.session.activities.filter(block=BlockType.SUPPLEMENT):
+            self.client.post(
+                url,
+                {
+                    "action": "log_activity",
+                    "id": activity.id,
+                    "rdomain": MetricDomain.STRENGTH,
+                },
+            )
         records = MetricRecord.objects.filter(item__name="保加利亞分腿蹲").order_by(
             "set_no"
         )

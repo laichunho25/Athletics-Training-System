@@ -1,10 +1,9 @@
-"""主要必看的訓練項目（📌），以及數據分析頁上「從日曆加入的當日訓練」那一欄。"""
+"""主要必看的訓練項目（📌）——數據分析頁最上面那一張卡。"""
 from datetime import date
 
 from django.test import TestCase
 from django.urls import reverse
 
-from analytics import services as an
 from analytics.models import (
     MetricDomain,
     MetricItem,
@@ -12,9 +11,7 @@ from analytics.models import (
     ensure_builtin_items,
     pinned_items,
 )
-from core.models import SessionType
-from core.test_factories import make_athlete, make_session
-from training.models import BlockType, SessionActivity
+from core.test_factories import make_athlete
 
 TODAY = date(2026, 6, 1)
 
@@ -98,61 +95,3 @@ class PinTests(TestCase):
         self.pin()
         self.assertEqual(pinned_items(self.athlete, MetricDomain.STRENGTH), [self.item])
         self.assertEqual(pinned_items(self.athlete, MetricDomain.TRACK), [])
-
-
-class PushedSessionPanelTests(TestCase):
-    """數據分析頁要看得到「哪幾天的課已經加進來了、還有多少格沒填」。"""
-
-    def setUp(self):
-        ensure_builtin_items()
-        self.athlete = make_athlete("p3")
-        self.client.force_login(self.athlete.user)
-        self.session = make_session(
-            self.athlete, TODAY, session_type=SessionType.TRACK
-        )
-        SessionActivity.objects.create(
-            session=self.session, block=BlockType.MAIN, order=1,
-            name="150m 反覆跑", sets="2 組",
-        )
-        self.client.post(
-            reverse("web:session_detail", args=[self.session.id]),
-            {
-                "action": "push_metrics",
-                "block": BlockType.MAIN,
-                "domain": MetricDomain.TRACK,
-            },
-        )
-
-    def test_the_pushed_day_is_listed_with_what_is_still_missing(self):
-        days = an.pushed_sessions(self.athlete, MetricDomain.TRACK)
-        self.assertEqual(len(days), 1)
-        day = days[0]
-        self.assertEqual(day["session"], self.session)
-        self.assertEqual(day["date"], TODAY)
-        self.assertEqual(day["sets"], 2)
-        self.assertEqual(day["filled"], 0)
-        self.assertEqual(day["pending"], 2)
-        self.assertEqual([i.name for i in day["items"]], ["150m 反覆跑"])
-
-    def test_filling_a_set_moves_it_out_of_pending(self):
-        rec = MetricRecord.objects.order_by("set_no").first()
-        MetricRecord.objects.filter(pk=rec.pk).update(value="19.5")
-        day = an.pushed_sessions(self.athlete, MetricDomain.TRACK)[0]
-        self.assertEqual((day["filled"], day["pending"]), (1, 1))
-
-    def test_the_panel_shows_up_on_the_analytics_page(self):
-        page = self.client.get(
-            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
-            f"&domain={MetricDomain.TRACK}"
-        )
-        self.assertContains(page, "從日曆加入的當日訓練")
-        self.assertEqual(len(page.context["day_sessions"]), 1)
-
-    def test_a_day_that_was_never_pushed_is_not_listed(self):
-        make_session(self.athlete, date(2026, 6, 2), session_type=SessionType.TRACK)
-        self.assertEqual(len(an.pushed_sessions(self.athlete, MetricDomain.TRACK)), 1)
-
-    def test_another_domain_does_not_borrow_the_day(self):
-        self.assertEqual(
-            an.pushed_sessions(self.athlete, MetricDomain.STRENGTH), []
-        )

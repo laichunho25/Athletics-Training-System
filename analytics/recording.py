@@ -247,21 +247,17 @@ def open_planned_records(activity, item, *, athlete, session):
     return len(rows)
 
 
-# ------------------------------------------ 課表某一區 → 數據分析（當日訓練）
+# --------------------------------------- 課表的一行 → 這一行要登的數據項目
 #
-# 課表只負責「今天要做什麼」；數據要不要跟就由排課的人決定：
-# 在熱身／正課／補充練習／恢復練習每一區旁邊按一下「加入本課訓練到數據分析」，
-# 挑一個範疇（比賽數據／田徑練習訓練紀錄／重量訓練紀錄），
-# 這一區的每一項就會在數據分析開好項目與空白組，之後在那邊把數字填進去。
+# 課表只排「今天做什麼」，數字一律填在課表下半部的「訓練紀錄」。
+# 按某一行的「登記錄」時走這裡：同名的數據項目沒有就開一個，
+# 課表寫了「3 組」就先把 3 組空白紀錄開好，練完只要補「完成數值」那一格。
 
 
-def push_block_to_analytics(session, block, domain, *, user=None):
-    """把課表某一區的活動，加進數據分析變成當天的訓練紀錄。
+def ensure_item_for_activity(activity, domain, *, user=None):
+    """課表某一行對應的數據項目（必要時建立），順便開好課表寫明的組數。
 
-    每一項活動 → 一個同名的數據項目；課表寫了「3 組」就開 3 組空白紀錄，
-    沒寫組數的也開一組，不然那項在數據分析根本看不到。
-    已經加過的一項不會再加第二次（填好的成績永遠不會被蓋掉）。
-    回傳 dict：加了幾項、開了幾組、幾項本來就有了。
+    回傳 (item, 開了幾組空白紀錄)；範疇不認得就丟 RecordError。
     """
     from analytics.models import (
         MetricDomain,
@@ -272,52 +268,94 @@ def push_block_to_analytics(session, block, domain, *, user=None):
     if domain not in MetricDomain.values:
         raise RecordError(_("不認得的數據範疇。"))
 
-    activities = list(
-        session.activities.filter(block=block).select_related("definition").order_by("order", "id")
+    definition = activity.definition if activity.definition_id else None
+    item = item_for_name(
+        domain,
+        activity.name,
+        user=user,
+        category=metric_category_for_activity(definition.category if definition else ""),
+        name_en=definition.name_en if definition else "",
     )
-    items, opened, existing = [], 0, 0
-    for activity in activities:
-        definition = activity.definition if activity.definition_id else None
-        item = item_for_name(
-            domain,
-            activity.name,
-            user=user,
-            category=metric_category_for_activity(
-                definition.category if definition else ""
-            ),
-            name_en=definition.name_en if definition else "",
-        )
-        if item is None:
-            continue
-        items.append(item)
-        made = open_planned_records(
-            activity, item, athlete=session.athlete, session=session
-        )
-        if made:
-            opened += made
-            continue
-        if MetricRecord.objects.filter(
-            session=session, item=item, block=block
-        ).exists():
-            existing += 1
-            continue
-        # 課表沒寫組數的動作也要看得到：先開一組空白的，數值在數據分析補
+    if item is None:
+        raise RecordError(_("這一行沒有活動名稱，登不了數據。"))
+
+    session = activity.session
+    opened = open_planned_records(
+        activity, item, athlete=session.athlete, session=session
+    )
+    if not opened and not MetricRecord.objects.filter(
+        session=session, item=item, block=activity.block
+    ).exists():
+        # 課表沒寫組數的動作也要有一列可以填，不然點進來是一片空白
         MetricRecord.objects.create(
             athlete=session.athlete,
             item=item,
             session=session,
             date=session.date,
-            block=block,
+            block=activity.block,
             **_set_row(activity),
         )
-        opened += 1
+        opened = 1
+    return item, opened
 
-    return {
-        "activities": len(activities),
-        "items": items,
-        "opened": opened,
-        "existing": existing,
-    }
+
+def session_records(session, item, block=""):
+    """這堂課、這個項目（可再限定區塊）底下的每一組，照組號排。
+
+    課表頁的「紀錄明細」就是這一份——一堂課只有一天，
+    所以不像數據分析那樣要再按日期分組，直接一組一列。
+    """
+    rows = MetricRecord.objects.filter(session=session, item=item)
+    if block:
+        rows = rows.filter(block=block)
+    return list(rows.order_by(F("set_no").asc(nulls_first=True), "id"))
+
+
+def session_domain_tables(session):
+    """這堂課登了的數據，照範疇（田徑練習訓練紀錄／重量訓練紀錄…）分開列。
+
+    課表頁最底下那幾張表就是這一份：內容全部來自上面「新增一筆紀錄／
+    紀錄明細」填進去的東西，不用在課表上再登第二次。
+    """
+    from analytics.models import MetricDomain
+
+    records = list(
+        MetricRecord.objects.filter(session=session)
+        .select_related("item")
+        .order_by("item__domain", "item__name", F("set_no").asc(nulls_first=True), "id")
+    )
+    domain_labels = dict(MetricDomain.choices)
+    block_labels = dict(block_choices())
+
+    tables = {}
+    for r in records:
+        table = tables.setdefault(
+            r.item.domain,
+            {
+                "domain": r.item.domain,
+                "label": domain_labels.get(r.item.domain, r.item.domain),
+                "items": {},
+                "sets": 0,
+                "filled": 0,
+            },
+        )
+        table["sets"] += 1
+        if r.value is not None:
+            table["filled"] += 1
+        row = table["items"].setdefault(
+            r.item_id,
+            {"item": r.item, "block_label": block_labels.get(r.block, ""), "records": []},
+        )
+        row["records"].append(r)
+
+    ordered = []
+    for domain in MetricDomain.values:
+        table = tables.get(domain)
+        if not table:
+            continue
+        table["items"] = list(table["items"].values())
+        ordered.append(table)
+    return ordered
 
 
 # ------------------------------------------------ 修改已經登進去的紀錄

@@ -47,7 +47,6 @@ class MultiSetRecordTests(TestCase):
         self.assertIn("setChart", body)
         self.assertIn("未完成", body)
         self.assertIn("66.7%", body)  # 完成率 2/3
-        self.assertIn('<option value="min" selected>分鐘</option>', body)
 
     def test_single_set_keeps_no_set_no(self):
         url = reverse("web:analytics")
@@ -95,9 +94,9 @@ class MultiSetRecordTests(TestCase):
         self.assertIsNone(rec.weight_kg)
         self.assertEqual(rec.intensity, "90%")
 
+        # 明細表照樣看得到強度要求那一欄（重量欄換成了它）
         body = self.client.get(f"{url}?domain={MetricDomain.TRACK}&item={item.id}").content.decode()
-        self.assertIn('name="intensity"', body)
-        self.assertNotIn('name="weight"', body)     # 重量欄換成了強度要求
+        self.assertIn("強度要求", body)
 
     def test_strength_item_keeps_its_weight_field(self):
         """重量訓練不受影響：非 kg 單位的項目照樣有自己的重量欄。"""
@@ -114,8 +113,7 @@ class MultiSetRecordTests(TestCase):
         body = self.client.get(
             f"{url}?domain={MetricDomain.STRENGTH}&item={item.id}"
         ).content.decode()
-        self.assertIn('name="weight"', body)
-        self.assertNotIn('name="intensity"', body)
+        self.assertIn('<th class="num">重量</th>', body)
 
 
 class TrackIntensityTests(TestCase):
@@ -303,15 +301,15 @@ class SetOrderTests(TestCase):
         })
         self.assertEqual(self.order(), [(1, 100.0), (2, 110.0)])
 
-    def test_the_detail_table_offers_the_order_controls_and_the_fill_row(self):
+    def test_the_analytics_detail_table_is_read_only(self):
+        # 改紀錄的地方統一在課表（↑ ↓ ✓ × 和「全部套用」都在那邊），
+        # 數據分析這邊只負責看；後端的動作還在，課表送過來照樣處理。
         body = self.client.get(
             f"{self.url}?domain={MetricDomain.STRENGTH}&item={self.item.id}"
         ).content.decode()
-        self.assertIn('name="up"', body)
-        self.assertIn('name="down"', body)
-        self.assertIn('data-fill="value"', body)
-        self.assertIn("fillall", body)
-        self.assertIn(f'name="set_no_{self.record(1).id}"', body)
+        self.assertNotIn('name="up"', body)
+        self.assertNotIn('data-fill="value"', body)
+        self.assertNotIn(f'name="set_no_{self.record(1).id}"', body)
 
 
 class MainChartModeTests(TestCase):

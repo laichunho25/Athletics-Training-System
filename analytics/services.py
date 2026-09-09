@@ -1370,56 +1370,6 @@ def movement_stats(athlete, items, days=365):
     return rows
 
 
-def pushed_sessions(athlete, domain, days=120, limit=12):
-    """從日曆加進來的當日訓練：哪一天、哪一堂課、加了哪些項目、填了多少。
-
-    課表上按「加入本課訓練到數據分析」之後，那一課就出現在這裡；
-    數字還沒填的一眼看得出來（幾組裡填了幾組），點進去就在紀錄明細補。
-    """
-    from analytics.models import MetricRecord, block_choices
-
-    since = date.today() - timedelta(days=days)
-    records = (
-        MetricRecord.objects.filter(
-            athlete=athlete,
-            item__domain=domain,
-            session__isnull=False,
-            date__gte=since,
-        )
-        .select_related("item", "session")
-        .order_by("-date", "session_id", "id")
-    )
-
-    block_labels = dict(block_choices())
-    rows, seen = [], {}
-    for r in records:
-        entry = seen.get(r.session_id)
-        if entry is None:
-            entry = {
-                "session": r.session,
-                "date": r.date,
-                "items": [],
-                "item_ids": set(),
-                "blocks": [],
-                "sets": 0,
-                "filled": 0,
-            }
-            seen[r.session_id] = entry
-            rows.append(entry)
-        if r.item_id not in entry["item_ids"]:
-            entry["item_ids"].add(r.item_id)
-            entry["items"].append(r.item)
-        label = block_labels.get(r.block, "")
-        if label and label not in entry["blocks"]:
-            entry["blocks"].append(label)
-        entry["sets"] += 1
-        if r.value is not None:
-            entry["filled"] += 1
-    for entry in rows:
-        entry["pending"] = entry["sets"] - entry["filled"]
-    return rows[:limit]
-
-
 # ---------------------------------------------------------------- 比賽分析
 
 

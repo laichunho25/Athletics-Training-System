@@ -1,11 +1,17 @@
 """運動練習項目庫頁面：瀏覽、新增、以及等管理員確認的流程。"""
 import io
+from datetime import date
 
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from core.test_factories import make_admin, make_athlete, make_coach
+from core.test_factories import (
+    make_admin,
+    make_athlete,
+    make_coach,
+    make_session,
+)
 from training.library import library_catalog, library_groups, visible_definitions
 from training.models import (
     ActivityDefinition,
@@ -128,9 +134,10 @@ class LibraryPageTests(TestCase):
         self.assertEqual(row.status, LibraryStatus.PENDING)
 
     def test_the_pickers_are_fed_by_the_library(self):
-        """數據分析「從項目庫挑」與課表的挑選清單是同一份來源。"""
+        """課表的挑選清單就是項目庫那一份。"""
         self.client.login(username="lib-page-ath", password=PW)
-        page = self.client.get(f"{reverse('web:analytics')}?athlete={self.athlete.id}")
+        session = make_session(self.athlete, date(2026, 6, 1))
+        page = self.client.get(reverse("web:session_detail", args=[session.id]))
         labels = {g["label"] for g in page.context["activity_groups"]}
         self.assertIn("田徑 · 短跑", labels)
         self.assertIn("體能訓練 · 核心與穩定性訓練", labels)
@@ -219,11 +226,10 @@ class CascadingPickerTests(TestCase):
         # 別的運動種類的動作不會混進短跑
         self.assertNotIn("槓鈴深蹲", names)
 
-    def test_the_analytics_page_ships_the_catalog(self):
+    def test_the_session_page_ships_the_catalog(self):
         self.client.login(username="pick-ath", password=PW)
-        page = self.client.get(
-            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
-        )
+        session = make_session(self.athlete, date(2026, 6, 1))
+        page = self.client.get(reverse("web:session_detail", args=[session.id]))
         self.assertContains(page, 'id="libcat-json"')
         self.assertTrue(page.context["library_catalog"])
 

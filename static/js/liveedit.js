@@ -353,6 +353,8 @@
     setInterval(function () {
       poll(region, function () {
         if (window.ATM && window.ATM.mountLibPickers) { window.ATM.mountLibPickers(); }
+        // 換過整片內容之後，「訓練紀錄」那幾顆按鈕要重新掛一次
+        if (window.ATM && window.ATM.mountSetGrid) { window.ATM.mountSetGrid(); }
       });
     }, POLL_MS);
   }
