@@ -841,6 +841,8 @@ def metric_analysis(athlete, item, days=365):
                 "context": r.context,
                 "set_no": r.set_no,
                 "weight": float(r.weight_kg) if r.weight_kg is not None else None,
+                # 距離：課表正課那一欄登進來的米數，圖上點一下看得到
+                "distance": float(r.distance_m) if r.distance_m is not None else None,
                 "intensity": r.intensity,
                 "reps": r.reps,
                 "rest_sec": r.rest_sec,

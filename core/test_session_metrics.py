@@ -900,3 +900,83 @@ class BulkSaveIsNotBlockedByTheBrowserTests(TestCase):
         self.rec.refresh_from_db()
         self.assertEqual(float(self.rec.value), 19.2)
         self.assertEqual(self.rec.rest_sec, 100)
+
+
+class DistanceTests(TestCase):
+    """距離：課表正課的重點欄位，登記錄帶進紀錄，數據分析三個範疇都看得到。"""
+
+    def setUp(self):
+        ensure_builtin_items()
+        self.athlete = make_athlete("a20")
+        self.client.force_login(self.athlete.user)
+        self.session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        self.activity = SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1,
+            name="150m 反覆跑", sets="2 組", distance="150 米", rest="3 分鐘",
+        )
+
+    def session_url(self):
+        return reverse("web:session_detail", args=[self.session.id])
+
+    def test_the_plan_distance_is_carried_into_the_records(self):
+        self.client.post(self.session_url(), {
+            "action": "log_activity", "id": self.activity.id,
+            "rdomain": MetricDomain.TRACK,
+        })
+        recs = MetricRecord.objects.filter(session=self.session).order_by("set_no")
+        self.assertEqual(len(recs), 2)
+        self.assertEqual([float(r.distance_m) for r in recs], [150.0, 150.0])
+
+    def test_the_activity_row_highlights_the_distance(self):
+        html = self.client.get(self.session_url()).content.decode()
+        self.assertIn('data-edit="activity:%s:distance"' % self.activity.id, html)
+        self.assertIn("150 米", html)
+
+    def test_each_set_can_have_its_own_distance(self):
+        self.client.post(self.session_url(), {
+            "action": "add_record",
+            "rdomain": MetricDomain.TRACK,
+            "item_id": self._item().id,
+            "log": self.activity.id,
+            "block": BlockType.MAIN,
+            "distance_m": ["150", "120"],
+            "value": ["18.2", "14.1"],
+        })
+        recs = MetricRecord.objects.filter(session=self.session).order_by("set_no")
+        self.assertEqual([float(r.distance_m) for r in recs], [150.0, 120.0])
+
+    def test_the_distance_can_be_fixed_afterwards(self):
+        rec = MetricRecord.objects.create(
+            athlete=self.athlete, item=self._item(), session=self.session,
+            date=TODAY, block=BlockType.MAIN, distance_m=150, value="18.2",
+        )
+        self.client.post(self.session_url(), {
+            "action": "edit_record",
+            "rdomain": MetricDomain.TRACK,
+            f"distance_m_{rec.id}": "120",
+        })
+        rec.refresh_from_db()
+        self.assertEqual(float(rec.distance_m), 120.0)
+
+    def test_analytics_shows_the_distance_in_every_domain(self):
+        for domain, name in (
+            (MetricDomain.COMPETITION, "100m 成績"),
+            (MetricDomain.TRACK, "150m 計時"),
+            (MetricDomain.STRENGTH, "背蹲舉 1RM"),
+        ):
+            item = MetricItem.objects.get(domain=domain, name=name)
+            MetricRecord.objects.create(
+                athlete=self.athlete, item=item, date=TODAY,
+                value="10", distance_m=60,
+            )
+            page = self.client.get(
+                f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+                f"&domain={domain}&item={item.id}"
+            )
+            self.assertContains(page, "60 m")
+
+    def _item(self):
+        return MetricItem.objects.get_or_create(
+            domain=MetricDomain.TRACK, name=self.activity.name,
+            defaults={"unit": "秒", "higher_is_better": False},
+        )[0]

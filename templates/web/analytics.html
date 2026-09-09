@@ -507,6 +507,8 @@
               <thead>
                 <tr>
                   <th class="num">{% translate "組" %}</th>
+                  {# 距離：課表正課登進來的那一欄，三個範疇都看得到 #}
+                  <th class="num dist">{% translate "距離 (m)" %}</th>
                   <th class="num">{% blocktranslate with v0=item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
                   <th class="num">{% blocktranslate with v0=item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
                   {% if is_track %}<th class="num">{% translate "強度要求" %}</th>
@@ -522,6 +524,7 @@
               {% for r in d.records %}
                 <tr{% if not r.completed %} class="failedrow"{% endif %}>
                   <td class="num setcell">{{ r.set_no|default_if_none:"—" }}</td>
+                  <td class="num dist">{{ r.distance_display|default:"—" }}</td>
                   <td class="num">{{ r.target_value|default_if_none:"—" }}</td>
                   <td class="num">{{ r.value|default_if_none:"—" }}</td>
                   {% if is_track %}
@@ -1176,6 +1179,7 @@ const pts = {{ chart_points|safe }};
 
   const detail = (p) => [
     p.completed ? '{% translate "✅ 成功完成" %}' : '{% translate "❌ 未完成" %}',
+    p.distance !== null ? '{% translate "距離 " %}' + p.distance + ' m' : null,
     p.intensity ? '{% translate "強度要求 " %}' + p.intensity : null,
     p.target !== null ? '{% translate "目標 " %}' + p.target + UNIT : null,
     (!IS_TRACK && p.weight !== null) ? '{% translate "重量 " %}' + p.weight + ' kg' : null,

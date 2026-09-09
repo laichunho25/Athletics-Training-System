@@ -55,6 +55,7 @@ from analytics.recording import (
     edit_message,
     ensure_item_for_activity,
     move_record,
+    plan_distance,
     resequence,
     session_domain_tables,
     session_records,
@@ -1723,6 +1724,8 @@ def _session_metric_context(request, session):
         "log_item": item,
         "log_records": records,
         "log_filled": sum(1 for r in records if r.value is not None),
+        # 「距離」那一格的預設：課表那一行寫的米數，不用再打一次
+        "log_distance": plan_distance(activity),
         # 這堂課登過的數據，照範疇分開列（田徑練習訓練紀錄／重量訓練紀錄…）
         "record_tables": session_domain_tables(session),
         "metric_statuses": TrainingStatus.choices,

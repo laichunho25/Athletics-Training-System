@@ -166,6 +166,8 @@
       <tr>
         <th style="width:34px">#</th>
         <th>{% translate "活動" %}</th>
+        {# 距離獨立成一欄並且加重顯示：正課跑 30m 還是 150m 是兩回事，一眼要看得出來 #}
+        <th class="num dist" style="width:96px">{% translate "距離" %}</th>
         <th style="width:150px">{% translate "訓練紀錄" %}</th>
         <th class="num" style="width:78px">{% translate "滿意度" %}</th>
         <th style="width:96px">{% translate "寫入者" %}</th>
@@ -189,6 +191,11 @@
             這些不再是輸入欄——每一組的數字一律在下面的「訓練紀錄」填。
           {% endcomment %}
           {% if row.plan %}<div class="planline">{{ row.plan }}</div>{% endif %}
+        </td>
+        <td class="num dist">
+          <span class="cell distcell" data-edit="activity:{{ a.id }}:distance" data-kind="text"
+                data-value="{{ a.distance }}" data-can="{{ can }}"
+                title="{% translate '這一項要跑／做的距離（例：30 米、150 米）' %}">{{ a.distance|default:"—" }}</span>
         </td>
         <td class="logcell">
           {% if can_log %}
@@ -228,7 +235,7 @@
       </tr>
       <tr class="sub">
         <td></td>
-        <td colspan="5">
+        <td colspan="6">
           <span class="tag">{% translate "訓練要點" %}</span>
           <span class="cell inlineblock" data-edit="activity:{{ a.id }}:key_points" data-kind="textarea"
                 data-value="{{ a.key_points }}" data-can="{{ can }}">{{ a.key_points|default:"—" }}</span>
@@ -324,6 +331,8 @@
       <thead>
         <tr>
           <th style="width:52px">{% translate "組" %}</th>
+          {# 距離：課表正課那一欄的重點，每一組可以不一樣 #}
+          <th class="dist" style="width:96px">{% translate "距離 (m)" %}</th>
           <th>{% blocktranslate with v0=log_item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
           <th>{% blocktranslate with v0=log_item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
           {% if is_track %}<th>{% translate "強度要求" %}</th>
@@ -337,6 +346,9 @@
       <tbody id="setRows">
         <tr>
           <td class="setno num">1</td>
+          <td class="dist"><input type="number" step="0.1" min="0" name="distance_m"
+                                  value="{{ log_distance|default_if_none:'' }}"
+                                  title="{% translate '這一組的距離（米）' %}" placeholder="—"></td>
           <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
           <td><input type="number" step="0.01" name="value" placeholder="—"></td>
           {% if is_track %}
@@ -443,6 +455,7 @@
         <thead>
           <tr>
             <th class="num">{% translate "組" %}</th>
+            <th class="num dist">{% translate "距離 (m)" %}</th>
             <th class="num">{% blocktranslate with v0=log_item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
             <th class="num">{% blocktranslate with v0=log_item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
             {% if is_track %}<th class="num">{% translate "強度要求" %}</th>
@@ -458,6 +471,8 @@
                就會填進所有組（重訓十組同重量不用打十次）。 -->
           <tr class="fillrow">
             <td class="num c-dim" title="{% translate '填一格就套用到所有組' %}">{% translate "全部" %}</td>
+            <td class="num dist"><input class="editnum" type="number" step="any" min="0"
+                                        data-fill="distance_m" placeholder="{% translate '距離' %}"></td>
             <td class="num"><input class="editnum" type="number" step="any"
                                    data-fill="target_value" placeholder="{% translate '目標' %}"></td>
             <td class="num"><input class="editnum" type="number" step="any"
@@ -506,6 +521,11 @@
                      name="set_no_{{ r.id }}" form="recEdit"
                      value="{{ r.set_no|default_if_none:'' }}"
                      placeholder="—" title="{% translate '組號——改成想要的次序，存檔後會重排成 1、2、3…' %}">
+            </td>
+            <td class="num dist">
+              <input class="editnum" type="number" step="any" min="0" name="distance_m_{{ r.id }}"
+                     form="recEdit" value="{{ r.distance_m|default_if_none:'' }}" placeholder="—"
+                     title="{% translate '這一組的距離（米）' %}">
             </td>
             <td class="num">
               <input class="editnum" type="number" step="any" name="target_value_{{ r.id }}"
@@ -664,6 +684,7 @@
       <tr>
         <th>{% translate "項目" %}</th><th style="width:80px">{% translate "區塊" %}</th>
         <th class="num" style="width:44px">{% translate "組" %}</th>
+        <th class="num dist">{% translate "距離" %}</th>
         <th class="num">{% translate "目標" %}</th><th class="num">{% translate "完成" %}</th>
         <th class="num">{% translate "重量" %}</th><th class="num">{% translate "強度" %}</th>
         <th class="num">{% translate "次數" %}</th><th class="num">{% translate "休息" %}</th>
@@ -682,6 +703,7 @@
         <td rowspan="{{ row.records|length }}" class="small c-dim">{{ row.block_label|default:"—" }}</td>
         {% endif %}
         <td class="num">{{ r.set_no|default:"—" }}</td>
+        <td class="num dist">{{ r.distance_display|default:"—" }}</td>
         <td class="num">{{ r.target_value|default:"—" }}</td>
         <td class="num c-accent">{{ r.value|default:"—" }}</td>
         <td class="num">{% if r.weight_kg %}{{ r.weight_kg }} kg{% else %}—{% endif %}</td>

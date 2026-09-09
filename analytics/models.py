@@ -412,6 +412,12 @@ class MetricRecord(TimeStampedModel):
         _("完成數值 (秒)"), max_digits=10, decimal_places=2, null=True, blank=True,
         help_text=_("實際完成的數值，還沒量到可以留空，之後在數據分析補"),
     )
+    # 距離是課表上「正課」最看重的一欄（今天跑 30m 還是 150m 是兩回事），
+    # 所以紀錄自己也留一格：登記錄時從課表那一行帶過來，之後可以逐組改。
+    distance_m = models.DecimalField(
+        _("距離 (m)"), max_digits=8, decimal_places=1, null=True, blank=True,
+        help_text=_("這一組跑／做的距離（米），沒有距離的動作留空"),
+    )
     # 同一堂課的不同組，重量／次數／休息時間都可能不一樣，所以一組就是一筆紀錄。
     set_no = models.PositiveSmallIntegerField(
         _("組別"), null=True, blank=True, help_text=_("第幾組；單筆成績（例如比賽）可留空")
@@ -484,6 +490,15 @@ class MetricRecord(TimeStampedModel):
         if seconds:
             out += _(" %(v0)s 秒") % {"v0": seconds}
         return out
+
+    @property
+    def distance_display(self):
+        """距離寫成「150 m」；整數不留小數點（150 而不是 150.0）。"""
+        if self.distance_m is None:
+            return ""
+        value = float(self.distance_m)
+        shown = int(value) if value == int(value) else value
+        return f"{shown} m"
 
     @property
     def tonnage(self):

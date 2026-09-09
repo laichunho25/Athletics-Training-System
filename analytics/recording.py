@@ -88,11 +88,13 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     rests = post.getlist("rest_sec")
     # 田徑練習用「強度要求」取代重量：一列一組，各組可以要求不同強度
     intensities = post.getlist("intensity")
+    # 距離：課表正課那一欄的重點，逐組可以不一樣（第 1 組 150m、第 2 組 120m）
+    distances = post.getlist("distance_m")
     dones = post.getlist("completed")
     # 休息時間可以用分鐘（預設）或秒填，資料庫一律存秒
     rest_factor = 1 if post.get("rest_unit") == "sec" else 60
 
-    columns = (targets, values, weights, intensities, reps_list, rests)
+    columns = (targets, values, weights, intensities, distances, reps_list, rests)
     row_count = max([len(c) for c in columns] + [1])
     # 數值不是必填——只要挑了項目就登得進來，所以「這一列有沒有填東西」
     # 決定它算不算一組；整張表都空白就當成一組空紀錄（之後再回來補值）。
@@ -110,6 +112,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
         weight = _num(weights, i, Decimal)
         if weight is None and unit_is_weight:
             weight = value
+        distance = _decimal(distances, i, _("距離"), problems)
         # 分鐘可以填 1.5 這種小數，換算成秒之後才取整數
         rest = _num(rests, i, float)
         created.append(
@@ -123,6 +126,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
                 value=value,
                 set_no=(position + 1) if multi else None,
                 weight_kg=weight,
+                distance_m=distance,
                 intensity=_raw(intensities, i)[:20],
                 reps=_num(reps_list, i, int),
                 rest_sec=None if rest is None else round(rest * rest_factor),
@@ -193,10 +197,20 @@ def _rest_seconds(text):
     return round(float(hit.group())) if hit else None
 
 
+def plan_distance(activity):
+    """課表這一行寫的距離換成數字（「150 米」→ 150）；寫不出數字回 None。
+
+    登記錄時「距離」那一格先帶這個值進去，不用把課表上的米數再打一次。
+    """
+    return _first_decimal(activity.distance) if activity is not None else None
+
+
 def _set_row(activity):
     """課表這一行寫了什麼（重量／次數／休息／強度），照抄成一組紀錄的內容。"""
     return {
         "weight_kg": _first_decimal(activity.weight),
+        # 課表寫「150 米」「30m」，紀錄留的是數字，登記錄時就先帶過來
+        "distance_m": _first_decimal(activity.distance),
         "reps": _first_int(activity.reps),
         "rest_sec": _rest_seconds(activity.rest),
         "intensity": (activity.intensity or "").strip()[:20],
@@ -367,7 +381,7 @@ def session_domain_tables(session):
 
 #: 表單上改得動的欄位
 EDITABLE_FIELDS = (
-    "set_no", "target_value", "value", "weight", "intensity", "reps",
+    "set_no", "target_value", "value", "weight", "distance_m", "intensity", "reps",
     "rest_sec", "completed", "status", "block", "session", "context",
 )
 
@@ -423,6 +437,7 @@ def update_records(post, records, only=None, session_lookup=None):
             ("target_value", "target_value", _("目標數值")),
             ("value", "value", _("完成數值")),
             ("weight", "weight_kg", _("重量")),
+            ("distance_m", "distance_m", _("距離")),
         ):
             raw = _field(post, name, rid)
             if raw is None:

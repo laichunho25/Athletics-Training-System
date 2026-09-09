@@ -838,6 +838,17 @@ details > summary::-webkit-details-marker { display: none; }
   color: var(--text-dim); font-size: 11.5px; margin-top: 2px;
   font-family: var(--mono);
 }
+/* 「距離」那一欄：正課跑 30m 還是 150m 是兩回事，所以加底色與粗體重點顯示。
+   課表的活動表、訓練紀錄的表單與明細、數據分析的明細都共用這一份。 */
+th.dist, td.dist {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+th.dist { color: var(--accent); }
+td.dist, td.dist .cell, td.dist input {
+  color: var(--accent); font-weight: 600; font-family: var(--mono);
+}
+td.dist input { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+
 /* 「登記錄」那一欄：按鈕一行、已登幾組一行，窄一點不要跟活動名爭位 */
 .acttable .logcell { white-space: nowrap; }
 .acttable .logcell .btn { margin-bottom: 3px; }
@@ -1261,5 +1272,5 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   .dlg .btn { flex: 1 1 auto; }
 
   /* 課表主表在手機上橫捲；欄位收窄一點，一次多看得到一兩欄 */
-  .acttable { min-width: 620px; }
+  .acttable { min-width: 700px; }
 }
