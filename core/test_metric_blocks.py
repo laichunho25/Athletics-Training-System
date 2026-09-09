@@ -1,4 +1,4 @@
-"""數據紀錄放回課表的哪一段（熱身／正課／補充／恢復），以及 kg ↔ 秒 的單位切換。"""
+"""從課表哪一段（熱身／正課／補充／恢復）加進數據分析，以及 kg ↔ 秒 的單位切換。"""
 from datetime import date
 
 from django.test import TestCase
@@ -17,7 +17,9 @@ from training.models import BlockType, SessionActivity
 TODAY = date(2026, 6, 1)
 
 
-class MetricBlockTests(TestCase):
+class PushedBlockTests(TestCase):
+    """課表某一區加進數據分析之後，那一段的身分有跟著過去。"""
+
     def setUp(self):
         ensure_builtin_items()
         self.athlete = make_athlete("a1")
@@ -25,41 +27,53 @@ class MetricBlockTests(TestCase):
         self.session = make_session(
             self.athlete, TODAY, session_type=SessionType.STRENGTH
         )
+        SessionActivity.objects.create(
+            session=self.session,
+            block=BlockType.MAIN,
+            order=1,
+            name="槓鈴深蹲",
+            sets="2 組",
+            weight="100kg",
+        )
 
     def url(self):
         return reverse("web:session_detail", args=[self.session.id])
 
-    def add(self, **extra):
-        data = {
-            "action": "add_metric",
-            "domain": MetricDomain.STRENGTH,
-            "item_name": "槓鈴深蹲",
-            "date": TODAY.isoformat(),
-            "value": ["100", "105"],
-            "completed": ["1", "1"],
-        }
-        data.update(extra)
-        return self.client.post(self.url(), data)
+    def analytics_url(self):
+        return reverse("web:analytics")
 
-    def test_block_is_stored_and_shown_on_the_session_page(self):
-        self.assertEqual(self.add(block=BlockType.MAIN).status_code, 302)
+    def push(self, block=BlockType.MAIN, domain=MetricDomain.STRENGTH):
+        return self.client.post(
+            self.url(),
+            {"action": "push_metrics", "block": block, "domain": domain},
+        )
+
+    def test_the_block_travels_with_the_records(self):
+        self.assertEqual(self.push().status_code, 302)
         recs = list(MetricRecord.objects.order_by("set_no"))
         self.assertEqual([r.block for r in recs], [BlockType.MAIN, BlockType.MAIN])
         self.assertEqual(recs[0].block_label, "正課")
 
+    def test_the_session_page_says_whether_a_block_was_pushed(self):
         page = self.client.get(self.url())
-        self.assertContains(page, "正課")
-        self.assertContains(page, "課表區塊")
+        self.assertContains(page, "加入本課訓練到數據分析")
+        self.assertContains(page, "這一區還沒加進數據分析")
 
-    def test_unknown_block_is_treated_as_unset(self):
-        self.add(block="NOT_A_BLOCK")
-        self.assertEqual({r.block for r in MetricRecord.objects.all()}, {""})
+        self.push()
+        page = self.client.get(self.url())
+        self.assertContains(page, "到數據分析填")
 
-    def test_block_can_be_changed_on_an_existing_record(self):
-        self.add(block=BlockType.MAIN)
+    def test_an_unknown_block_is_refused(self):
+        self.push(block="NOT_A_BLOCK")
+        self.assertEqual(MetricRecord.objects.count(), 0)
+
+    def test_the_block_can_be_changed_from_the_analytics_page(self):
+        self.push()
         rec = MetricRecord.objects.order_by("set_no").first()
-        r = self.client.post(self.url(), {
-            "action": "edit_metric",
+        r = self.client.post(self.analytics_url(), {
+            "action": "edit_record",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": rec.item_id,
             "only": rec.id,
             f"block_{rec.id}": BlockType.WARMUP,
         })
@@ -67,32 +81,27 @@ class MetricBlockTests(TestCase):
         rec.refresh_from_db()
         self.assertEqual(rec.block, BlockType.WARMUP)
 
-    def test_records_in_different_blocks_are_listed_separately(self):
-        self.add(block=BlockType.WARMUP, value=["40"], completed=["1"])
-        self.add(block=BlockType.MAIN, value=["100"], completed=["1"])
-
-        page = self.client.get(self.url())
-        groups = page.context["metric_groups"]
-        self.assertEqual(len(groups), 2)
-        # 熱身排在正課前面
-        self.assertEqual([g["block"] for g in groups], [BlockType.WARMUP, BlockType.MAIN])
-
-    def test_move_metric_reorders_the_sets(self):
-        self.add(block=BlockType.MAIN)
+    def test_move_record_reorders_the_pushed_sets(self):
+        self.push()
         first, second = list(MetricRecord.objects.order_by("set_no"))
-        r = self.client.post(self.url(), {"action": "move_metric", "down": first.id})
+        r = self.client.post(
+            self.analytics_url(), {"action": "move_record", "down": first.id}
+        )
         self.assertEqual(r.status_code, 302)
         first.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual((first.set_no, second.set_no), (2, 1))
 
     def test_item_unit_switches_between_kg_and_seconds(self):
-        self.add()
+        self.push()
         item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="槓鈴深蹲")
         self.assertEqual(item.unit, "kg")
 
-        r = self.client.post(self.url(), {
-            "action": "item_unit", "item_id": item.id, "unit": "秒",
+        r = self.client.post(self.analytics_url(), {
+            "action": "item_unit",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": item.id,
+            "unit": "秒",
         })
         self.assertEqual(r.status_code, 302)
         item.refresh_from_db()
@@ -100,79 +109,26 @@ class MetricBlockTests(TestCase):
         # 撐時間的動作：撐得越久越好
         self.assertTrue(item.higher_is_better)
 
-        self.client.post(self.url(), {
-            "action": "item_unit", "item_id": item.id, "unit": "kg",
+        self.client.post(self.analytics_url(), {
+            "action": "item_unit",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": item.id,
+            "unit": "kg",
         })
         item.refresh_from_db()
         self.assertEqual(item.unit, "kg")
 
     def test_item_unit_rejects_other_units(self):
-        self.add()
+        self.push()
         item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="槓鈴深蹲")
-        self.client.post(self.url(), {
-            "action": "item_unit", "item_id": item.id, "unit": "公里",
+        self.client.post(self.analytics_url(), {
+            "action": "item_unit",
+            "domain": MetricDomain.STRENGTH,
+            "item_id": item.id,
+            "unit": "公里",
         })
         item.refresh_from_db()
         self.assertEqual(item.unit, "kg")
-
-
-class BlockToActivityTests(TestCase):
-    """選了區塊，上面的課表就把那個動作放進那一區。"""
-
-    def setUp(self):
-        ensure_builtin_items()
-        self.athlete = make_athlete("a3")
-        self.client.force_login(self.athlete.user)
-        self.session = make_session(
-            self.athlete, TODAY, session_type=SessionType.STRENGTH
-        )
-
-    def url(self):
-        return reverse("web:session_detail", args=[self.session.id])
-
-    def test_logging_with_a_block_adds_the_activity_above(self):
-        self.client.post(self.url(), {
-            "action": "add_metric",
-            "domain": MetricDomain.STRENGTH,
-            "item_name": "槓鈴深蹲",
-            "date": TODAY.isoformat(),
-            "value": "100",
-            "completed": "1",
-            "block": BlockType.MAIN,
-        })
-        act = SessionActivity.objects.get(session=self.session, name="槓鈴深蹲")
-        self.assertEqual(act.block, BlockType.MAIN)
-
-    def test_changing_the_block_moves_the_activity(self):
-        self.client.post(self.url(), {
-            "action": "add_metric",
-            "domain": MetricDomain.STRENGTH,
-            "item_name": "槓鈴深蹲",
-            "date": TODAY.isoformat(),
-            "value": "100",
-            "completed": "1",
-            "block": BlockType.MAIN,
-        })
-        rec = MetricRecord.objects.get()
-        self.client.post(self.url(), {
-            "action": "edit_metric",
-            "only": rec.id,
-            f"block_{rec.id}": BlockType.WARMUP,
-        })
-        # 沒有多開一列，是把原本那一列搬過去
-        act = SessionActivity.objects.get(session=self.session, name="槓鈴深蹲")
-        self.assertEqual(act.block, BlockType.WARMUP)
-
-    def test_no_block_leaves_the_plan_alone(self):
-        self.client.post(self.url(), {
-            "action": "add_metric",
-            "domain": MetricDomain.STRENGTH,
-            "item_name": "槓鈴深蹲",
-            "date": TODAY.isoformat(),
-            "value": "100",
-            "completed": "1",
-        })
-        self.assertFalse(SessionActivity.objects.filter(session=self.session).exists())
 
 
 class AnalyticsBlockTests(TestCase):

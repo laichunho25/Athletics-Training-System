@@ -1,4 +1,4 @@
-"""課表頁登的數據＝數據分析那一份，而且課別限制了能登哪個範疇。"""
+"""課表把當日訓練加進數據分析，數字在數據分析那一份裡登。"""
 from datetime import date
 from unittest import mock
 
@@ -17,13 +17,20 @@ from analytics.models import (
 )
 from core.models import SessionType
 from planning.models import Competition
-from training.models import ActivityCategory, ActivityDefinition
+from training.models import (
+    ActivityCategory,
+    ActivityDefinition,
+    BlockType,
+    SessionActivity,
+)
 from core.test_factories import make_athlete, make_session
 
 TODAY = date(2026, 6, 1)
 
 
-class SessionMetricTests(TestCase):
+class SessionPushTests(TestCase):
+    """課表按「加入本課訓練到數據分析」，數據就在數據分析那一份裡。"""
+
     def setUp(self):
         ensure_builtin_items()
         self.athlete = make_athlete("a1")
@@ -32,16 +39,16 @@ class SessionMetricTests(TestCase):
     def url(self, session):
         return reverse("web:session_detail", args=[session.id])
 
-    def test_strength_session_writes_the_same_records_as_analytics(self):
+    def test_pushed_sets_are_the_same_records_analytics_shows(self):
         s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
+        SessionActivity.objects.create(
+            session=s, block=BlockType.MAIN, order=1,
+            name="槓鈴深蹲", sets="2 組", reps="5 次", weight="100kg",
+        )
         r = self.client.post(self.url(s), {
-            "action": "add_metric",
+            "action": "push_metrics",
+            "block": BlockType.MAIN,
             "domain": MetricDomain.STRENGTH,
-            "item_name": "槓鈴深蹲",
-            "date": TODAY.isoformat(),
-            "value": ["100", "105"],
-            "reps": ["5", "3"],
-            "completed": ["1", "0"],
         })
         self.assertEqual(r.status_code, 302)
 
@@ -49,8 +56,8 @@ class SessionMetricTests(TestCase):
         recs = list(MetricRecord.objects.filter(item=item).order_by("set_no"))
         self.assertEqual(len(recs), 2)
         self.assertEqual([x.session_id for x in recs], [s.id, s.id])
-        # 單位是 kg 的項目，重量自動沿用數值，噸位才算得出來
-        self.assertEqual([float(x.weight_kg) for x in recs], [100.0, 105.0])
+        # 課表寫的重量先填好，運動員只要補「完成數值」
+        self.assertEqual([float(x.weight_kg) for x in recs], [100.0, 100.0])
 
         # 同一份資料在數據分析頁看得到，不用再輸入一次
         page = self.client.get(
@@ -59,31 +66,36 @@ class SessionMetricTests(TestCase):
         )
         self.assertContains(page, "槓鈴深蹲")
 
-    def test_track_session_cannot_log_strength(self):
+    def test_the_domain_is_chosen_on_the_button(self):
+        # 田徑課裡的一段重訓，照樣可以加進重量訓練紀錄
         s = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
-        item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH).first()
+        SessionActivity.objects.create(
+            session=s, block=BlockType.SUPPLEMENT, order=1, name="槓鈴深蹲"
+        )
         self.client.post(self.url(s), {
-            "action": "add_metric", "domain": MetricDomain.STRENGTH,
-            "item_id": item.id, "date": TODAY.isoformat(), "value": "80",
+            "action": "push_metrics",
+            "block": BlockType.SUPPLEMENT,
+            "domain": MetricDomain.STRENGTH,
         })
-        self.assertFalse(MetricRecord.objects.filter(session=s).exists())
+        self.assertEqual(
+            MetricRecord.objects.get(session=s).item.domain, MetricDomain.STRENGTH
+        )
 
-    def test_rehab_session_offers_both_domains(self):
+    def test_every_block_offers_the_three_domains(self):
         s = make_session(self.athlete, TODAY, session_type=SessionType.REHAB)
+        SessionActivity.objects.create(
+            session=s, block=BlockType.MAIN, order=1, name="平板支撐"
+        )
         body = self.client.get(self.url(s)).content.decode()
+        self.assertIn("加入本課訓練到數據分析", body)
+        self.assertIn("比賽數據", body)
         self.assertIn("田徑練習訓練紀錄", body)
         self.assertIn("重量訓練紀錄", body)
 
-    def test_delete_metric_from_the_session_page(self):
+    def test_an_empty_block_has_no_button(self):
         s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
-        item = MetricItem.objects.filter(domain=MetricDomain.STRENGTH).first()
-        self.client.post(self.url(s), {
-            "action": "add_metric", "domain": MetricDomain.STRENGTH,
-            "item_id": item.id, "date": TODAY.isoformat(), "value": "80",
-        })
-        rec = MetricRecord.objects.get(session=s)
-        self.client.post(self.url(s), {"action": "delete_metric", "record_id": rec.id})
-        self.assertFalse(MetricRecord.objects.filter(id=rec.id).exists())
+        body = self.client.get(self.url(s)).content.decode()
+        self.assertNotIn("加入本課訓練到數據分析", body)
 
 
 class ComparisonTests(TestCase):
@@ -169,7 +181,7 @@ class ItemListTests(TestCase):
 
 
 class ActivityLibraryTests(TestCase):
-    """課表加活動：可挑活動庫、可一次加多個，並自動開好數據項目。"""
+    """課表加活動：可挑活動庫、可一次加多個；加進數據分析才開數據項目。"""
 
     def setUp(self):
         ensure_builtin_items()
@@ -189,6 +201,11 @@ class ActivityLibraryTests(TestCase):
     def url(self):
         return reverse("web:session_detail", args=[self.session.id])
 
+    def push(self, url=None, domain=MetricDomain.STRENGTH):
+        return self.client.post(url or self.url(), {
+            "action": "push_metrics", "block": "MAIN", "domain": domain,
+        })
+
     def test_picking_one_activity_brings_its_defaults_and_opens_a_metric_item(self):
         self.client.post(self.url(), {
             "action": "add_activity", "block": "MAIN",
@@ -198,6 +215,10 @@ class ActivityLibraryTests(TestCase):
         activity = self.session.activities.get()
         self.assertEqual(activity.definition_id, self.squat.id)
         self.assertEqual(activity.sets, "4 組")
+        # 排課的時候還沒有數據項目，按了「加入本課訓練到數據分析」才開
+        self.assertFalse(MetricItem.objects.filter(name="槓鈴深蹲").exists())
+
+        self.push()
         item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="槓鈴深蹲")
         self.assertEqual(item.category, MetricCategory.LOWER)
 
@@ -210,6 +231,7 @@ class ActivityLibraryTests(TestCase):
         self.assertEqual(names, ["槓鈴深蹲", "平板支撐", "自己想的動作"])
         # 名字對得上活動庫的，預設值一起帶進來
         self.assertEqual(self.session.activities.get(name="槓鈴深蹲").reps, "5 次")
+        self.push()
         self.assertEqual(
             set(MetricItem.objects.filter(
                 domain=MetricDomain.STRENGTH, name__in=names
@@ -219,9 +241,11 @@ class ActivityLibraryTests(TestCase):
 
     def test_track_session_activities_open_track_items(self):
         session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
-        self.client.post(reverse("web:session_detail", args=[session.id]), {
+        url = reverse("web:session_detail", args=[session.id])
+        self.client.post(url, {
             "action": "add_activity", "block": "MAIN", "name": "150m 計時",
         })
+        self.push(url, domain=MetricDomain.TRACK)
         self.assertTrue(
             MetricItem.objects.filter(
                 domain=MetricDomain.TRACK, name="150m 計時"
@@ -311,17 +335,22 @@ class DisplayNameTests(TestCase):
         )
         self.assertContains(page, "平板支撐（Plank）")
 
-    def test_session_page_shows_both_languages(self):
+    def test_items_pushed_from_a_session_keep_both_languages(self):
         s = make_session(self.athlete, TODAY, session_type=SessionType.STRENGTH)
+        SessionActivity.objects.create(
+            session=s, block=BlockType.MAIN, order=1, name="平板支撐"
+        )
         self.client.post(reverse("web:session_detail", args=[s.id]), {
-            "action": "add_metric",
+            "action": "push_metrics",
+            "block": BlockType.MAIN,
             "domain": MetricDomain.STRENGTH,
-            "item_id": self.item.id,
-            "date": TODAY.isoformat(),
-            "value": ["55"],
-            "completed": ["1"],
         })
-        page = self.client.get(reverse("web:session_detail", args=[s.id]))
+        rec = MetricRecord.objects.get(session=s)
+        self.assertEqual(rec.item, self.item)
+        page = self.client.get(
+            f"{reverse('web:analytics')}?athlete={self.athlete.id}"
+            f"&domain={MetricDomain.STRENGTH}&item={self.item.id}"
+        )
         self.assertContains(page, "平板支撐（Plank）")
 
 
@@ -473,18 +502,21 @@ class TargetAndCompletedValueTests(TestCase):
         self.athlete = make_athlete("a9")
         self.client.force_login(self.athlete.user)
         self.session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        self.item = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="150m 課表", unit="秒",
+            higher_is_better=False,
+        )
 
     def post(self, **extra):
         data = {
-            "action": "add_metric",
+            "action": "add_record",
             "domain": MetricDomain.TRACK,
-            "item_name": "150m 課表",
+            "item_id": self.item.id,
+            "session": self.session.id,
             "date": TODAY.isoformat(),
         }
         data.update(extra)
-        return self.client.post(
-            reverse("web:session_detail", args=[self.session.id]), data
-        )
+        return self.client.post(reverse("web:analytics"), data)
 
     def test_item_alone_is_enough(self):
         self.assertEqual(self.post().status_code, 302)
@@ -494,7 +526,7 @@ class TargetAndCompletedValueTests(TestCase):
         self.assertEqual(rec.session_id, self.session.id)
 
     def test_no_item_no_record(self):
-        self.post(item_name="", value="19.5")
+        self.assertEqual(self.post(item_id="", value="19.5").status_code, 404)
         self.assertFalse(MetricRecord.objects.exists())
 
     def test_target_and_completed_are_kept_apart(self):
@@ -521,10 +553,9 @@ class TargetAndCompletedValueTests(TestCase):
 
     def test_analytics_page_renders_records_without_a_value(self):
         self.post(target_value="20")
-        item = MetricItem.objects.get(name="150m 課表")
         page = self.client.get(
             f"{reverse('web:analytics')}?athlete={self.athlete.id}"
-            f"&domain={MetricDomain.TRACK}&item={item.id}"
+            f"&domain={MetricDomain.TRACK}&item={self.item.id}"
         )
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "還沒填完成數值")
@@ -557,33 +588,41 @@ class TargetAndCompletedValueTests(TestCase):
 
 
 class SessionRecordEditTests(TestCase):
-    """課表頁登完之後改得動——改的就是數據分析那一份。"""
+    """課表加進來的組數，回到數據分析一格一格填。"""
 
     def setUp(self):
         ensure_builtin_items()
         self.athlete = make_athlete("a10")
         self.client.force_login(self.athlete.user)
         self.session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
+        SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1,
+            name="150m 課表", sets="2 組", reps="1 次",
+        )
         self.client.post(reverse("web:session_detail", args=[self.session.id]), {
-            "action": "add_metric",
+            "action": "push_metrics",
+            "block": BlockType.MAIN,
             "domain": MetricDomain.TRACK,
-            "item_name": "150m 課表",
-            "date": TODAY.isoformat(),
-            "value": ["19.5", "19.9"],
-            "reps": ["1", "1"],
         })
         self.records = list(MetricRecord.objects.order_by("id"))
         self.assertEqual(len(self.records), 2)
+        for rec, value in zip(self.records, ("19.5", "19.9")):
+            MetricRecord.objects.filter(pk=rec.pk).update(value=value)
+            rec.refresh_from_db()
+        self.item = self.records[0].item
 
     def post(self, data):
-        return self.client.post(
-            reverse("web:session_detail", args=[self.session.id]), data
-        )
+        data = {
+            "domain": MetricDomain.TRACK,
+            "item_id": self.item.id,
+            **data,
+        }
+        return self.client.post(reverse("web:analytics"), data)
 
     def test_one_row_can_be_saved_on_its_own(self):
         first, second = self.records
         self.post({
-            "action": "edit_metric",
+            "action": "edit_record",
             "rest_unit": "min",
             "only": first.id,
             f"value_{first.id}": "19.1",
@@ -597,7 +636,7 @@ class SessionRecordEditTests(TestCase):
     def test_all_rows_can_be_confirmed_at_once(self):
         first, second = self.records
         self.post({
-            "action": "edit_metric",
+            "action": "edit_record",
             "rest_unit": "min",
             f"value_{first.id}": "19.1",
             f"value_{second.id}": "19.4",
@@ -615,16 +654,15 @@ class SessionRecordEditTests(TestCase):
     def test_the_same_edit_shows_up_in_analytics(self):
         first = self.records[0]
         self.post({
-            "action": "edit_metric",
+            "action": "edit_record",
             "rest_unit": "min",
             "only": first.id,
             f"value_{first.id}": "18.7",
             f"status_{first.id}": TrainingStatus.INJURY,
         })
-        item = MetricItem.objects.get(name="150m 課表")
         page = self.client.get(
             f"{reverse('web:analytics')}?athlete={self.athlete.id}"
-            f"&domain={MetricDomain.TRACK}&item={item.id}"
+            f"&domain={MetricDomain.TRACK}&item={self.item.id}"
         )
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, "18.7")
@@ -635,7 +673,7 @@ class SessionRecordEditTests(TestCase):
         self.client.force_login(other.user)
         first = self.records[0]
         self.post({
-            "action": "edit_metric",
+            "action": "edit_record",
             "only": first.id,
             f"value_{first.id}": "1.0",
         })
@@ -842,15 +880,6 @@ class BulkSaveIsNotBlockedByTheBrowserTests(TestCase):
         for name in ("value", "target_value", "rest_sec"):
             cell = html.split(f'name="{name}_{self.rec.id}"')[0]
             self.assertIn('step="any"', cell.rsplit("<input", 1)[1])
-
-    def test_session_edit_cells_accept_any_step(self):
-        session = make_session(self.athlete, TODAY, session_type=SessionType.TRACK)
-        MetricRecord.objects.filter(pk=self.rec.pk).update(session=session)
-        page = self.client.get(reverse("web:session_detail", args=[session.id]))
-        html = page.content.decode()
-        self.assertIn('id="metricEdit" novalidate', html)
-        self.assertNotIn('step="0.5" form="metricEdit"', html)
-        self.assertNotIn('step="0.01" form="metricEdit"', html)
 
     def test_an_odd_rest_value_still_saves(self):
         self.client.post(reverse("web:analytics"), {

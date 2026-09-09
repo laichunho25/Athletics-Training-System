@@ -1329,6 +1329,97 @@ def top_movements(athlete, domain, days=365, limit=8):
     return rows[:limit]
 
 
+def movement_stats(athlete, items, days=365):
+    """指定的幾個項目各自的近況（欄位跟 top_movements 一樣）。
+
+    「主要必看的訓練項目」用這一份：釘出來的項目就算最近沒練過也要列出來
+    （才知道它已經多久沒碰了），所以沒有紀錄的項目也回一列。
+    """
+    from analytics.models import MetricRecord
+
+    items = [i for i in items if i is not None]
+    if not items:
+        return []
+    since = date.today() - timedelta(days=days)
+    records = (
+        MetricRecord.objects.filter(
+            athlete=athlete, item__in=items, date__gte=since
+        )
+        .select_related("item")
+        .order_by("date", "id")
+    )
+    by_item = {}
+    for r in records:
+        by_item.setdefault(r.item_id, []).append(r)
+
+    rows = []
+    for item in items:
+        mine = by_item.get(item.id, [])
+        if mine:
+            stats = _group_stats("item", item.name, mine, item)
+        else:
+            stats = {
+                "key": "item", "label": item.name, "sublabel": "",
+                "count": 0, "days": 0, "first_date": None, "last_date": None,
+                "best": None, "worst": None, "average": None, "latest": None,
+                "total_tonnage": None, "total_reps": None, "completion_pct": None,
+                "failed": 0, "change_pct": None, "improving": None,
+            }
+        stats["item"] = item
+        rows.append(stats)
+    return rows
+
+
+def pushed_sessions(athlete, domain, days=120, limit=12):
+    """從日曆加進來的當日訓練：哪一天、哪一堂課、加了哪些項目、填了多少。
+
+    課表上按「加入本課訓練到數據分析」之後，那一課就出現在這裡；
+    數字還沒填的一眼看得出來（幾組裡填了幾組），點進去就在紀錄明細補。
+    """
+    from analytics.models import MetricRecord, block_choices
+
+    since = date.today() - timedelta(days=days)
+    records = (
+        MetricRecord.objects.filter(
+            athlete=athlete,
+            item__domain=domain,
+            session__isnull=False,
+            date__gte=since,
+        )
+        .select_related("item", "session")
+        .order_by("-date", "session_id", "id")
+    )
+
+    block_labels = dict(block_choices())
+    rows, seen = [], {}
+    for r in records:
+        entry = seen.get(r.session_id)
+        if entry is None:
+            entry = {
+                "session": r.session,
+                "date": r.date,
+                "items": [],
+                "item_ids": set(),
+                "blocks": [],
+                "sets": 0,
+                "filled": 0,
+            }
+            seen[r.session_id] = entry
+            rows.append(entry)
+        if r.item_id not in entry["item_ids"]:
+            entry["item_ids"].add(r.item_id)
+            entry["items"].append(r.item)
+        label = block_labels.get(r.block, "")
+        if label and label not in entry["blocks"]:
+            entry["blocks"].append(label)
+        entry["sets"] += 1
+        if r.value is not None:
+            entry["filled"] += 1
+    for entry in rows:
+        entry["pending"] = entry["sets"] - entry["filled"]
+    return rows[:limit]
+
+
 # ---------------------------------------------------------------- 比賽分析
 
 

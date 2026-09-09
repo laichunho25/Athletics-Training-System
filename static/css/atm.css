@@ -791,6 +791,16 @@ details > summary::-webkit-details-marker { display: none; }
 .legacy[open] > summary { margin-bottom: 12px; }
 
 /* 區塊 program：一區排好的內容存起來，下一課整組套用 */
+/* 每一區的「加入本課訓練到數據分析」：課表排完之後，數據往那邊送的入口 */
+.pushbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pushbar form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.pushbar select { max-width: 220px; }
+.pushbar .badge { margin-left: 4px; }
+
 .progbar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
   padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg);
@@ -1061,6 +1071,15 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
   color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1;
   padding: 0 10px; font-family: inherit;
 }
+/* 清單上的 📌：按一下把這一項釘進「主要必看的訓練項目」 */
+.itemlist .itempin {
+  background: none; border: 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; font-size: 12px; line-height: 1; padding: 0 6px;
+  font-family: inherit; opacity: .25; filter: grayscale(1);
+}
+.itemlist .itemrow:hover .itempin { opacity: .6; }
+.itemlist .itempin.on, .itemlist .itempin:hover { opacity: 1; filter: none; }
+
 .itemlist .itemrow:hover .itemdel { color: var(--text-dim); }
 .itemlist .itemdel:hover { color: var(--red); background: var(--surface-2); }
 

@@ -8,7 +8,9 @@
   <div>
     <h1>{% translate "課表" %}</h1>
     <div class="subtitle" style="margin:0">
-      {% blocktranslate with v0=s.athlete.user.get_full_name|default:s.athlete.user.username v1=s.date|date:"Y-m-d (D)" v2=s.get_time_slot_display %}{{ v0 }} · {{ v1 }} {{ v2 }} · 有底線的欄位點一下就能改，改完即時同步到日曆與其他人的畫面。{% endblocktranslate %}
+      {% blocktranslate with v0=s.athlete.user.get_full_name|default:s.athlete.user.username v1=s.date|date:"Y-m-d (D)" v2=s.get_time_slot_display %}{{ v0 }} ·
+ {{ v1 }} {{ v2 }} ·
+ 有底線的欄位點一下就能改，改完即時同步到日曆與其他人的畫面。{% endblocktranslate %}
     </div>
   </div>
   <div class="sessionnav">
@@ -36,107 +38,5 @@
 <script src="{% static 'js/libpick.js' %}"></script>
 <script>
   ATM.mountSession();
-
-  // 「本課數據紀錄」的多組輸入。整段課表會被輪詢刷新換掉，
-  // 所以事件掛在 document 上而不是那幾個節點本身。
-  (function () {
-    function rows() { return document.getElementById('metricRows'); }
-
-    function renumber(body) {
-      [...body.rows].forEach(function (tr, i) {
-        tr.querySelector('.setno').textContent = i + 1;
-      });
-    }
-
-    function addRow(copy) {
-      var body = rows();
-      if (!body) { return; }
-      var source = copy ? body.rows[body.rows.length - 1] : body.rows[0];
-      var row = source.cloneNode(true);
-      if (copy) {
-        // cloneNode 抄得到 input 的字，但 select 的選擇要自己對回去
-        row.querySelectorAll('input').forEach(function (inp) { inp.removeAttribute('required'); });
-        var from = source.querySelectorAll('select');
-        row.querySelectorAll('select').forEach(function (sel, i) { sel.value = from[i].value; });
-      } else {
-        row.querySelectorAll('input').forEach(function (inp) {
-          inp.value = '';
-          inp.removeAttribute('required');
-        });
-        row.querySelector('select').selectedIndex = 0;
-      }
-      body.appendChild(row);
-      renumber(body);
-      row.querySelector('input').focus();
-    }
-
-    document.addEventListener('click', function (event) {
-      if (event.target.id === 'addMetricSet') { addRow(false); return; }
-      if (event.target.id === 'copyMetricSet') { addRow(true); return; }
-
-      // 明細最頂那一列的「套用」：把填了的格填進這個項目所有組
-      // （只是填在畫面上，要按 ✓ 或「儲存全部更改」才寫回資料庫）
-      var fill = event.target.closest('#metriccard .fillall');
-      if (fill) {
-        var table = fill.closest('table');
-        var head = table.querySelector('.fillrow');
-        var tbody = table.querySelector('tbody');
-        var filled = 0;
-        head.querySelectorAll('[data-fill]').forEach(function (source) {
-          var value = source.value.trim ? source.value.trim() : source.value;
-          if (value === '') { return; }          // 沒填的欄位就不要動
-          tbody.querySelectorAll('[name^="' + source.dataset.fill + '_"]').forEach(function (cell) {
-            cell.value = value;
-            filled += 1;
-          });
-        });
-        if (filled) {
-          fill.textContent = '{% translate "已填 " %}' + filled + '{% translate " 格" %}';
-          setTimeout(function () { fill.textContent = '{% translate "套用" %}'; }, 1600);
-        }
-        return;
-      }
-
-      var rm = event.target.closest('#metricRows .rmset');
-      if (rm) {
-        var body2 = rows();
-        if (body2.rows.length === 1) {
-          body2.rows[0].querySelectorAll('input').forEach(function (i) { i.value = ''; });
-          return;
-        }
-        rm.closest('tr').remove();
-        renumber(body2);
-      }
-    });
-
-    // 挑了現成項目就不用再打名稱，反之亦然——避免兩個都填時搞不清用哪個
-    document.addEventListener('change', function (event) {
-      if (event.target.id === 'metricItem' && event.target.value) {
-        var name = document.getElementById('metricName');
-        if (name) { name.value = ''; }
-      }
-    });
-    document.addEventListener('input', function (event) {
-      if (event.target.id === 'metricName' && event.target.value) {
-        var pick = document.getElementById('metricItem');
-        if (pick) { pick.value = ''; }
-        blockFromName(event.target.value);
-      }
-    });
-
-    // 打的名稱對得上課表上的動作時，順手把「課表區塊」挑好；
-    // 使用者自己動過那個選單就不再插手。
-    function blockFromName(name) {
-      var pick = document.getElementById('metricBlock');
-      if (!pick || pick.dataset.touched) { return; }
-      var opt = document.querySelector(
-        '#actnames option[value="' + String(name).replace(/["\\]/g, '\\$&') + '"]'
-      );
-      pick.value = opt ? (opt.dataset.block || '') : '';
-    }
-    document.addEventListener('change', function (event) {
-      if (event.target.id === 'metricBlock') { event.target.dataset.touched = '1'; }
-    });
-  })();
 </script>
 {% endblock %}

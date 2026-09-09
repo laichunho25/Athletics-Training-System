@@ -37,15 +37,14 @@ from analytics.models import (
     TrackMethod,
     TrainingStatus,
     block_choices,
-    block_order,
-    domain_pairs_for_session_type,
     domains_for_session_type,
     ensure_builtin_items,
-    item_for_activity,
     item_for_name,
     metric_category_for_activity,
+    pinned_items,
     session_types_for_domain,
     set_item_unit,
+    toggle_pin,
     track_item_for,
     track_method_choices,
 )
@@ -54,7 +53,7 @@ from analytics.recording import (
     create_records,
     edit_message,
     move_record,
-    open_planned_records,
+    push_block_to_analytics,
     resequence,
     update_records,
 )
@@ -1523,18 +1522,9 @@ def session_detail(request, pk):
             _add_note(request, session)
         elif action == "delete_note":
             _delete_row(request, SessionNote, request.POST.get("id"), _("記事"))
-        elif action == "add_metric":
-            _add_metric(request, session)
-        elif action == "plan_sets":
-            _open_planned_sets(request, session)
-        elif action == "edit_metric":
-            _edit_metrics(request, session)
-        elif action == "delete_metric":
-            _delete_metric(request, session)
-        elif action == "move_metric":
-            _move_metric(request, session)
-        elif action == "item_unit":
-            _switch_item_unit(request, session)
+        elif action == "push_metrics":
+            # 這一區的內容加進數據分析，數字在那邊登
+            _push_metrics(request, session)
         return redirect("web:session_detail", pk=pk)
 
     return render(request, "web/session_detail.html", _session_context(request, session))
@@ -1568,12 +1558,17 @@ def _session_context(request, session):
 
     programs_by_block = _block_programs_by_block(request.user)
 
+    # 每一區已經加進數據分析多少（按鈕旁邊寫現況，才不會重複按）
+    pushed = _pushed_by_block(session)
+
     blocks = []
     for value, label, activities in session.activities_by_block():
         blocks.append(
             {
                 "value": value,
                 "label": label,
+                # 這一區加進數據分析的項目與組數（沒加過就是 None）
+                "pushed": pushed.get(value),
                 # 這一區存好的 program：挑一個就把整組活動帶進來
                 "programs": programs_by_block.get(value, []),
                 "activities": [
@@ -1658,205 +1653,103 @@ def _session_context(request, session):
     }
 
 
-# ------------------------------------ 課表 ←→ 數據紀錄（兩邊寫的是同一張表）
+# ---------------------------------- 課表 → 數據分析（當日訓練由這裡加過去）
+#
+# 課表管的是「當日要做什麼」；每一課的數字一律在數據分析登。
+# 兩邊的橋是各區旁邊那顆「加入本課訓練到數據分析」——按了那一課才會出現在
+# 數據分析的當日訓練裡，接著在數據分析把每一組的數值填進去。
+
+
+def _pushed_by_block(session):
+    """這堂課每一區已經加進數據分析多少東西（給課表頁顯示現況）。"""
+    records = list(session.metric_records.select_related("item").order_by("id"))
+    domain_labels = dict(MetricDomain.choices)
+
+    summary = {}
+    for r in records:
+        entry = summary.setdefault(
+            r.block,
+            {
+                "sets": 0, "filled": 0, "items": [], "item_ids": set(),
+                "domains": [], "domain": r.item.domain,
+            },
+        )
+        entry["sets"] += 1
+        if r.value is not None:
+            entry["filled"] += 1
+        if r.item_id not in entry["item_ids"]:
+            entry["item_ids"].add(r.item_id)
+            entry["items"].append(r.item)
+        label = domain_labels.get(r.item.domain, "")
+        if label and label not in entry["domains"]:
+            entry["domains"].append(label)
+    return summary
 
 
 def _session_metric_context(session):
-    """課表頁的「本課數據紀錄」區塊。
-
-    課別決定看得到哪些範疇：田徑場訓練 → 田徑練習紀錄、重量訓練 → 重量紀錄、
-    比賽 → 比賽數據，治療康復與恢復訓練兩邊都可以選。
-    """
-    domains = domains_for_session_type(session.session_type)
-    records = list(
-        session.metric_records.select_related("item").order_by(
-            "item__name", "set_no", "id"
-        )
-    )
-
-    # 一組＝（課表區塊, 項目）。同一個動作放在熱身和放在正課本來就不是同一件事，
-    # 所以分開兩堆列出來，看得出哪一段做了什麼。
-    grouped = {}
-    for r in records:
-        key = (r.block, r.item_id)
-        grouped.setdefault(key, {"item": r.item, "block": r.block, "records": []})
-        grouped[key]["records"].append(r)
-
-    block_labels = dict(block_choices())
-    order = block_order()
-
-    groups = []
-    for entry in grouped.values():
-        item = entry["item"]
-        rows = entry["records"]
-        values = [float(r.value) for r in an.scored(rows)]
-        tonnages = [r.tonnage for r in rows if r.tonnage is not None]
-        groups.append(
-            {
-                "item": item,
-                "block": entry["block"],
-                "block_label": block_labels.get(entry["block"], ""),
-                "records": rows,
-                "count": len(rows),
-                "best": (max if item.higher_is_better else min)(values) if values else None,
-                "high": max(values) if values else None,
-                "low": min(values) if values else None,
-                "failed": sum(1 for r in rows if not r.completed),
-                "tonnage": round(sum(tonnages), 1) if tonnages else None,
-                "unit_is_weight": (item.unit or "").strip().lower() == "kg",
-            }
-        )
-    # 沒指定區塊的排最後，其餘照熱身 → 正課 → 補充 → 恢復
-    groups.sort(
-        key=lambda g: (
-            order.index(g["block"]) if g["block"] in order else len(order),
-            g["item"].name,
-        )
-    )
-
+    """課表頁要知道的數據分析狀況（範疇選單 ＋ 已經加過多少）。"""
     return {
-        "metric_domains": domain_pairs_for_session_type(session.session_type),
-        "metric_items": (
-            MetricItem.objects.filter(domain__in=domains, is_active=True)
-            if domains
-            else MetricItem.objects.none()
+        # 每一區各自挑：比賽數據／田徑練習訓練紀錄／重量訓練紀錄
+        "metric_domains": MetricDomain.choices,
+        # 這個課別最貼近的範疇，選單先幫他選好（還是可以自己改）
+        "default_domain": (
+            domains_for_session_type(session.session_type)[0].value
+            if domains_for_session_type(session.session_type)
+            else MetricDomain.TRACK.value
         ),
-        "metric_groups": groups,
-        "metric_record_count": len(records),
-        # 登記完之後在同一張表上直接改（改的就是數據分析那一份）
-        "metric_statuses": TrainingStatus.choices,
-        # 這一組數據放回課表的哪一段（熱身／正課／補充練習／恢復練習）
-        "metric_blocks": block_choices(),
-        # 重量訓練以 kg 為主，撐時間的動作可以把單位換成秒
-        "strength_units": STRENGTH_UNITS,
+        "metric_record_count": session.metric_records.count(),
     }
 
 
-def _add_metric(request, session):
-    """在課表頁直接登這堂課的數據——存進去的就是數據分析那張 MetricRecord。"""
-    domains = domains_for_session_type(session.session_type)
-    if not domains:
-        messages.error(
-            request,
-            _("「%(v0)s」這個課別沒有對應的數據紀錄範疇。") % {"v0": session.get_session_type_display()},
-        )
+def _push_metrics(request, session):
+    """把課表某一區的內容加進數據分析，成為那一天的訓練紀錄。
+
+    課表只排「今天要做什麼」，數字一律在數據分析登。
+    按了這一區的「加入本課訓練到數據分析」並挑好範疇之後，
+    這一區每一項活動都會在數據分析開好項目與空白組（有寫組數就照組數開），
+    之後在數據分析那一頁把完成數值填進去。
+    """
+    if not _can_log_metrics(request, session):
+        messages.error(request, _("只有這名運動員本人（或管理員）能把這一課加進數據分析。"))
         return
 
-    domain = request.POST.get("domain") or domains[0]
-    if domain not in domains:
-        messages.error(request, _("這個課別不能登這個範疇的數據。"))
+    block = request.POST.get("block")
+    if block not in BlockType.values:
+        messages.error(request, _("不認得的課表區塊。"))
         return
 
-    item = None
-    item_id = request.POST.get("item_id")
-    if item_id:
-        item = MetricItem.objects.filter(pk=item_id, domain=domain).first()
-    if item is None:
-        # 課表上已經寫了動作名稱，登數據時直接沿用同一個名字當項目
-        item = item_for_name(domain, request.POST.get("item_name", ""), user=request.user)
-    if item is None:
-        messages.error(request, _("請挑一個數據項目，或直接打一個名稱。"))
+    domain = request.POST.get("domain", "")
+    if domain not in MetricDomain.values:
+        messages.error(request, _("請挑一個範疇：比賽數據／田徑練習訓練紀錄／重量訓練紀錄。"))
         return
 
     try:
-        _created, msg = create_records(
-            athlete=session.athlete,
-            item=item,
-            session=session,
-            post=request.POST,
-            on_date=request.POST.get("date") or session.date,
-        )
+        result = push_block_to_analytics(session, block, domain, user=request.user)
     except RecordError as exc:
         messages.error(request, str(exc))
         return
-    messages.success(request, _("%(v0)s同一筆在「數據分析 → %(v1)s」也看得到。") % {"v0": msg, "v1": item.get_domain_display()})
-
-    # 選了區塊就順手把這個動作放進上面課表的那一區
-    moved = _sync_block_activity(
-        request, session, item.name, _created[0].block if _created else ""
-    )
-    if moved:
-        messages.info(request, moved)
-
-
-def _sync_block_activity(request, session, name, block):
-    """數據紀錄選了區塊，上面的課表就把這個動作放進那一區。
-
-    上面已經有同名的活動：直接搬到選的那一區（連同它的組數、次數一起搬）。
-    還沒有：在那一區補一列（名字對得上活動庫就把預設值一起帶進來）。
-    回傳給使用者看的一句話，沒有動到就回空字串。
-    """
-    name = (name or "").strip()
-    if not name or block not in BlockType.values:
-        return ""
 
     label = BlockType(block).label
-    existing = session.activities.filter(name__iexact=name).first()
-    if existing is not None:
-        if existing.block == block:
-            return ""
-        last = session.activities.filter(block=block).order_by("-order").first()
-        existing.block = block
-        existing.order = (last.order + 1) if last else 1
-        existing.save(update_fields=["block", "order", "updated_at"])
-        return _("課表上的「%(v0)s」已改放到%(v1)s。") % {"v0": existing.name, "v1": label}
-
-    row_def = _definition_for_name(name)
-    defaults = row_def.defaults_payload() if row_def else {}
-    last = session.activities.filter(block=block).order_by("-order").first()
-    SessionActivity.objects.create(
-        session=session,
-        block=block,
-        order=(last.order + 1) if last else 1,
-        definition=row_def,
-        name=name,
-        sets=defaults.get("sets", ""),
-        reps=defaults.get("reps", ""),
-        distance=defaults.get("distance", ""),
-        weight=defaults.get("weight", ""),
-        intensity=defaults.get("intensity", ""),
-        rest=defaults.get("rest", ""),
-        key_points=defaults.get("key_points", ""),
-        created_by=request.user,
-    )
-    return _("已把「%(v0)s」加進課表的%(v1)s。") % {"v0": name, "v1": label}
-
-
-def _open_planned_sets(request, session):
-    """把整堂課的課表行，一次過依組數開好還沒開的紀錄列。
-
-    加活動時已經開過一次；這裡是給「先加了活動、之後才補上組數」的行，
-    還有舊課表補開用的。已經有紀錄的行一律不動。
-    """
-    if not _can_log_metrics(request, session):
-        messages.error(request, _("只有運動員本人或管理員可以開這堂課的紀錄列。"))
+    domain_label = dict(MetricDomain.choices)[domain]
+    if not result["activities"]:
+        messages.info(request, _("%(v0)s還沒有內容，先加活動再加進數據分析。") % {"v0": label})
         return
-
-    opened, rows = 0, 0
-    for activity in session.activities.select_related("definition"):
-        item = item_for_activity(
-            session.session_type,
-            activity.name,
-            activity.definition.category if activity.definition_id else "",
-            user=request.user,
-            name_en=activity.definition.name_en if activity.definition_id else "",
-        )
-        made = open_planned_records(
-            activity, item, athlete=session.athlete, session=session
-        )
-        if made:
-            opened += made
-            rows += 1
-
-    if opened:
+    if result["opened"]:
         messages.success(
             request,
-            _("已依課表開好 %(v0)s 組空白紀錄（%(v1)s 個動作），練完填完成數值就好。") % {"v0": opened, "v1": rows},
+            _("已把%(v0)s的 %(v1)s 項加進「數據分析 → %(v2)s」，開好 %(v3)s 組空白紀錄；完成數值在數據分析那邊填。")
+            % {
+                "v0": label,
+                "v1": len(result["items"]),
+                "v2": domain_label,
+                "v3": result["opened"],
+            },
         )
     else:
         messages.info(
             request,
-            _("沒有可以開的組：課表上的動作要嘛已經有紀錄，要嘛「組數」那一格還沒寫數字。"),
+            _("%(v0)s的 %(v1)s 項本來就已經在「數據分析 → %(v2)s」裡了，沒有重複加。")
+            % {"v0": label, "v1": result["existing"], "v2": domain_label},
         )
 
 
@@ -1867,105 +1760,12 @@ def _can_log_metrics(request, session):
     )
 
 
-def _edit_metrics(request, session):
-    """在課表頁改已經登進去的數據。
-
-    一張表可以一次改很多筆（按「儲存全部更改」），
-    也可以只按某一列的 ✓ 單獨存那一筆。改的就是數據分析那張 MetricRecord，
-    所以數據分析頁的「紀錄明細」同時更新，不用兩邊各改一次。
-    """
-    if not _can_log_metrics(request, session):
-        messages.error(request, _("只有這名運動員本人（或管理員）能改這堂課的數據。"))
-        return
-
-    records = list(session.metric_records.select_related("item"))
-    only = request.POST.get("only") or None
-    if only and not any(str(r.pk) == str(only) for r in records):
-        messages.error(request, _("這筆紀錄已經不在這堂課裡了。"))
-        return
-
-    before = {r.pk: r.block for r in records}
-    changed, problems = update_records(request.POST, records, only=only)
-    text = edit_message(changed, problems)
-    if changed:
-        messages.success(request, text + _("數據分析的「紀錄明細」同時更新了。"))
-    else:
-        messages.info(request, text)
-
-    # 區塊改了的，上面的課表跟著把那個動作放到新的一區
-    for record in records:
-        if record.block and record.block != before.get(record.pk):
-            moved = _sync_block_activity(
-                request, session, record.item.name, record.block
-            )
-            if moved:
-                messages.info(request, moved)
-
-
-def _delete_metric(request, session):
-    record = MetricRecord.objects.filter(
-        pk=request.POST.get("record_id"), session=session
-    ).first()
-    if record is None:
-        messages.error(request, _("這筆紀錄已經不在了。"))
-        return
-    if not _can_log_metrics(request, session):
-        messages.error(request, _("只有這名運動員本人（或管理員）能刪這筆數據。"))
-        return
-    record.delete()
-    messages.info(request, _("已刪除一筆數據紀錄。"))
-
-
-def _move_metric(request, session):
-    """本課數據紀錄裡的 ↑ ↓：把一組往前／往後挪，同一天的組號跟著重排。
-
-    跟數據分析「紀錄明細」的 ↑ ↓ 是同一個做法（同一個 move_record）。
-    """
-    if not _can_log_metrics(request, session):
-        messages.error(request, _("只有這名運動員本人（或管理員）能調這堂課的數據。"))
-        return
-    direction = "up" if request.POST.get("up") else "down"
-    record = MetricRecord.objects.filter(
-        pk=request.POST.get(direction) or request.POST.get("record_id"), session=session
-    ).first()
-    if record is None:
-        messages.error(request, _("這筆紀錄已經不在這堂課裡了。"))
-        return
-    if move_record(record, direction):
-        messages.info(
-            request,
-            _("已把這一組往前挪。") if direction == "up" else _("已把這一組往後挪。"),
-        )
-    else:
-        messages.info(request, _("這一組已經在最") + (_("前") if direction == "up" else _("後")) + _("面了。"))
-
-
-def _switch_item_unit(request, session):
-    """把一個項目的單位在 kg 和秒之間換過來。
-
-    重量訓練預設用 kg，但像平板支撐、懸垂這種撐時間的動作用秒才合理，
-    所以單位是跟著項目走的，換了之後這個項目所有紀錄都用同一個單位。
-    """
-    if not _can_log_metrics(request, session):
-        messages.error(request, _("只有這名運動員本人（或管理員）能改項目單位。"))
-        return
-    item = MetricItem.objects.filter(pk=request.POST.get("item_id")).first()
-    if item is None:
-        messages.error(request, _("找不到這個項目。"))
-        return
-    unit = request.POST.get("unit", "")
-    if set_item_unit(item, unit):
-        messages.success(request, _("「%(v0)s」的單位已改成 %(v1)s。") % {"v0": item.name, "v1": item.unit})
-    else:
-        messages.info(request, _("單位沒有變動。"))
-
-
 def _add_activity(request, session):
     """在某一區（熱身 / 正課 / 補充 / 恢復）加活動。
 
     可以一次加多項：「活動名稱」欄每行一個名字，名字對得上活動庫的就把
-    預設組數/次數/休息一起帶進來。加進來的動作同時會在數據分析開好同名項目，
-    課做完直接登數據，不用再去數據分析新增一次。
+    預設組數/次數/休息一起帶進來。這裡只排課、不動數據——
+    要記數據的那一區，用區塊上的「加入本課訓練到數據分析」加過去。
     """
     block = request.POST.get("block")
     if block not in BlockType.values:
@@ -1993,7 +1793,7 @@ def _add_activity(request, session):
     last = session.activities.filter(block=block).order_by("-order").first()
     order = (last.order + 1) if last else 1
 
-    added, linked, opened = [], [], 0
+    added = []
     for name in names:
         # 名字對得上活動庫就掛上去（統計用得到），自己打的名字也照樣加得進來
         row_def = definition or _definition_for_name(name)
@@ -2005,7 +1805,7 @@ def _add_activity(request, session):
                 return request.POST.get(key, "").strip()
             return defaults.get(key, "")
 
-        activity = SessionActivity.objects.create(
+        SessionActivity.objects.create(
             session=session,
             block=block,
             order=order,
@@ -2027,27 +1827,9 @@ def _add_activity(request, session):
             ActivityDefinition.objects.filter(pk=row_def.pk).update(
                 use_count=F("use_count") + 1
             )
-        # 課表寫了什麼動作，數據分析就有同名項目可以登
-        item = item_for_activity(
-            session.session_type,
-            name,
-            row_def.category if row_def else "",
-            user=request.user,
-            name_en=row_def.name_en if row_def else "",
-        )
-        if item is not None:
-            linked.append(name)
-            # 寫了「3 組」就先開好 3 組空白紀錄，連重量／次數／休息一起帶進去，
-            # 運動員練完只要填「完成數值」那一格，不用把同一批數字再打一次
-            opened += open_planned_records(
-                activity, item, athlete=session.athlete, session=session
-            )
 
     msg = _("已加入 %(v0)s 到%(v1)s。") % {"v0": '、'.join(added), "v1": BlockType(block).label}
-    if opened:
-        msg += _("（已依組數在「本課數據紀錄」開好 %(v0)s 組，練完只要填完成數值）") % {"v0": opened}
-    elif linked:
-        msg += _("（%(v0)s 項已同步到數據分析的項目清單）") % {"v0": len(linked)}
+    msg += _("（要記這一區的數據，按區塊上的「加入本課訓練到數據分析」）")
     messages.success(request, msg)
 
 
@@ -2127,8 +1909,8 @@ ACTIVITY_VALUE_FIELDS = ("sets", "reps", "distance", "weight", "intensity", "res
 
 
 def _spawn_activity(request, session, block, order, name, values, definition=None):
-    """在課表某一區寫入一列活動，並同步開好數據紀錄（跟手動加活動一樣）。"""
-    activity = SessionActivity.objects.create(
+    """在課表某一區寫入一列活動（純排課，數據那邊不動）。"""
+    return SessionActivity.objects.create(
         session=session,
         block=block,
         order=order,
@@ -2137,19 +1919,6 @@ def _spawn_activity(request, session, block, order, name, values, definition=Non
         created_by=request.user,
         **{key: values.get(key, "") for key in ACTIVITY_VALUE_FIELDS},
     )
-    item = item_for_activity(
-        session.session_type,
-        name,
-        definition.category if definition else "",
-        user=request.user,
-        name_en=definition.name_en if definition else "",
-    )
-    opened = (
-        open_planned_records(activity, item, athlete=session.athlete, session=session)
-        if item is not None
-        else 0
-    )
-    return activity, opened
 
 
 def visible_block_programs(user):
@@ -2246,9 +2015,8 @@ def _apply_block_program(request, session):
 
     last = session.activities.filter(block=block).order_by("-order").first()
     order = (last.order + 1) if last else 1
-    opened = 0
     for item in items:
-        _unused, count = _spawn_activity(
+        _spawn_activity(
             request,
             session,
             block,
@@ -2257,7 +2025,6 @@ def _apply_block_program(request, session):
             {key: getattr(item, key) for key in ACTIVITY_VALUE_FIELDS},
             definition=item.definition,
         )
-        opened += count
         order += 1
 
     BlockProgram.objects.filter(pk=program.pk).update(use_count=F("use_count") + 1)
@@ -2268,8 +2035,6 @@ def _apply_block_program(request, session):
         msg += _("（先清掉原有的 %(v0)s 項）") % {"v0": cleared}
     if kept:
         msg += _("（有 %(v0)s 項是別人寫的，清不掉，留在原位）") % {"v0": kept}
-    if opened:
-        msg += _("（已依組數開好 %(v0)s 組數據紀錄）") % {"v0": opened}
     messages.success(request, msg)
 
 
@@ -2501,6 +2266,22 @@ def analytics_view(request):
                 f"{request.path}?athlete={athlete.id}&domain=TRACK&item={item.id}"
             )
 
+        if action in ("pin_item", "unpin_item"):
+            # 「主要必看的訓練項目」＝從下面的項目清單 pin 出來的那幾項。
+            # 清單練久了會很長，每天真正要看的就那幾個動作，釘出來才不用每次翻。
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            already = athlete.pinned_items.filter(item=item).exists()
+            if action == "pin_item" and not already:
+                toggle_pin(athlete, item, user=request.user)
+                messages.success(
+                    request,
+                    _("已把「%(v0)s」釘到「主要必看的訓練項目」。") % {"v0": item.display_name},
+                )
+            elif action == "unpin_item" and already:
+                toggle_pin(athlete, item, user=request.user)
+                messages.info(request, _("已取消釘選「%(v0)s」。") % {"v0": item.display_name})
+            return redirect(f"{back}&item={item.id}")
+
         if action == "delete_item":
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
             mine = MetricRecord.objects.filter(athlete=athlete, item=item)
@@ -2538,7 +2319,8 @@ def analytics_view(request):
             return redirect(f"{back}&item={item.id}")
 
         if action == "add_record":
-            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
+            # 沒挑項目就登不進去（or 0 是為了空字串也走 404，不要炸掉）
+            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id") or 0)
             session_id = request.POST.get("session") or None
             session = None
             if session_id:
@@ -2685,7 +2467,15 @@ def analytics_view(request):
     if compare not in {m for m, _unused in compare_modes}:
         compare = "all"
     comparison = an.metric_comparison(athlete, item, compare) if item else None
-    tops = [] if is_competition else an.top_movements(athlete, domain)
+    # 「主要必看的訓練項目」＝從項目清單釘出來的那幾項；
+    # 還沒釘過的人先看「最常做的動作」，右邊的 📌 按一下就變成自己的必看清單。
+    pinned = [] if is_competition else pinned_items(athlete, domain)
+    pinned_ids = [i.id for i in pinned]
+    tops = [] if is_competition else (
+        an.movement_stats(athlete, pinned) if pinned else an.top_movements(athlete, domain)
+    )
+    # 從日曆的課表加進來的當日訓練——先在這裡看到那一課，再把數值填進去
+    day_sessions = an.pushed_sessions(athlete, domain)
 
     # ---- 多個項目一起分析 ----
     # 同一個距離不同方式（150m 節奏跑 / 150m 反覆跑）、或相近的重訓動作，
@@ -2800,8 +2590,12 @@ def analytics_view(request):
                 dict(SessionType.choices)[t] for t in linkable_types
             ],
             "today_iso": date.today().isoformat(),
-            # 最常做的動作 + 整體／年份／時期比較
+            # 主要必看的訓練項目（沒釘過就先給最常做的動作）+ 整體／年份／時期比較
             "tops": tops,
+            "pinned_ids": pinned_ids,
+            "has_pins": bool(pinned),
+            # 從日曆加進來的當日訓練
+            "day_sessions": day_sessions,
             # 多項目一起分析
             "multi": multi,
             "multi_choices": multi_choices,

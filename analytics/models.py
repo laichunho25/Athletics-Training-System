@@ -686,3 +686,55 @@ def set_item_unit(item, unit):
     )
     item.save(update_fields=["unit", "higher_is_better"])
     return True
+
+
+class PinnedMetricItem(TimeStampedModel):
+    """釘在「主要必看的訓練項目」上的一個項目。
+
+    項目清單（田徑練習訓練紀錄／重量訓練紀錄）練久了會很長，
+    但教練每天真正要看的就那幾個動作——在清單上按一下 📌 就把它 pin 出來，
+    之後開數據分析第一眼看到的就是這幾項，不用每次自己去長清單裡找。
+    釘選是跟著運動員走的（換一個運動員就是另一份清單）。
+    """
+
+    athlete = models.ForeignKey(
+        AthleteProfile, on_delete=models.CASCADE, related_name="pinned_items"
+    )
+    item = models.ForeignKey(
+        MetricItem, on_delete=models.CASCADE, related_name="pins", verbose_name=_("項目")
+    )
+    pinned_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="metric_pins",
+        verbose_name=_("釘選者"),
+    )
+
+    class Meta:
+        verbose_name = _("必看項目")
+        verbose_name_plural = _("必看項目")
+        unique_together = ("athlete", "item")
+        ordering = ["item__domain", "id"]
+
+    def __str__(self):
+        return f"{self.athlete} 📌 {self.item.name}"
+
+
+def pinned_items(athlete, domain=None):
+    """這名運動員釘出來的項目（可以只看一個範疇），照釘的先後排。"""
+    qs = PinnedMetricItem.objects.filter(athlete=athlete).select_related("item")
+    if domain:
+        qs = qs.filter(item__domain=domain)
+    return [p.item for p in qs.order_by("id")]
+
+
+def toggle_pin(athlete, item, user=None):
+    """釘上去／取下來，回傳釘完之後是不是釘著的。"""
+    existing = PinnedMetricItem.objects.filter(athlete=athlete, item=item).first()
+    if existing is not None:
+        existing.delete()
+        return False
+    PinnedMetricItem.objects.create(athlete=athlete, item=item, pinned_by=user)
+    return True

@@ -1,8 +1,9 @@
-"""課表寫了組數 → 自動開好同樣筆數的空白紀錄。
+"""課表某一區加進數據分析 → 依組數開好空白紀錄。
 
-流程上這是最花時間的一段：教練在課表寫「深蹲 3 組 × 5 次 @ 100kg」，
-以前運動員練完要把同一批數字在「本課數據紀錄」再打一次（3 組共 21 格）。
-現在加活動時就先開好 3 組，練完只要填「完成數值」。
+課表只排「今天要做什麼」，數字一律在數據分析登。
+教練在課表寫「深蹲 3 組 × 5 次 @ 100kg」，按那一區的
+「加入本課訓練到數據分析」之後，數據分析就先有 3 組空白列，
+運動員練完只要在那邊填「完成數值」，不用把同一批數字再打一次。
 """
 
 from datetime import date
@@ -11,7 +12,12 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
-from analytics.models import MetricItem, MetricRecord, ensure_builtin_items
+from analytics.models import (
+    MetricDomain,
+    MetricItem,
+    MetricRecord,
+    ensure_builtin_items,
+)
 from analytics.recording import _rest_seconds, planned_sets_for
 from core.models import SessionType
 from core.test_factories import make_athlete, make_session
@@ -70,7 +76,9 @@ class PlannedSetsTests(TestCase):
         self.assertEqual(len(planned_sets_for(self.row(sets="99 組"))), 20)
 
 
-class AddActivityOpensRecordsTests(TestCase):
+class PushBlockToAnalyticsTests(TestCase):
+    """課表那一區按「加入本課訓練到數據分析」之後開了什麼。"""
+
     def setUp(self):
         ensure_builtin_items()
         self.athlete = make_athlete("a1")
@@ -95,97 +103,102 @@ class AddActivityOpensRecordsTests(TestCase):
         data.update(extra)
         return self.client.post(self.url(), data)
 
-    def test_adding_an_activity_opens_one_record_per_set(self):
-        self.assertEqual(self.add_activity().status_code, 302)
+    def push(self, block=BlockType.MAIN, domain=MetricDomain.STRENGTH):
+        return self.client.post(
+            self.url(),
+            {"action": "push_metrics", "block": block, "domain": domain},
+        )
+
+    def test_adding_an_activity_alone_records_nothing(self):
+        # 課表只排課：沒按「加入本課訓練到數據分析」之前，數據那邊一片空白
+        self.add_activity()
+        self.assertEqual(MetricRecord.objects.count(), 0)
+        self.assertFalse(MetricItem.objects.filter(name="槓鈴深蹲").exists())
+
+    def test_pushing_the_block_opens_one_record_per_set(self):
+        self.add_activity()
+        self.assertEqual(self.push().status_code, 302)
 
         records = list(MetricRecord.objects.order_by("set_no"))
         self.assertEqual(len(records), 3)
         self.assertEqual([r.set_no for r in records], [1, 2, 3])
         self.assertEqual(records[0].item.name, "槓鈴深蹲")
+        self.assertEqual(records[0].item.domain, MetricDomain.STRENGTH)
         self.assertEqual(records[0].session, self.session)
         self.assertEqual(records[0].block, BlockType.MAIN)
         self.assertEqual(records[0].reps, 5)
         self.assertEqual(records[0].weight_kg, Decimal("100"))
         self.assertEqual(records[0].rest_sec, 120)
-        # 完成數值留白——那正是運動員練完唯一要填的東西
+        # 完成數值留白——那正是運動員在數據分析唯一要填的東西
         self.assertTrue(all(r.value is None for r in records))
 
-    def test_an_activity_without_sets_opens_nothing(self):
+    def test_an_activity_without_sets_still_gets_one_row(self):
+        # 沒寫組數的動作也要在數據分析看得到，不然那一項等於沒加進來
         self.add_activity(sets="", reps="", weight="", rest="")
-        self.assertEqual(MetricRecord.objects.count(), 0)
-        # 但項目照樣開好，之後手動登數據挑得到
+        self.push()
+        self.assertEqual(MetricRecord.objects.count(), 1)
+        self.assertIsNone(MetricRecord.objects.get().set_no)
         self.assertTrue(MetricItem.objects.filter(name="槓鈴深蹲").exists())
 
-    def test_adding_the_same_activity_again_does_not_duplicate_records(self):
+    def test_pushing_twice_does_not_duplicate_records(self):
         self.add_activity()
-        self.add_activity()
+        self.push()
+        self.push()
         self.assertEqual(MetricRecord.objects.count(), 3)
 
     def test_already_recorded_sets_are_never_overwritten(self):
         self.add_activity()
+        self.push()
         first = MetricRecord.objects.order_by("set_no").first()
         first.value = Decimal("102.5")
         first.save()
 
-        self.add_activity()
+        self.push()
         first.refresh_from_db()
         self.assertEqual(first.value, Decimal("102.5"))
         self.assertEqual(MetricRecord.objects.count(), 3)
 
-    def test_same_movement_in_two_blocks_gets_its_own_sets(self):
+    def test_each_block_is_pushed_on_its_own(self):
         self.add_activity(block=BlockType.WARMUP, sets="2 組", weight="40kg")
         self.add_activity(block=BlockType.MAIN)
+
+        self.push(block=BlockType.WARMUP)
+        self.assertEqual(MetricRecord.objects.filter(block=BlockType.MAIN).count(), 0)
+
+        self.push(block=BlockType.MAIN)
         self.assertEqual(MetricRecord.objects.filter(block=BlockType.WARMUP).count(), 2)
         self.assertEqual(MetricRecord.objects.filter(block=BlockType.MAIN).count(), 3)
 
+    def test_the_domain_is_the_one_picked_on_the_button(self):
+        # 課別是重量訓練，但這一區跑的是田徑——範疇由按鈕旁邊的選單決定
+        self.add_activity(name="30m 衝刺", sets="4 組", weight="", rest="3 分鐘")
+        self.push(domain=MetricDomain.TRACK)
+        record = MetricRecord.objects.first()
+        self.assertEqual(record.item.domain, MetricDomain.TRACK)
 
-class PlanSetsActionTests(TestCase):
-    """「依課表開組」：先加了活動、之後才補組數的行，可以再補開一次。"""
-
-    def setUp(self):
-        ensure_builtin_items()
-        self.athlete = make_athlete("a1")
-        self.client.force_login(self.athlete.user)
-        self.session = make_session(
-            self.athlete, TODAY, session_type=SessionType.STRENGTH
-        )
-        self.activity = SessionActivity.objects.create(
-            session=self.session, block=BlockType.MAIN, order=1, name="臥推"
-        )
-
-    def url(self):
-        return reverse("web:session_detail", args=[self.session.id])
-
-    def run_action(self):
-        return self.client.post(self.url(), {"action": "plan_sets"})
-
-    def test_nothing_to_open_when_no_sets_are_written(self):
-        self.run_action()
+    def test_an_unknown_domain_is_refused(self):
+        self.add_activity()
+        self.push(domain="NONSENSE")
         self.assertEqual(MetricRecord.objects.count(), 0)
 
-    def test_filling_in_the_sets_afterwards_then_opening(self):
-        self.activity.sets = "4 組"
-        self.activity.reps = "6"
-        self.activity.save()
+    def test_the_sets_written_afterwards_are_picked_up(self):
+        activity = SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1, name="臥推"
+        )
+        activity.sets = "4 組"
+        activity.reps = "6"
+        activity.save()
 
-        self.run_action()
+        self.push()
         records = MetricRecord.objects.order_by("set_no")
         self.assertEqual([r.set_no for r in records], [1, 2, 3, 4])
         self.assertEqual(records[0].reps, 6)
 
-    def test_running_it_twice_is_safe(self):
-        self.activity.sets = "4 組"
-        self.activity.save()
-        self.run_action()
-        self.run_action()
-        self.assertEqual(MetricRecord.objects.count(), 4)
-
-    def test_a_stranger_cannot_open_sets_on_someone_elses_session(self):
+    def test_a_stranger_cannot_push_someone_elses_session(self):
+        self.add_activity()
         other = make_athlete("a2")
         self.client.force_login(other.user)
-        self.activity.sets = "4 組"
-        self.activity.save()
-        self.assertEqual(self.run_action().status_code, 404)
+        self.assertEqual(self.push().status_code, 404)
         self.assertEqual(MetricRecord.objects.count(), 0)
 
 
@@ -212,12 +225,21 @@ class ActivityDefaultsFlowTests(TestCase):
 
     def test_library_defaults_reach_the_record_rows(self):
         # 一次加多項時，逐項細節照活動庫的預設值走
+        url = reverse("web:session_detail", args=[self.session.id])
         self.client.post(
-            reverse("web:session_detail", args=[self.session.id]),
+            url,
             {
                 "action": "add_activity",
                 "block": BlockType.SUPPLEMENT,
                 "name": "保加利亞分腿蹲\n臥推",
+            },
+        )
+        self.client.post(
+            url,
+            {
+                "action": "push_metrics",
+                "block": BlockType.SUPPLEMENT,
+                "domain": MetricDomain.STRENGTH,
             },
         )
         records = MetricRecord.objects.filter(item__name="保加利亞分腿蹲").order_by(
@@ -227,5 +249,5 @@ class ActivityDefaultsFlowTests(TestCase):
         self.assertEqual(records[0].reps, 8)  # 「左/右腳 8 次」→ 8
         self.assertEqual(records[0].weight_kg, Decimal("20"))
         self.assertEqual(records[0].rest_sec, 60)
-        # 沒有預設組數的那一項不會開空列
-        self.assertFalse(MetricRecord.objects.filter(item__name="臥推").exists())
+        # 沒有預設組數的那一項也有一列（空白的），不然它在數據分析看不到
+        self.assertEqual(MetricRecord.objects.filter(item__name="臥推").count(), 1)

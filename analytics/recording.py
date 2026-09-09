@@ -193,6 +193,16 @@ def _rest_seconds(text):
     return round(float(hit.group())) if hit else None
 
 
+def _set_row(activity):
+    """課表這一行寫了什麼（重量／次數／休息／強度），照抄成一組紀錄的內容。"""
+    return {
+        "weight_kg": _first_decimal(activity.weight),
+        "reps": _first_int(activity.reps),
+        "rest_sec": _rest_seconds(activity.rest),
+        "intensity": (activity.intensity or "").strip()[:20],
+    }
+
+
 def planned_sets_for(activity):
     """課表這一行要開幾組、每一組先帶什麼進去。
 
@@ -202,12 +212,7 @@ def planned_sets_for(activity):
     if not count or count < 1:
         return []
     count = min(count, MAX_PLANNED_SETS)
-    row = {
-        "weight_kg": _first_decimal(activity.weight),
-        "reps": _first_int(activity.reps),
-        "rest_sec": _rest_seconds(activity.rest),
-        "intensity": (activity.intensity or "").strip()[:20],
-    }
+    row = _set_row(activity)
     return [dict(row, set_no=i if count > 1 else None) for i in range(1, count + 1)]
 
 
@@ -240,6 +245,79 @@ def open_planned_records(activity, item, *, athlete, session):
         ]
     )
     return len(rows)
+
+
+# ------------------------------------------ 課表某一區 → 數據分析（當日訓練）
+#
+# 課表只負責「今天要做什麼」；數據要不要跟就由排課的人決定：
+# 在熱身／正課／補充練習／恢復練習每一區旁邊按一下「加入本課訓練到數據分析」，
+# 挑一個範疇（比賽數據／田徑練習訓練紀錄／重量訓練紀錄），
+# 這一區的每一項就會在數據分析開好項目與空白組，之後在那邊把數字填進去。
+
+
+def push_block_to_analytics(session, block, domain, *, user=None):
+    """把課表某一區的活動，加進數據分析變成當天的訓練紀錄。
+
+    每一項活動 → 一個同名的數據項目；課表寫了「3 組」就開 3 組空白紀錄，
+    沒寫組數的也開一組，不然那項在數據分析根本看不到。
+    已經加過的一項不會再加第二次（填好的成績永遠不會被蓋掉）。
+    回傳 dict：加了幾項、開了幾組、幾項本來就有了。
+    """
+    from analytics.models import (
+        MetricDomain,
+        item_for_name,
+        metric_category_for_activity,
+    )
+
+    if domain not in MetricDomain.values:
+        raise RecordError(_("不認得的數據範疇。"))
+
+    activities = list(
+        session.activities.filter(block=block).select_related("definition").order_by("order", "id")
+    )
+    items, opened, existing = [], 0, 0
+    for activity in activities:
+        definition = activity.definition if activity.definition_id else None
+        item = item_for_name(
+            domain,
+            activity.name,
+            user=user,
+            category=metric_category_for_activity(
+                definition.category if definition else ""
+            ),
+            name_en=definition.name_en if definition else "",
+        )
+        if item is None:
+            continue
+        items.append(item)
+        made = open_planned_records(
+            activity, item, athlete=session.athlete, session=session
+        )
+        if made:
+            opened += made
+            continue
+        if MetricRecord.objects.filter(
+            session=session, item=item, block=block
+        ).exists():
+            existing += 1
+            continue
+        # 課表沒寫組數的動作也要看得到：先開一組空白的，數值在數據分析補
+        MetricRecord.objects.create(
+            athlete=session.athlete,
+            item=item,
+            session=session,
+            date=session.date,
+            block=block,
+            **_set_row(activity),
+        )
+        opened += 1
+
+    return {
+        "activities": len(activities),
+        "items": items,
+        "opened": opened,
+        "existing": existing,
+    }
 
 
 # ------------------------------------------------ 修改已經登進去的紀錄

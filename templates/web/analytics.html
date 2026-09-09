@@ -39,12 +39,27 @@
     <input type="hidden" name="domain" value="{{ domain }}">
     <input type="hidden" name="confirm" value="1">
   </form>
+  <!-- 清單上的每一個 📌 都是這張表單的送出鍵，各帶自己的 item_id。 -->
+  <form method="post" id="itemPin" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="pin_item">
+    <input type="hidden" name="domain" value="{{ domain }}">
+  </form>
   {% if not is_competition %}
-  <!-- ------------------------------------------------------ 最常做的動作 -->
+  <!-- 主要必看的訓練項目：下面項目清單上的 📌 按一下就釘到這裡。
+       還沒釘過任何東西的時候，先給「最常做的動作」當預設。 -->
+  <form method="post" id="itemUnpin" hidden>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="unpin_item">
+    <input type="hidden" name="domain" value="{{ domain }}">
+  </form>
   <div class="card pad0 mb">
     <div class="card-head">
-      <span>{% translate "最常做的動作" %}</span>
-      <span class="small c-dim">{% translate "近 365 天 · 依練過幾天排" %}</span>
+      <span>{% translate "主要必看的訓練項目" %}</span>
+      <span class="small c-dim">
+        {% if has_pins %}{% translate "從下面的清單 📌 釘出來的" %}
+        {% else %}{% translate "還沒釘任何項目 · 先看最常做的動作（近 365 天）" %}{% endif %}
+      </span>
     </div>
     <div class="itemlist">
       {% for t in tops %}
@@ -63,6 +78,13 @@
             {% endif %}
           </span>
         </a>
+        {% if has_pins %}
+        <button class="itempin on" type="submit" form="itemUnpin" name="item_id" value="{{ t.item.id }}"
+                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」從必看清單取下來{% endblocktranslate %}">📌</button>
+        {% else %}
+        <button class="itempin" type="submit" form="itemPin" name="item_id" value="{{ t.item.id }}"
+                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」釘成必看項目{% endblocktranslate %}">📌</button>
+        {% endif %}
         <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ t.item.id }}"
                 data-name="{{ t.item.display_name }}" data-builtin="{{ t.item.is_builtin|yesno:"1," }}"
                 title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
@@ -72,7 +94,7 @@
       {% endfor %}
     </div>
     <div class="small c-dim" style="padding:10px 16px 12px;border-top:1px solid var(--border)">
-      {% translate "點一個動作就能看到它每一次的紀錄內容與比較。" %}
+      {% translate "點一個動作就能看到它每一次的紀錄內容與比較；下面清單右邊的 📌 可以把常看的項目釘上來。" %}
     </div>
   </div>
   {% endif %}
@@ -139,6 +161,13 @@
               {% if row.count %}{% blocktranslate with v0=row.latest|default:"—" v1=row.count %}{{ v0 }} · {{ v1 }}筆{% endblocktranslate %}{% else %}—{% endif %}
             </span>
           </a>
+          {% if row.item.id in pinned_ids %}
+          <button class="itempin on" type="submit" form="itemUnpin" name="item_id" value="{{ row.item.id }}"
+                  title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」從必看清單取下來{% endblocktranslate %}">📌</button>
+          {% else %}
+          <button class="itempin" type="submit" form="itemPin" name="item_id" value="{{ row.item.id }}"
+                  title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」釘成必看項目{% endblocktranslate %}">📌</button>
+          {% endif %}
           <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ row.item.id }}"
                   data-name="{{ row.item.display_name }}" data-builtin="{{ row.item.is_builtin|yesno:"1," }}"
                   title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
@@ -327,6 +356,52 @@
 
   {% endif %}
  </div>
+
+ <div>
+  <!-- ------------------------------------------- 從日曆加入的當日訓練 -->
+  {% comment %}
+    課表只排「當日要做什麼」。在課表的熱身／正課／補充練習／恢復練習每一區
+    按「加入本課訓練到數據分析」，那一課才會出現在這裡；
+    接著點進項目，在下面的「紀錄明細」把每一組的數值填上去。
+  {% endcomment %}
+  <div class="card pad0 mb">
+    <div class="card-head" data-fold-key="day-sessions">
+      <span>{% translate "從日曆加入的當日訓練" %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=domain_label %}{{ v0 }} · 近 120 天{% endblocktranslate %}</span>
+    </div>
+    {% if day_sessions %}
+    <table>
+      <thead>
+        <tr><th>{% translate "日期" %}</th><th>{% translate "課表" %}</th><th>{% translate "區塊" %}</th>
+            <th>{% translate "項目" %}</th><th class="num">{% translate "組數" %}</th><th class="num">{% translate "待填" %}</th></tr>
+      </thead>
+      <tbody>
+      {% for row in day_sessions %}
+        <tr>
+          <td class="num">{{ row.date|date:"m/d" }}</td>
+          <td><a href="{% url 'web:session_detail' row.session.id %}"
+                 title="{% translate '回到那一堂課表' %}">{{ row.session.title }}</a></td>
+          <td class="small c-dim">{% for label in row.blocks %}<span class="badge b-blue">{{ label }}</span>{% endfor %}</td>
+          <td class="small">
+            {% for it in row.items %}<a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ it.id }}"
+               title="{% translate '在下面的紀錄明細填這一項的數值' %}">{{ it.name }}</a>{% if not forloop.last %}、{% endif %}{% endfor %}
+          </td>
+          <td class="num">{{ row.sets }}</td>
+          <td class="num">{% if row.pending %}<span class="c-yellow">{{ row.pending }}</span>{% else %}<span class="c-green">✓</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="small c-dim" style="padding:10px 16px 12px;border-top:1px solid var(--border)">
+      {% translate "「待填」＝還沒填完成數值的組數。點項目名字就跳到那一項，在下面的紀錄明細一格一格填。" %}
+    </div>
+    {% else %}
+    <div class="pad c-dim small">
+      {% translate "還沒有課加進來。到訓練日曆打開那一天的課表，在熱身／正課／補充練習／恢復練習每一區按「加入本課訓練到數據分析」，那一課就會出現在這裡。" %}
+      <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">{% translate "去訓練日曆 →" %}</a>
+    </div>
+    {% endif %}
+  </div>
 
   <!-- -------------------------------------------------------- 項目分析 -->
   <div class="card pad0">
@@ -1010,6 +1085,7 @@
     </div>
     {% endif %}
   </div>
+ </div>
 </div>
 
 {% if is_competition %}
