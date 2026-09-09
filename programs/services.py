@@ -7,6 +7,7 @@ from collections import namedtuple
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile, Event, User
 from core.models import Role
@@ -50,31 +51,34 @@ def resolve_event(application):
 
 def build_notes(application):
     """把不進 AthleteProfile 欄位、但教練需要看到的資訊寫進備註。"""
-    lines = [f"由報名表匯入：{application.project.title}"]
+    lines = [_("由報名表匯入：%(v0)s") % {"v0": application.project.title}]
     if application.personal_best:
-        lines.append(f"個人最佳：{application.personal_best}")
+        lines.append(_("個人最佳：%(v0)s") % {"v0": application.personal_best})
     if application.current_coach:
-        lines.append(f"現任教練：{application.current_coach}")
+        lines.append(_("現任教練：%(v0)s") % {"v0": application.current_coach})
     if application.emergency_contact_name:
         lines.append(
-            f"緊急聯絡：{application.emergency_contact_name} "
-            f"{application.emergency_contact_phone}"
-            f"（{application.emergency_contact_relation or '未填關係'}）"
+            _("緊急聯絡：%(name)s %(phone)s（%(relation)s）")
+            % {
+                "name": application.emergency_contact_name,
+                "phone": application.emergency_contact_phone,
+                "relation": application.emergency_contact_relation or _("未填關係"),
+            }
         )
     if application.has_current_injury and application.injury_detail:
-        lines.append(f"報名時傷患：{application.injury_detail}")
+        lines.append(_("報名時傷患：%(v0)s") % {"v0": application.injury_detail})
     if application.injury_history:
-        lines.append(f"過往傷患：{application.injury_history}")
+        lines.append(_("過往傷患：%(v0)s") % {"v0": application.injury_history})
     if application.medical_conditions:
-        lines.append(f"長期病患：{application.medical_conditions}")
+        lines.append(_("長期病患：%(v0)s") % {"v0": application.medical_conditions})
     if application.medications:
-        lines.append(f"服用藥物：{application.medications}")
+        lines.append(_("服用藥物：%(v0)s") % {"v0": application.medications})
     if application.allergies:
-        lines.append(f"敏感：{application.allergies}")
+        lines.append(_("敏感：%(v0)s") % {"v0": application.allergies})
     if not application.doctor_clearance:
-        lines.append("⚠ 尚未取得醫生許可")
+        lines.append(_("⚠ 尚未取得醫生許可"))
     if application.remarks:
-        lines.append(f"報名備註：{application.remarks}")
+        lines.append(_("報名備註：%(v0)s") % {"v0": application.remarks})
     return "\n".join(lines)
 
 
@@ -82,7 +86,7 @@ def build_notes(application):
 
 #: 比對用的三個欄位。三項中有兩項相符就當作同一個人——
 #: 只靠電郵會把共用家長信箱的兄弟姊妹誤判，只靠姓名或生日則太鬆。
-MATCH_LABELS = {"name": "全名", "birth_date": "出生日期", "email": "電郵"}
+MATCH_LABELS = {"name": _("全名"), "birth_date": _("出生日期"), "email": _("電郵")}
 MATCH_THRESHOLD = 2
 
 #: 比對結果：athlete＝已存在的檔案，fields＝相符的欄位（MATCH_LABELS 的 key）
@@ -102,7 +106,7 @@ def describe_match(match):
     if not match:
         return ""
     order = [k for k in MATCH_LABELS if k in match.fields]
-    return "、".join(MATCH_LABELS[k] for k in order) + "相符"
+    return "、".join(str(MATCH_LABELS[k]) for k in order) + _("相符")
 
 
 def _application_names(application):
@@ -218,7 +222,7 @@ def import_application(application, coach=None):
     if event is None:
         raise ImportError_("項目字典是空的，請先執行 loaddata events")
 
-    first_name, _, last_name = application.name_en.strip().partition(" ")
+    first_name, _unused, last_name = application.name_en.strip().partition(" ")
     user = User.objects.create_user(
         username=suggest_username(application),
         email=application.email,
@@ -259,10 +263,10 @@ def link_to_existing_athlete(application, athlete):
     """
     changes = []
     for field, label in (
-        ("height_cm", "身高"),
-        ("weight_kg", "體重"),
-        ("training_days_per_week", "每週訓練日數"),
-        ("strength_experience_years", "重訓年資"),
+        ("height_cm", _("身高")),
+        ("weight_kg", _("體重")),
+        ("training_days_per_week", _("每週訓練日數")),
+        ("strength_experience_years", _("重訓年資")),
     ):
         new_value = getattr(application, field)
         if new_value is not None and getattr(athlete, field) != new_value:
@@ -270,22 +274,31 @@ def link_to_existing_athlete(application, athlete):
             setattr(athlete, field, new_value)
 
     if application.school_or_club and application.school_or_club != athlete.school_or_club:
-        changes.append(f"學校／體育會 {athlete.school_or_club or '未填'} → {application.school_or_club}")
+        changes.append(
+            _("學校／體育會 %(old)s → %(new)s")
+            % {
+                "old": athlete.school_or_club or _("未填"),
+                "new": application.school_or_club,
+            }
+        )
         athlete.school_or_club = application.school_or_club
 
     lines = [
         "",
-        f"加入項目：{application.project.title}"
-        f"（{timezone.localtime(application.created_at):%Y-%m-%d} 報名）",
+        _("加入項目：%(title)s（%(date)s 報名）")
+        % {
+            "title": application.project.title,
+            "date": timezone.localtime(application.created_at).strftime("%Y-%m-%d"),
+        },
     ]
     if changes:
-        lines.append("報名表更新：" + "；".join(changes))
+        lines.append(_("報名表更新：") + "；".join(changes))
     if application.personal_best:
-        lines.append(f"個人最佳：{application.personal_best}")
+        lines.append(_("個人最佳：%(v0)s") % {"v0": application.personal_best})
     if application.has_current_injury and application.injury_detail:
-        lines.append(f"報名時傷患：{application.injury_detail}")
+        lines.append(_("報名時傷患：%(v0)s") % {"v0": application.injury_detail})
     if application.remarks:
-        lines.append(f"報名備註：{application.remarks}")
+        lines.append(_("報名備註：%(v0)s") % {"v0": application.remarks})
     athlete.notes = (athlete.notes.rstrip() + "\n" + "\n".join(lines)).strip()
     athlete.save()
 

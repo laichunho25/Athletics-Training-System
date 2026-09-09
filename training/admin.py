@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext as _
 
 from training.models import (
     ActivityDefinition,
@@ -16,16 +17,16 @@ from training.models import (
 )
 
 
-@admin.action(description="確認選取的項目（讓它永久出現在項目庫）")
+@admin.action(description=_("確認選取的項目（讓它永久出現在項目庫）"))
 def approve_selected(modeladmin, request, queryset):
     count = queryset.update(status=LibraryStatus.APPROVED)
-    modeladmin.message_user(request, f"已確認 {count} 筆。")
+    modeladmin.message_user(request, _("已確認 %(v0)s 筆。") % {"v0": count})
 
 
-@admin.action(description="退回選取的項目")
+@admin.action(description=_("退回選取的項目"))
 def reject_selected(modeladmin, request, queryset):
     count = queryset.update(status=LibraryStatus.REJECTED)
-    modeladmin.message_user(request, f"已退回 {count} 筆。")
+    modeladmin.message_user(request, _("已退回 %(v0)s 筆。") % {"v0": count})
 
 
 @admin.register(Exercise)

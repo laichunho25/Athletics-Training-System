@@ -11,6 +11,7 @@ import statistics
 from datetime import date, timedelta
 
 from django.db.models import Avg, Sum
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile
 from analytics.models import DailyLoad, RiskFlag, WeeklySummary
@@ -40,7 +41,7 @@ def rebuild_daily_load(athlete, on_date):
     duration = sum(s.actual_duration_min or 0 for s in sessions)
     rpes = [s.session_rpe for s in sessions if s.session_rpe]
 
-    obj, _ = DailyLoad.objects.update_or_create(
+    obj, _unused = DailyLoad.objects.update_or_create(
         athlete=athlete,
         date=on_date,
         defaults={
@@ -140,7 +141,7 @@ def calculate_ewma_acwr(athlete, on_date=None, acute_span=7, chronic_span=28):
     la = 2 / (acute_span + 1)
     lc = 2 / (chronic_span + 1)
     ewma_a = ewma_c = None
-    for _, load in sorted(series.items()):
+    for _unused, load in sorted(series.items()):
         ewma_a = load if ewma_a is None else load * la + ewma_a * (1 - la)
         ewma_c = load if ewma_c is None else load * lc + ewma_c * (1 - lc)
 
@@ -163,11 +164,11 @@ def classify_acwr(acwr):
 
 
 ACWR_ADVICE = {
-    RiskFlag.UNDER: ("🔵", "訓練量偏低，體能儲備可能流失。可在下週逐步增量 5–10%。"),
-    RiskFlag.OPTIMAL: ("🟢", "負荷處於甜蜜點 (0.8–1.3)，維持目前節奏。"),
-    RiskFlag.ELEVATED: ("🟡", "負荷偏高，注意睡眠與恢復，避免連續兩週再加量。"),
-    RiskFlag.HIGH: ("🔴", "高受傷風險 (ACWR > 1.5)！建議本週減量 20–30%，並加強恢復手段。"),
-    RiskFlag.INSUFFICIENT: ("⚪", "資料累積中，需滿 28 天訓練紀錄才能計算 ACWR。"),
+    RiskFlag.UNDER: ("🔵", _("訓練量偏低，體能儲備可能流失。可在下週逐步增量 5–10%。")),
+    RiskFlag.OPTIMAL: ("🟢", _("負荷處於甜蜜點 (0.8–1.3)，維持目前節奏。")),
+    RiskFlag.ELEVATED: ("🟡", _("負荷偏高，注意睡眠與恢復，避免連續兩週再加量。")),
+    RiskFlag.HIGH: ("🔴", _("高受傷風險 (ACWR > 1.5)！建議本週減量 20–30%，並加強恢復手段。")),
+    RiskFlag.INSUFFICIENT: ("⚪", _("資料累積中，需滿 28 天訓練紀錄才能計算 ACWR。")),
 }
 
 
@@ -243,7 +244,7 @@ def rebuild_weekly_summary(athlete, week_start=None):
     ref_date = min(week_end, date.today())
 
     acwr = calculate_acwr(athlete, ref_date)
-    obj, _ = WeeklySummary.objects.update_or_create(
+    obj, _unused = WeeklySummary.objects.update_or_create(
         athlete=athlete,
         week_start=week_start,
         defaults={
@@ -468,17 +469,17 @@ def readiness_score(athlete, on_date=None):
         weights.append(10)
 
     if not parts:
-        return {"score": None, "label": "無資料", "inputs": 0}
+        return {"score": None, "label": _("無資料"), "inputs": 0}
 
     score = round(sum(p * w for p, w in zip(parts, weights)) / sum(weights), 1)
     if score >= 80:
-        label = "🟢 狀態良好，可執行高強度"
+        label = _("🟢 狀態良好，可執行高強度")
     elif score >= 65:
-        label = "🟡 尚可，維持計劃但注意反應"
+        label = _("🟡 尚可，維持計劃但注意反應")
     elif score >= 50:
-        label = "🟠 疲勞明顯，建議降低強度"
+        label = _("🟠 疲勞明顯，建議降低強度")
     else:
-        label = "🔴 恢復不足，改為主動恢復或休息"
+        label = _("🔴 恢復不足，改為主動恢復或休息")
     return {"score": score, "label": label, "inputs": len(parts)}
 
 
@@ -667,14 +668,14 @@ def _considerations(athlete, item, records, status_rows, result):
     unstated = next((row for row in status_rows if not row["value"]), None)
     if stated:
         text = "；".join(
-            f"{row['label']} {row['days']} 天／{row['count']} 組"
-            + (f"（最佳 {row['best']}{item.unit}）" if row["best"] is not None else "")
+            _("%(v0)s %(v1)s 天／%(v2)s 組") % {"v0": row['label'], "v1": row['days'], "v2": row['count']}
+            + (_("（最佳 %(v0)s%(v1)s）") % {"v0": row['best'], "v1": item.unit} if row["best"] is not None else "")
             for row in stated
         )
         factors.append(
             {
                 "key": "status",
-                "label": "同日的狀態註記",
+                "label": _("同日的狀態註記"),
                 "text": text + "。" + "；".join(
                     f"{row['label']}：{row['reading']}" for row in stated
                 ),
@@ -687,10 +688,8 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "status_missing",
-                "label": "還沒註記狀態的紀錄",
-                "text": f"有 {unstated['days']} 天／{unstated['count']} 組沒有填狀態。"
-                        "在紀錄明細把那幾天的狀態補上（季後休息／訓練準備／比賽調整／"
-                        "傷害治療／恢復回歸），趨勢才分得清是狀態還是能力。",
+                "label": _("還沒註記狀態的紀錄"),
+                "text": _("有 %(v0)s 天／%(v1)s 組沒有填狀態。在紀錄明細把那幾天的狀態補上（季後休息／訓練準備／比賽調整／傷害治療／恢復回歸），趨勢才分得清是狀態還是能力。") % {"v0": unstated['days'], "v1": unstated['count']},
                 "level": "warn" if not stated else "info",
             }
         )
@@ -706,13 +705,12 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "injury",
-                "label": "同期的傷患紀錄",
+                "label": _("同期的傷患紀錄"),
                 "text": "；".join(
-                    f"{i.get_body_part_display()}{i.get_injury_type_display()}"
-                    f"（{i.onset_date} 起，{i.get_status_display()}）"
+                    _("%(v0)s%(v1)s（%(v2)s 起，%(v3)s）") % {"v0": i.get_body_part_display(), "v1": i.get_injury_type_display(), "v2": i.onset_date, "v3": i.get_status_display()}
                     for i in injuries[:3]
                 )
-                + "。帶著這個傷練出來的數字，先當成受限表現，不要當成能力下降。",
+                + _("。帶著這個傷練出來的數字，先當成受限表現，不要當成能力下降。"),
                 "level": "warn",
             }
         )
@@ -723,7 +721,7 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "load",
-                "label": "同期的訓練負荷",
+                "label": _("同期的訓練負荷"),
                 "text": f"ACWR {report['acwr']}（{report['risk_label']}）。{report['advice']}",
                 "level": "warn" if report["risk_flag"] in ("HIGH", "ELEVATED") else "ok",
             }
@@ -732,8 +730,8 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "load",
-                "label": "同期的訓練負荷",
-                "text": "課表完成紀錄還不夠，算不出 ACWR。先把每堂課的時長與 RPE 補齊。",
+                "label": _("同期的訓練負荷"),
+                "text": _("課表完成紀錄還不夠，算不出 ACWR。先把每堂課的時長與 RPE 補齊。"),
                 "level": "info",
             }
         )
@@ -744,20 +742,20 @@ def _considerations(athlete, item, records, status_rows, result):
             athlete=athlete, date__gte=window_start, date__lte=window_end
         ).values_list("sleep_hours", "soreness_level")
     )
-    sleeps = [float(h) for h, _ in logs if h is not None]
-    sores = [s for _, s in logs if s]
+    sleeps = [float(h) for h, _unused in logs if h is not None]
+    sores = [s for _unused, s in logs if s]
     if sleeps:
         avg_sleep = round(statistics.mean(sleeps), 1)
-        bits = [f"平均睡眠 {avg_sleep} 小時"]
+        bits = [_("平均睡眠 %(v0)s 小時") % {"v0": avg_sleep}]
         if sores:
-            bits.append(f"平均痠痛 {round(statistics.mean(sores), 1)}/10")
+            bits.append(_("平均痠痛 %(v0)s/10") % {"v0": round(statistics.mean(sores), 1)})
         factors.append(
             {
                 "key": "sleep",
-                "label": "同期的睡眠與恢復",
+                "label": _("同期的睡眠與恢復"),
                 "text": "、".join(bits)
-                + ("。睡眠不足 7 小時的期間，速度與爆發力先掉，不代表能力退步。"
-                   if avg_sleep < 7 else "。恢復面看起來沒有明顯拖累。"),
+                + (_("。睡眠不足 7 小時的期間，速度與爆發力先掉，不代表能力退步。")
+                   if avg_sleep < 7 else _("。恢復面看起來沒有明顯拖累。")),
                 "level": "warn" if avg_sleep < 7 else "ok",
             }
         )
@@ -765,9 +763,8 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "sleep",
-                "label": "同期的睡眠與恢復",
-                "text": "這段期間沒有恢復紀錄（睡眠、痠痛、壓力）。到營養／恢復頁補上，"
-                        "才判斷得出是疲勞還是能力。",
+                "label": _("同期的睡眠與恢復"),
+                "text": _("這段期間沒有恢復紀錄（睡眠、痠痛、壓力）。到營養／恢復頁補上，才判斷得出是疲勞還是能力。"),
                 "level": "info",
             }
         )
@@ -777,10 +774,8 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "completion",
-                "label": "課表完成情況",
-                "text": f"有 {result['failed_count']} 組沒有成功完成"
-                        f"（完成率 {result['completion_pct']}%）。"
-                        "先確認是開太重／開太快，還是當天狀態就不行。",
+                "label": _("課表完成情況"),
+                "text": _("有 %(v0)s 組沒有成功完成（完成率 %(v1)s%%）。先確認是開太重／開太快，還是當天狀態就不行。") % {"v0": result['failed_count'], "v1": result['completion_pct']},
                 "level": "warn",
             }
         )
@@ -791,9 +786,9 @@ def _considerations(athlete, item, records, status_rows, result):
         factors.append(
             {
                 "key": "intensity",
-                "label": "強度要求不一致",
-                "text": "這些紀錄混了 " + "、".join(sorted(intensities))
-                        + " 幾種強度要求。用上面的「分強度」比較，同一檔強度對同一檔強度看才準。",
+                "label": _("強度要求不一致"),
+                "text": _("這些紀錄混了 ") + "、".join(sorted(intensities))
+                        + _(" 幾種強度要求。用上面的「分強度」比較，同一檔強度對同一檔強度看才準。"),
                 "level": "info",
             }
         )
@@ -805,10 +800,8 @@ def _considerations(athlete, item, records, status_rows, result):
             factors.append(
                 {
                     "key": "rest",
-                    "label": "休息時間變了",
-                    "text": f"前段平均休息 {round(first_half / 60, 1)} 分、"
-                            f"後段 {round(second_half / 60, 1)} 分。"
-                            "休息縮短本來就會讓數字變差，這是課表設計不是能力變化。",
+                    "label": _("休息時間變了"),
+                    "text": _("前段平均休息 %(v0)s 分、後段 %(v1)s 分。休息縮短本來就會讓數字變差，這是課表設計不是能力變化。") % {"v0": round(first_half / 60, 1), "v1": round(second_half / 60, 1)},
                     "level": "info",
                 }
             )
@@ -832,7 +825,7 @@ def metric_analysis(athlete, item, days=365):
 
     def _phase_label(on_date):
         phase = phase_of(on_date)
-        return phase_labels.get(phase.phase_type, "未分期") if phase else "未分期"
+        return phase_labels.get(phase.phase_type, "未分期") if phase else _("未分期")
     result = {
         "item": item,
         "records": records,
@@ -852,12 +845,12 @@ def metric_analysis(athlete, item, days=365):
                 "rest_min": r.rest_min,
                 "tonnage": r.tonnage,
                 "completed": r.completed,
-                "label": (f"{r.date} 第{r.set_no}組" if r.set_no else str(r.date)),
+                "label": (_("%(v0)s 第%(v1)s組") % {"v0": r.date, "v1": r.set_no} if r.set_no else str(r.date)),
                 # 主圖分組用：年、年月、時期、狀態
                 "year": str(r.date.year),
                 "month": f"{r.date.year}-{r.date.month:02d}",
                 "phase": _phase_label(r.date),
-                "status": r.status_label if r.status else "未註記狀態",
+                "status": r.status_label if r.status else _("未註記狀態"),
             }
             for r in records
         ],
@@ -903,7 +896,7 @@ def metric_analysis(athlete, item, days=365):
         result["status_rows"] = status_breakdown(records, item)
 
     if not values:
-        result["advice"] = "尚無完成數值。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。"
+        result["advice"] = _("尚無完成數值。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。")
         return result
 
     better = max if item.higher_is_better else min
@@ -914,7 +907,7 @@ def metric_analysis(athlete, item, days=365):
     result["gap_to_best"] = round(abs(values[-1] - result["best"]), 2)
 
     if len(values) < 2:
-        result["advice"] = "只有 1 筆紀錄，再累積至少 1 筆才算得出趨勢。"
+        result["advice"] = _("只有 1 筆紀錄，再累積至少 1 筆才算得出趨勢。")
         return result
 
     base = date.today()
@@ -941,62 +934,54 @@ def metric_analysis(athlete, item, days=365):
 
     if special:
         result["status_note"] = (
-            "這段紀錄有 "
-            + "、".join(f"{row['label']}（{row['days']} 天）" for row in special)
-            + "——這些日子本來就跑不出平常的水準，先把它們排除或分開看，再談進退步。"
+            _("這段紀錄有 ")
+            + "、".join(str(_("%(v0)s（%(v1)s 天）") % {"v0": row['label'], "v1": row['days']}) for row in special)
+            + _("——這些日子本來就跑不出平常的水準，先把它們排除或分開看，再談進退步。")
         )
     elif mixed:
         result["status_note"] = (
-            "這段紀錄橫跨 "
-            + "、".join(row["label"] for row in stated)
-            + " 幾種狀態，各期的訓練目的不同，用上面的「分狀態」比較才對得起來。"
+            _("這段紀錄橫跨 ")
+            + "、".join(str(row["label"]) for row in stated)
+            + _(" 幾種狀態，各期的訓練目的不同，用上面的「分狀態」比較才對得起來。")
         )
     elif not stated:
         result["status_note"] = (
-            "這些紀錄都沒有註記當天的狀態。先在紀錄明細把狀態補上"
-            "（季後休息期／訓練準備期／比賽調整期／傷害治療期／恢復回歸期），"
-            "分析才分得清是狀態造成的還是能力變化。"
+            _("這些紀錄都沒有註記當天的狀態。先在紀錄明細把狀態補上（季後休息期／訓練準備期／比賽調整期／傷害治療期／恢復回歸期），分析才分得清是狀態造成的還是能力變化。")
         )
 
     # 全部紀錄同一天的話算不出斜率，這時候就不要寫「每月約幾秒」
     trend = (
-        f"每月約 {abs(result['slope_per_month'])} {item.unit}"
+        _("每月約 %(v0)s %(v1)s") % {"v0": abs(result['slope_per_month']), "v1": item.unit}
         if result["slope_per_month"] is not None
-        else "但算不出每月變化（紀錄集中在同一天）"
+        else _("但算不出每月變化（紀錄集中在同一天）")
     )
     if result["improving"] is True:
-        head = f"趨勢向好，{trend}。"
+        head = _("趨勢向好，%(v0)s。") % {"v0": trend}
         tail = (
-            "在上面的狀態與同期條件都確認過之後，這個進步才算數；"
-            "確認無誤就維持目前的課表方向，別急著加量。"
+            _("在上面的狀態與同期條件都確認過之後，這個進步才算數；確認無誤就維持目前的課表方向，別急著加量。")
         )
     elif result["improving"] is False:
-        head = f"數字上是退步，{trend}。"
+        head = _("數字上是退步，%(v0)s。") % {"v0": trend}
         if special:
             tail = (
-                "但同期有" + "、".join(row["label"] for row in special)
-                + "，這種狀態下數字本來就會掉——先當成狀態造成的受限表現，"
-                "等回到正常訓練狀態再重新取一段來比。"
+                _("但同期有") + "、".join(str(row["label"]) for row in special)
+                + _("，這種狀態下數字本來就會掉——先當成狀態造成的受限表現，等回到正常訓練狀態再重新取一段來比。")
             )
         else:
             tail = (
-                "先把上面列的因素逐項對過（狀態註記、傷患、ACWR、睡眠、完成率、"
-                "強度與休息是否一致）——多數情況是累積疲勞或條件改變，"
-                "全部排除之後才判定是能力下降。"
+                _("先把上面列的因素逐項對過（狀態註記、傷患、ACWR、睡眠、完成率、強度與休息是否一致）——多數情況是累積疲勞或條件改變，全部排除之後才判定是能力下降。")
             )
     else:
-        head = "數值持平。"
-        tail = "先確認上面的狀態與條件沒有變；沒有的話，可考慮調整刺激（強度或動作選擇）。"
+        head = _("數值持平。")
+        tail = _("先確認上面的狀態與條件沒有變；沒有的話，可考慮調整刺激（強度或動作選擇）。")
     result["advice"] = head + tail
 
     if result["best"] and spread / (abs(statistics.mean(values)) or 1) > 0.15:
-        result["advice"] += " 另外波動偏大，記錄時記得註明狀態與情境（風速、組次、疲勞度）。"
+        result["advice"] += _(" 另外波動偏大，記錄時記得註明狀態與情境（風速、組次、疲勞度）。")
 
     if result["failed_count"]:
         result["advice"] += (
-            f" 有 {result['failed_count']} 組沒有成功完成"
-            f"（完成率 {result['completion_pct']}%），"
-            "重量或組數可能開太高，下一輪先降 5–10% 再往上疊。"
+            _(" 有 %(v0)s 組沒有成功完成（完成率 %(v1)s%%），重量或組數可能開太高，下一輪先降 5–10%% 再往上疊。") % {"v0": result['failed_count'], "v1": result['completion_pct']}
         )
 
     return result
@@ -1023,7 +1008,7 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
         # 只填了目標、還沒填完成數值的紀錄算得進筆數，但算不出最佳與最近
         values = [p for p in pairs if p[0] is not None]
         if values:
-            nums = [float(v) for v, _ in values]
+            nums = [float(v) for v, _unused in values]
             latest = max(values, key=lambda p: p[1])
             best = (max if item.higher_is_better else min)(nums)
         else:
@@ -1056,7 +1041,7 @@ def overview_by_category(rows):
     # 資料庫裡若有不認得的分類，照樣列出來，不要讓項目憑空消失
     for value, rows_ in buckets.items():
         if value not in labels:
-            groups.append({"value": value, "label": "其他", "rows": rows_})
+            groups.append({"value": value, "label": _("其他"), "rows": rows_})
     return groups
 
 
@@ -1065,11 +1050,11 @@ def overview_by_category(rows):
 
 #: 比較的幾種切法（「分強度」只對田徑練習有意義，見 compare_modes_for）
 COMPARE_MODES = [
-    ("all", "整體"),
-    ("year", "分年份"),
-    ("phase", "分時期"),
-    ("status", "分狀態"),
-    ("intensity", "分強度"),
+    ("all", _("整體")),
+    ("year", _("分年份")),
+    ("phase", _("分時期")),
+    ("status", _("分狀態")),
+    ("intensity", _("分強度")),
 ]
 
 #: 每個範疇能用的比較切法
@@ -1157,7 +1142,7 @@ def metric_comparison(athlete, item, mode="all", days=1825):
     """
     from core.models import PhaseType, phase_guide
 
-    if mode not in {m for m, _ in COMPARE_MODES}:
+    if mode not in {m for m, _unused in COMPARE_MODES}:
         mode = "all"
 
     records = metric_points(athlete, item, days)
@@ -1213,7 +1198,7 @@ def metric_comparison(athlete, item, mode="all", days=1825):
             guide = phase_guide(key)
             sublabel = guide.get("feature", "這些日期不在任何一個分期裡")
         elif mode == "year":
-            label = f"{key} 年"
+            label = _("%(v0)s 年") % {"v0": key}
             sublabel = ""
         elif mode == "status":
             from analytics.models import TrainingStatus, status_guide
@@ -1221,11 +1206,11 @@ def metric_comparison(athlete, item, mode="all", days=1825):
             label = dict(TrainingStatus.choices).get(key, "未註記狀態")
             sublabel = status_guide(key)["feature"]
         elif mode == "intensity":
-            label = "未填強度" if key == "—" else f"強度 {key}"
-            sublabel = f"{len({r.date for r in rows})} 天的紀錄"
+            label = _("未填強度") if key == "—" else _("強度 %(v0)s") % {"v0": key}
+            sublabel = _("%(v0)s 天的紀錄") % {"v0": len({r.date for r in rows})}
         else:
-            label = "整體"
-            sublabel = f"{records[0].date} 至 {records[-1].date}"
+            label = _("整體")
+            sublabel = _("%(v0)s 至 %(v1)s") % {"v0": records[0].date, "v1": records[-1].date}
         result["groups"].append(_group_stats(key, label, rows, item, sublabel))
 
     result["groups"].sort(key=lambda g: order.get(g["key"], g["key"]))
@@ -1298,14 +1283,14 @@ def multi_item_analysis(athlete, items, days=365):
     directions = {i.higher_is_better for i in items}
     if len(result["units"]) > 1:
         result["note"] = (
-            "挑到的項目單位不一樣（" + "、".join(u or "無單位" for u in result["units"])
-            + "），數字不能直接比大小，看的是各自的走勢。"
+            _("挑到的項目單位不一樣（") + "、".join(str(u or _("無單位")) for u in result["units"])
+            + _("），數字不能直接比大小，看的是各自的走勢。")
         )
     elif len(directions) > 1:
-        result["note"] = "挑到的項目有的越大越好、有的越小越好，看走勢就好，別直接比高低。"
+        result["note"] = _("挑到的項目有的越大越好、有的越小越好，看走勢就好，別直接比高低。")
     else:
         only = result["units"][0] if result["units"] else ""
-        result["note"] = "單位一致（" + (only or "無單位") + "），可以直接並排比。"
+        result["note"] = _("單位一致（") + (only or _("無單位")) + _("），可以直接並排比。")
     result["rows"].sort(key=lambda r: (r["empty"], -r["count"]))
     return result
 
@@ -1383,7 +1368,7 @@ def competition_report(athlete, days=1825):
             level = r.competition.get_level_display()
         else:
             key = ("date", r.date)
-            label = r.session.title if r.session else f"{r.date} 的比賽紀錄"
+            label = r.session.title if r.session else _("%(v0)s 的比賽紀錄") % {"v0": r.date}
             on_date = r.date
             level = ""
         meet = meets.setdefault(
@@ -1442,13 +1427,13 @@ def competition_report(athlete, days=1825):
         meet["item_count"] = len(rows)
         improved_rows = [r for r in rows if r["improved"] is True]
         if pb_count:
-            meet["summary"] = f"這一場刷新了 {pb_count} 項個人最佳。"
+            meet["summary"] = _("這一場刷新了 %(v0)s 項個人最佳。") % {"v0": pb_count}
         elif improved_rows:
-            meet["summary"] = f"{len(improved_rows)} 項比上一場進步，尚未破個人最佳。"
+            meet["summary"] = _("%(v0)s 項比上一場進步，尚未破個人最佳。") % {"v0": len(improved_rows)}
         elif any(r["prev"] is not None for r in rows):
-            meet["summary"] = "成績未超越上一場，可回頭看賽前減量與熱身安排。"
+            meet["summary"] = _("成績未超越上一場，可回頭看賽前減量與熱身安排。")
         else:
-            meet["summary"] = "這是這些項目的第一場紀錄，之後就有得比。"
+            meet["summary"] = _("這是這些項目的第一場紀錄，之後就有得比。")
         del meet["items"]
 
     ordered.reverse()  # 最近的一場排最前

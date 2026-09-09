@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext as _
 
 from planning.models import (
     Competition,
@@ -39,12 +40,12 @@ class MacrocycleAdmin(admin.ModelAdmin):
     inlines = [PhaseInline]
     actions = ["regenerate"]
 
-    @admin.action(description="重新產生分期與週計劃")
+    @admin.action(description=_("重新產生分期與週計劃"))
     def regenerate(self, request, queryset):
         for macro in queryset:
             macro.generate_phases()
             macro.generate_microcycles()
-        self.message_user(request, f"已重新產生 {queryset.count()} 個大週期。")
+        self.message_user(request, _("已重新產生 %(v0)s 個大週期。") % {"v0": queryset.count()})
 
 
 @admin.register(Microcycle)

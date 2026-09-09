@@ -1,13 +1,14 @@
 {% extends "base.html" %}
-{% block title %}無資料{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "無資料" %}{% endblock %}
 {% block content %}
 <div class="card empty">
-  <h2>尚未建立運動員資料</h2>
-  <p>你的帳號目前沒有可檢視的運動員 Profile。</p>
+  <h2>{% translate "尚未建立運動員資料" %}</h2>
+  <p>{% translate "你的帳號目前沒有可檢視的運動員 Profile。" %}</p>
   {% if CAN_USE_ADMIN %}
-  <p class="small mt">請先到 <a href="{{ ADMIN_URL }}accounts/athleteprofile/add/">後台建立運動員</a>建立資料。</p>
+  <p class="small mt">{% translate "請先到" %} <a href="{{ ADMIN_URL }}accounts/athleteprofile/add/">{% translate "後台建立運動員" %}</a>{% translate "建立資料。" %}</p>
   {% else %}
-  <p class="small mt">請聯絡教練或管理員替你建立運動員 Profile。</p>
+  <p class="small mt">{% translate "請聯絡教練或管理員替你建立運動員 Profile。" %}</p>
   {% endif %}
 </div>
 {% endblock %}

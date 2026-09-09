@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% block title %}運動員列表{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "運動員列表" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>運動員列表</h1>
-    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員{% if has_filter %}（已篩選）{% endif %} · {{ scope_note }}</p>
+    <h1>{% translate "運動員列表" %}</h1>
+    <p class="subtitle" style="margin:0">{% blocktranslate with v0=today v1=total %}{{ v0 }} · 共 {{ v1 }} 名運動員{% endblocktranslate %}{% if has_filter %}{% translate "（已篩選）" %}{% endif %} · {{ scope_note }}</p>
   </div>
   <div class="flex">
-    <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">全隊燈號總覽</a>
-    <a class="btn ghost sm" href="{% url 'web:plan' %}">計劃</a>
+    <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">{% translate "全隊燈號總覽" %}</a>
+    <a class="btn ghost sm" href="{% url 'web:plan' %}">{% translate "計劃" %}</a>
   </div>
 </div>
 
@@ -17,41 +18,41 @@
 <div class="card mb">
   <form method="get" class="row" style="align-items:end">
     <div class="field" style="margin:0">
-      <label>搜尋</label>
-      <input type="search" name="q" value="{{ q }}" placeholder="姓名、主項、學校或計劃">
+      <label>{% translate "搜尋" %}</label>
+      <input type="search" name="q" value="{{ q }}" placeholder="{% translate '姓名、主項、學校或計劃' %}">
     </div>
     <div class="field" style="margin:0">
-      <label>計劃</label>
+      <label>{% translate "計劃" %}</label>
       <select name="project">
-        <option value="">全部計劃</option>
+        <option value="">{% translate "全部計劃" %}</option>
         {% for p in projects %}
           <option value="{{ p.id }}" {% if project == p.id|stringformat:"s" %}selected{% endif %}>{{ p.title }}</option>
         {% endfor %}
-        <option value="none" {% if project == "none" %}selected{% endif %}>未參加任何計劃</option>
+        <option value="none" {% if project == "none" %}selected{% endif %}>{% translate "未參加任何計劃" %}</option>
       </select>
     </div>
     <div class="field" style="margin:0">
-      <label>主項</label>
+      <label>{% translate "主項" %}</label>
       <select name="event">
-        <option value="">全部項目</option>
+        <option value="">{% translate "全部項目" %}</option>
         {% for e in events %}
-          <option value="{{ e.id }}" {% if event == e.id|stringformat:"s" %}selected{% endif %}>{{ e.name_zh }}（{{ e.code }}）</option>
+          <option value="{{ e.id }}" {% if event == e.id|stringformat:"s" %}selected{% endif %}>{{ e.display_name }}（{{ e.code }}）</option>
         {% endfor %}
       </select>
     </div>
     <div class="field" style="margin:0">
-      <label>最後更新</label>
+      <label>{% translate "最後更新" %}</label>
       <select name="updated">
-        <option value="">不限</option>
+        <option value="">{% translate "不限" %}</option>
         {% for value, label in updated_filters %}
           <option value="{{ value }}" {% if updated == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="field" style="margin:0">
-      <label>傷患狀態</label>
+      <label>{% translate "傷患狀態" %}</label>
       <select name="injury">
-        <option value="">全部狀態</option>
+        <option value="">{% translate "全部狀態" %}</option>
         {% for value, label in injury_filters %}
           <option value="{{ value }}" {% if injury == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
@@ -60,8 +61,8 @@
     <div class="field flex" style="margin:0">
       <input type="hidden" name="sort" value="{{ sort }}">
       <input type="hidden" name="dir" value="{{ dir }}">
-      <button class="btn" type="submit">套用</button>
-      {% if has_filter %}<a class="btn ghost" href="{% url 'web:athlete_list' %}">清除</a>{% endif %}
+      <button class="btn" type="submit">{% translate "套用" %}</button>
+      {% if has_filter %}<a class="btn ghost" href="{% url 'web:athlete_list' %}">{% translate "清除" %}</a>{% endif %}
     </div>
   </form>
 </div>
@@ -69,18 +70,18 @@
 <!-- ------------------------------------------------------------ 列表 -->
 <div class="card pad0">
   <div class="card-head">
-    <span>點表頭可排序 · 「狀態總覽」看那個人的完整狀態</span>
-    <span class="small c-dim">目前依「{{ sort_label }}」{% if dir == 'asc' %}正序{% else %}倒序{% endif %}</span>
+    <span>{% translate "點表頭可排序 · 「狀態總覽」看那個人的完整狀態" %}</span>
+    <span class="small c-dim">{% blocktranslate with v0=sort_label %}目前依「{{ v0 }}」{% endblocktranslate %}{% if dir == 'asc' %}{% translate "正序" %}{% else %}{% translate "倒序" %}{% endif %}</span>
   </div>
   <table>
     <thead>
       <tr>
-        <th><a href="{{ sort_urls.name }}">運動員 {% if sort == 'name' %}{{ arrow }}{% endif %}</a></th>
-        <th><a href="{{ sort_urls.project }}">計劃 {% if sort == 'project' %}{{ arrow }}{% endif %}</a></th>
-        <th><a href="{{ sort_urls.event }}">主項 {% if sort == 'event' %}{{ arrow }}{% endif %}</a></th>
-        <th class="num"><a href="{{ sort_urls.age }}">年紀 {% if sort == 'age' %}{{ arrow }}{% endif %}</a></th>
-        <th><a href="{{ sort_urls.status }}">傷患狀態 {% if sort == 'status' %}{{ arrow }}{% endif %}</a></th>
-        <th><a href="{{ sort_urls.updated }}">最後更新 {% if sort == 'updated' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.name }}">{% translate "運動員" %} {% if sort == 'name' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.project }}">{% translate "計劃" %} {% if sort == 'project' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.event }}">{% translate "主項" %} {% if sort == 'event' %}{{ arrow }}{% endif %}</a></th>
+        <th class="num"><a href="{{ sort_urls.age }}">{% translate "年紀" %} {% if sort == 'age' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.status }}">{% translate "傷患狀態" %} {% if sort == 'status' %}{{ arrow }}{% endif %}</a></th>
+        <th><a href="{{ sort_urls.updated }}">{% translate "最後更新" %} {% if sort == 'updated' %}{{ arrow }}{% endif %}</a></th>
         <th></th>
       </tr>
     </thead>
@@ -103,25 +104,25 @@
             <span class="c-dim">—</span>
           {% endfor %}
         </td>
-        <td>{{ a.primary_event.name_zh }} <span class="small c-dim">{{ a.primary_event.code }}</span></td>
+        <td>{{ a.primary_event.display_name }} <span class="small c-dim">{{ a.primary_event.code }}</span></td>
         <td class="num">{{ a.age }}</td>
         <td>
           <span class="badge {% if a.status == 'HEALTHY' %}b-green{% elif a.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ a.get_status_display }}</span>
-          {% if a.injury_count %}<span class="small c-red">· {{ a.injury_count }} 筆未結案</span>{% endif %}
+          {% if a.injury_count %}<span class="small c-red">{% blocktranslate with v0=a.injury_count %}· {{ v0 }} 筆未結案{% endblocktranslate %}</span>{% endif %}
         </td>
         <td>
           <span title="{{ a.last_update }}">{{ a.last_update|date:"Y-m-d H:i" }}</span>
-          <div class="small c-dim">{{ a.last_update|timesince }}前</div>
+          <div class="small c-dim">{% blocktranslate with v0=a.last_update|timesince %}{{ v0 }}前{% endblocktranslate %}</div>
         </td>
         <td>
           <div class="flex" style="gap:6px">
-            <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ a.id }}">狀態總覽</a>
-            <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ a.id }}">日曆</a>
+            <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ a.id }}">{% translate "狀態總覽" %}</a>
+            <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ a.id }}">{% translate "日曆" %}</a>
           </div>
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="7" class="empty">{% if has_filter %}沒有符合條件的運動員{% else %}尚未有旗下運動員{% endif %}</td></tr>
+      <tr><td colspan="7" class="empty">{% if has_filter %}{% translate "沒有符合條件的運動員" %}{% else %}{% translate "尚未有旗下運動員" %}{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

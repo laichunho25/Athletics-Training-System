@@ -1,20 +1,20 @@
-{% load atm %}{% comment %}
+{% load atm %}{% load i18n %}{% comment %}
 麵包屑：模組 → 目前頁面 →（跟著運動員走的頁面才有）檢視中的運動員。
 頁名不再寫成一長串 if/elif，統一由 core.context_processors.NAV_PAGES 給。
 {% endcomment %}
-<nav class="crumb" aria-label="路徑">
-  <a href="{% url 'web:home' %}" title="回工作區首頁"><svg class="ic"><use href="#i-home"></use></svg></a>
-  {% with meta=nav_pages|lookup:page %}
+<nav class="crumb" aria-label="{% translate '路徑' %}">
+  <a href="{% url 'web:home' %}" title="{% translate '回工作區首頁' %}"><svg class="ic"><use href="#i-home"></use></svg></a>
+  {% with pg=page %}{% with meta=nav_pages|lookup:pg %}
     {% if meta %}
       <i>/</i><span>{{ meta.0 }}</span><i>/</i><b>{{ meta.1 }}</b>
     {% else %}
-      <i>/</i><b>{{ crumb|default:"工作區" }}</b>
+      <i>/</i><b>{{ crumb|default:_("工作區") }}</b>
     {% endif %}
-  {% endwith %}
+  {% endwith %}{% endwith %}
   {% if nav_athlete and page in nav_scoped_pages %}
     <i>/</i>
     <a class="crumb-who" href="{% url 'web:athlete_list' %}"
-       title="這一頁看的是這位運動員；換人用右上角的切換器">
+       title="{% translate '這一頁看的是這位運動員；換人用右上角的切換器' %}">
       {{ nav_athlete.user.get_full_name|default:nav_athlete.user.username }}
     </a>
   {% endif %}

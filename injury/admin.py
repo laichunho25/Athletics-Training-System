@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext as _
 
 from injury.models import (
     ExerciseModification,
@@ -30,11 +31,11 @@ class InjuryAdmin(admin.ModelAdmin):
                    "injury_type", "athlete")
     inlines = [TreatmentLogInline, PainLogInline]
     fieldsets = (
-        ("傷患", {"fields": ("athlete", ("body_part", "side"), ("injury_type", "severity"),
+        (_("傷患"), {"fields": ("athlete", ("body_part", "side"), ("injury_type", "severity"),
                            ("onset_date", "expected_return_date"), "mechanism", "status")}),
-        ("治療方向", {"fields": ("treatment_status", "treatment_direction",
+        (_("治療方向"), {"fields": ("treatment_status", "treatment_direction",
                              "next_review_date", "diagnosis", "practitioner")}),
-        ("訓練處理", {"fields": ("training_mode", "training_note", "rtp_progress")}),
+        (_("訓練處理"), {"fields": ("training_mode", "training_note", "rtp_progress")}),
     )
 
 

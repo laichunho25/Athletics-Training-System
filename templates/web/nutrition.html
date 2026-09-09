@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
-{% block title %}營養與恢復{% endblock %}
+{% block title %}{% translate "營養與恢復" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>運動營養與恢復</h1>
+    <h1>{% translate "運動營養與恢復" %}</h1>
     <div class="subtitle" style="margin:0">
       {{ athlete.user.get_full_name|default:athlete.user.username }} ·
       {{ t.date }} · <span class="badge b-orange">{{ t.get_day_type_display }}</span>
@@ -16,38 +17,38 @@
 </div>
 
 <div class="foldbar">
-  <button type="button" class="btn ghost sm" data-fold-all="1">全部收起</button>
-  <button type="button" class="btn ghost sm" data-fold-all="0">全部展開</button>
-  <span class="small c-dim">每一欄標題右邊的 ▾ 可以單獨收起，下次回來記得你上次的樣子。</span>
+  <button type="button" class="btn ghost sm" data-fold-all="1">{% translate "全部收起" %}</button>
+  <button type="button" class="btn ghost sm" data-fold-all="0">{% translate "全部展開" %}</button>
+  <span class="small c-dim">{% translate "每一欄標題右邊的 ▾ 可以單獨收起，下次回來記得你上次的樣子。" %}</span>
 </div>
 
 <div class="grid grid-4 mb">
   <div class="card stat">
-    <div class="label">目標熱量</div>
+    <div class="label">{% translate "目標熱量" %}</div>
     <div class="value c-accent">{{ t.target_kcal }}<span style="font-size:14px"> kcal</span></div>
-    <div class="hint">已吃 {{ eaten.kcal|default:0 }} · 還差 {{ plan.gaps.kcal }} kcal</div>
+    <div class="hint">{% blocktranslate with v0=eaten.kcal|default:0 v1=plan.gaps.kcal %}已吃 {{ v0 }} · 還差 {{ v1 }} kcal{% endblocktranslate %}</div>
   </div>
   <div class="card stat">
-    <div class="label">碳水</div>
+    <div class="label">{% translate "碳水" %}</div>
     <div class="value c-blue">{{ t.carb_g }}<span style="font-size:14px"> g</span></div>
-    <div class="hint">已吃 {{ eaten.carb|default:0 }} · 還差 {{ plan.gaps.carb }} g</div>
+    <div class="hint">{% blocktranslate with v0=eaten.carb|default:0 v1=plan.gaps.carb %}已吃 {{ v0 }} · 還差 {{ v1 }} g{% endblocktranslate %}</div>
   </div>
   <div class="card stat">
-    <div class="label">蛋白質</div>
+    <div class="label">{% translate "蛋白質" %}</div>
     <div class="value c-green">{{ t.protein_g }}<span style="font-size:14px"> g</span></div>
-    <div class="hint">已吃 {{ eaten.protein|default:0 }} · 還差 {{ plan.gaps.protein }} g</div>
+    <div class="hint">{% blocktranslate with v0=eaten.protein|default:0 v1=plan.gaps.protein %}已吃 {{ v0 }} · 還差 {{ v1 }} g{% endblocktranslate %}</div>
   </div>
   <div class="card stat">
-    <div class="label">脂肪 / 水份</div>
+    <div class="label">{% translate "脂肪 / 水份" %}</div>
     <div class="value sm c-yellow">{{ t.fat_g }} g<span class="c-dim" style="font-size:14px"> · {{ t.water_ml }} ml</span></div>
-    <div class="hint">脂肪還差 {{ plan.gaps.fat }} g · 水還差 {{ plan.water_gap }} ml</div>
+    <div class="hint">{% blocktranslate with v0=plan.gaps.fat v1=plan.water_gap %}脂肪還差 {{ v0 }} g · 水還差 {{ v1 }} ml{% endblocktranslate %}</div>
   </div>
 </div>
 
 <div class="grid grid-2 mb">
   <div class="card pad0">
     <div class="card-head" data-fold-key="macro">
-      <span>三大營養素熱量分配</span>
+      <span>{% translate "三大營養素熱量分配" %}</span>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="recalc">
@@ -56,7 +57,7 @@
             <option value="{{ value }}" {% if value == t.goal %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
-        <button class="btn sm" type="submit">重新計算</button>
+        <button class="btn sm" type="submit">{% translate "重新計算" %}</button>
       </form>
     </div>
     <div class="chart-box"><canvas id="macro"></canvas></div>
@@ -65,9 +66,9 @@
   <!-- ------------------------------------------------------- 晨間問卷 -->
   <div class="card pad0">
     <div class="card-head" data-fold-key="morning">
-      <span>今日晨間問卷</span>
+      <span>{% translate "今日晨間問卷" %}</span>
       <span class="badge {% if readiness.score >= 75 %}b-green{% elif readiness.score >= 55 %}b-yellow{% else %}b-red{% endif %}">
-        準備度 {{ readiness.score|default:"—" }} · {{ readiness.label }}
+        {% blocktranslate with v0=readiness.score|default:"—" v1=readiness.label %}準備度 {{ v0 }} · {{ v1 }}{% endblocktranslate %}
       </span>
     </div>
     <form method="post" style="padding:16px 18px">
@@ -75,37 +76,37 @@
       <input type="hidden" name="action" value="morning">
       <div class="row">
         <div class="field">
-          <label>睡眠時數</label>
+          <label>{% translate "睡眠時數" %}</label>
           <input type="number" step="0.1" name="sleep_hours" value="{{ recovery.sleep_hours|default:'' }}" placeholder="7.5">
         </div>
         <div class="field">
-          <label>睡眠品質 1–5</label>
+          <label>{% translate "睡眠品質 1–5" %}</label>
           <input type="number" min="1" max="5" name="sleep_quality" value="{{ recovery.sleep_quality|default:'' }}">
         </div>
         <div class="field">
-          <label>肌肉痠痛 1–10</label>
+          <label>{% translate "肌肉痠痛 1–10" %}</label>
           <input type="number" min="1" max="10" name="soreness_level" value="{{ recovery.soreness_level|default:'' }}">
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label>壓力 1–5</label>
+          <label>{% translate "壓力 1–5" %}</label>
           <input type="number" min="1" max="5" name="stress_level" value="{{ recovery.stress_level|default:'' }}">
         </div>
         <div class="field">
-          <label>心情 1–5</label>
+          <label>{% translate "心情 1–5" %}</label>
           <input type="number" min="1" max="5" name="mood" value="{{ recovery.mood|default:'' }}">
         </div>
         <div class="field">
-          <label>晨脈 (bpm)</label>
+          <label>{% translate "晨脈 (bpm)" %}</label>
           <input type="number" name="resting_hr" value="{{ recovery.resting_hr|default:'' }}">
         </div>
       </div>
       <div class="field">
-        <label>飲水量 (ml) — 今日目標 {{ t.water_ml }} ml</label>
+        <label>{% blocktranslate with v0=t.water_ml %}飲水量 (ml) — 今日目標 {{ v0 }} ml{% endblocktranslate %}</label>
         <input type="number" name="water_intake_ml" value="{{ recovery.water_intake_ml|default:0 }}">
       </div>
-      <button class="btn" type="submit">儲存問卷</button>
+      <button class="btn" type="submit">{% translate "儲存問卷" %}</button>
     </form>
   </div>
 </div>
@@ -113,11 +114,11 @@
 <!-- ------------------------------------------------- 相片辨識 + 今日飲食 -->
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="meal-add">
-    <span>加一餐（可上傳相片）</span>
+    <span>{% translate "加一餐（可上傳相片）" %}</span>
     {% if photo_ai %}
-      <span class="badge b-green">相片辨識已啟用</span>
+      <span class="badge b-green">{% translate "相片辨識已啟用" %}</span>
     {% else %}
-      <span class="badge b-dim">未設定 ANTHROPIC_API_KEY · 用文字比對食物字典</span>
+      <span class="badge b-dim">{% translate "未設定 ANTHROPIC_API_KEY · 用文字比對食物字典" %}</span>
     {% endif %}
   </div>
   <form method="post" enctype="multipart/form-data" style="padding:16px 18px">
@@ -125,11 +126,11 @@
     <input type="hidden" name="action" value="meal_add">
     <div class="row">
       <div class="field">
-        <label>日期</label>
+        <label>{% translate "日期" %}</label>
         <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
       </div>
       <div class="field">
-        <label>餐次</label>
+        <label>{% translate "餐次" %}</label>
         <select name="meal_type">
           {% for value, label in meal_types %}
             <option value="{{ value }}" {% if value == 'LUNCH' %}selected{% endif %}>{{ label }}</option>
@@ -137,28 +138,26 @@
         </select>
       </div>
       <div class="field">
-        <label>食物相片</label>
+        <label>{% translate "食物相片" %}</label>
         <input type="file" name="photo" accept="image/*">
       </div>
     </div>
     <div class="field">
-      <label>吃了什麼（有相片時當作補充提示，沒相片時系統就靠這一行估算）</label>
-      <input type="text" name="description" placeholder="例：白飯 200g、雞胸 150g、西蘭花一碟、香蕉一條">
+      <label>{% translate "吃了什麼（有相片時當作補充提示，沒相片時系統就靠這一行估算）" %}</label>
+      <input type="text" name="description" placeholder="{% translate '例：白飯 200g、雞胸 150g、西蘭花一碟、香蕉一條' %}">
     </div>
-    <button class="btn" type="submit">分析並記錄</button>
+    <button class="btn" type="submit">{% translate "分析並記錄" %}</button>
     <span class="small c-dim" style="margin-left:8px">
-      拍整盤、光線足、旁邊放隻筷子或飯碗當比例尺，估份量會準很多。存好之後可以再改每一項的公克數。
+      {% translate "拍整盤、光線足、旁邊放隻筷子或飯碗當比例尺，估份量會準很多。存好之後可以再改每一項的公克數。" %}
     </span>
   </form>
 </div>
 
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="meals">
-    <span>今日飲食紀錄（{{ meals|length }} 餐）</span>
+    <span>{% blocktranslate with v0=meals|length %}今日飲食紀錄（{{ v0 }} 餐）{% endblocktranslate %}</span>
     <span class="small c-dim">
-      合計 {{ eaten.kcal|default:0 }} kcal · 碳水 {{ eaten.carb|default:0 }}g ·
-      蛋白 {{ eaten.protein|default:0 }}g · 脂肪 {{ eaten.fat|default:0 }}g ·
-      纖維 {{ eaten.fiber|default:0 }}g · 鈉 {{ eaten.sodium|default:0 }}mg
+      {% blocktranslate with v0=eaten.kcal|default:0 v1=eaten.carb|default:0 v2=eaten.protein|default:0 v3=eaten.fat|default:0 v4=eaten.fiber|default:0 v5=eaten.sodium|default:0 %}合計 {{ v0 }} kcal · 碳水 {{ v1 }}g · 蛋白 {{ v2 }}g · 脂肪 {{ v3 }}g · 纖維 {{ v4 }}g · 鈉 {{ v5 }}mg{% endblocktranslate %}
     </span>
   </div>
   <div style="padding:16px 18px">
@@ -172,14 +171,14 @@
           </div>
           <div class="flex">
             <span class="badge b-orange">{{ m.kcal }} kcal</span>
-            <span class="badge b-blue">碳 {{ m.carb_g }}g</span>
-            <span class="badge b-green">蛋 {{ m.protein_g }}g</span>
-            <span class="badge b-yellow">脂 {{ m.fat_g }}g</span>
+            <span class="badge b-blue">{% blocktranslate with v0=m.carb_g %}碳 {{ v0 }}g{% endblocktranslate %}</span>
+            <span class="badge b-green">{% blocktranslate with v0=m.protein_g %}蛋 {{ v0 }}g{% endblocktranslate %}</span>
+            <span class="badge b-yellow">{% blocktranslate with v0=m.fat_g %}脂 {{ v0 }}g{% endblocktranslate %}</span>
             <form method="post" style="display:inline">
               {% csrf_token %}
               <input type="hidden" name="action" value="meal_delete">
               <input type="hidden" name="meal_id" value="{{ m.id }}">
-              <button class="btn ghost sm" type="submit">刪除</button>
+              <button class="btn ghost sm" type="submit">{% translate "刪除" %}</button>
             </form>
           </div>
         </div>
@@ -197,8 +196,8 @@
           <table>
             <thead>
               <tr>
-                <th>品項</th><th class="num">份量 (g)</th><th class="num">kcal</th>
-                <th class="num">碳水</th><th class="num">蛋白</th><th class="num">脂肪</th><th class="num">把握度</th>
+                <th>{% translate "品項" %}</th><th class="num">{% translate "份量 (g)" %}</th><th class="num">kcal</th>
+                <th class="num">{% translate "碳水" %}</th><th class="num">{% translate "蛋白" %}</th><th class="num">{% translate "脂肪" %}</th><th class="num">{% translate "把握度" %}</th>
               </tr>
             </thead>
             <tbody>
@@ -216,7 +215,7 @@
             {% endfor %}
             </tbody>
           </table>
-          <button class="btn ghost sm mt" type="submit">改份量後重算</button>
+          <button class="btn ghost sm mt" type="submit">{% translate "改份量後重算" %}</button>
         </form>
         {% endif %}
 
@@ -225,7 +224,7 @@
         {% endif %}
       </div>
     {% empty %}
-      <div class="empty small">今天還沒有飲食紀錄——上面加一餐，下面的補充餐單就會跟著算。</div>
+      <div class="empty small">{% translate "今天還沒有飲食紀錄——上面加一餐，下面的補充餐單就會跟著算。" %}</div>
     {% endfor %}
   </div>
 </div>
@@ -233,29 +232,28 @@
 <!-- ------------------------------------------------------- 補充餐單 -->
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="supplement-plan">
-    <span>今日補充餐單</span>
+    <span>{% translate "今日補充餐單" %}</span>
     <span class="flex">
       {% if plan.sessions %}
-        <span class="badge b-orange">訓練 {{ plan.sessions|length }} 節 · 多消耗約 {{ plan.training_kcal }} kcal</span>
+        <span class="badge b-orange">{% blocktranslate with v0=plan.sessions|length v1=plan.training_kcal %}訓練 {{ v0 }} 節 · 多消耗約 {{ v1 }} kcal{% endblocktranslate %}</span>
       {% else %}
-        <span class="badge b-dim">今日無訓練</span>
+        <span class="badge b-dim">{% translate "今日無訓練" %}</span>
       {% endif %}
       {% if plan.on_track %}
-        <span class="badge b-green">已達標</span>
+        <span class="badge b-green">{% translate "已達標" %}</span>
       {% else %}
-        <span class="badge b-yellow">還差 {{ plan.gaps.kcal }} kcal</span>
+        <span class="badge b-yellow">{% blocktranslate with v0=plan.gaps.kcal %}還差 {{ v0 }} kcal{% endblocktranslate %}</span>
       {% endif %}
     </span>
   </div>
   <div style="padding:16px 18px">
     {% if plan.picks %}
       <div class="small c-dim mb">
-        目標已經把今天的訓練消耗算進去了。下面這幾樣加起來約 {{ plan.picked_kcal }} kcal，
-        補的就是訓練多出來、還沒吃回來的部分。
+        {% blocktranslate with v0=plan.picked_kcal %}目標已經把今天的訓練消耗算進去了。下面這幾樣加起來約 {{ v0 }} kcal， 補的就是訓練多出來、還沒吃回來的部分。{% endblocktranslate %}
       </div>
       <table>
         <thead>
-          <tr><th>補什麼</th><th>為什麼</th><th class="num">kcal</th><th class="num">碳水</th><th class="num">蛋白</th><th class="num">脂肪</th><th>主要補</th></tr>
+          <tr><th>{% translate "補什麼" %}</th><th>{% translate "為什麼" %}</th><th class="num">kcal</th><th class="num">{% translate "碳水" %}</th><th class="num">{% translate "蛋白" %}</th><th class="num">{% translate "脂肪" %}</th><th>{% translate "主要補" %}</th></tr>
         </thead>
         <tbody>
         {% for p in plan.picks %}
@@ -273,16 +271,16 @@
       </table>
     {% else %}
       <div class="alert green" style="margin:0 0 12px">
-        ✅ 今天的熱量與蛋白已經接近目標，不需要另外加餐。
+        {% translate "✅ 今天的熱量與蛋白已經接近目標，不需要另外加餐。" %}
       </div>
     {% endif %}
 
-    <h3 class="mt">吃的時機</h3>
+    <h3 class="mt">{% translate "吃的時機" %}</h3>
     <ul style="padding-left:18px;margin:0">
       {% for line in plan.timing %}<li class="small">{{ line }}</li>{% endfor %}
     </ul>
     {% if plan.water_gap %}
-      <div class="alert blue" style="margin:12px 0 0">💧 今天還差 {{ plan.water_gap }} ml 水，分次補、不要一次灌。</div>
+      <div class="alert blue" style="margin:12px 0 0">{% blocktranslate with v0=plan.water_gap %}💧 今天還差 {{ v0 }} ml 水，分次補、不要一次灌。{% endblocktranslate %}</div>
     {% endif %}
   </div>
 </div>
@@ -290,18 +288,18 @@
 <!-- ------------------------------------------------- InBody × 營養分析 -->
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="inbody">
-    <span>體組成（InBody）× 營養</span>
+    <span>{% translate "體組成（InBody）× 營養" %}</span>
     {% if insight.has_data %}
-      <span class="small c-dim">最新量測 {{ insight.latest.date }}（{{ insight.days_since }} 天前）</span>
+      <span class="small c-dim">{% blocktranslate with v0=insight.latest.date v1=insight.days_since %}最新量測 {{ v0 }}（{{ v1 }} 天前）{% endblocktranslate %}</span>
     {% endif %}
   </div>
   <div style="padding:16px 18px">
     {% if insight.has_data %}
       <div class="grid grid-2">
         <div>
-          <h3>身體數據與變化</h3>
+          <h3>{% translate "身體數據與變化" %}</h3>
           <table>
-            <thead><tr><th>項目</th><th class="num">最新</th><th class="num">與上次比</th></tr></thead>
+            <thead><tr><th>{% translate "項目" %}</th><th class="num">{% translate "最新" %}</th><th class="num">{% translate "與上次比" %}</th></tr></thead>
             <tbody>
             {% for r in insight.rows %}
               <tr>
@@ -317,7 +315,7 @@
             </tbody>
           </table>
 
-          <h3 class="mt">基礎代謝三種算法</h3>
+          <h3 class="mt">{% translate "基礎代謝三種算法" %}</h3>
           <table>
             <tbody>
             {% for b in insight.bmr_rows %}
@@ -329,20 +327,20 @@
 
         <div>
           {% if insight.protein %}
-          <h3>蛋白質 vs 去脂體重</h3>
+          <h3>{% translate "蛋白質 vs 去脂體重" %}</h3>
           <table>
             <tbody>
-              <tr><td>今日蛋白目標</td><td class="num">{{ insight.protein.target_g }} g</td></tr>
-              <tr><td>換算每公斤體重</td><td class="num">{{ insight.protein.per_kg }} g/kg</td></tr>
-              <tr><td>換算每公斤去脂體重</td><td class="num">{{ insight.protein.per_kg_lean }} g/kg LBM</td></tr>
+              <tr><td>{% translate "今日蛋白目標" %}</td><td class="num">{{ insight.protein.target_g }} g</td></tr>
+              <tr><td>{% translate "換算每公斤體重" %}</td><td class="num">{{ insight.protein.per_kg }} g/kg</td></tr>
+              <tr><td>{% translate "換算每公斤去脂體重" %}</td><td class="num">{{ insight.protein.per_kg_lean }} g/kg LBM</td></tr>
             </tbody>
           </table>
           {% endif %}
 
           {% if insight.segments %}
-          <h3 class="mt">部位肌肉／脂肪</h3>
+          <h3 class="mt">{% translate "部位肌肉／脂肪" %}</h3>
           <table>
-            <thead><tr><th>部位</th><th class="num">肌肉 (kg)</th><th class="num">脂肪率 (%)</th></tr></thead>
+            <thead><tr><th>{% translate "部位" %}</th><th class="num">{% translate "肌肉 (kg)" %}</th><th class="num">{% translate "脂肪率 (%)" %}</th></tr></thead>
             <tbody>
             {% for s in insight.segments %}
               <tr>
@@ -360,12 +358,11 @@
       {% for n in insight.notes %}
         <div class="alert yellow" style="margin:12px 0 0">{{ n }}</div>
       {% empty %}
-        <div class="alert green" style="margin:12px 0 0">✅ 體組成與目前的營養目標沒有明顯衝突。</div>
+        <div class="alert green" style="margin:12px 0 0">{% translate "✅ 體組成與目前的營養目標沒有明顯衝突。" %}</div>
       {% endfor %}
     {% else %}
       <div class="empty small">
-        尚無體組成紀錄。到「身體數據」頁上傳一張 InBody 報告，這裡就會用去脂體重重算 BMR
-        與每公斤去脂體重的蛋白需求。
+        {% translate "尚無體組成紀錄。到「身體數據」頁上傳一張 InBody 報告，這裡就會用去脂體重重算 BMR 與每公斤去脂體重的蛋白需求。" %}
       </div>
     {% endif %}
   </div>
@@ -373,15 +370,15 @@
 
 <!-- ------------------------------------------------------- 睡眠/痠痛 -->
 <div class="card pad0 mb">
-  <div class="card-head" data-fold-key="sleep"><span>近 14 天睡眠與痠痛</span></div>
+  <div class="card-head" data-fold-key="sleep"><span>{% translate "近 14 天睡眠與痠痛" %}</span></div>
   <div class="chart-box"><canvas id="sleep"></canvas></div>
 </div>
 
 <div class="grid grid-2 mb">
   <div class="card pad0">
-    <div class="card-head" data-fold-key="compliance"><span>本週營養達成率</span></div>
+    <div class="card-head" data-fold-key="compliance"><span>{% translate "本週營養達成率" %}</span></div>
     <table>
-      <thead><tr><th>日期</th><th>日類型</th><th class="num">目標 kcal</th><th class="num">實際</th><th class="num">達成率</th></tr></thead>
+      <thead><tr><th>{% translate "日期" %}</th><th>{% translate "日類型" %}</th><th class="num">{% translate "目標 kcal" %}</th><th class="num">{% translate "實際" %}</th><th class="num">{% translate "達成率" %}</th></tr></thead>
       <tbody>
       {% for r in compliance %}
         <tr>
@@ -392,7 +389,7 @@
           <td class="num">
             {% if r.compliance.kcal %}
               <span class="badge {% if r.compliance.kcal >= 90 %}b-green{% elif r.compliance.kcal >= 70 %}b-yellow{% else %}b-red{% endif %}">{{ r.compliance.kcal }}%</span>
-            {% else %}<span class="c-dim">未記錄</span>{% endif %}
+            {% else %}<span class="c-dim">{% translate "未記錄" %}</span>{% endif %}
           </td>
         </tr>
       {% endfor %}
@@ -401,14 +398,14 @@
   </div>
 
   <div class="card pad0">
-    <div class="card-head" data-fold-key="recovery-methods"><span>恢復手段</span></div>
+    <div class="card-head" data-fold-key="recovery-methods"><span>{% translate "恢復手段" %}</span></div>
     <table>
-      <thead><tr><th>方式</th><th>分類</th><th class="num">建議時長</th></tr></thead>
+      <thead><tr><th>{% translate "方式" %}</th><th>{% translate "分類" %}</th><th class="num">{% translate "建議時長" %}</th></tr></thead>
       <tbody>
       {% for m in methods %}
-        <tr><td>{{ m.name }}</td><td class="c-dim">{{ m.category }}</td><td class="num">{{ m.default_duration_min }} 分</td></tr>
+        <tr><td>{{ m.name }}</td><td class="c-dim">{{ m.category }}</td><td class="num">{% blocktranslate with v0=m.default_duration_min %}{{ v0 }} 分{% endblocktranslate %}</td></tr>
       {% empty %}
-        <tr><td colspan="3" class="empty">尚未載入 recovery_methods fixture</td></tr>
+        <tr><td colspan="3" class="empty">{% translate "尚未載入 recovery_methods fixture" %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -416,9 +413,9 @@
 </div>
 
 <div class="card pad0">
-  <div class="card-head" data-fold-key="supplements" data-fold-default="closed"><span>常見補充劑參考</span></div>
+  <div class="card-head" data-fold-key="supplements" data-fold-default="closed"><span>{% translate "常見補充劑參考" %}</span></div>
   <table>
-    <thead><tr><th>補充劑</th><th>劑量</th><th>時機</th><th>目的</th></tr></thead>
+    <thead><tr><th>{% translate "補充劑" %}</th><th>{% translate "劑量" %}</th><th>{% translate "時機" %}</th><th>{% translate "目的" %}</th></tr></thead>
     <tbody>
     {% for name, dose, timing, purpose in supplements %}
       <tr><td><strong>{{ name }}</strong></td><td class="num">{{ dose }}</td><td>{{ timing }}</td><td class="small c-dim">{{ purpose }}</td></tr>
@@ -426,7 +423,7 @@
     </tbody>
   </table>
   <div style="padding:12px 18px" class="small c-dim">
-    ※ 補充劑僅供參考，未成年運動員與有醫療狀況者請先諮詢醫師／營養師，並注意反禁藥條例（WADA）。
+    {% translate "※ 補充劑僅供參考，未成年運動員與有醫療狀況者請先諮詢醫師／營養師，並注意反禁藥條例（WADA）。" %}
   </div>
 </div>
 
@@ -456,18 +453,18 @@ new Chart(document.getElementById('sleep'), {
   data: {
     labels: {{ sleep_labels|safe }},
     datasets: [
-      { type: 'line', label: '睡眠 (小時)', data: {{ sleep_values|safe }},
+      { type: 'line', label: '{% translate "睡眠 (小時)" %}', data: {{ sleep_values|safe }},
         borderColor: '#4da3ff', backgroundColor: '#4da3ff33', fill: true,
         spanGaps: true, tension: .3, yAxisID: 'y' },
-      { type: 'bar', label: '痠痛 (1-10)', data: {{ soreness_values|safe }},
+      { type: 'bar', label: '{% translate "痠痛 (1-10)" %}', data: {{ soreness_values|safe }},
         backgroundColor: '#f2c74488', borderColor: '#f2c744', borderWidth: 1, yAxisID: 'y1' }
     ]
   },
   options: {
     scales: {
-      y:  { position: 'left', min: 0, max: 12, title: { display: true, text: '小時' } },
+      y:  { position: 'left', min: 0, max: 12, title: { display: true, text: '{% translate "小時" %}' } },
       y1: { position: 'right', min: 0, max: 10, grid: { drawOnChartArea: false },
-            title: { display: true, text: '痠痛' } }
+            title: { display: true, text: '{% translate "痠痛" %}' } }
     }
   }
 });

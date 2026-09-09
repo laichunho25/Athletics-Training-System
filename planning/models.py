@@ -1,31 +1,32 @@
 from datetime import date, timedelta
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile, CoachProfile, Event
 from core.models import PhaseType, SessionStatus, SessionType, TimeStampedModel
 
 
 class CompetitionLevel(models.TextChoices):
-    SCHOOL = "SCHOOL", "校際"
-    REGIONAL = "REGIONAL", "地區/公開賽"
-    NATIONAL = "NATIONAL", "全國錦標賽"
-    INTL = "INTL", "國際賽"
+    SCHOOL = "SCHOOL", _("校際")
+    REGIONAL = "REGIONAL", _("地區/公開賽")
+    NATIONAL = "NATIONAL", _("全國錦標賽")
+    INTL = "INTL", _("國際賽")
 
 
 class Competition(TimeStampedModel):
-    name = models.CharField("賽事名稱", max_length=150)
-    date = models.DateField("比賽日期")
-    end_date = models.DateField("結束日期", null=True, blank=True)
-    venue = models.CharField("場地", max_length=150, blank=True)
+    name = models.CharField(_("賽事名稱"), max_length=150)
+    date = models.DateField(_("比賽日期"))
+    end_date = models.DateField(_("結束日期"), null=True, blank=True)
+    venue = models.CharField(_("場地"), max_length=150, blank=True)
     level = models.CharField(
-        "層級", max_length=10, choices=CompetitionLevel.choices, default=CompetitionLevel.REGIONAL
+        _("層級"), max_length=10, choices=CompetitionLevel.choices, default=CompetitionLevel.REGIONAL
     )
-    is_target = models.BooleanField("主目標賽事", default=False)
+    is_target = models.BooleanField(_("主目標賽事"), default=False)
 
     class Meta:
-        verbose_name = "賽事"
-        verbose_name_plural = "賽事"
+        verbose_name = _("賽事")
+        verbose_name_plural = _("賽事")
         ordering = ["date"]
 
     def __str__(self):
@@ -43,8 +44,9 @@ class Competition(TimeStampedModel):
     def countdown_display(self):
         d = self.days_remaining
         if d < 0:
-            return f"已結束 {abs(d)} 天"
-        return f"剩餘 {d} 天 / 約 {self.weeks_remaining} 週"
+            return _("已結束 %(v0)s 天") % {"v0": abs(d)}
+        return _("剩餘 %(v0)s 天 / 約 %(v1)s 週") % {
+            "v0": d, "v1": self.weeks_remaining}
 
 
 class CompetitionEntry(TimeStampedModel):
@@ -53,14 +55,14 @@ class CompetitionEntry(TimeStampedModel):
         AthleteProfile, on_delete=models.CASCADE, related_name="competition_entries"
     )
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    target_mark = models.DecimalField("目標成績", max_digits=8, decimal_places=2, null=True, blank=True)
-    result_mark = models.DecimalField("實際成績", max_digits=8, decimal_places=2, null=True, blank=True)
-    placing = models.PositiveSmallIntegerField("名次", null=True, blank=True)
-    notes = models.TextField("備註", blank=True)
+    target_mark = models.DecimalField(_("目標成績"), max_digits=8, decimal_places=2, null=True, blank=True)
+    result_mark = models.DecimalField(_("實際成績"), max_digits=8, decimal_places=2, null=True, blank=True)
+    placing = models.PositiveSmallIntegerField(_("名次"), null=True, blank=True)
+    notes = models.TextField(_("備註"), blank=True)
 
     class Meta:
-        verbose_name = "參賽項目"
-        verbose_name_plural = "參賽項目"
+        verbose_name = _("參賽項目")
+        verbose_name_plural = _("參賽項目")
         unique_together = ("competition", "athlete", "event")
 
     def __str__(self):
@@ -83,17 +85,17 @@ class Macrocycle(TimeStampedModel):
     target_competition = models.ForeignKey(
         Competition, on_delete=models.CASCADE, related_name="macrocycles"
     )
-    start_date = models.DateField("開始日期")
-    end_date = models.DateField("結束日期")
-    total_weeks = models.PositiveSmallIntegerField("總週數", default=16)
+    start_date = models.DateField(_("開始日期"))
+    end_date = models.DateField(_("結束日期"))
+    total_weeks = models.PositiveSmallIntegerField(_("總週數"), default=16)
     baseline_weekly_load = models.PositiveIntegerField(
-        "基準週負荷 (AU)", default=1800, help_text="準備期的目標週負荷，其餘期別按係數換算"
+        _("基準週負荷 (AU)"), default=1800, help_text=_("準備期的目標週負荷，其餘期別按係數換算")
     )
-    is_active = models.BooleanField("使用中", default=True)
+    is_active = models.BooleanField(_("使用中"), default=True)
 
     class Meta:
-        verbose_name = "備戰大週期"
-        verbose_name_plural = "備戰大週期"
+        verbose_name = _("備戰大週期")
+        verbose_name_plural = _("備戰大週期")
         ordering = ["-start_date"]
 
     def __str__(self):
@@ -157,17 +159,17 @@ class Macrocycle(TimeStampedModel):
 
 class Phase(models.Model):
     macrocycle = models.ForeignKey(Macrocycle, on_delete=models.CASCADE, related_name="phases")
-    phase_type = models.CharField("期別", max_length=20, choices=PhaseType.choices)
-    week_start = models.PositiveSmallIntegerField("起始週")
-    week_end = models.PositiveSmallIntegerField("結束週")
-    start_date = models.DateField("開始日期")
-    end_date = models.DateField("結束日期")
-    focus = models.TextField("訓練重心", blank=True)
-    target_weekly_load = models.PositiveIntegerField("目標週負荷 (AU)", default=0)
+    phase_type = models.CharField(_("期別"), max_length=20, choices=PhaseType.choices)
+    week_start = models.PositiveSmallIntegerField(_("起始週"))
+    week_end = models.PositiveSmallIntegerField(_("結束週"))
+    start_date = models.DateField(_("開始日期"))
+    end_date = models.DateField(_("結束日期"))
+    focus = models.TextField(_("訓練重心"), blank=True)
+    target_weekly_load = models.PositiveIntegerField(_("目標週負荷 (AU)"), default=0)
 
     class Meta:
-        verbose_name = "分期"
-        verbose_name_plural = "分期"
+        verbose_name = _("分期")
+        verbose_name_plural = _("分期")
         ordering = ["week_start"]
 
     def __str__(self):
@@ -181,15 +183,15 @@ class Microcycle(TimeStampedModel):
     phase = models.ForeignKey(
         Phase, on_delete=models.SET_NULL, null=True, blank=True, related_name="microcycles"
     )
-    week_number = models.PositiveSmallIntegerField("週次")
-    start_date = models.DateField("週一日期")
-    planned_load = models.PositiveIntegerField("計劃負荷 (AU)", default=0)
-    actual_load = models.PositiveIntegerField("實際負荷 (AU)", default=0)
-    notes = models.TextField("週計劃備註", blank=True)
+    week_number = models.PositiveSmallIntegerField(_("週次"))
+    start_date = models.DateField(_("週一日期"))
+    planned_load = models.PositiveIntegerField(_("計劃負荷 (AU)"), default=0)
+    actual_load = models.PositiveIntegerField(_("實際負荷 (AU)"), default=0)
+    notes = models.TextField(_("週計劃備註"), blank=True)
 
     class Meta:
-        verbose_name = "週計劃"
-        verbose_name_plural = "週計劃"
+        verbose_name = _("週計劃")
+        verbose_name_plural = _("週計劃")
         unique_together = ("macrocycle", "week_number")
         ordering = ["week_number"]
 
@@ -223,37 +225,37 @@ class TrainingSession(TimeStampedModel):
     microcycle = models.ForeignKey(
         Microcycle, on_delete=models.SET_NULL, null=True, blank=True, related_name="sessions"
     )
-    date = models.DateField("日期")
+    date = models.DateField(_("日期"))
     time_slot = models.CharField(
-        "時段", max_length=2, choices=[("AM", "上午"), ("PM", "下午")], default="PM"
+        _("時段"), max_length=2, choices=[("AM", "上午"), ("PM", "下午")], default="PM"
     )
-    session_type = models.CharField("課別", max_length=20, choices=SessionType.choices)
-    title = models.CharField("課表名稱", max_length=150)
-    description = models.TextField("課表內容", blank=True)
+    session_type = models.CharField(_("課別"), max_length=20, choices=SessionType.choices)
+    title = models.CharField(_("課表名稱"), max_length=150)
+    description = models.TextField(_("課表內容"), blank=True)
     assigned_by = models.ForeignKey(
         CoachProfile,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="assigned_sessions",
-        verbose_name="派發教練",
-        help_text="留空表示運動員自訂",
+        verbose_name=_("派發教練"),
+        help_text=_("留空表示運動員自訂"),
     )
-    planned_duration_min = models.PositiveSmallIntegerField("計劃時長 (分)", default=90)
-    actual_duration_min = models.PositiveSmallIntegerField("實際時長 (分)", null=True, blank=True)
+    planned_duration_min = models.PositiveSmallIntegerField(_("計劃時長 (分)"), default=90)
+    actual_duration_min = models.PositiveSmallIntegerField(_("實際時長 (分)"), null=True, blank=True)
     status = models.CharField(
-        "狀態", max_length=10, choices=SessionStatus.choices, default=SessionStatus.PLANNED
+        _("狀態"), max_length=10, choices=SessionStatus.choices, default=SessionStatus.PLANNED
     )
-    completion_pct = models.PositiveSmallIntegerField("完成度 (%)", default=0)
-    session_rpe = models.PositiveSmallIntegerField("課後 RPE (1-10)", null=True, blank=True)
-    is_modified = models.BooleanField("傷患調整後課表", default=False)
-    athlete_feedback = models.TextField("運動員反饋", blank=True)
-    coach_comment = models.TextField("教練評語", blank=True)
+    completion_pct = models.PositiveSmallIntegerField(_("完成度 (%)"), default=0)
+    session_rpe = models.PositiveSmallIntegerField(_("課後 RPE (1-10)"), null=True, blank=True)
+    is_modified = models.BooleanField(_("傷患調整後課表"), default=False)
+    athlete_feedback = models.TextField(_("運動員反饋"), blank=True)
+    coach_comment = models.TextField(_("教練評語"), blank=True)
     satisfaction = models.PositiveSmallIntegerField(
-        "訓練滿意度 (1-5)",
+        _("訓練滿意度 (1-5)"),
         null=True,
         blank=True,
-        help_text="完成訓練後自評：這一課練得滿不滿意",
+        help_text=_("完成訓練後自評：這一課練得滿不滿意"),
     )
     created_by = models.ForeignKey(
         "accounts.User",
@@ -261,13 +263,13 @@ class TrainingSession(TimeStampedModel):
         null=True,
         blank=True,
         related_name="created_sessions",
-        verbose_name="建立者",
-        help_text="誰把這堂課寫進日曆的；只有他自己（和管理員）能改課表本身",
+        verbose_name=_("建立者"),
+        help_text=_("誰把這堂課寫進日曆的；只有他自己（和管理員）能改課表本身"),
     )
 
     class Meta:
-        verbose_name = "訓練課"
-        verbose_name_plural = "訓練課"
+        verbose_name = _("訓練課")
+        verbose_name_plural = _("訓練課")
         ordering = ["-date", "time_slot"]
         indexes = [
             models.Index(fields=["athlete", "date"]),
@@ -350,9 +352,9 @@ class TrainingSession(TimeStampedModel):
 
 
 class NoteKind(models.TextChoices):
-    POINT = "POINT", "訓練要點"
-    NOTE = "NOTE", "當日備注"
-    FEEDBACK = "FEEDBACK", "訓練反饋"
+    POINT = "POINT", _("訓練要點")
+    NOTE = "NOTE", _("當日備注")
+    FEEDBACK = "FEEDBACK", _("訓練反饋")
 
 
 class SessionNote(TimeStampedModel):
@@ -367,16 +369,16 @@ class SessionNote(TimeStampedModel):
     )
     author = models.ForeignKey(
         "accounts.User", on_delete=models.CASCADE, related_name="session_notes",
-        verbose_name="寫入者",
+        verbose_name=_("寫入者"),
     )
     kind = models.CharField(
-        "類別", max_length=10, choices=NoteKind.choices, default=NoteKind.NOTE
+        _("類別"), max_length=10, choices=NoteKind.choices, default=NoteKind.NOTE
     )
-    body = models.TextField("內容")
+    body = models.TextField(_("內容"))
 
     class Meta:
-        verbose_name = "課表記事"
-        verbose_name_plural = "課表記事"
+        verbose_name = _("課表記事")
+        verbose_name_plural = _("課表記事")
         ordering = ["created_at"]
 
     def __str__(self):
@@ -389,15 +391,15 @@ class SessionTemplate(TimeStampedModel):
     coach = models.ForeignKey(
         CoachProfile, on_delete=models.CASCADE, related_name="session_templates"
     )
-    name = models.CharField("模板名稱", max_length=150)
-    session_type = models.CharField("課別", max_length=20, choices=SessionType.choices)
-    planned_duration_min = models.PositiveSmallIntegerField("計劃時長 (分)", default=90)
-    description = models.TextField("課表內容", blank=True)
-    payload = models.JSONField("結構化內容", default=dict, blank=True)
+    name = models.CharField(_("模板名稱"), max_length=150)
+    session_type = models.CharField(_("課別"), max_length=20, choices=SessionType.choices)
+    planned_duration_min = models.PositiveSmallIntegerField(_("計劃時長 (分)"), default=90)
+    description = models.TextField(_("課表內容"), blank=True)
+    payload = models.JSONField(_("結構化內容"), default=dict, blank=True)
 
     class Meta:
-        verbose_name = "課表模板"
-        verbose_name_plural = "課表模板"
+        verbose_name = _("課表模板")
+        verbose_name_plural = _("課表模板")
         ordering = ["name"]
 
     def __str__(self):
@@ -445,13 +447,13 @@ class ProjectAssignment(TimeStampedModel):
         "programs.Project",
         on_delete=models.CASCADE,
         related_name="assignments",
-        verbose_name="報名項目",
+        verbose_name=_("報名項目"),
     )
     coach = models.ForeignKey(
         CoachProfile,
         on_delete=models.CASCADE,
         related_name="project_assignments",
-        verbose_name="負責教練",
+        verbose_name=_("負責教練"),
     )
     assigned_by = models.ForeignKey(
         "accounts.User",
@@ -459,14 +461,14 @@ class ProjectAssignment(TimeStampedModel):
         null=True,
         blank=True,
         related_name="project_assignments_made",
-        verbose_name="分配者",
+        verbose_name=_("分配者"),
     )
-    is_active = models.BooleanField("生效中", default=True)
-    note = models.TextField("分配備註", blank=True, help_text="例：只負責短跑組、每週二四帶課")
+    is_active = models.BooleanField(_("生效中"), default=True)
+    note = models.TextField(_("分配備註"), blank=True, help_text=_("例：只負責短跑組、每週二四帶課"))
 
     class Meta:
-        verbose_name = "項目分配"
-        verbose_name_plural = "項目分配"
+        verbose_name = _("項目分配")
+        verbose_name_plural = _("項目分配")
         unique_together = ("project", "coach")
         ordering = ["project__display_order", "coach__user__username"]
 

@@ -7,6 +7,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import (
     AthleteProfile,
@@ -30,7 +31,7 @@ class UserAdmin(BaseUserAdmin):
         ("ATM", {"fields": ("role", "first_name", "last_name", "email")}),
     )
 
-    @admin.display(description="姓名", ordering="first_name")
+    @admin.display(description=_("姓名"), ordering="first_name")
     def full_name(self, obj):
         return obj.get_full_name() or "—"
 
@@ -55,8 +56,8 @@ class PersonalBestInline(admin.TabularInline):
     extra = 0
     fields = ("event", "mark", "wind", "date", "competition_name", "is_current")
     autocomplete_fields = ["event"]
-    verbose_name = "個人最佳"
-    verbose_name_plural = "個人最佳"
+    verbose_name = _("個人最佳")
+    verbose_name_plural = _("個人最佳")
 
 
 class BodyMetricLogInline(admin.TabularInline):
@@ -73,8 +74,8 @@ class BodyMetricLogInline(admin.TabularInline):
         "source",
     )
     ordering = ("-date",)
-    verbose_name = "體組成紀錄"
-    verbose_name_plural = "體組成紀錄"
+    verbose_name = _("體組成紀錄")
+    verbose_name_plural = _("體組成紀錄")
 
 
 class ProjectApplicationInline(admin.TabularInline):
@@ -86,8 +87,8 @@ class ProjectApplicationInline(admin.TabularInline):
     fields = ("project", "status", "school_or_club", "created_at", "imported_at")
     readonly_fields = fields
     show_change_link = True
-    verbose_name = "報名項目"
-    verbose_name_plural = "參加中的項目"
+    verbose_name = _("報名項目")
+    verbose_name_plural = _("參加中的項目")
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -104,8 +105,8 @@ class AthleteProfileAdmin(admin.ModelAdmin):
     filter_horizontal = ("secondary_events",)
     inlines = [ProjectApplicationInline, PersonalBestInline, BodyMetricLogInline]
     fieldsets = (
-        ("帳號與教練", {"fields": ("user", "coach", "status")}),
-        ("基本資料", {"fields": (("birth_date", "sex"), ("height_cm", "weight_kg"), "school_or_club")}),
-        ("項目", {"fields": ("primary_event", "secondary_events")}),
-        ("訓練背景", {"fields": (("training_days_per_week", "strength_experience_years"), "notes")}),
+        (_("帳號與教練"), {"fields": ("user", "coach", "status")}),
+        (_("基本資料"), {"fields": (("birth_date", "sex"), ("height_cm", "weight_kg"), "school_or_club")}),
+        (_("項目"), {"fields": ("primary_event", "secondary_events")}),
+        (_("訓練背景"), {"fields": (("training_days_per_week", "strength_experience_years"), "notes")}),
     )

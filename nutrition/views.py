@@ -1,4 +1,5 @@
 from datetime import date
+from django.utils.translation import gettext as _
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -47,7 +48,7 @@ class NutritionTargetViewSet(AthleteScopedViewSet):
             id=request.data.get("athlete"), id__in=athlete_ids_visible_to(request.user)
         ).first()
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
 
         on_date = request.data.get("date")
         on_date = date.fromisoformat(on_date) if on_date else date.today()
@@ -103,7 +104,7 @@ class WeeklyComplianceView(APIView):
             id=athlete_id, id__in=athlete_ids_visible_to(request.user)
         ).first()
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         ws = request.query_params.get("week_start")
         ws = date.fromisoformat(ws) if ws else monday_of(date.today())
         return Response({"week_start": ws, "days": services.weekly_compliance(athlete, ws)})

@@ -25,4 +25,5 @@ urlpatterns = [
     path("analytics/", views.analytics_view, name="analytics"),
     path("nutrition/", views.nutrition_view, name="nutrition"),
     path("injuries/", views.injuries_view, name="injuries"),
+    path("language/", views.set_language, name="set_language"),
 ]

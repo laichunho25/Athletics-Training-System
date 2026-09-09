@@ -1,15 +1,16 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile
-from core.models import SessionType, TimeStampedModel
+from core.models import SessionType, TimeStampedModel, bilingual_name
 
 
 class RiskFlag(models.TextChoices):
-    UNDER = "UNDER", "訓練不足"
-    OPTIMAL = "OPTIMAL", "甜蜜點"
-    ELEVATED = "ELEVATED", "負荷偏高"
-    HIGH = "HIGH", "高受傷風險"
-    INSUFFICIENT = "INSUFFICIENT", "資料累積中"
+    UNDER = "UNDER", _("訓練不足")
+    OPTIMAL = "OPTIMAL", _("甜蜜點")
+    ELEVATED = "ELEVATED", _("負荷偏高")
+    HIGH = "HIGH", _("高受傷風險")
+    INSUFFICIENT = "INSUFFICIENT", _("資料累積中")
 
 
 class DailyLoad(TimeStampedModel):
@@ -18,19 +19,19 @@ class DailyLoad(TimeStampedModel):
     athlete = models.ForeignKey(
         AthleteProfile, on_delete=models.CASCADE, related_name="daily_loads"
     )
-    date = models.DateField("日期")
-    total_load_au = models.PositiveIntegerField("總負荷 (AU)", default=0)
-    track_volume_m = models.PositiveIntegerField("專項總量 (m)", default=0)
+    date = models.DateField(_("日期"))
+    total_load_au = models.PositiveIntegerField(_("總負荷 (AU)"), default=0)
+    track_volume_m = models.PositiveIntegerField(_("專項總量 (m)"), default=0)
     strength_tonnage_kg = models.DecimalField(
-        "力量總噸位 (kg)", max_digits=10, decimal_places=1, default=0
+        _("力量總噸位 (kg)"), max_digits=10, decimal_places=1, default=0
     )
-    session_count = models.PositiveSmallIntegerField("課次", default=0)
-    avg_rpe = models.DecimalField("平均 RPE", max_digits=4, decimal_places=2, null=True, blank=True)
-    duration_min = models.PositiveIntegerField("總時長 (分)", default=0)
+    session_count = models.PositiveSmallIntegerField(_("課次"), default=0)
+    avg_rpe = models.DecimalField(_("平均 RPE"), max_digits=4, decimal_places=2, null=True, blank=True)
+    duration_min = models.PositiveIntegerField(_("總時長 (分)"), default=0)
 
     class Meta:
-        verbose_name = "每日負荷"
-        verbose_name_plural = "每日負荷"
+        verbose_name = _("每日負荷")
+        verbose_name_plural = _("每日負荷")
         unique_together = ("athlete", "date")
         ordering = ["-date"]
         indexes = [models.Index(fields=["athlete", "date"])]
@@ -43,23 +44,23 @@ class WeeklySummary(TimeStampedModel):
     athlete = models.ForeignKey(
         AthleteProfile, on_delete=models.CASCADE, related_name="weekly_summaries"
     )
-    week_start = models.DateField("週一日期")
-    total_load = models.PositiveIntegerField("週總負荷 (AU)", default=0)
-    monotony = models.DecimalField("單調度", max_digits=5, decimal_places=2, null=True, blank=True)
-    strain = models.DecimalField("訓練張力", max_digits=10, decimal_places=1, null=True, blank=True)
+    week_start = models.DateField(_("週一日期"))
+    total_load = models.PositiveIntegerField(_("週總負荷 (AU)"), default=0)
+    monotony = models.DecimalField(_("單調度"), max_digits=5, decimal_places=2, null=True, blank=True)
+    strain = models.DecimalField(_("訓練張力"), max_digits=10, decimal_places=1, null=True, blank=True)
     acwr = models.DecimalField("ACWR", max_digits=4, decimal_places=2, null=True, blank=True)
-    acute_load = models.PositiveIntegerField("急性負荷 (7d)", default=0)
-    chronic_load = models.DecimalField("慢性負荷 (28d/4)", max_digits=10, decimal_places=1, default=0)
+    acute_load = models.PositiveIntegerField(_("急性負荷 (7d)"), default=0)
+    chronic_load = models.DecimalField(_("慢性負荷 (28d/4)"), max_digits=10, decimal_places=1, default=0)
     week_over_week_pct = models.DecimalField(
-        "週增幅 (%)", max_digits=6, decimal_places=1, null=True, blank=True
+        _("週增幅 (%)"), max_digits=6, decimal_places=1, null=True, blank=True
     )
     risk_flag = models.CharField(
-        "風險判定", max_length=15, choices=RiskFlag.choices, default=RiskFlag.INSUFFICIENT
+        _("風險判定"), max_length=15, choices=RiskFlag.choices, default=RiskFlag.INSUFFICIENT
     )
 
     class Meta:
-        verbose_name = "週彙總"
-        verbose_name_plural = "週彙總"
+        verbose_name = _("週彙總")
+        verbose_name_plural = _("週彙總")
         unique_together = ("athlete", "week_start")
         ordering = ["-week_start"]
 
@@ -75,9 +76,9 @@ class WeeklySummary(TimeStampedModel):
 
 
 class MetricDomain(models.TextChoices):
-    COMPETITION = "COMPETITION", "比賽數據"
-    TRACK = "TRACK", "田徑練習訓練紀錄"
-    STRENGTH = "STRENGTH", "重量訓練紀錄"
+    COMPETITION = "COMPETITION", _("比賽數據")
+    TRACK = "TRACK", _("田徑練習訓練紀錄")
+    STRENGTH = "STRENGTH", _("重量訓練紀錄")
 
 
 #: 訓練日曆上的課別 ←→ 數據分析的紀錄範疇。
@@ -118,41 +119,41 @@ class TrainingStatus(models.TextChoices):
     分析時先看這一欄，才不會把「那陣子在復健」誤判成「能力退步」。
     """
 
-    OFFSEASON = "OFFSEASON", "季後休息期"
-    PREP = "PREP", "訓練準備期"
-    TAPER = "TAPER", "比賽調整期"
-    INJURY = "INJURY", "傷害治療期"
-    RETURN = "RETURN", "恢復回歸期"
+    OFFSEASON = "OFFSEASON", _("季後休息期")
+    PREP = "PREP", _("訓練準備期")
+    TAPER = "TAPER", _("比賽調整期")
+    INJURY = "INJURY", _("傷害治療期")
+    RETURN = "RETURN", _("恢復回歸期")
 
 
 #: 每個狀態在看數據時要記得的事——畫面上直接寫在旁邊，
 #: 免得看的人要自己回想「季後休息期本來就跑不快」。
 STATUS_GUIDE = {
     TrainingStatus.OFFSEASON.value: {
-        "feature": "刻意減量休息，體能與專項水準本來就會回落",
-        "reading": "這段期間的數字不代表能力，別跟賽季的成績直接比。",
+        "feature": _("刻意減量休息，體能與專項水準本來就會回落"),
+        "reading": _("這段期間的數字不代表能力，別跟賽季的成績直接比。"),
     },
     TrainingStatus.PREP.value: {
-        "feature": "量大、強度中等，帶著疲勞在練",
-        "reading": "數字比高峰期差是正常的；看的是量能不能吃得下、完成率高不高。",
+        "feature": _("量大、強度中等，帶著疲勞在練"),
+        "reading": _("數字比高峰期差是正常的；看的是量能不能吃得下、完成率高不高。"),
     },
     TrainingStatus.TAPER.value: {
-        "feature": "量降、強度高，狀態往高峰推",
-        "reading": "這裡的數字最接近真實水準，適合拿來當基準。",
+        "feature": _("量降、強度高，狀態往高峰推"),
+        "reading": _("這裡的數字最接近真實水準，適合拿來當基準。"),
     },
     TrainingStatus.INJURY.value: {
-        "feature": "帶傷或在治療，動作被迫調整",
-        "reading": "退步幾乎一定跟傷有關，不要當成能力下降；先看傷患頁的疼痛紀錄。",
+        "feature": _("帶傷或在治療，動作被迫調整"),
+        "reading": _("退步幾乎一定跟傷有關，不要當成能力下降；先看傷患頁的疼痛紀錄。"),
     },
     TrainingStatus.RETURN.value: {
-        "feature": "剛回歸，刻意壓著強度往上疊",
-        "reading": "數字偏低是計劃的一部分；看的是有沒有一週比一週好、有沒有再痛。",
+        "feature": _("剛回歸，刻意壓著強度往上疊"),
+        "reading": _("數字偏低是計劃的一部分；看的是有沒有一週比一週好、有沒有再痛。"),
     },
 }
 
 
 def status_guide(value):
-    return STATUS_GUIDE.get(value, {"feature": "沒有註記當天的狀態", "reading": "補上狀態註記，分析才分得清是狀態還是能力。"})
+    return STATUS_GUIDE.get(value, {"feature": _("沒有註記當天的狀態"), "reading": _("補上狀態註記，分析才分得清是狀態還是能力。")})
 
 
 class TrackMethod(models.TextChoices):
@@ -162,21 +163,21 @@ class TrackMethod(models.TextChoices):
     先挑方式，再輸入距離，合起來就是一個可以追蹤的項目（例：150m 反覆跑）。
     """
 
-    TEMPO = "TEMPO", "節奏跑"
-    REPEAT = "REPEAT", "反覆跑"
-    INTERVAL = "INTERVAL", "間歇跑"
-    START = "START", "起跑"
-    ACCEL = "ACCEL", "加速跑"
-    BUILDUP = "BUILDUP", "漸速跑"
-    FLYING = "FLYING", "飛行跑"
-    MAXSPEED = "MAXSPEED", "全速計時"
-    SPLIT = "SPLIT", "分段跑"
-    HILL = "HILL", "上坡跑"
-    RESIST = "RESIST", "阻力跑"
-    HURDLE = "HURDLE", "跨欄節奏"
-    RELAY = "RELAY", "接力交棒"
-    TECH = "TECH", "技術跑"
-    ENDURANCE = "ENDURANCE", "專項耐力跑"
+    TEMPO = "TEMPO", _("節奏跑")
+    REPEAT = "REPEAT", _("反覆跑")
+    INTERVAL = "INTERVAL", _("間歇跑")
+    START = "START", _("起跑")
+    ACCEL = "ACCEL", _("加速跑")
+    BUILDUP = "BUILDUP", _("漸速跑")
+    FLYING = "FLYING", _("飛行跑")
+    MAXSPEED = "MAXSPEED", _("全速計時")
+    SPLIT = "SPLIT", _("分段跑")
+    HILL = "HILL", _("上坡跑")
+    RESIST = "RESIST", _("阻力跑")
+    HURDLE = "HURDLE", _("跨欄節奏")
+    RELAY = "RELAY", _("接力交棒")
+    TECH = "TECH", _("技術跑")
+    ENDURANCE = "ENDURANCE", _("專項耐力跑")
 
 
 #: 方式 → 英文名（項目名稱一律「中文（English）」，這裡給英文的那一半）
@@ -237,13 +238,13 @@ def block_order():
 class MetricCategory(models.TextChoices):
     """重量訓練紀錄的動作分類——項目清單照這個分組顯示，找動作比一長串快。"""
 
-    WARMUP = "WARMUP", "熱身動作（Warm-up Activities）"
-    UPPER = "UPPER", "上身動作（Upper Body Movement）"
-    LOWER = "LOWER", "下身動作（Lower Body Movement）"
-    CORE = "CORE", "核心肌群（Core Strength）"
-    FULL = "FULL", "全身力量（Full-Body Workout）"
-    PLYO = "PLYO", "增強式訓練（Plyometric Training）"
-    OTHER = "OTHER", "其他"
+    WARMUP = "WARMUP", _("熱身動作（Warm-up Activities）")
+    UPPER = "UPPER", _("上身動作（Upper Body Movement）")
+    LOWER = "LOWER", _("下身動作（Lower Body Movement）")
+    CORE = "CORE", _("核心肌群（Core Strength）")
+    FULL = "FULL", _("全身力量（Full-Body Workout）")
+    PLYO = "PLYO", _("增強式訓練（Plyometric Training）")
+    OTHER = "OTHER", _("其他")
 
 
 #: 訓練活動庫的分類 → 數據項目的分類。
@@ -313,44 +314,44 @@ BUILTIN_RENAMES = {"前蹲舉 Front Squat": "前蹲舉", "臀推 Hip Thrust": "�
 class MetricItem(models.Model):
     """一個可以記錄的數據項目，例如「30m 衝刺（秒）」。"""
 
-    domain = models.CharField("範疇", max_length=15, choices=MetricDomain.choices)
-    name = models.CharField("項目名稱", max_length=60)
+    domain = models.CharField(_("範疇"), max_length=15, choices=MetricDomain.choices)
+    name = models.CharField(_("項目名稱"), max_length=60)
     name_en = models.CharField(
-        "英文名稱", max_length=80, blank=True,
-        help_text="清單與紀錄都以「中文（English）」顯示，兩個名字都找得到",
+        _("英文名稱"), max_length=80, blank=True,
+        help_text=_("清單與紀錄都以「中文（English）」顯示，兩個名字都找得到"),
     )
     category = models.CharField(
-        "動作分類", max_length=10, choices=MetricCategory.choices,
+        _("動作分類"), max_length=10, choices=MetricCategory.choices,
         default=MetricCategory.OTHER,
-        help_text="重量訓練紀錄的項目清單依這個分組顯示",
+        help_text=_("重量訓練紀錄的項目清單依這個分組顯示"),
     )
-    unit = models.CharField("單位", max_length=15, blank=True, help_text="例：秒、m、kg、cm")
+    unit = models.CharField(_("單位"), max_length=15, blank=True, help_text=_("例：秒、m、kg、cm"))
     higher_is_better = models.BooleanField(
-        "數值越大越好", default=True, help_text="計時類項目請取消勾選（越小越好）"
+        _("數值越大越好"), default=True, help_text=_("計時類項目請取消勾選（越小越好）")
     )
     # 田徑練習的項目以「方式」為主，距離另外填——同一個距離用不同方式跑
     # （150m 節奏跑 vs 150m 反覆跑）本來就是兩件事，分開記才比得出來。
     track_method = models.CharField(
-        "練習方式", max_length=12, choices=TrackMethod.choices, blank=True,
-        help_text="田徑練習專用：節奏跑／反覆跑／起跑／加速跑…",
+        _("練習方式"), max_length=12, choices=TrackMethod.choices, blank=True,
+        help_text=_("田徑練習專用：節奏跑／反覆跑／起跑／加速跑…"),
     )
     track_distance_m = models.PositiveIntegerField(
-        "距離 (m)", null=True, blank=True, help_text="田徑練習專用：這個項目跑幾米"
+        _("距離 (m)"), null=True, blank=True, help_text=_("田徑練習專用：這個項目跑幾米")
     )
-    is_builtin = models.BooleanField("內建項目", default=False)
-    is_active = models.BooleanField("顯示中", default=True)
+    is_builtin = models.BooleanField(_("內建項目"), default=False)
+    is_active = models.BooleanField(_("顯示中"), default=True)
     created_by = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="metric_items",
-        verbose_name="新增者",
+        verbose_name=_("新增者"),
     )
 
     class Meta:
-        verbose_name = "數據項目"
-        verbose_name_plural = "數據項目"
+        verbose_name = _("數據項目")
+        verbose_name_plural = _("數據項目")
         unique_together = ("domain", "name")
         ordering = ["domain", "category", "-is_builtin", "name"]
 
@@ -360,7 +361,7 @@ class MetricItem(models.Model):
     @property
     def display_name(self):
         """中文（English）——所有畫面都用這個名字顯示。"""
-        return f"{self.name}（{self.name_en}）" if self.name_en else self.name
+        return bilingual_name(self.name, self.name_en)
 
     @property
     def display(self):
@@ -381,8 +382,8 @@ class MetricRecord(TimeStampedModel):
         null=True,
         blank=True,
         related_name="metric_records",
-        verbose_name="對應 program",
-        help_text="留空表示不是從日曆的課表產生（例如比賽）",
+        verbose_name=_("對應 program"),
+        help_text=_("留空表示不是從日曆的課表產生（例如比賽）"),
     )
     competition = models.ForeignKey(
         "planning.Competition",
@@ -390,61 +391,61 @@ class MetricRecord(TimeStampedModel):
         null=True,
         blank=True,
         related_name="metric_records",
-        verbose_name="賽事",
-        help_text="比賽數據登在哪一場比賽底下；練習紀錄留空",
+        verbose_name=_("賽事"),
+        help_text=_("比賽數據登在哪一場比賽底下；練習紀錄留空"),
     )
-    date = models.DateField("日期")
+    date = models.DateField(_("日期"))
     # 這一組是課表上的哪一段做的（熱身 / 正課 / 補充練習 / 恢復練習）。
     # 登數據時挑一個，紀錄就「放回」課表對應的那一區，
     # 之後看數據分析也分得出熱身跳的與正課跳的不是同一件事。
     block = models.CharField(
-        "課表區塊", max_length=12, choices=block_choices, blank=True,
-        help_text="這一組屬於課表的哪一段：熱身／正課／補充練習／恢復練習",
+        _("課表區塊"), max_length=12, choices=block_choices, blank=True,
+        help_text=_("這一組屬於課表的哪一段：熱身／正課／補充練習／恢復練習"),
     )
     # 目標與完成分開記：課表上要求做到幾秒、實際做出幾秒，兩個都不是必填，
     # 只要挑了項目就登得進來（之後在數據分析補值也可以）。
     target_value = models.DecimalField(
-        "目標數值 (秒)", max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text="課表上要求的目標，沒有就留空",
+        _("目標數值 (秒)"), max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text=_("課表上要求的目標，沒有就留空"),
     )
     value = models.DecimalField(
-        "完成數值 (秒)", max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text="實際完成的數值，還沒量到可以留空，之後在數據分析補",
+        _("完成數值 (秒)"), max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text=_("實際完成的數值，還沒量到可以留空，之後在數據分析補"),
     )
     # 同一堂課的不同組，重量／次數／休息時間都可能不一樣，所以一組就是一筆紀錄。
     set_no = models.PositiveSmallIntegerField(
-        "組別", null=True, blank=True, help_text="第幾組；單筆成績（例如比賽）可留空"
+        _("組別"), null=True, blank=True, help_text=_("第幾組；單筆成績（例如比賽）可留空")
     )
     weight_kg = models.DecimalField(
-        "重量 (kg)", max_digits=6, decimal_places=1, null=True, blank=True
+        _("重量 (kg)"), max_digits=6, decimal_places=1, null=True, blank=True
     )
     # 田徑練習不是靠重量分辨強度，而是「這一組要跑到幾成」——
     # 90% / 95% / 全力 都填得進來，之後在紀錄分析圖可以照強度分開比。
     intensity = models.CharField(
-        "強度要求", max_length=20, blank=True,
-        help_text="田徑練習這一組要求的強度，例：90%、95%、全力",
+        _("強度要求"), max_length=20, blank=True,
+        help_text=_("田徑練習這一組要求的強度，例：90%、95%、全力"),
     )
-    reps = models.PositiveSmallIntegerField("次數", null=True, blank=True)
+    reps = models.PositiveSmallIntegerField(_("次數"), null=True, blank=True)
     rest_sec = models.PositiveIntegerField(
-        "休息時間 (秒)", null=True, blank=True,
-        help_text="這一組做完之後休息多久；表單可以用秒或分鐘填，一律換算成秒存起來",
+        _("休息時間 (秒)"), null=True, blank=True,
+        help_text=_("這一組做完之後休息多久；表單可以用秒或分鐘填，一律換算成秒存起來"),
     )
     completed = models.BooleanField(
-        "成功完成", default=True, help_text="這一組有沒有照課表完成（沒完成請取消勾選）"
+        _("成功完成"), default=True, help_text=_("這一組有沒有照課表完成（沒完成請取消勾選）")
     )
     # 當天是在什麼狀態下練的——分析退步與否之前，先看這一欄
     status = models.CharField(
-        "狀態", max_length=12, choices=TrainingStatus.choices, blank=True,
-        help_text="這天的練習在什麼狀態下進行（季後休息／訓練準備／比賽調整／傷害治療／恢復回歸）",
+        _("狀態"), max_length=12, choices=TrainingStatus.choices, blank=True,
+        help_text=_("這天的練習在什麼狀態下進行（季後休息／訓練準備／比賽調整／傷害治療／恢復回歸）"),
     )
     context = models.CharField(
-        "情境", max_length=120, blank=True, help_text="例：順風 1.2、賽前熱身、第 3 組"
+        _("情境"), max_length=120, blank=True, help_text=_("例：順風 1.2、賽前熱身、第 3 組")
     )
-    note = models.TextField("備註", blank=True)
+    note = models.TextField(_("備註"), blank=True)
 
     class Meta:
-        verbose_name = "數據紀錄"
-        verbose_name_plural = "數據紀錄"
+        verbose_name = _("數據紀錄")
+        verbose_name_plural = _("數據紀錄")
         ordering = ["-date", "-id"]
         indexes = [models.Index(fields=["athlete", "item", "date"])]
 
@@ -462,7 +463,7 @@ class MetricRecord(TimeStampedModel):
 
     @property
     def set_label(self):
-        return f"第 {self.set_no} 組" if self.set_no else ""
+        return _("第 %(v0)s 組") % {"v0": self.set_no} if self.set_no else ""
 
     @property
     def rest_min(self):
@@ -477,9 +478,12 @@ class MetricRecord(TimeStampedModel):
         if self.rest_sec is None:
             return ""
         if self.rest_sec < 60:
-            return f"{self.rest_sec} 秒"
+            return _("%(v0)s 秒") % {"v0": self.rest_sec}
         minutes, seconds = divmod(self.rest_sec, 60)
-        return f"{minutes} 分" + (f" {seconds} 秒" if seconds else "")
+        out = _("%(v0)s 分") % {"v0": minutes}
+        if seconds:
+            out += _(" %(v0)s 秒") % {"v0": seconds}
+        return out
 
     @property
     def tonnage(self):
@@ -672,7 +676,7 @@ def set_item_unit(item, unit):
     回傳有沒有真的換過。
     """
     unit = (unit or "").strip()
-    if unit not in [u for u, _ in STRENGTH_UNITS]:
+    if unit not in [u for u, _unused in STRENGTH_UNITS]:
         return False
     if unit == (item.unit or "").strip():
         return False

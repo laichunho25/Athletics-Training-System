@@ -252,7 +252,7 @@ class SprintGlossaryTests(TestCase):
         md = build_markdown()
         for en, zh, _note in all_terms():
             self.assertIn(en, md)
-            self.assertIn(zh, md)
+            self.assertIn(str(zh), md)
         self.assertTrue(
             (Path(settings.BASE_DIR) / "docs" / "sprint-glossary.md").exists()
         )
@@ -389,11 +389,11 @@ class LandingContentTests(TestCase):
         from core.glossary import GLOSSARY, all_terms
 
         for group in GLOSSARY:
-            self.assertIn(escape(group["zh"]), self.html)
+            self.assertIn(escape(str(group["zh"])), self.html)
             self.assertIn(escape(group["en"]), self.html)
         for en, zh, _note in all_terms():
             self.assertIn(escape(en), self.html)
-            self.assertIn(escape(zh), self.html)
+            self.assertIn(escape(str(zh)), self.html)
 
     def test_canned_prescription_content_removed(self):
         for gone in (

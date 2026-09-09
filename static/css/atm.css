@@ -296,6 +296,25 @@ a:hover { text-decoration: underline; }
 .densitypick select:hover { border: 0; }
 .densitypick select:focus { outline: none; box-shadow: none; }
 
+/* 語言切換：跟密度選單同一個外觀，頂欄上兩個選單看起來是一組的 */
+.langpick {
+  display: flex; align-items: center; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0 6px; height: 32px; background: var(--bg);
+}
+.langpick select {
+  border: 0; background: transparent; width: auto; padding: 0 2px;
+  font-size: 11px; color: var(--text); height: 30px; font-family: var(--mono);
+}
+.langpick select:hover { border: 0; }
+.langpick select:focus { outline: none; box-shadow: none; }
+/* 只給讀螢幕的軟件看的字 */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+@media (max-width: 640px) { .langpick { padding: 0 2px; } }
+
 /* 頂欄的運動員切換器：整個系統只有這一個，換頁時人跟著走 */
 .athletepick {
   display: flex; align-items: center; gap: 6px; margin: 0;

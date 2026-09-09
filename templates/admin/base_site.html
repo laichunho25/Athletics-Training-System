@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% load i18n %}
 {% load static %}
 
 {% comment %}
@@ -7,7 +8,7 @@ ATM 後台（Django admin）的外觀改寫：
 之後升級 Django 也不會因為樣板抄太多而卡住。
 {% endcomment %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"ATM 後台" }}{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_("ATM 後台") }}{% endblock %}
 
 {# 放在 extrahead：這樣才會排在各頁自己的 changelists.css / forms.css 後面 #}
 {% block extrahead %}{{ block.super }}
@@ -17,8 +18,8 @@ ATM 後台（Django admin）的外觀改寫：
 {% block branding %}
 <div id="site-name">
   <a href="{% url 'admin:index' %}">
-    <span class="atm-mark">ATM<i>·</i>田徑</span>
-    <span class="atm-sub">後台管理</span>
+    <span class="atm-mark">ATM<i>·</i>{% translate "田徑" %}</span>
+    <span class="atm-sub">{% translate "後台管理" %}</span>
   </a>
 </div>
 {% if user.is_anonymous %}
@@ -31,11 +32,11 @@ ATM 後台（Django admin）的外觀改寫：
 {% endblock %}
 
 {% block userlinks %}
-  <a href="{{ site_url|default:'/' }}">回到系統</a>
-  {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">修改密碼</a>{% endif %}
+  <a href="{{ site_url|default:'/' }}">{% translate "回到系統" %}</a>
+  {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">{% translate "修改密碼" %}</a>{% endif %}
   <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
     {% csrf_token %}
-    <button type="submit">登出</button>
+    <button type="submit">{% translate "登出" %}</button>
   </form>
   {% include "admin/color_theme_toggle.html" %}
 {% endblock %}
@@ -43,5 +44,5 @@ ATM 後台（Django admin）的外觀改寫：
 {% block nav-global %}{% endblock %}
 
 {% block footer %}
-<div id="atm-admin-foot">ATM 田徑訓練管理系統 · 後台</div>
+<div id="atm-admin-foot">{% translate "ATM 田徑訓練管理系統 · 後台" %}</div>
 {% endblock %}

@@ -1,20 +1,20 @@
-{% load atm %}
+{% load atm %}{% load i18n %}
 {% comment %}
 課表頁的全部內容。整頁載入和「有人改動 → 輪詢刷新」都渲染這一份，
 所以兩邊永遠長得一樣，不會出現只有其中一頁看得到新內容的情況。
 {% endcomment %}
 
 {% if blocked %}
-<div class="alert red">🚫 <strong>高強度已被封鎖：</strong>{{ block_reason }}
+<div class="alert red">🚫 <strong>{% translate "高強度已被封鎖：" %}</strong>{{ block_reason }}
   <form method="post" style="display:inline;margin-left:10px">
     {% csrf_token %}
     <input type="hidden" name="action" value="modify">
-    <button class="btn sm" type="submit">依傷患自動調整此課表</button>
+    <button class="btn sm" type="submit">{% translate "依傷患自動調整此課表" %}</button>
   </form>
 </div>
 {% endif %}
 {% if s.is_modified %}
-<div class="alert yellow">⚠️ 此課表已經過傷患調整。</div>
+<div class="alert yellow">{% translate "⚠️ 此課表已經過傷患調整。" %}</div>
 {% endif %}
 
 <!-- ------------------------------------------------------------ 課表抬頭 -->
@@ -26,38 +26,38 @@
     </h2>
     <span class="small c-dim">
       {{ s.athlete.user.get_full_name|default:s.athlete.user.username }} ·
-      {% if s.created_by %}由 {{ s.created_by.get_full_name|default:s.created_by.username }} 寫入{% elif s.assigned_by %}教練派發：{{ s.assigned_by }}{% else %}運動員自訂{% endif %}
+      {% if s.created_by %}{% blocktranslate with v0=s.created_by.get_full_name|default:s.created_by.username %}由 {{ v0 }} 寫入{% endblocktranslate %}{% elif s.assigned_by %}{% blocktranslate with v0=s.assigned_by %}教練派發：{{ v0 }}{% endblocktranslate %}{% else %}{% translate "運動員自訂" %}{% endif %}
     </span>
   </div>
 
   <div class="metagrid mt">
     <div class="meta">
-      <span class="lbl">日期</span>
+      <span class="lbl">{% translate "日期" %}</span>
       <span class="cell" data-edit="session:{{ s.id }}:date" data-kind="date"
             data-value="{{ s.date|date:'Y-m-d' }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.date|date:"Y-m-d" }}</span>
       <span class="small c-dim">（{{ s.date|date:"D" }}）</span>
     </div>
     <div class="meta">
-      <span class="lbl">時段</span>
+      <span class="lbl">{% translate "時段" %}</span>
       <span class="cell" data-edit="session:{{ s.id }}:time_slot" data-kind="select"
-            data-value="{{ s.time_slot }}" data-options="AM|上午,PM|下午"
+            data-value="{{ s.time_slot }}" data-options="AM|{% translate '上午' %},PM|{% translate '下午' %}"
             data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.get_time_slot_display }}</span>
     </div>
     <div class="meta">
-      <span class="lbl">類別</span>
+      <span class="lbl">{% translate "類別" %}</span>
       <span class="cell" data-edit="session:{{ s.id }}:session_type" data-kind="select"
             data-value="{{ s.session_type }}"
             data-options="{% for v, l in session_types %}{{ v }}|{{ l }}{% if not forloop.last %},{% endif %}{% endfor %}"
             data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.get_session_type_display }}</span>
     </div>
     <div class="meta">
-      <span class="lbl">計劃時長</span>
+      <span class="lbl">{% translate "計劃時長" %}</span>
       <span class="cell" data-edit="session:{{ s.id }}:planned_duration_min" data-kind="number"
             data-value="{{ s.planned_duration_min }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.planned_duration_min }}</span>
-      <span class="small c-dim">分</span>
+      <span class="small c-dim">{% translate "分" %}</span>
     </div>
     <div class="meta">
-      <span class="lbl">狀態</span>
+      <span class="lbl">{% translate "狀態" %}</span>
       <span class="cell" data-edit="session:{{ s.id }}:status" data-kind="select"
             data-value="{{ s.status }}"
             data-options="{% for v, l in status_choices %}{{ v }}|{{ l }}{% if not forloop.last %},{% endif %}{% endfor %}"
@@ -69,41 +69,41 @@
       這裡只負責顯示，不再是第二個輸入口。
     {% endcomment %}
     <div class="meta">
-      <span class="lbl">完成度</span>
+      <span class="lbl">{% translate "完成度" %}</span>
       <span class="ro">{{ s.completion_pct }}</span>
       <span class="small c-dim">%</span>
     </div>
     <div class="meta">
-      <span class="lbl">實際時長</span>
+      <span class="lbl">{% translate "實際時長" %}</span>
       <span class="ro">{{ s.actual_duration_min|default:"—" }}</span>
-      <span class="small c-dim">分</span>
+      <span class="small c-dim">{% translate "分" %}</span>
     </div>
     <div class="meta">
-      <span class="lbl">課後 RPE</span>
+      <span class="lbl">{% translate "課後 RPE" %}</span>
       <span class="ro">{{ s.session_rpe|default:"—" }}</span>
       <span class="small c-dim">/10</span>
     </div>
     <div class="meta">
-      <span class="lbl">訓練負荷</span>
+      <span class="lbl">{% translate "訓練負荷" %}</span>
       <span class="c-accent" id="session-load">{{ s.session_load }}</span>
       <span class="small c-dim">AU</span>
     </div>
     <div class="meta">
-      <span class="lbl">訓練滿意度</span>
+      <span class="lbl">{% translate "訓練滿意度" %}</span>
       <span class="ro">{% if s.satisfaction %}{{ s.satisfaction }} / 5{% else %}—{% endif %}</span>
-      {% if s.avg_activity_satisfaction %}<span class="small c-dim">各項平均 {{ s.avg_activity_satisfaction }}</span>{% endif %}
+      {% if s.avg_activity_satisfaction %}<span class="small c-dim">{% blocktranslate with v0=s.avg_activity_satisfaction %}各項平均 {{ v0 }}{% endblocktranslate %}</span>{% endif %}
     </div>
   </div>
   {% if can_log %}
   <div class="small c-dim mt">
-    上面四個課後數字在<a href="#recap">訓練後檢討和反饋</a>一次填完。
+    {% translate "上面四個課後數字在" %}<a href="#recap">{% translate "訓練後檢討和反饋" %}</a>{% translate "一次填完。" %}
   </div>
   {% endif %}
 
   <div class="field mt">
-    <label>課表概要</label>
+    <label>{% translate "課表概要" %}</label>
     <div class="cell block" data-edit="session:{{ s.id }}:description" data-kind="textarea"
-         data-value="{{ s.description }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.description|default:"（點一下寫概要）" }}</div>
+         data-value="{{ s.description }}" data-can="{{ can_edit_plan|yesno:'1,0' }}">{{ s.description|default:_("（點一下寫概要）") }}</div>
   </div>
 </div>
 
@@ -111,9 +111,9 @@
 {% for b in blocks %}
 <div class="card pad0 mb block-card" data-block="{{ b.value }}">
   <div class="card-head">
-    <span>{{ b.label }} <span class="c-dim small">· {{ b.activities|length }} 項</span></span>
+    <span>{{ b.label }} <span class="c-dim small">{% blocktranslate with v0=b.activities|length %}· {{ v0 }} 項{% endblocktranslate %}</span></span>
     <span class="flex">
-      <button type="button" class="btn ghost sm addact" data-block="{{ b.value }}" data-label="{{ b.label }}">＋ 加入活動</button>
+      <button type="button" class="btn ghost sm addact" data-block="{{ b.value }}" data-label="{{ b.label }}">{% translate "＋ 加入活動" %}</button>
     </span>
   </div>
 
@@ -123,10 +123,10 @@
     <thead>
       <tr>
         <th style="width:34px">#</th>
-        <th>活動</th>
+        <th>{% translate "活動" %}</th>
         {% for name, label in activity_fields %}<th class="num">{{ label }}</th>{% endfor %}
-        <th class="num">滿意度</th>
-        <th style="width:96px">寫入者</th>
+        <th class="num">{% translate "滿意度" %}</th>
+        <th style="width:96px">{% translate "寫入者" %}</th>
         <th style="width:34px"></th>
       </tr>
     </thead>
@@ -157,11 +157,11 @@
         <td class="small c-dim">{% if a.created_by %}{{ a.created_by.get_full_name|default:a.created_by.username }}{% else %}—{% endif %}</td>
         <td>
           {% if row.editable %}
-          <form method="post" onsubmit="return confirm('刪除「{{ a.name }}」？')">
+          <form method="post" onsubmit="return confirm('{% blocktranslate with v0=a.name %}刪除「{{ v0 }}」？{% endblocktranslate %}')">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete_activity">
             <input type="hidden" name="id" value="{{ a.id }}">
-            <button class="linkbtn" type="submit" title="刪除">✕</button>
+            <button class="linkbtn" type="submit" title="{% translate '刪除' %}">✕</button>
           </form>
           {% endif %}
         </td>
@@ -169,10 +169,10 @@
       <tr class="sub">
         <td></td>
         <td colspan="{{ activity_fields|length|add:4 }}">
-          <span class="tag">訓練要點</span>
+          <span class="tag">{% translate "訓練要點" %}</span>
           <span class="cell inlineblock" data-edit="activity:{{ a.id }}:key_points" data-kind="textarea"
                 data-value="{{ a.key_points }}" data-can="{{ can }}">{{ a.key_points|default:"—" }}</span>
-          <span class="tag">當日備注</span>
+          <span class="tag">{% translate "當日備注" %}</span>
           <span class="cell inlineblock" data-edit="activity:{{ a.id }}:note" data-kind="textarea"
                 data-value="{{ a.note }}" data-can="{{ can }}">{{ a.note|default:"—" }}</span>
         </td>
@@ -183,7 +183,7 @@
   </table>
   </div>
   {% else %}
-  <div class="pad c-dim small">這一區還沒有內容，按右上角「＋ 加入活動」從活動清單挑一個。</div>
+  <div class="pad c-dim small">{% translate "這一區還沒有內容，按右上角「＋ 加入活動」從活動清單挑一個。" %}</div>
   {% endif %}
 </div>
 {% endfor %}
@@ -191,26 +191,25 @@
 <!-- ------------------------------------------------------------ 本課數據紀錄 -->
 <div class="card pad0 mb" id="metriccard">
   <div class="card-head">
-    <span>本課數據紀錄
-      <span class="c-dim small">· {{ metric_record_count }} 筆</span></span>
+    <span>{% translate "本課數據紀錄" %}
+      <span class="c-dim small">{% blocktranslate with v0=metric_record_count %}· {{ v0 }} 筆{% endblocktranslate %}</span></span>
     {% if metric_domains and can_log %}
     <form method="post" style="margin-left:auto">
       {% csrf_token %}
       <input type="hidden" name="action" value="plan_sets">
       <button class="btn ghost sm" type="submit"
-              title="課表上寫了組數的動作，照組數先開好空白紀錄；已經有紀錄的動作不動">
-        依課表開組
+              title="{% translate '課表上寫了組數的動作，照組數先開好空白紀錄；已經有紀錄的動作不動' %}">
+        {% translate "依課表開組" %}
       </button>
     </form>
     {% endif %}
     <span class="small c-dim">
       {% if metric_domains %}
-        課別「{{ s.get_session_type_display }}」對應
+        {% blocktranslate with v0=s.get_session_type_display %}課別「{{ v0 }}」對應{% endblocktranslate %}
         {% for value, label in metric_domains %}<strong>{{ label }}</strong>{% if not forloop.last %} / {% endif %}{% endfor %}
-        · 上面課表寫了組數的動作，加進來時已經照組數開好空白列——練完只要填「完成數值」。
-        這裡登的就是數據分析那一份，不用再輸入一次
+        {% translate "· 上面課表寫了組數的動作，加進來時已經照組數開好空白列——練完只要填「完成數值」。 這裡登的就是數據分析那一份，不用再輸入一次" %}
       {% else %}
-        這個課別沒有對應的數據紀錄範疇（田徑場訓練 / 重量訓練 / 治療康復 / 恢復訓練 / 比賽才有）
+        {% translate "這個課別沒有對應的數據紀錄範疇（田徑場訓練 / 重量訓練 / 治療康復 / 恢復訓練 / 比賽才有）" %}
       {% endif %}
     </span>
   </div>
@@ -234,31 +233,29 @@
       <input type="hidden" name="action" value="move_metric">
     </form>
     <div class="small c-dim" style="padding:10px 18px 0">
-      每一格都可以直接改；改好按該列的 ✓ 存單筆，或按最下面的
-      <strong>儲存全部更改</strong> 一次過確認所有更改。
-      組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼；
-      最頂那一列填一個數值按「套用」，就會填進這個項目所有組。
+      {% translate "每一格都可以直接改；改好按該列的 ✓ 存單筆，或按最下面的" %}
+      <strong>{% translate "儲存全部更改" %}</strong> {% translate "一次過確認所有更改。 組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼； 最頂那一列填一個數值按「套用」，就會填進這個項目所有組。" %}
     </div>
     <div class="daylist">
     {% for g in metric_groups %}
       <details class="dayrow" open>
         <summary>
           <span class="daydate">{{ g.item.display_name }}</span>
-          <span class="daysets">{{ g.count }} 組</span>
+          <span class="daysets">{% blocktranslate with v0=g.count %}{{ v0 }} 組{% endblocktranslate %}</span>
           <span class="dayhl">
             {% if g.best != None %}
-              <span class="hi">{% if g.unit_is_weight %}最重{% else %}最佳{% endif %}
+              <span class="hi">{% if g.unit_is_weight %}{% translate "最重" %}{% else %}{% translate "最佳" %}{% endif %}
                 <strong>{{ g.best }}</strong>{{ g.item.unit }}</span>
-              <span class="lo">{% if g.unit_is_weight %}最輕{% else %}最低{% endif %}
+              <span class="lo">{% if g.unit_is_weight %}{% translate "最輕" %}{% else %}{% translate "最低" %}{% endif %}
                 <strong>{{ g.low }}</strong>{{ g.item.unit }}</span>
             {% else %}
-              <span class="c-dim small">還沒填完成數值</span>
+              <span class="c-dim small">{% translate "還沒填完成數值" %}</span>
             {% endif %}
           </span>
           <span class="daymeta">
-            {% if g.block_label %}<span class="badge b-blue" title="這一組放在課表的哪一段">{{ g.block_label }}</span>{% endif %}
-            {% if g.failed %}<span class="badge b-red">{{ g.failed }} 組未完成</span>{% endif %}
-            {% if g.tonnage %}噸位 {{ g.tonnage }} kg{% endif %}
+            {% if g.block_label %}<span class="badge b-blue" title="{% translate '這一組放在課表的哪一段' %}">{{ g.block_label }}</span>{% endif %}
+            {% if g.failed %}<span class="badge b-red">{% blocktranslate with v0=g.failed %}{{ v0 }} 組未完成{% endblocktranslate %}</span>{% endif %}
+            {% if g.tonnage %}{% blocktranslate with v0=g.tonnage %}噸位 {{ v0 }} kg{% endblocktranslate %}{% endif %}
             · <span class="badge b-dim">{{ g.item.get_domain_display }}</span>
           </span>
         </summary>
@@ -269,48 +266,48 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="item_unit">
           <input type="hidden" name="item_id" value="{{ g.item.id }}">
-          <label class="unitpick">「{{ g.item.name }}」的單位
+          <label class="unitpick">{% blocktranslate with v0=g.item.name %}「{{ v0 }}」的單位{% endblocktranslate %}
             <select name="unit">
               {% for v, l in strength_units %}
                 <option value="{{ v }}" {% if g.item.unit == v %}selected{% endif %}>{{ l }}</option>
               {% endfor %}
             </select>
           </label>
-          <button class="btn ghost sm" type="submit">換單位</button>
-          <span class="small c-dim">重量訓練以 kg 為主；撐時間的動作可以改成秒</span>
+          <button class="btn ghost sm" type="submit">{% translate "換單位" %}</button>
+          <span class="small c-dim">{% translate "重量訓練以 kg 為主；撐時間的動作可以改成秒" %}</span>
         </form>
         {% endif %}
         <table>
           <thead>
-            <tr><th class="num">組</th>
-                <th class="num">目標數值（{{ g.item.unit|default:"秒" }}）</th>
-                <th class="num">完成數值（{{ g.item.unit|default:"秒" }}）</th>
-                {% if g.item.domain == "TRACK" %}<th class="num">強度要求</th>
-                {% else %}<th class="num">重量</th>{% endif %}
-                <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
-                <th>完成</th>
-                <th title="這天的練習在什麼狀態下進行">狀態</th>
-                <th title="這一組屬於課表的哪一段">區塊</th>
-                <th>情境</th><th></th></tr>
+            <tr><th class="num">{% translate "組" %}</th>
+                <th class="num">{% blocktranslate with v0=g.item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
+                <th class="num">{% blocktranslate with v0=g.item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
+                {% if g.item.domain == "TRACK" %}<th class="num">{% translate "強度要求" %}</th>
+                {% else %}<th class="num">{% translate "重量" %}</th>{% endif %}
+                <th class="num">{% translate "次數" %}</th><th class="num" title="{% translate '休息時間（分鐘）' %}">{% translate "休息（分）" %}</th>
+                <th>{% translate "完成" %}</th>
+                <th title="{% translate '這天的練習在什麼狀態下進行' %}">{% translate "狀態" %}</th>
+                <th title="{% translate '這一組屬於課表的哪一段' %}">{% translate "區塊" %}</th>
+                <th>{% translate "情境" %}</th><th></th></tr>
             <!-- 最頂這一列不是紀錄：填一個數值按「套用」，
                  就會填進這個項目所有組（十組同重量不用打十次）。 -->
             <tr class="fillrow">
-              <td class="num c-dim" title="填一格就套用到所有組">全部</td>
+              <td class="num c-dim" title="{% translate '填一格就套用到所有組' %}">{% translate "全部" %}</td>
               <td class="num"><input class="editnum" type="number" step="any"
-                                     data-fill="target_value" placeholder="目標"></td>
+                                     data-fill="target_value" placeholder="{% translate '目標' %}"></td>
               <td class="num"><input class="editnum" type="number" step="any"
-                                     data-fill="value" placeholder="完成"></td>
+                                     data-fill="value" placeholder="{% translate '完成' %}"></td>
               {% if g.item.domain == "TRACK" %}
                 <td class="num"><input class="editnum" type="text" maxlength="20"
-                                       data-fill="intensity" placeholder="強度"></td>
+                                       data-fill="intensity" placeholder="{% translate '強度' %}"></td>
               {% else %}
                 <td class="num"><input class="editnum" type="number" step="any" min="0"
-                                       data-fill="weight" placeholder="重量"></td>
+                                       data-fill="weight" placeholder="{% translate '重量' %}"></td>
               {% endif %}
               <td class="num"><input class="editnum sm" type="number" step="1" min="0"
-                                     data-fill="reps" placeholder="次數"></td>
+                                     data-fill="reps" placeholder="{% translate '次數' %}"></td>
               <td class="num"><input class="editnum sm" type="number" step="any" min="0"
-                                     data-fill="rest_sec" placeholder="休息"></td>
+                                     data-fill="rest_sec" placeholder="{% translate '休息' %}"></td>
               <td>
                 <select class="editsel" data-fill="completed">
                   <option value="">—</option>
@@ -331,9 +328,9 @@
                 </select>
               </td>
               <td><input class="editnum wide" type="text" maxlength="120"
-                         data-fill="context" placeholder="情境"></td>
+                         data-fill="context" placeholder="{% translate '情境' %}"></td>
               <td><button type="button" class="btn ghost sm fillall"
-                          title="把上面填了的格套用到所有組（還要按儲存才寫回去）">套用</button></td>
+                          title="{% translate '把上面填了的格套用到所有組（還要按儲存才寫回去）' %}">{% translate "套用" %}</button></td>
             </tr>
           </thead>
           <tbody>
@@ -342,52 +339,52 @@
               <td class="num setcell">
                 <input class="editnum setno" type="number" step="1" min="1" form="metricEdit"
                        name="set_no_{{ r.id }}" value="{{ r.set_no|default_if_none:'' }}"
-                       placeholder="—" title="組號——改成想要的次序，存檔後會重排成 1、2、3…">
+                       placeholder="—" title="{% translate '組號——改成想要的次序，存檔後會重排成 1、2、3…' %}">
               </td>
               <td class="num">
                 <input class="editnum" type="number" step="any" form="metricEdit"
                        name="target_value_{{ r.id }}" value="{{ r.target_value|default_if_none:'' }}"
-                       placeholder="—" title="目標數值（{{ g.item.unit|default:'秒' }}）">
+                       placeholder="—" title="{% blocktranslate with v0=g.item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}">
               </td>
               <td class="num">
                 <input class="editnum" type="number" step="any" form="metricEdit"
                        name="value_{{ r.id }}" value="{{ r.value|default_if_none:'' }}"
-                       placeholder="—" title="完成數值（{{ g.item.unit|default:'秒' }}）">
+                       placeholder="—" title="{% blocktranslate with v0=g.item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}">
               </td>
               {% if g.item.domain == "TRACK" %}
                 <td class="num">
                   <input class="editnum" type="text" maxlength="20" form="metricEdit"
                          name="intensity_{{ r.id }}" value="{{ r.intensity }}"
-                         placeholder="—" title="強度要求（例：90%、全力）">
+                         placeholder="—" title="{% translate '強度要求（例：90%、全力）' %}">
                 </td>
               {% else %}
                 <td class="num">
                   <input class="editnum" type="number" step="any" min="0" form="metricEdit"
                          name="weight_{{ r.id }}" value="{{ r.weight_kg|default_if_none:'' }}"
-                         placeholder="—" title="重量 (kg)">
+                         placeholder="—" title="{% translate '重量 (kg)' %}">
                 </td>
               {% endif %}
               <td class="num">
                 <input class="editnum sm" type="number" step="1" min="0" form="metricEdit"
                        name="reps_{{ r.id }}" value="{{ r.reps|default_if_none:'' }}"
-                       placeholder="—" title="次數">
+                       placeholder="—" title="{% translate '次數' %}">
               </td>
               <td class="num">
                 <input class="editnum sm" type="number" step="any" min="0" form="metricEdit"
                        name="rest_sec_{{ r.id }}" value="{{ r.rest_min|default_if_none:'' }}"
-                       placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
+                       placeholder="—" title="{% translate '休息時間（分鐘）' %}{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
               </td>
               <td>
                 <select class="editsel" form="metricEdit" name="completed_{{ r.id }}"
-                        title="這一組有沒有照課表完成">
+                        title="{% translate '這一組有沒有照課表完成' %}">
                   <option value="1" {% if r.completed %}selected{% endif %}>✅</option>
                   <option value="0" {% if not r.completed %}selected{% endif %}>❌</option>
                 </select>
               </td>
               <td>
                 <select class="editsel" form="metricEdit" name="status_{{ r.id }}"
-                        title="這天的練習在什麼狀態下進行">
-                  <option value="">未註記</option>
+                        title="{% translate '這天的練習在什麼狀態下進行' %}">
+                  <option value="">{% translate "未註記" %}</option>
                   {% for v, l in metric_statuses %}
                     <option value="{{ v }}" {% if r.status == v %}selected{% endif %}>{{ l }}</option>
                   {% endfor %}
@@ -395,8 +392,8 @@
               </td>
               <td>
                 <select class="editsel" form="metricEdit" name="block_{{ r.id }}"
-                        title="這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）">
-                  <option value="">未指定</option>
+                        title="{% translate '這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）' %}">
+                  <option value="">{% translate "未指定" %}</option>
                   {% for v, l in metric_blocks %}
                     <option value="{{ v }}" {% if r.block == v %}selected{% endif %}>{{ l }}</option>
                   {% endfor %}
@@ -405,17 +402,17 @@
               <td>
                 <input class="editnum wide" type="text" maxlength="120" form="metricEdit"
                        name="context_{{ r.id }}" value="{{ r.context }}"
-                       placeholder="情境" title="情境（例：順風 1.2、賽前熱身）">
+                       placeholder="{% translate '情境' %}" title="{% translate '情境（例：順風 1.2、賽前熱身）' %}">
               </td>
               <td style="white-space:nowrap">
                 <button class="linkbtn" type="submit" form="metricMove"
-                        name="up" value="{{ r.id }}" title="往前挪一組">↑</button>
+                        name="up" value="{{ r.id }}" title="{% translate '往前挪一組' %}">↑</button>
                 <button class="linkbtn" type="submit" form="metricMove"
-                        name="down" value="{{ r.id }}" title="往後挪一組">↓</button>
+                        name="down" value="{{ r.id }}" title="{% translate '往後挪一組' %}">↓</button>
                 <button class="linkbtn" type="submit" form="metricEdit"
-                        name="only" value="{{ r.id }}" title="只存這一列">✓</button>
+                        name="only" value="{{ r.id }}" title="{% translate '只存這一列' %}">✓</button>
                 <button class="linkbtn" type="submit" form="metricDel"
-                        name="record_id" value="{{ r.id }}" title="刪除">×</button>
+                        name="record_id" value="{{ r.id }}" title="{% translate '刪除' %}">×</button>
               </td>
             </tr>
           {% endfor %}
@@ -425,9 +422,8 @@
     {% endfor %}
     </div>
     <div class="flex" style="padding:12px 18px;border-top:1px solid var(--border)">
-      <button class="btn sm" type="submit" form="metricEdit">儲存全部更改</button>
-      <span class="small c-dim">一次過確認上面所有欄位的修改；
-        數據分析頁的「紀錄明細」看到的是同一份資料。</span>
+      <button class="btn sm" type="submit" form="metricEdit">{% translate "儲存全部更改" %}</button>
+      <span class="small c-dim">{% translate "一次過確認上面所有欄位的修改； 數據分析頁的「紀錄明細」看到的是同一份資料。" %}</span>
     </div>
   {% endif %}
 
@@ -437,12 +433,12 @@
     <input type="hidden" name="action" value="add_metric">
     <div class="row">
       <div class="field">
-        <label>日期</label>
+        <label>{% translate "日期" %}</label>
         <input type="date" name="date" value="{{ s.date|date:'Y-m-d' }}" required>
       </div>
       {% if metric_domains|length > 1 %}
       <div class="field">
-        <label>範疇</label>
+        <label>{% translate "範疇" %}</label>
         <select name="domain" id="metricDomain">
           {% for value, label in metric_domains %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
         </select>
@@ -451,18 +447,18 @@
         {% for value, label in metric_domains %}<input type="hidden" name="domain" value="{{ value }}">{% endfor %}
       {% endif %}
       <div class="field" style="flex:1">
-        <label>數據項目</label>
+        <label>{% translate "數據項目" %}</label>
         <select name="item_id" id="metricItem">
-          <option value="">— 用右邊的名稱新開一個項目 —</option>
+          <option value="">{% translate "— 用右邊的名稱新開一個項目 —" %}</option>
           {% for it in metric_items %}
             <option value="{{ it.id }}" data-domain="{{ it.domain }}">{{ it.get_domain_display }}｜{{ it.display }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="field" style="flex:1">
-        <label>或直接打項目名稱</label>
+        <label>{% translate "或直接打項目名稱" %}</label>
         <input type="text" name="item_name" id="metricName" list="actnames"
-               placeholder="例：槓鈴深蹲、30m 衝刺">
+               placeholder="{% translate '例：槓鈴深蹲、30m 衝刺' %}">
         <datalist id="actnames">
           {% for b in blocks %}{% for row in b.activities %}
             <option value="{{ row.a.name }}" data-block="{{ b.value }}"></option>
@@ -473,12 +469,12 @@
 
     <div class="row" data-libpick data-target="#metricName">
       <div class="field" style="flex:1">
-        <label>或從<a href="{% url 'web:library' %}">運動練習項目庫</a>挑：先運動種類 → 運動項目</label>
+        <label>{% translate "或從" %}<a href="{% url 'web:library' %}">{% translate "運動練習項目庫" %}</a>{% translate "挑：先運動種類 → 運動項目" %}</label>
         <select data-lp="sport"></select>
         <select data-lp="discipline" style="margin-top:6px"></select>
       </div>
       <div class="field" style="flex:1">
-        <label>再挑動作（挑了就會填進上面的項目名稱）</label>
+        <label>{% translate "再挑動作（挑了就會填進上面的項目名稱）" %}</label>
         <select data-lp="activity" size="6" style="height:auto"></select>
       </div>
     </div>
@@ -487,13 +483,13 @@
       <table class="setgrid">
       <thead>
         <tr>
-          <th style="width:52px">組</th>
-          <th>目標數值（秒）</th><th>完成數值（秒）</th>
-          <th>重量 (kg)</th>
-          <th title="田徑練習用：這一組要求跑到幾成">強度要求</th>
-          <th>次數</th>
-          <th>休息（分）</th>
-          <th style="width:118px">成功完成</th>
+          <th style="width:52px">{% translate "組" %}</th>
+          <th>{% translate "目標數值（秒）" %}</th><th>{% translate "完成數值（秒）" %}</th>
+          <th>{% translate "重量 (kg)" %}</th>
+          <th title="{% translate '田徑練習用：這一組要求跑到幾成' %}">{% translate "強度要求" %}</th>
+          <th>{% translate "次數" %}</th>
+          <th>{% translate "休息（分）" %}</th>
+          <th style="width:118px">{% translate "成功完成" %}</th>
           <th style="width:34px"></th>
         </tr>
       </thead>
@@ -503,60 +499,57 @@
           <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
           <td><input type="number" step="0.01" name="value" placeholder="—"></td>
           <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
-          <td><input type="text" maxlength="20" name="intensity" placeholder="例：90%"></td>
+          <td><input type="text" maxlength="20" name="intensity" placeholder="{% translate '例：90%' %}"></td>
           <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
           <td><input type="number" step="0.5" min="0" name="rest_sec" placeholder="—"></td>
           <td>
             <select name="completed">
-              <option value="1">✅ 完成</option>
-              <option value="0">❌ 未完成</option>
+              <option value="1">{% translate "✅ 完成" %}</option>
+              <option value="0">{% translate "❌ 未完成" %}</option>
             </select>
           </td>
-          <td><button type="button" class="linkbtn rmset" title="刪掉這一組">×</button></td>
+          <td><button type="button" class="linkbtn rmset" title="{% translate '刪掉這一組' %}">×</button></td>
         </tr>
       </tbody>
     </table>
       </div>
     <div class="flex mb">
-      <button type="button" class="btn ghost sm" id="addMetricSet">＋ 再加一組（空白）</button>
+      <button type="button" class="btn ghost sm" id="addMetricSet">{% translate "＋ 再加一組（空白）" %}</button>
       <button type="button" class="btn ghost sm" id="copyMetricSet"
-              title="數字照抄上一組，只要改動不一樣的那一格">＋ 跟上一組一樣</button>
-      <label class="unitpick">休息時間單位
+              title="{% translate '數字照抄上一組，只要改動不一樣的那一格' %}">{% translate "＋ 跟上一組一樣" %}</button>
+      <label class="unitpick">{% translate "休息時間單位" %}
         <select name="rest_unit">
-          <option value="min" selected>分鐘</option>
-          <option value="sec">秒</option>
+          <option value="min" selected>{% translate "分鐘" %}</option>
+          <option value="sec">{% translate "秒" %}</option>
         </select>
       </label>
-      <span class="small c-dim">每一組各存成一筆；數值可以先留空，之後在數據分析補；
-        只有「數據項目」或「項目名稱」沒填才登不進去</span>
+      <span class="small c-dim">{% translate "每一組各存成一筆；數值可以先留空，之後在數據分析補； 只有「數據項目」或「項目名稱」沒填才登不進去" %}</span>
     </div>
     <div class="row">
       <div class="field">
-        <label>狀態（這天的練習在什麼狀態下進行）</label>
+        <label>{% translate "狀態（這天的練習在什麼狀態下進行）" %}</label>
         <select name="status">
-          <option value="">（未註記）</option>
+          <option value="">{% translate "（未註記）" %}</option>
           {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
         </select>
-        <span class="small c-dim">傷患期、季後休息期練出來的數字本來就不一樣；
-          註記了，數據分析才不會把它當成能力退步</span>
+        <span class="small c-dim">{% translate "傷患期、季後休息期練出來的數字本來就不一樣； 註記了，數據分析才不會把它當成能力退步" %}</span>
       </div>
       <div class="field">
-        <label>課表區塊（這次所有組共用）</label>
+        <label>{% translate "課表區塊（這次所有組共用）" %}</label>
         <select name="block" id="metricBlock">
-          <option value="">（未指定）</option>
+          <option value="">{% translate "（未指定）" %}</option>
           {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
         </select>
-        <span class="small c-dim">這一組數據放回課表的哪一段；
-          項目名稱對得上課表上的動作時會自動幫你挑好</span>
+        <span class="small c-dim">{% translate "這一組數據放回課表的哪一段； 項目名稱對得上課表上的動作時會自動幫你挑好" %}</span>
       </div>
       <div class="field" style="flex:1">
-        <label>情境（這次所有組共用）</label>
-        <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+        <label>{% translate "情境（這次所有組共用）" %}</label>
+        <input type="text" name="context" placeholder="{% translate '例：順風 1.2、賽前熱身、深蹲日' %}">
       </div>
     </div>
     <div class="flex">
-      <button class="btn" type="submit">登記數據</button>
-      <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}{% for value, label in metric_domains %}{% if forloop.first %}&domain={{ value }}{% endif %}{% endfor %}">到數據分析看趨勢 →</a>
+      <button class="btn" type="submit">{% translate "登記數據" %}</button>
+      <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ s.athlete.id }}{% for value, label in metric_domains %}{% if forloop.first %}&domain={{ value }}{% endif %}{% endfor %}">{% translate "到數據分析看趨勢 →" %}</a>
     </div>
   </form>
   {% endif %}
@@ -565,8 +558,8 @@
 <!-- ------------------------------------------------------------- 共同記事 -->
 <div class="card mb">
   <div class="between mb">
-    <h2 style="margin:0">共同記事</h2>
-    <span class="small c-dim">教練、運動員、管理員寫在同一個版面；每一則只有作者本人改得動</span>
+    <h2 style="margin:0">{% translate "共同記事" %}</h2>
+    <span class="small c-dim">{% translate "教練、運動員、管理員寫在同一個版面；每一則只有作者本人改得動" %}</span>
   </div>
 
   {% if notes %}
@@ -581,11 +574,11 @@
             <span class="c-dim">{{ n.author.get_role_display }} · {{ n.updated_at|date:"m-d H:i" }}</span>
           </span>
           {% if row.editable %}
-          <form method="post" onsubmit="return confirm('刪除這則記事？')">
+          <form method="post" onsubmit="return confirm('{% translate "刪除這則記事？" %}')">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete_note">
             <input type="hidden" name="id" value="{{ n.id }}">
-            <button class="linkbtn" type="submit" title="刪除">✕</button>
+            <button class="linkbtn" type="submit" title="{% translate '刪除' %}">✕</button>
           </form>
           {% endif %}
         </div>
@@ -596,7 +589,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="c-dim small mb">還沒有人寫。</div>
+  <div class="c-dim small mb">{% translate "還沒有人寫。" %}</div>
   {% endif %}
 
   <form method="post" class="mt">
@@ -604,17 +597,17 @@
     <input type="hidden" name="action" value="add_note">
     <div class="row">
       <div class="field" style="max-width:160px">
-        <label>類別</label>
+        <label>{% translate "類別" %}</label>
         <select name="kind">
           {% for v, l in note_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
         </select>
       </div>
       <div class="field" style="flex:1">
-        <label>寫點什麼</label>
-        <textarea name="body" rows="2" placeholder="今天的狀況、要提醒的地方、下一課的調整…"></textarea>
+        <label>{% translate "寫點什麼" %}</label>
+        <textarea name="body" rows="2" placeholder="{% translate '今天的狀況、要提醒的地方、下一課的調整…' %}"></textarea>
       </div>
     </div>
-    <button class="btn sm" type="submit">送出</button>
+    <button class="btn sm" type="submit">{% translate "送出" %}</button>
   </form>
 </div>
 
@@ -623,17 +616,17 @@
      而且預設收起來——現在只有一個地方登數據，不會再有人填錯地方。 -->
 {% if track_sets or strength_sets %}
 <details class="legacy mb">
-  <summary>舊格式明細 <span class="badge b-dim">存檔</span>
-    <span class="small c-dim">換成「本課數據紀錄」之前登的資料，仍可點下去改；新的紀錄請登在上面</span>
+  <summary>{% translate "舊格式明細" %} <span class="badge b-dim">{% translate "存檔" %}</span>
+    <span class="small c-dim">{% translate "換成「本課數據紀錄」之前登的資料，仍可點下去改；新的紀錄請登在上面" %}</span>
   </summary>
 {% endif %}
 {% if track_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>田徑專項組數</span></div>
+  <div class="card-head"><span>{% translate "田徑專項組數" %}</span></div>
   <table>
     <thead>
-      <tr><th>#</th><th>內容</th><th class="num">距離</th><th class="num">目標</th><th class="num">實際</th>
-          <th class="num">配速/100m</th><th class="num">%PB</th><th class="num">趟間休</th><th class="num">RPE</th><th>技術重點</th></tr>
+      <tr><th>#</th><th>{% translate "內容" %}</th><th class="num">{% translate "距離" %}</th><th class="num">{% translate "目標" %}</th><th class="num">{% translate "實際" %}</th>
+          <th class="num">{% translate "配速/100m" %}</th><th class="num">%PB</th><th class="num">{% translate "趟間休" %}</th><th class="num">RPE</th><th>{% translate "技術重點" %}</th></tr>
     </thead>
     <tbody>
     {% for t in track_sets %}
@@ -657,17 +650,17 @@
 
 {% if strength_sets %}
 <div class="card pad0 mb">
-  <div class="card-head"><span>力量訓練組數</span></div>
+  <div class="card-head"><span>{% translate "力量訓練組數" %}</span></div>
   <table>
     <thead>
-      <tr><th>動作</th><th class="num">組</th><th class="num">次</th><th class="num">重量</th>
-          <th class="num">目標%1RM</th><th class="num">實際%1RM</th><th class="num">RIR</th>
-          <th class="num">RPE</th><th class="num">Tonnage</th><th>備註</th></tr>
+      <tr><th>{% translate "動作" %}</th><th class="num">{% translate "組" %}</th><th class="num">{% translate "次" %}</th><th class="num">{% translate "重量" %}</th>
+          <th class="num">{% translate "目標%1RM" %}</th><th class="num">{% translate "實際%1RM" %}</th><th class="num">RIR</th>
+          <th class="num">RPE</th><th class="num">Tonnage</th><th>{% translate "備註" %}</th></tr>
     </thead>
     <tbody>
     {% for x in strength_sets %}
       <tr>
-        <td>{{ x.exercise.name_zh }}</td>
+        <td>{{ x.exercise.display_name }}</td>
         <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:set_number" data-kind="number" data-value="{{ x.set_number }}">{{ x.set_number }}</span></td>
         <td class="num"><span class="cell" data-edit="strengthset:{{ x.id }}:reps" data-kind="number" data-value="{{ x.reps }}">{{ x.reps }}</span></td>
         <td class="num c-accent"><span class="cell" data-edit="strengthset:{{ x.id }}:weight_kg" data-kind="number" data-value="{{ x.weight_kg }}">{{ x.weight_kg }}</span> kg</td>
@@ -689,8 +682,8 @@
 <div class="grid grid-2">
   <div class="card">
     <div class="between">
-      <h2 style="margin:0">訓練後檢討和反饋</h2>
-      {% if s.session_rpe %}<span class="badge b-green">已填 · RPE {{ s.session_rpe }}／負荷 {{ s.session_load }} AU</span>{% endif %}
+      <h2 style="margin:0">{% translate "訓練後檢討和反饋" %}</h2>
+      {% if s.session_rpe %}<span class="badge b-green">{% blocktranslate with v0=s.session_rpe v1=s.session_load %}已填 · RPE {{ v0 }}／負荷 {{ v1 }} AU{% endblocktranslate %}</span>{% endif %}
     </div>
     {% if can_log %}
     {% comment %}
@@ -698,31 +691,31 @@
       抬頭那邊只顯示不給改，免得同一件事有兩個地方填。填過之後預設收起來。
     {% endcomment %}
     <details class="recap" id="recap" {% if not s.session_rpe %}open{% endif %}>
-      <summary>{% if s.session_rpe %}修改課後數字與反饋{% else %}練完後在這裡一次填完{% endif %}</summary>
+      <summary>{% if s.session_rpe %}{% translate "修改課後數字與反饋" %}{% else %}{% translate "練完後在這裡一次填完" %}{% endif %}</summary>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="complete">
       <div class="small c-dim mb">
-        練完在這裡一次填完，上面課表抬頭那四格會跟著更新（負荷 ＝ RPE × 時長）。
+        {% translate "練完在這裡一次填完，上面課表抬頭那四格會跟著更新（負荷 ＝ RPE × 時長）。" %}
       </div>
       <div class="row">
         <div class="field">
-          <label for="dur">實際時長（分鐘）</label>
+          <label for="dur">{% translate "實際時長（分鐘）" %}</label>
           <input type="number" id="dur" name="actual_duration_min" min="0" max="600"
                  value="{{ s.actual_duration_min|default:s.planned_duration_min }}" required>
         </div>
         <div class="field">
-          <label for="rpe">課後 RPE (1–10)</label>
+          <label for="rpe">{% translate "課後 RPE (1–10)" %}</label>
           <input type="number" id="rpe" name="session_rpe" min="1" max="10"
                  value="{{ s.session_rpe|default:7 }}" required>
         </div>
         <div class="field">
-          <label for="pct">完成度 (%)</label>
+          <label for="pct">{% translate "完成度 (%)" %}</label>
           <input type="number" id="pct" name="completion_pct" min="0" max="100"
                  value="{{ s.completion_pct|default:100 }}">
         </div>
         <div class="field">
-          <label for="sat">滿意度 (1–5)</label>
+          <label for="sat">{% translate "滿意度 (1–5)" %}</label>
           <select id="sat" name="satisfaction">
             <option value="">—</option>
             {% for i in "12345" %}
@@ -732,33 +725,33 @@
         </div>
       </div>
       <div class="field">
-        <label for="fb">運動員反饋</label>
+        <label for="fb">{% translate "運動員反饋" %}</label>
         <textarea id="fb" name="athlete_feedback" rows="3"
-                  placeholder="感受、狀況、身體反應…">{{ s.athlete_feedback }}</textarea>
+                  placeholder="{% translate '感受、狀況、身體反應…' %}">{{ s.athlete_feedback }}</textarea>
       </div>
-      <button class="btn" type="submit">送出檢討和反饋</button>
-      <span class="small c-dim" style="margin-left:10px">負荷 = RPE × 時長，送出後即時重算 ACWR</span>
+      <button class="btn" type="submit">{% translate "送出檢討和反饋" %}</button>
+      <span class="small c-dim" style="margin-left:10px">{% translate "負荷 = RPE × 時長，送出後即時重算 ACWR" %}</span>
     </form>
     </details>
     {% else %}
-      <div class="small c-dim mb">訓練後檢討和反饋由運動員本人填寫。</div>
-      <div style="white-space:pre-wrap">{{ s.athlete_feedback|default:"運動員尚未填寫反饋。" }}</div>
+      <div class="small c-dim mb">{% translate "訓練後檢討和反饋由運動員本人填寫。" %}</div>
+      <div style="white-space:pre-wrap">{{ s.athlete_feedback|default:_("運動員尚未填寫反饋。") }}</div>
     {% endif %}
   </div>
 
   <div class="card">
-    <h2>教練評語</h2>
+    <h2>{% translate "教練評語" %}</h2>
     {% if can_comment %}
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="coach_comment">
         <div class="field">
-          <textarea name="coach_comment" rows="5" placeholder="技術修正、下次調整方向…">{{ s.coach_comment }}</textarea>
+          <textarea name="coach_comment" rows="5" placeholder="{% translate '技術修正、下次調整方向…' %}">{{ s.coach_comment }}</textarea>
         </div>
-        <button class="btn" type="submit">儲存評語</button>
+        <button class="btn" type="submit">{% translate "儲存評語" %}</button>
       </form>
     {% else %}
-      <div style="white-space:pre-wrap">{{ s.coach_comment|default:"教練尚未留下評語。" }}</div>
+      <div style="white-space:pre-wrap">{{ s.coach_comment|default:_("教練尚未留下評語。") }}</div>
     {% endif %}
   </div>
 </div>
@@ -770,80 +763,79 @@
     <input type="hidden" name="action" value="add_activity">
     <input type="hidden" name="block" id="actBlock">
     <div class="between mb">
-      <h2 style="margin:0">加入活動 · <span id="actBlockLabel"></span></h2>
-      <button type="button" class="btn ghost sm" onclick="document.getElementById('actDlg').close()">關閉</button>
+      <h2 style="margin:0">{% translate "加入活動 ·" %} <span id="actBlockLabel"></span></h2>
+      <button type="button" class="btn ghost sm" onclick="document.getElementById('actDlg').close()">{% translate "關閉" %}</button>
     </div>
 
     <input type="hidden" name="definition" id="actDefId">
 
     <div class="row" data-libpick>
       <div class="field" style="flex:1">
-        <label>① 先挑運動種類 → 運動項目</label>
+        <label>{% translate "① 先挑運動種類 → 運動項目" %}</label>
         <select data-lp="sport"></select>
         <select data-lp="discipline" style="margin-top:6px"></select>
         <div class="small c-dim" style="margin-top:6px">
-          例：先挑「田徑」再挑「短跑」，右邊就只列短跑的動作。清單來自
-          <a href="{% url 'web:library' %}">運動練習項目庫</a>。
+          {% translate "例：先挑「田徑」再挑「短跑」，右邊就只列短跑的動作。清單來自" %}
+          <a href="{% url 'web:library' %}">{% translate "運動練習項目庫" %}</a>。
         </div>
       </div>
       <div class="field" style="flex:1">
-        <label>② 挑動作（點一個再按「加進名單」，可以連續加多項）</label>
+        <label>{% translate "② 挑動作（點一個再按「加進名單」，可以連續加多項）" %}</label>
         <select id="actPick" data-lp="activity" size="8" style="height:auto"></select>
-        <button type="button" class="btn ghost sm" id="actPickAdd" style="margin-top:6px">加進名單</button>
+        <button type="button" class="btn ghost sm" id="actPickAdd" style="margin-top:6px">{% translate "加進名單" %}</button>
       </div>
     </div>
 
     <div class="row">
       <div class="field" style="flex:1">
-        <label>或打名稱搜活動庫</label>
-        <input type="text" id="actSearch" list="libnames" placeholder="打「深蹲」就會跳出活動庫的選項">
+        <label>{% translate "或打名稱搜活動庫" %}</label>
+        <input type="text" id="actSearch" list="libnames" placeholder="{% translate '打「深蹲」就會跳出活動庫的選項' %}">
         <datalist id="libnames">
           {% for d in library %}
             <option value="{{ d.name }}">{{ d.name_en }}</option>
           {% endfor %}
         </datalist>
-        <button type="button" class="btn ghost sm" id="actSearchAdd" style="margin-top:6px">加進名單</button>
+        <button type="button" class="btn ghost sm" id="actSearchAdd" style="margin-top:6px">{% translate "加進名單" %}</button>
       </div>
     </div>
 
     <div class="field">
-      <label>活動名稱（一行一項，可以一次加入多個）</label>
+      <label>{% translate "活動名稱（一行一項，可以一次加入多個）" %}</label>
       <textarea name="name" id="actName" rows="3"
-                placeholder="槓鈴深蹲&#10;臀推（自體重量）&#10;平板支撐"></textarea>
+                placeholder="{% translate '槓鈴深蹲&#10;臀推（自體重量）&#10;平板支撐' %}"></textarea>
       <div class="small c-dim" style="margin-top:4px">
-        名稱對得上活動庫的，會自動帶入該活動的預設組數／次數／休息；
-        加進來的動作同時會在數據分析開好同名項目。
+        {% translate "名稱對得上活動庫的，會自動帶入該活動的預設組數／次數／休息； 加進來的動作同時會在數據分析開好同名項目。" %}
       </div>
     </div>
 
     <div class="row">
-      <div class="field"><label>組數</label><input type="text" name="sets" id="f_sets" placeholder="3 組"></div>
-      <div class="field"><label>次數</label><input type="text" name="reps" id="f_reps" placeholder="左/右腳 15 次"></div>
+      <div class="field"><label>{% translate "組數" %}</label><input type="text" name="sets" id="f_sets" placeholder="{% translate '3 組' %}"></div>
+      <div class="field"><label>{% translate "次數" %}</label><input type="text" name="reps" id="f_reps" placeholder="{% translate '左/右腳 15 次' %}"></div>
       <div class="field">
-        <label>距離</label>
-        <input type="text" name="distance" id="f_distance" placeholder="30 米">
+        <label>{% translate "距離" %}</label>
+        <input type="text" name="distance" id="f_distance" placeholder="{% translate '30 米' %}">
         <div class="small c-dim" id="f_distance_hint" hidden style="margin-top:4px">
-          專項動作的距離不預設，在這裡填今天要跑的米數（例：30 米、150 米）。
+          {% translate "專項動作的距離不預設，在這裡填今天要跑的米數（例：30 米、150 米）。" %}
         </div>
       </div>
     </div>
     <div class="row">
-      <div class="field"><label>重量</label><input type="text" name="weight" id="f_weight" placeholder="body weight"></div>
-      <div class="field"><label>強度</label><input type="text" name="intensity" id="f_intensity" placeholder="80%–90%"></div>
-      <div class="field"><label>休息時間</label><input type="text" name="rest" id="f_rest" placeholder="每次 5 分鐘 / 每組 15 分鐘"></div>
+      <div class="field"><label>{% translate "重量" %}</label><input type="text" name="weight" id="f_weight" placeholder="body weight"></div>
+      <div class="field"><label>{% translate "強度" %}</label><input type="text" name="intensity" id="f_intensity" placeholder="80%–90%"></div>
+      <div class="field"><label>{% translate "休息時間" %}</label><input type="text" name="rest" id="f_rest" placeholder="{% translate '每次 5 分鐘 / 每組 15 分鐘' %}"></div>
     </div>
     <div class="field">
-      <label>訓練要點</label>
-      <textarea name="key_points" id="f_key_points" rows="2" placeholder="髖不塌、核心收緊…"></textarea>
+      <label>{% translate "訓練要點" %}</label>
+      <textarea name="key_points" id="f_key_points" rows="2" placeholder="{% translate '髖不塌、核心收緊…' %}"></textarea>
     </div>
     <div class="field">
-      <label>當日備注</label>
-      <textarea name="note" rows="2" placeholder="今天場地濕、改在草地做…"></textarea>
+      <label>{% translate "當日備注" %}</label>
+      <textarea name="note" rows="2" placeholder="{% translate '今天場地濕、改在草地做…' %}"></textarea>
     </div>
 
     <div class="flex">
-      <button class="btn" type="submit">加入課表</button>
-      <button class="btn ghost" type="button" id="openNewDef">＋ 新增一個活動到清單</button>
+      <button class="btn" type="submit">{% translate "加入課表" %}</button>
+      <button class="btn ghost" type="button" id="openNewDef">{% translate "＋ 新增一個活動到清單" %}</button>
     </div>
   </form>
 </dialog>
@@ -854,19 +846,18 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="new_definition">
     <div class="between mb">
-      <h2 style="margin:0">新增訓練活動</h2>
-      <button type="button" class="btn ghost sm" onclick="document.getElementById('defDlg').close()">關閉</button>
+      <h2 style="margin:0">{% translate "新增訓練活動" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="document.getElementById('defDlg').close()">{% translate "關閉" %}</button>
     </div>
     <div class="small c-dim mb">
-      寫進<a href="{% url 'web:library' %}">運動練習項目庫</a>之後，排課表時所有人都挑得到，
-      不用再逐字打。新加的動作要管理員確認過才會對所有人出現，在那之前只有你自己挑得到。
+      {% translate "寫進" %}<a href="{% url 'web:library' %}">{% translate "運動練習項目庫" %}</a>{% translate "之後，排課表時所有人都挑得到， 不用再逐字打。新加的動作要管理員確認過才會對所有人出現，在那之前只有你自己挑得到。" %}
     </div>
 
     <div class="row">
-      <div class="field" style="flex:2"><label>活動名稱</label><input type="text" name="name" required placeholder="例：槓鈴深蹲"></div>
-      <div class="field" style="flex:2"><label>英文名稱</label><input type="text" name="name_en" placeholder="例：Squat (Barbell)"></div>
+      <div class="field" style="flex:2"><label>{% translate "活動名稱" %}</label><input type="text" name="name" required placeholder="{% translate '例：槓鈴深蹲' %}"></div>
+      <div class="field" style="flex:2"><label>{% translate "英文名稱" %}</label><input type="text" name="name_en" placeholder="{% translate '例：Squat (Barbell)' %}"></div>
       <div class="field">
-        <label>運動項目</label>
+        <label>{% translate "運動項目" %}</label>
         <select name="discipline">
           {% for d in library_disciplines %}
             <option value="{{ d.id }}">{{ d.sport.name }} · {{ d.name }}</option>
@@ -874,35 +865,35 @@
         </select>
       </div>
       <div class="field">
-        <label>訓練動作種類</label>
+        <label>{% translate "訓練動作種類" %}</label>
         <select name="movement_kind">
           <option value="">—</option>
           {% for k in library_kinds %}<option value="{{ k.id }}">{{ k.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="field">
-        <label>預設區塊</label>
+        <label>{% translate "預設區塊" %}</label>
         <select name="default_block">
           {% for v, l in block_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
         </select>
       </div>
     </div>
     <div class="row">
-      <div class="field"><label>預設組數</label><input type="text" name="sets" placeholder="3 組"></div>
-      <div class="field"><label>預設次數</label><input type="text" name="reps" placeholder="15 次"></div>
-      <div class="field"><label>預設距離</label><input type="text" name="distance" placeholder="30 米"></div>
+      <div class="field"><label>{% translate "預設組數" %}</label><input type="text" name="sets" placeholder="{% translate '3 組' %}"></div>
+      <div class="field"><label>{% translate "預設次數" %}</label><input type="text" name="reps" placeholder="{% translate '15 次' %}"></div>
+      <div class="field"><label>{% translate "預設距離" %}</label><input type="text" name="distance" placeholder="{% translate '30 米' %}"></div>
     </div>
     <div class="row">
-      <div class="field"><label>預設重量</label><input type="text" name="weight" placeholder="body weight"></div>
-      <div class="field"><label>預設強度</label><input type="text" name="intensity" placeholder="80%–90%"></div>
-      <div class="field"><label>預設休息時間</label><input type="text" name="rest" placeholder="30s / walk back"></div>
+      <div class="field"><label>{% translate "預設重量" %}</label><input type="text" name="weight" placeholder="body weight"></div>
+      <div class="field"><label>{% translate "預設強度" %}</label><input type="text" name="intensity" placeholder="80%–90%"></div>
+      <div class="field"><label>{% translate "預設休息時間" %}</label><input type="text" name="rest" placeholder="30s / walk back"></div>
     </div>
     <div class="field">
-      <label>預設訓練要點</label>
+      <label>{% translate "預設訓練要點" %}</label>
       <textarea name="key_points" rows="2"></textarea>
     </div>
-    <label class="flex small"><input type="checkbox" name="also_add" value="1" checked> 同時加進這一堂課</label>
-    <button class="btn mt" type="submit">建立活動</button>
+    <label class="flex small"><input type="checkbox" name="also_add" value="1" checked> {% translate "同時加進這一堂課" %}</label>
+    <button class="btn mt" type="submit">{% translate "建立活動" %}</button>
   </form>
 </dialog>
 

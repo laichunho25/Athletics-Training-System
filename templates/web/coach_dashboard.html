@@ -1,44 +1,45 @@
 {% extends "base.html" %}
-{% block title %}運動員狀態總覽{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "運動員狀態總覽" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>運動員狀態總覽</h1>
-    <p class="subtitle" style="margin:0">{{ today }} · 共 {{ total }} 名運動員</p>
+    <h1>{% translate "運動員狀態總覽" %}</h1>
+    <p class="subtitle" style="margin:0">{% blocktranslate with v0=today v1=total %}{{ v0 }} · 共 {{ v1 }} 名運動員{% endblocktranslate %}</p>
   </div>
-  <a class="btn ghost sm" href="{% url 'web:athlete_list' %}">← 回運動員列表</a>
+  <a class="btn ghost sm" href="{% url 'web:athlete_list' %}">{% translate "← 回運動員列表" %}</a>
 </div>
 
 {% if high_risk %}
 <div class="alert red">
-  🔴 <strong>高受傷風險（ACWR &gt; 1.50）：</strong>
+  🔴 <strong>{% translate "高受傷風險（ACWR &gt; 1.50）：" %}</strong>
   {% for r in high_risk %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.acwr }}）{% if not forloop.last %}、{% endif %}{% endfor %}
-  — 建議本週減量 20–30%。
+  {% translate "— 建議本週減量 20–30%。" %}
 </div>
 {% endif %}
 {% if injured %}
 <div class="alert yellow">
-  ⚠️ <strong>傷患中：</strong>
-  {% for r in injured %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.injuries }} 筆）{% if not forloop.last %}、{% endif %}{% endfor %}
+  ⚠️ <strong>{% translate "傷患中：" %}</strong>
+  {% for r in injured %}{% blocktranslate with v0=r.athlete.user.get_full_name|default:r.athlete.user.username v1=r.injuries %}{{ v0 }}（{{ v1 }} 筆）{% endblocktranslate %}{% if not forloop.last %}、{% endif %}{% endfor %}
 </div>
 {% endif %}
 
 <div class="card pad0">
-  <div class="card-head"><span>全隊燈號一覽</span></div>
+  <div class="card-head"><span>{% translate "全隊燈號一覽" %}</span></div>
   <table>
     <thead>
       <tr>
-        <th>運動員</th><th>主項</th><th>狀態</th>
-        <th class="num">ACWR</th><th>風險</th>
-        <th class="num">準備度</th><th class="num">傷患</th><th class="num">今日課</th><th></th>
+        <th>{% translate "運動員" %}</th><th>{% translate "主項" %}</th><th>{% translate "狀態" %}</th>
+        <th class="num">ACWR</th><th>{% translate "風險" %}</th>
+        <th class="num">{% translate "準備度" %}</th><th class="num">{% translate "傷患" %}</th><th class="num">{% translate "今日課" %}</th><th></th>
       </tr>
     </thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td><strong>{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}</strong></td>
-        <td>{{ r.athlete.primary_event.name_zh }}</td>
+        <td>{{ r.athlete.primary_event.display_name }}</td>
         <td>
           <span class="badge {% if r.athlete.status == 'HEALTHY' %}b-green{% elif r.athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ r.status }}</span>
         </td>
@@ -48,11 +49,11 @@
         <td class="num">{% if r.injuries %}<span class="c-red">{{ r.injuries }}</span>{% else %}0{% endif %}</td>
         <td class="num">{{ r.today_sessions }}</td>
         <td>
-          <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ r.athlete.id }}">詳情</a>
+          <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ r.athlete.id }}">{% translate "詳情" %}</a>
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="9" class="empty">尚未有旗下運動員</td></tr>
+      <tr><td colspan="9" class="empty">{% translate "尚未有旗下運動員" %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

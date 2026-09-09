@@ -8,6 +8,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import F
+from django.utils.translation import gettext_lazy as _
 
 from analytics.models import (
     MetricRecord,
@@ -20,7 +21,7 @@ from analytics.models import (
 def _clean_block(raw):
     """課表區塊：不認得的值一律當成「沒指定」。"""
     raw = (raw or "").strip()
-    return raw if raw in [v for v, _ in block_choices()] else ""
+    return raw if raw in [v for v, _unused in block_choices()] else ""
 
 
 class RecordError(Exception):
@@ -49,7 +50,7 @@ def _decimal(seq, i, label, problems):
     try:
         return Decimal(raw)
     except (InvalidOperation, ValueError):
-        problems.append(f"第 {i + 1} 組的{label}不是有效數字。")
+        problems.append(_("第 %(v0)s 組的%(v1)s不是有效數字。") % {"v0": i + 1, "v1": label})
         return None
 
 
@@ -68,7 +69,7 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     """
     if session is not None and not session_allows(session, item):
         raise RecordError(
-            f"「{session.get_session_type_display()}」的課表不能登{item.get_domain_display()}。"
+            _("「%(v0)s」的課表不能登%(v1)s。") % {"v0": session.get_session_type_display(), "v1": item.get_domain_display()}
         )
 
     context = post.get("context", "")
@@ -104,8 +105,8 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 
     created, problems = [], []
     for position, i in enumerate(rows):
-        target = _decimal(targets, i, "目標數值", problems)
-        value = _decimal(values, i, "完成數值", problems)
+        target = _decimal(targets, i, _("目標數值"), problems)
+        value = _decimal(values, i, _("完成數值"), problems)
         weight = _num(weights, i, Decimal)
         if weight is None and unit_is_weight:
             weight = value
@@ -135,13 +136,13 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 
     if len(created) == 1:
         r = created[0]
-        shown = f"{r.value}{item.unit}" if r.value is not None else "（未填數值）"
-        message = f"已記錄 {item.name} {shown}（{r.date}）。"
+        shown = f"{r.value}{item.unit}" if r.value is not None else _("（未填數值）")
+        message = _("已記錄 %(v0)s %(v1)s（%(v2)s）。") % {"v0": item.name, "v1": shown, "v2": r.date}
     else:
         failed = sum(1 for r in created if not r.completed)
         message = (
-            f"已記錄 {item.name} {len(created)} 組（{created[0].date}）"
-            + (f"，其中 {failed} 組未成功完成。" if failed else "。")
+            _("已記錄 %(v0)s %(v1)s 組（%(v2)s）") % {"v0": item.name, "v1": len(created), "v2": created[0].date}
+            + (_("，其中 %(v0)s 組未成功完成。") % {"v0": failed} if failed else "。")
         )
     if problems:
         message += " " + "；".join(problems)
@@ -268,7 +269,7 @@ def _edit_decimal(raw, label, record_id, problems):
     try:
         return Decimal(raw)
     except (InvalidOperation, ValueError):
-        problems.append(f"第 {record_id} 筆的{label}不是有效數字")
+        problems.append(_("第 %(v0)s 筆的%(v1)s不是有效數字") % {"v0": record_id, "v1": label})
         return "skip"
 
 
@@ -303,9 +304,9 @@ def update_records(post, records, only=None, session_lookup=None):
                 fields.append(name)
 
         for name, attr, label in (
-            ("target_value", "target_value", "目標數值"),
-            ("value", "value", "完成數值"),
-            ("weight", "weight_kg", "重量"),
+            ("target_value", "target_value", _("目標數值")),
+            ("value", "value", _("完成數值")),
+            ("weight", "weight_kg", _("重量")),
         ):
             raw = _field(post, name, rid)
             if raw is None:
@@ -324,7 +325,7 @@ def update_records(post, records, only=None, session_lookup=None):
             else:
                 order = _num([raw], 0, int)
                 if order is None or order < 1:
-                    problems.append(f"第 {rid} 筆的組號要填 1 以上的整數")
+                    problems.append(_("第 %(v0)s 筆的組號要填 1 以上的整數") % {"v0": rid})
                 else:
                     take("set_no", order)
 
@@ -332,7 +333,7 @@ def update_records(post, records, only=None, session_lookup=None):
         if raw is not None:
             reps = _num([raw], 0, int)
             if raw.strip() and reps is None:
-                problems.append(f"第 {rid} 筆的次數不是有效數字")
+                problems.append(_("第 %(v0)s 筆的次數不是有效數字") % {"v0": rid})
             else:
                 take("reps", None if reps is None else max(0, reps))
 
@@ -340,7 +341,7 @@ def update_records(post, records, only=None, session_lookup=None):
         if raw is not None:
             rest = _num([raw], 0, float)
             if raw.strip() and rest is None:
-                problems.append(f"第 {rid} 筆的休息時間不是有效數字")
+                problems.append(_("第 %(v0)s 筆的休息時間不是有效數字") % {"v0": rid})
             else:
                 take("rest_sec", None if rest is None else max(0, round(rest * rest_factor)))
 
@@ -367,11 +368,10 @@ def update_records(post, records, only=None, session_lookup=None):
             else:
                 found = session_lookup(raw)
                 if found is None:
-                    problems.append(f"第 {rid} 筆指定的 program 找不到")
+                    problems.append(_("第 %(v0)s 筆指定的 program 找不到") % {"v0": rid})
                 elif not session_allows(found, record.item):
                     problems.append(
-                        f"第 {rid} 筆：「{found.get_session_type_display()}」"
-                        f"的課不能掛{record.item.get_domain_display()}的紀錄"
+                        _("第 %(v0)s 筆：「%(v1)s」的課不能掛%(v2)s的紀錄") % {"v0": rid, "v1": found.get_session_type_display(), "v2": record.item.get_domain_display()}
                     )
                 elif record.session_id != found.pk:
                     record.session = found
@@ -454,9 +454,9 @@ def move_record(record, direction):
 def edit_message(changed, problems, scope=""):
     """更新完之後給使用者看的一句話。"""
     if changed:
-        text = f"已更新 {changed} 筆紀錄{scope}。"
+        text = _("已更新 %(v0)s 筆紀錄%(v1)s。") % {"v0": changed, "v1": scope}
     else:
-        text = "沒有任何一筆需要更新（內容跟原本一樣）。"
+        text = _("沒有任何一筆需要更新（內容跟原本一樣）。")
     if problems:
-        text += "　" + "；".join(problems) + "（這幾格沒有存進去）。"
+        text += "　" + "；".join(problems) + _("（這幾格沒有存進去）。")
     return text

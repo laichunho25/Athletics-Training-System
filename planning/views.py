@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.utils.translation import gettext as _
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -40,7 +41,7 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 
         comp = Competition.objects.filter(is_target=True, date__gte=date.today()).first()
         if comp is None:
-            return Response({"detail": "尚未設定主目標賽事。"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": _("尚未設定主目標賽事。")}, status=status.HTTP_404_NOT_FOUND)
         return Response(self.get_serializer(comp).data)
 
 
@@ -71,7 +72,7 @@ class MacrocycleViewSet(viewsets.ModelViewSet):
         micros = macro.generate_microcycles()
         return Response(
             {
-                "detail": f"已建立 {len(phases)} 個分期、{len(micros)} 個週計劃。",
+                "detail": _("已建立 %(v0)s 個分期、%(v1)s 個週計劃。") % {"v0": len(phases), "v1": len(micros)},
                 "macrocycle": self.get_serializer(macro).data,
             }
         )
@@ -206,7 +207,7 @@ class SessionTemplateViewSet(viewsets.ModelViewSet):
 
         return Response(
             {
-                "detail": f"已派發給 {len(created)} 名運動員。",
+                "detail": _("已派發給 %(v0)s 名運動員。") % {"v0": len(created)},
                 "sessions": TrainingSessionSerializer(created, many=True).data,
             },
             status=status.HTTP_201_CREATED,

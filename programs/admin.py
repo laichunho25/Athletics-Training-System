@@ -6,6 +6,7 @@ from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.translation import gettext as _
 
 from programs.models import Application, ApplicationStatus, Project, ProjectStatus
 from programs.services import (
@@ -21,11 +22,10 @@ def registered_badge(application, matches=None):
     """報名名單上的「已註冊運動員」標記：匯入前是比對結果，匯入後是實際檔案。"""
     if application.athlete_id:
         if not application.is_returning_athlete:
-            return format_html('<span style="color:#1b7f3b">{}</span>', "新運動員")
+            return format_html('<span style="color:#1b7f3b">{}</span>', _("新運動員"))
         url = reverse("admin:accounts_athleteprofile_change", args=[application.athlete_id])
         return format_html(
-            '<a href="{}" style="color:#0b5cad;font-weight:600">已註冊運動員</a>'
-            '<div style="color:#666;font-size:11px">沿用原有檔案</div>',
+            _('<a href="{}" style="color:#0b5cad;font-weight:600">已註冊運動員</a><div style="color:#666;font-size:11px">沿用原有檔案</div>'),
             url,
         )
 
@@ -34,8 +34,7 @@ def registered_badge(application, matches=None):
         return format_html('<span style="color:#999">{}</span>', "—")
     url = reverse("admin:accounts_athleteprofile_change", args=[match.athlete.pk])
     return format_html(
-        '<a href="{}" style="color:#b26a00;font-weight:600">已註冊運動員</a>'
-        '<div style="color:#666;font-size:11px">{}｜{}</div>',
+        _('<a href="{}" style="color:#b26a00;font-weight:600">已註冊運動員</a><div style="color:#666;font-size:11px">{}｜{}</div>'),
         url, match.athlete, describe_match(match),
     )
 
@@ -54,9 +53,9 @@ class ApplicationInline(admin.TabularInline):
     def flags(self, obj):
         return "、".join(obj.health_flags) or "—"
 
-    flags.short_description = "需留意"
+    flags.short_description = _("需留意")
 
-    @admin.display(description="重複登記")
+    @admin.display(description=_("重複登記"))
     def registered(self, obj):
         return registered_badge(obj)
 
@@ -77,11 +76,11 @@ class ProjectAdmin(admin.ModelAdmin):
     actions = ["open_enrollment", "close_enrollment"]
     fieldsets = (
         (
-            "基本資料",
+            _("基本資料"),
             {"fields": ("title", "subtitle", "slug", "organiser", "default_school_or_club", "description", "coaches")},
         ),
         (
-            "時間與規模",
+            _("時間與規模"),
             {
                 "fields": (
                     "schedule_text", ("start_date", "end_date"),
@@ -91,52 +90,52 @@ class ProjectAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "內容與場地",
+            _("內容與場地"),
             {"fields": ("trainer", "recommended_for", "focus", "venue_name", "venue_address", "venue_note")},
         ),
-        ("費用與條款", {"fields": (("price_hkd", "price_note"), "important_note", "contact_note")}),
+        (_("費用與條款"), {"fields": (("price_hkd", "price_note"), "important_note", "contact_note")}),
         (
-            "報名開關",
+            _("報名開關"),
             {
                 "fields": ("status", ("opens_at", "closes_at"), "display_order"),
-                "description": "狀態設為「開放報名」且在時間範圍內，公開網站才會出現報名按鈕。",
+                "description": _("狀態設為「開放報名」且在時間範圍內，公開網站才會出現報名按鈕。"),
             },
         ),
     )
 
-    @admin.display(description="報名期間")
+    @admin.display(description=_("報名期間"))
     def open_window(self, obj):
-        start = f"{obj.opens_at:%Y-%m-%d}" if obj.opens_at else "即時"
-        end = f"{obj.closes_at:%Y-%m-%d}" if obj.closes_at else "不設限"
+        start = f"{obj.opens_at:%Y-%m-%d}" if obj.opens_at else _("即時")
+        end = f"{obj.closes_at:%Y-%m-%d}" if obj.closes_at else _("不設限")
         return f"{start} → {end}"
 
-    @admin.display(description="名額")
+    @admin.display(description=_("名額"))
     def seats(self, obj):
         if obj.capacity_total is None:
-            return f"{obj.confirmed_count} 人（不限）"
+            return _("%(v0)s 人（不限）") % {"v0": obj.confirmed_count}
         return f"{obj.confirmed_count} / {obj.capacity_total}"
 
-    @admin.display(description="報名數")
+    @admin.display(description=_("報名數"))
     def application_count(self, obj):
         url = reverse("admin:programs_application_changelist")
         return format_html(
-            '<a href="{}?project__id__exact={}">{} 份</a>',
+            _('<a href="{}?project__id__exact={}">{} 份</a>'),
             url, obj.pk, obj.applications.count(),
         )
 
-    @admin.display(description="公開頁")
+    @admin.display(description=_("公開頁"))
     def public_link(self, obj):
-        return format_html('<a href="{}" target="_blank">開啟</a>', obj.get_absolute_url())
+        return format_html(_('<a href="{}" target="_blank">開啟</a>'), obj.get_absolute_url())
 
-    @admin.action(description="開放報名")
+    @admin.action(description=_("開放報名"))
     def open_enrollment(self, request, queryset):
         n = queryset.update(status=ProjectStatus.OPEN)
-        self.message_user(request, f"已開放 {n} 個項目的報名。")
+        self.message_user(request, _("已開放 %(v0)s 個項目的報名。") % {"v0": n})
 
-    @admin.action(description="關閉報名")
+    @admin.action(description=_("關閉報名"))
     def close_enrollment(self, request, queryset):
         n = queryset.update(status=ProjectStatus.CLOSED)
-        self.message_user(request, f"已關閉 {n} 個項目的報名。")
+        self.message_user(request, _("已關閉 %(v0)s 個項目的報名。") % {"v0": n})
 
 
 @admin.register(Application)
@@ -158,10 +157,10 @@ class ApplicationAdmin(admin.ModelAdmin):
         "created_at", "updated_at", "imported_at", "athlete", "summary_card",
     )
     fieldsets = (
-        ("摘要", {"fields": ("summary_card",)}),
-        ("報名項目", {"fields": ("project",)}),
+        (_("摘要"), {"fields": ("summary_card",)}),
+        (_("報名項目"), {"fields": ("project",)}),
         (
-            "個人資料",
+            _("個人資料"),
             {
                 "fields": (
                     ("name_en", "name_zh"), ("sex", "birth_date"),
@@ -170,7 +169,7 @@ class ApplicationAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "運動背景",
+            _("運動背景"),
             {
                 "fields": (
                     "has_track_training", ("event_category", "primary_event"),
@@ -181,7 +180,7 @@ class ApplicationAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "身體狀況與緊急聯絡",
+            _("身體狀況與緊急聯絡"),
             {
                 "fields": (
                     ("height_cm", "weight_kg"),
@@ -192,11 +191,11 @@ class ApplicationAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "聲明",
+            _("聲明"),
             {"fields": ("health_declaration", "consent_terms", "consent_data", "remarks")},
         ),
         (
-            "後台處理",
+            _("後台處理"),
             {"fields": ("status", "internal_note", "athlete", "imported_at", "created_at", "updated_at")},
         ),
     )
@@ -207,15 +206,15 @@ class ApplicationAdmin(admin.ModelAdmin):
         self._matches = find_existing_athletes(Application.objects.filter(athlete__isnull=True))
         return qs
 
-    @admin.display(description="重複登記")
+    @admin.display(description=_("重複登記"))
     def registered(self, obj):
         return registered_badge(obj, getattr(self, "_matches", None))
 
-    @admin.display(description="年齡")
+    @admin.display(description=_("年齡"))
     def age_display(self, obj):
         return f"{obj.age} 歲{'（未成年）' if obj.is_minor else ''}"
 
-    @admin.display(description="需留意")
+    @admin.display(description=_("需留意"))
     def flags(self, obj):
         if not obj.health_flags:
             return "—"
@@ -224,40 +223,40 @@ class ApplicationAdmin(admin.ModelAdmin):
             "、".join(obj.health_flags),
         )
 
-    @admin.display(description="已匯入 ATM", boolean=True)
+    @admin.display(description=_("已匯入 ATM"), boolean=True)
     def imported(self, obj):
         return obj.is_imported
 
-    @admin.display(description="報名摘要")
+    @admin.display(description=_("報名摘要"))
     def summary_card(self, obj):
         if obj.pk is None:
             return "—"
         rows = [
-            ("姓名", obj.full_name),
-            ("年齡", f"{obj.age} 歲（{obj.birth_date:%Y-%m-%d}）"),
-            ("學校 / 體育會", f"{obj.school_or_club}｜畢業年份 {obj.graduation_year or '未填'}"),
-            ("田徑訓練", "有" if obj.has_track_training else "沒有"),
+            (_("姓名"), obj.full_name),
+            (_("年齡"), f"{obj.age} 歲（{obj.birth_date:%Y-%m-%d}）"),
+            (_("學校 / 體育會"), f"{obj.school_or_club}｜畢業年份 {obj.graduation_year or '未填'}"),
+            (_("田徑訓練"), _("有") if obj.has_track_training else _("沒有")),
             (
-                "項目",
+                _("項目"),
                 f"{obj.get_event_category_display()}"
                 + (f"｜{obj.primary_event}" if obj.primary_event else ""),
             ),
-            ("年資", f"田徑 {obj.training_years} 年｜重訓 {obj.strength_experience_years} 年"),
-            ("身型", f"{obj.height_cm} cm / {obj.weight_kg} kg"),
+            (_("年資"), _("田徑 %(v0)s 年｜重訓 %(v1)s 年") % {"v0": obj.training_years, "v1": obj.strength_experience_years}),
+            (_("身型"), f"{obj.height_cm} cm / {obj.weight_kg} kg"),
             (
-                "緊急聯絡",
+                _("緊急聯絡"),
                 f"{obj.emergency_contact_name} {obj.emergency_contact_phone}"
                 f"（{obj.emergency_contact_relation or '—'}）",
             ),
-            ("需留意", "、".join(obj.health_flags) or "無"),
+            (_("需留意"), "、".join(obj.health_flags) or _("無")),
         ]
         if obj.athlete_id:
             url = reverse("admin:accounts_athleteprofile_change", args=[obj.athlete_id])
-            rows.append(("ATM 檔案", format_html('<a href="{}">{}</a>', url, obj.athlete)))
+            rows.append((_("ATM 檔案"), format_html('<a href="{}">{}</a>', url, obj.athlete)))
             others = obj.athlete.applications.exclude(pk=obj.pk).select_related("project")
             if others:
                 rows.append(
-                    ("其他計劃", "、".join(a.project.title for a in others)),
+                    (_("其他計劃"), "、".join(a.project.title for a in others)),
                 )
         else:
             match = find_existing_athlete(obj)
@@ -267,9 +266,9 @@ class ApplicationAdmin(admin.ModelAdmin):
                 )
                 rows.append(
                     (
-                        "已註冊運動員",
+                        _("已註冊運動員"),
                         format_html(
-                            '<a href="{}">{}</a>（{}）——匯入時會沿用這份檔案，不會另開帳號',
+                            _('<a href="{}">{}</a>（{}）——匯入時會沿用這份檔案，不會另開帳號'),
                             url, match.athlete, describe_match(match),
                         ),
                     )
@@ -283,7 +282,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         )
         return format_html('<table style="border-collapse:collapse">{}</table>', body)
 
-    @admin.action(description="匯入 ATM，建立運動員檔案")
+    @admin.action(description=_("匯入 ATM，建立運動員檔案"))
     def import_to_atm(self, request, queryset):
         created = skipped = 0
         for application in queryset:
@@ -300,59 +299,57 @@ class ApplicationAdmin(admin.ModelAdmin):
             if match:
                 self.message_user(
                     request,
-                    f"{application.name_en} 是已註冊運動員（{describe_match(match)}），"
-                    f"已把「{application.project.title}」加到原有檔案 {athlete}，不另開帳號。",
+                    _("%(v0)s 是已註冊運動員（%(v1)s），已把「%(v2)s」加到原有檔案 %(v3)s，不另開帳號。") % {"v0": application.name_en, "v1": describe_match(match), "v2": application.project.title, "v3": athlete},
                     messages.SUCCESS,
                 )
             else:
                 self.message_user(
                     request,
-                    f"已建立運動員 {athlete}（帳號 {athlete.user.username}，"
-                    f"密碼為隨機值，請用後台的『重設密碼』給對方）。",
+                    _("已建立運動員 %(v0)s（帳號 %(v1)s，密碼為隨機值，請用後台的『重設密碼』給對方）。") % {"v0": athlete, "v1": athlete.user.username},
                     messages.SUCCESS,
                 )
         if skipped:
-            self.message_user(request, f"{skipped} 份報名先前已匯入，略過。", messages.WARNING)
+            self.message_user(request, _("%(v0)s 份報名先前已匯入，略過。") % {"v0": skipped}, messages.WARNING)
         if not created and not skipped:
-            self.message_user(request, "沒有任何報名被匯入。", messages.WARNING)
+            self.message_user(request, _("沒有任何報名被匯入。"), messages.WARNING)
 
-    @admin.action(description="匯出 CSV")
+    @admin.action(description=_("匯出 CSV"))
     def export_csv(self, request, queryset):
         columns = [
-            ("報名時間", lambda a: f"{a.created_at:%Y-%m-%d %H:%M}"),
-            ("項目", lambda a: a.project.title),
-            ("狀態", lambda a: a.get_status_display()),
-            ("英文姓名", lambda a: a.name_en),
-            ("中文姓名", lambda a: a.name_zh),
-            ("性別", lambda a: a.get_sex_display()),
-            ("出生日期", lambda a: a.birth_date),
-            ("年齡", lambda a: a.age),
-            ("電話", lambda a: a.phone),
-            ("電郵", lambda a: a.email),
-            ("學校/體育會", lambda a: a.school_or_club),
-            ("畢業年份", lambda a: a.graduation_year or ""),
-            ("有田徑訓練", lambda a: "是" if a.has_track_training else "否"),
-            ("項目分類", lambda a: a.get_event_category_display()),
-            ("主項", lambda a: a.primary_event or ""),
-            ("個人最佳", lambda a: a.personal_best),
-            ("田徑年資", lambda a: a.training_years),
-            ("每週訓練日", lambda a: a.training_days_per_week),
-            ("重訓年資", lambda a: a.strength_experience_years),
-            ("現任教練", lambda a: a.current_coach),
-            ("身高", lambda a: a.height_cm),
-            ("體重", lambda a: a.weight_kg),
-            ("緊急聯絡人", lambda a: a.emergency_contact_name),
-            ("緊急聯絡電話", lambda a: a.emergency_contact_phone),
-            ("關係", lambda a: a.emergency_contact_relation),
-            ("現有傷患", lambda a: a.injury_detail if a.has_current_injury else ""),
-            ("過往傷患", lambda a: a.injury_history),
-            ("長期病患", lambda a: a.medical_conditions),
-            ("藥物", lambda a: a.medications),
-            ("敏感", lambda a: a.allergies),
-            ("醫生許可", lambda a: "是" if a.doctor_clearance else "否"),
-            ("備註", lambda a: a.remarks),
-            ("已匯入 ATM", lambda a: "是" if a.is_imported else "否"),
-            ("已註冊運動員", lambda a: "是" if a.is_returning_athlete else "否"),
+            (_("報名時間"), lambda a: f"{a.created_at:%Y-%m-%d %H:%M}"),
+            (_("項目"), lambda a: a.project.title),
+            (_("狀態"), lambda a: a.get_status_display()),
+            (_("英文姓名"), lambda a: a.name_en),
+            (_("中文姓名"), lambda a: a.name_zh),
+            (_("性別"), lambda a: a.get_sex_display()),
+            (_("出生日期"), lambda a: a.birth_date),
+            (_("年齡"), lambda a: a.age),
+            (_("電話"), lambda a: a.phone),
+            (_("電郵"), lambda a: a.email),
+            (_("學校/體育會"), lambda a: a.school_or_club),
+            (_("畢業年份"), lambda a: a.graduation_year or ""),
+            (_("有田徑訓練"), lambda a: _("是") if a.has_track_training else _("否")),
+            (_("項目分類"), lambda a: a.get_event_category_display()),
+            (_("主項"), lambda a: a.primary_event or ""),
+            (_("個人最佳"), lambda a: a.personal_best),
+            (_("田徑年資"), lambda a: a.training_years),
+            (_("每週訓練日"), lambda a: a.training_days_per_week),
+            (_("重訓年資"), lambda a: a.strength_experience_years),
+            (_("現任教練"), lambda a: a.current_coach),
+            (_("身高"), lambda a: a.height_cm),
+            (_("體重"), lambda a: a.weight_kg),
+            (_("緊急聯絡人"), lambda a: a.emergency_contact_name),
+            (_("緊急聯絡電話"), lambda a: a.emergency_contact_phone),
+            (_("關係"), lambda a: a.emergency_contact_relation),
+            (_("現有傷患"), lambda a: a.injury_detail if a.has_current_injury else ""),
+            (_("過往傷患"), lambda a: a.injury_history),
+            (_("長期病患"), lambda a: a.medical_conditions),
+            (_("藥物"), lambda a: a.medications),
+            (_("敏感"), lambda a: a.allergies),
+            (_("醫生許可"), lambda a: _("是") if a.doctor_clearance else _("否")),
+            (_("備註"), lambda a: a.remarks),
+            (_("已匯入 ATM"), lambda a: _("是") if a.is_imported else _("否")),
+            (_("已註冊運動員"), lambda a: _("是") if a.is_returning_athlete else _("否")),
         ]
         response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
         response["Content-Disposition"] = 'attachment; filename="applications.csv"'
@@ -363,12 +360,12 @@ class ApplicationAdmin(admin.ModelAdmin):
             writer.writerow([getter(application) for _, getter in columns])
         return response
 
-    @admin.action(description="標記為已確認")
+    @admin.action(description=_("標記為已確認"))
     def mark_confirmed(self, request, queryset):
         n = queryset.update(status=ApplicationStatus.CONFIRMED)
-        self.message_user(request, f"已確認 {n} 份報名。")
+        self.message_user(request, _("已確認 %(v0)s 份報名。") % {"v0": n})
 
-    @admin.action(description="標記為候補")
+    @admin.action(description=_("標記為候補"))
     def mark_waitlist(self, request, queryset):
         n = queryset.update(status=ApplicationStatus.WAITLIST)
-        self.message_user(request, f"已將 {n} 份報名列為候補。")
+        self.message_user(request, _("已將 %(v0)s 份報名列為候補。") % {"v0": n})

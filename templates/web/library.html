@@ -1,38 +1,38 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
-{% block title %}運動練習項目庫{% endblock %}
+{% block title %}{% translate "運動練習項目庫" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>運動練習項目庫</h1>
+    <h1>{% translate "運動練習項目庫" %}</h1>
     <div class="subtitle" style="margin:0">
-      運動種類 → 運動項目 → 訓練動作種類 → 動作 ·
-      課表挑得到的動作、數據分析追蹤得到的項目，都是從這裡出去的
+      {% translate "運動種類 → 運動項目 → 訓練動作種類 → 動作 · 課表挑得到的動作、數據分析追蹤得到的項目，都是從這裡出去的" %}
     </div>
   </div>
-  <span class="badge">共 {{ library_count }} 個動作</span>
+  <span class="badge">{% blocktranslate with v0=library_count %}共 {{ v0 }} 個動作{% endblocktranslate %}</span>
 </div>
 
 {% if pending.sports or pending.disciplines or pending.kinds or pending.activities %}
 <!-- --------------------------------------------------------- 待管理員確認 -->
 <div class="card pad0 mb">
   <div class="card-head">
-    <span>{% if can_approve %}等你確認的新增內容{% else %}你加了、等管理員確認的內容{% endif %}</span>
-    <span class="small c-dim">確認之後才會永久出現在項目庫</span>
+    <span>{% if can_approve %}{% translate "等你確認的新增內容" %}{% else %}{% translate "你加了、等管理員確認的內容" %}{% endif %}</span>
+    <span class="small c-dim">{% translate "確認之後才會永久出現在項目庫" %}</span>
   </div>
   <div style="padding:14px 18px">
     {% for row in pending.sports %}
-      {% include "web/_library_pending_row.html" with obj=row model="sport" label="運動種類" extra="" %}
+      {% include "web/_library_pending_row.html" with obj=row model="sport" label=_("運動種類") extra="" %}
     {% endfor %}
     {% for row in pending.disciplines %}
-      {% include "web/_library_pending_row.html" with obj=row model="discipline" label="運動項目" extra=row.sport.name %}
+      {% include "web/_library_pending_row.html" with obj=row model="discipline" label=_("運動項目") extra=row.sport.name %}
     {% endfor %}
     {% for row in pending.kinds %}
-      {% include "web/_library_pending_row.html" with obj=row model="kind" label="訓練動作種類" extra="" %}
+      {% include "web/_library_pending_row.html" with obj=row model="kind" label=_("訓練動作種類") extra="" %}
     {% endfor %}
     {% for row in pending.activities %}
-      {% include "web/_library_pending_row.html" with obj=row model="activity" label="動作" extra=row.discipline.full_label %}
+      {% include "web/_library_pending_row.html" with obj=row model="activity" label=_("動作") extra=row.discipline.full_label %}
     {% endfor %}
   </div>
 </div>
@@ -43,7 +43,7 @@
   <!-- ------------------------------------------------- 左：運動種類與項目 -->
   <div class="card pad0">
     <div class="card-head" data-fold-skip="1">
-      <span>目錄</span>
+      <span>{% translate "目錄" %}</span>
     </div>
     <div style="padding:10px 12px">
       {% for s in tree.sports %}
@@ -52,8 +52,8 @@
              class="small {% if sport and s.obj.id == sport.id %}c-accent{% endif %}"
              style="display:block;font-weight:600;padding:4px 0">
             {{ s.obj.name }}
-            <span class="c-dim" style="font-weight:400">· {{ s.count }} 個動作</span>
-            {% if not s.obj.is_approved %}<span class="badge">待確認</span>{% endif %}
+            <span class="c-dim" style="font-weight:400">{% blocktranslate with v0=s.count %}· {{ v0 }} 個動作{% endblocktranslate %}</span>
+            {% if not s.obj.is_approved %}<span class="badge">{% translate "待確認" %}</span>{% endif %}
           </a>
           {% if s.open %}
             <div style="padding-left:10px">
@@ -62,16 +62,16 @@
                    class="small {% if discipline and d.obj.id == discipline.id %}c-accent{% else %}c-dim{% endif %}"
                    style="display:block;padding:3px 0">
                   {{ d.obj.name }}（{{ d.count }}）
-                  {% if not d.obj.is_approved %}<span class="badge">待確認</span>{% endif %}
+                  {% if not d.obj.is_approved %}<span class="badge">{% translate "待確認" %}</span>{% endif %}
                 </a>
               {% empty %}
-                <div class="small c-dim">這個運動種類還沒有運動項目。</div>
+                <div class="small c-dim">{% translate "這個運動種類還沒有運動項目。" %}</div>
               {% endfor %}
             </div>
           {% endif %}
         </div>
       {% empty %}
-        <div class="empty">項目庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
+        <div class="empty">{% translate "項目庫還沒有內容，請先跑一次" %} <code>manage.py seed_activities</code>。</div>
       {% endfor %}
     </div>
   </div>
@@ -82,30 +82,29 @@
       <div class="card-head" data-fold-skip="1">
         <span>
           {% if discipline %}{{ discipline.sport.name }} · {{ discipline.name }}
-          {% else %}{{ sport.name|default:"動作清單" }}{% endif %}
+          {% else %}{{ sport.name|default:_("動作清單") }}{% endif %}
         </span>
         <span class="small c-dim">
-          {% if discipline %}依訓練動作種類排{% else %}左邊挑一個運動項目{% endif %}
+          {% if discipline %}{% translate "依訓練動作種類排" %}{% else %}{% translate "左邊挑一個運動項目" %}{% endif %}
         </span>
       </div>
       <div style="padding:14px 18px">
         {% if not discipline %}
           <div class="small c-dim">
-            先在左邊挑一個運動項目（例：田徑 · 短跑），這裡就會列出它底下的動作，
-            每個動作寫著它在做什麼、以及課表帶得進去的預設組數／次數／休息。
+            {% translate "先在左邊挑一個運動項目（例：田徑 · 短跑），這裡就會列出它底下的動作， 每個動作寫著它在做什麼、以及課表帶得進去的預設組數／次數／休息。" %}
           </div>
         {% else %}
           {% for b in tree.blocks %}
             <div class="mb" data-fold-key="kind-{{ b.kind.id|default:'none' }}">
               <h3 class="small c-accent" style="margin:0 0 6px">
-                {{ b.kind.name|default:"未分類" }}
-                <span class="c-dim">· {{ b.rows|length }} 項</span>
+                {{ b.kind.name|default:_("未分類") }}
+                <span class="c-dim">{% blocktranslate with v0=b.rows|length %}· {{ v0 }} 項{% endblocktranslate %}</span>
               </h3>
               {% for d in b.rows %}
                 <div class="small" style="padding:6px 0;border-bottom:1px solid var(--border)">
                   <strong>{{ d.name }}</strong>
                   {% if d.name_en %}<span class="c-dim">（{{ d.name_en }}）</span>{% endif %}
-                  {% if not d.is_approved %}<span class="badge">待確認</span>{% endif %}
+                  {% if not d.is_approved %}<span class="badge">{% translate "待確認" %}</span>{% endif %}
                   {% if d.note %}<div class="c-dim">{{ d.note }}</div>{% endif %}
                   <div class="c-dim">
                     {{ d.get_default_block_display }}
@@ -113,14 +112,14 @@
                     {% if d.default_reps %}· {{ d.default_reps }}{% endif %}
                     {% if d.default_distance %}· {{ d.default_distance }}{% endif %}
                     {% if d.default_weight %}· {{ d.default_weight }}{% endif %}
-                    {% if d.default_intensity %}· 強度 {{ d.default_intensity }}{% endif %}
-                    {% if d.default_rest %}· 休 {{ d.default_rest }}{% endif %}
+                    {% if d.default_intensity %}{% blocktranslate with v0=d.default_intensity %}· 強度 {{ v0 }}{% endblocktranslate %}{% endif %}
+                    {% if d.default_rest %}{% blocktranslate with v0=d.default_rest %}· 休 {{ v0 }}{% endblocktranslate %}{% endif %}
                   </div>
                   {% if d.default_key_points %}
-                    <div class="c-dim">訓練要點：{{ d.default_key_points }}</div>
+                    <div class="c-dim">{% blocktranslate with v0=d.default_key_points %}訓練要點：{{ v0 }}{% endblocktranslate %}</div>
                   {% endif %}
                   <div class="c-dim" style="margin-top:4px">
-                    收在：
+                    {% translate "收在：" %}
                     {% for home in d.all_disciplines %}
                       <span class="badge">{{ home.sport.name }} · {{ home.name }}</span>
                       {% if home.id != d.discipline_id %}
@@ -131,13 +130,13 @@
                           <input type="hidden" name="discipline" value="{{ home.id }}">
                           <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
                           <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
-                          <button class="linkbtn" type="submit" title="從這個運動項目移走">移走</button>
+                          <button class="linkbtn" type="submit" title="{% translate '從這個運動項目移走' %}">{% translate "移走" %}</button>
                         </form>
                       {% endif %}
                     {% endfor %}
                   </div>
                   <details>
-                    <summary class="small c-accent" style="cursor:pointer">加入別的運動種類</summary>
+                    <summary class="small c-accent" style="cursor:pointer">{% translate "加入別的運動種類" %}</summary>
                     <form method="post" class="flex" style="margin:6px 0 2px;gap:6px">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="add_to_discipline">
@@ -149,18 +148,17 @@
                           <option value="{{ opt.id }}">{{ opt.sport.name }} · {{ opt.name }}</option>
                         {% endfor %}
                       </select>
-                      <button class="btn ghost sm" type="submit">加入</button>
+                      <button class="btn ghost sm" type="submit">{% translate "加入" %}</button>
                     </form>
                     <div class="c-dim">
-                      同一個動作好幾種運動都在練的話，加進去之後兩邊的清單都挑得到，
-                      左邊的目錄也會一起算進去。
+                      {% translate "同一個動作好幾種運動都在練的話，加進去之後兩邊的清單都挑得到， 左邊的目錄也會一起算進去。" %}
                     </div>
                   </details>
                 </div>
               {% endfor %}
             </div>
           {% empty %}
-            <div class="empty">這個運動項目底下還沒有動作，用下面的表單加一個。</div>
+            <div class="empty">{% translate "這個運動項目底下還沒有動作，用下面的表單加一個。" %}</div>
           {% endfor %}
         {% endif %}
       </div>
@@ -169,9 +167,9 @@
     <!-- --------------------------------------------------------- 加東西 -->
     <div class="card pad0 mb">
       <div class="card-head" data-fold-default="closed">
-        <span>加一個動作到項目庫</span>
+        <span>{% translate "加一個動作到項目庫" %}</span>
         <span class="small c-dim">
-          {% if can_approve %}管理員加的直接生效{% else %}加完等管理員確認{% endif %}
+          {% if can_approve %}{% translate "管理員加的直接生效" %}{% else %}{% translate "加完等管理員確認" %}{% endif %}
         </span>
       </div>
       <div style="padding:14px 18px">
@@ -182,15 +180,15 @@
           <input type="hidden" name="discipline_id" value="{{ discipline.id|default:'' }}">
           <div class="row">
             <div class="field" style="flex:2">
-              <label>動作名稱</label>
-              <input type="text" name="name" required placeholder="例：單腳踝彈跳">
+              <label>{% translate "動作名稱" %}</label>
+              <input type="text" name="name" required placeholder="{% translate '例：單腳踝彈跳' %}">
             </div>
             <div class="field" style="flex:2">
-              <label>英文名稱</label>
-              <input type="text" name="name_en" placeholder="例：Single Leg Pogo Jump">
+              <label>{% translate "英文名稱" %}</label>
+              <input type="text" name="name_en" placeholder="{% translate '例：Single Leg Pogo Jump' %}">
             </div>
             <div class="field">
-              <label>運動項目</label>
+              <label>{% translate "運動項目" %}</label>
               <select name="discipline" required>
                 {% for d in tree.disciplines %}
                   <option value="{{ d.id }}"
@@ -200,47 +198,47 @@
               </select>
             </div>
             <div class="field">
-              <label>訓練動作種類</label>
+              <label>{% translate "訓練動作種類" %}</label>
               <select name="movement_kind">
                 <option value="">—</option>
                 {% for k in tree.kinds %}<option value="{{ k.id }}">{{ k.name }}</option>{% endfor %}
               </select>
             </div>
             <div class="field">
-              <label>預設區塊</label>
+              <label>{% translate "預設區塊" %}</label>
               <select name="default_block">
                 {% for v, l in block_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
               </select>
             </div>
           </div>
           <div class="field">
-            <label>動作說明（這個動作在做什麼、練到什麼）</label>
+            <label>{% translate "動作說明（這個動作在做什麼、練到什麼）" %}</label>
             <input type="text" name="note" maxlength="200"
-                   placeholder="例：單腳執行的踝彈跳，能訓練單側穩定度…">
+                   placeholder="{% translate '例：單腳執行的踝彈跳，能訓練單側穩定度…' %}">
           </div>
           <div class="row">
-            <div class="field"><label>預設組數</label><input type="text" name="sets" placeholder="3 組"></div>
-            <div class="field"><label>預設次數</label><input type="text" name="reps" placeholder="15 次"></div>
-            <div class="field"><label>預設距離</label><input type="text" name="distance" placeholder="30 米"></div>
+            <div class="field"><label>{% translate "預設組數" %}</label><input type="text" name="sets" placeholder="{% translate '3 組' %}"></div>
+            <div class="field"><label>{% translate "預設次數" %}</label><input type="text" name="reps" placeholder="{% translate '15 次' %}"></div>
+            <div class="field"><label>{% translate "預設距離" %}</label><input type="text" name="distance" placeholder="{% translate '30 米' %}"></div>
           </div>
           <div class="row">
-            <div class="field"><label>預設重量</label><input type="text" name="weight" placeholder="body weight"></div>
-            <div class="field"><label>預設強度</label><input type="text" name="intensity" placeholder="80%–90%"></div>
-            <div class="field"><label>預設休息時間</label><input type="text" name="rest" placeholder="30s / walk back"></div>
+            <div class="field"><label>{% translate "預設重量" %}</label><input type="text" name="weight" placeholder="body weight"></div>
+            <div class="field"><label>{% translate "預設強度" %}</label><input type="text" name="intensity" placeholder="80%–90%"></div>
+            <div class="field"><label>{% translate "預設休息時間" %}</label><input type="text" name="rest" placeholder="30s / walk back"></div>
           </div>
           <div class="field">
-            <label>預設訓練要點（做的時候要注意什麼）</label>
+            <label>{% translate "預設訓練要點（做的時候要注意什麼）" %}</label>
             <textarea name="key_points" rows="2"></textarea>
           </div>
-          <button class="btn" type="submit">加入動作</button>
+          <button class="btn" type="submit">{% translate "加入動作" %}</button>
         </form>
       </div>
     </div>
 
     <div class="card pad0">
       <div class="card-head" data-fold-default="closed">
-        <span>加運動種類 / 運動項目 / 訓練動作種類</span>
-        <span class="small c-dim">教練、運動員、管理員都可以加</span>
+        <span>{% translate "加運動種類 / 運動項目 / 訓練動作種類" %}</span>
+        <span class="small c-dim">{% translate "教練、運動員、管理員都可以加" %}</span>
       </div>
       <div style="padding:14px 18px">
         <form method="post" class="mb">
@@ -249,12 +247,12 @@
           <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
           <div class="row">
             <div class="field" style="flex:2">
-              <label>新的運動種類</label>
-              <input type="text" name="name" required placeholder="例：游泳">
+              <label>{% translate "新的運動種類" %}</label>
+              <input type="text" name="name" required placeholder="{% translate '例：游泳' %}">
             </div>
-            <div class="field"><label>英文</label><input type="text" name="name_en"></div>
+            <div class="field"><label>{% translate "英文" %}</label><input type="text" name="name_en"></div>
             <div class="field" style="align-self:flex-end">
-              <button class="btn sm" type="submit">加入</button>
+              <button class="btn sm" type="submit">{% translate "加入" %}</button>
             </div>
           </div>
         </form>
@@ -265,7 +263,7 @@
           <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
           <div class="row">
             <div class="field">
-              <label>屬於哪個運動種類</label>
+              <label>{% translate "屬於哪個運動種類" %}</label>
               <select name="sport" required>
                 {% for s in tree.sports %}
                   <option value="{{ s.obj.id }}"
@@ -274,22 +272,22 @@
               </select>
             </div>
             <div class="field" style="flex:2">
-              <label>新的運動項目</label>
-              <input type="text" name="name" required placeholder="例：撐竿跳">
+              <label>{% translate "新的運動項目" %}</label>
+              <input type="text" name="name" required placeholder="{% translate '例：撐竿跳' %}">
             </div>
-            <div class="field"><label>英文</label><input type="text" name="name_en"></div>
+            <div class="field"><label>{% translate "英文" %}</label><input type="text" name="name_en"></div>
             <div class="field">
-              <label>預設分類</label>
+              <label>{% translate "預設分類" %}</label>
               <select name="activity_category">
                 {% for v, l in activity_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
               </select>
             </div>
             <div class="field" style="align-self:flex-end">
-              <button class="btn sm" type="submit">加入</button>
+              <button class="btn sm" type="submit">{% translate "加入" %}</button>
             </div>
           </div>
           <div class="small c-dim">
-            「預設分類」決定這個項目底下的動作在數據分析歸到哪個範疇（田徑練習／重量訓練）。
+            {% translate "「預設分類」決定這個項目底下的動作在數據分析歸到哪個範疇（田徑練習／重量訓練）。" %}
           </div>
         </form>
 
@@ -299,15 +297,15 @@
           <input type="hidden" name="sport_id" value="{{ sport.id|default:'' }}">
           <div class="row">
             <div class="field" style="flex:2">
-              <label>新的訓練動作種類</label>
-              <input type="text" name="name" required placeholder="例：技術動作">
+              <label>{% translate "新的訓練動作種類" %}</label>
+              <input type="text" name="name" required placeholder="{% translate '例：技術動作' %}">
             </div>
-            <div class="field"><label>英文</label><input type="text" name="name_en"></div>
+            <div class="field"><label>{% translate "英文" %}</label><input type="text" name="name_en"></div>
             <div class="field" style="align-self:flex-end">
-              <button class="btn sm" type="submit">加入</button>
+              <button class="btn sm" type="submit">{% translate "加入" %}</button>
             </div>
           </div>
-          <div class="small c-dim">訓練動作種類是各個運動項目共用的，加一次全部項目都用得到。</div>
+          <div class="small c-dim">{% translate "訓練動作種類是各個運動項目共用的，加一次全部項目都用得到。" %}</div>
         </form>
       </div>
     </div>

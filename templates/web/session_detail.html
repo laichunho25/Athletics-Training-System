@@ -1,27 +1,26 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
 {% block title %}{{ s.title }}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>課表</h1>
+    <h1>{% translate "課表" %}</h1>
     <div class="subtitle" style="margin:0">
-      {{ s.athlete.user.get_full_name|default:s.athlete.user.username }} ·
-      {{ s.date|date:"Y-m-d (D)" }} {{ s.get_time_slot_display }} ·
-      有底線的欄位點一下就能改，改完即時同步到日曆與其他人的畫面。
+      {% blocktranslate with v0=s.athlete.user.get_full_name|default:s.athlete.user.username v1=s.date|date:"Y-m-d (D)" v2=s.get_time_slot_display %}{{ v0 }} · {{ v1 }} {{ v2 }} · 有底線的欄位點一下就能改，改完即時同步到日曆與其他人的畫面。{% endblocktranslate %}
     </div>
   </div>
   <div class="sessionnav">
     {% if prev_session %}
       <a class="btn ghost sm" href="{% url 'web:session_detail' prev_session.id %}"
-         title="{{ prev_session.date|date:'m/d' }} {{ prev_session.title }}">← 上一課</a>
-    {% else %}<span class="btn ghost sm disabled">← 上一課</span>{% endif %}
-    <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ s.athlete.id }}&year={{ s.date.year }}&month={{ s.date.month }}">回日曆</a>
+         title="{{ prev_session.date|date:'m/d' }} {{ prev_session.title }}">{% translate "← 上一課" %}</a>
+    {% else %}<span class="btn ghost sm disabled">{% translate "← 上一課" %}</span>{% endif %}
+    <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ s.athlete.id }}&year={{ s.date.year }}&month={{ s.date.month }}">{% translate "回日曆" %}</a>
     {% if next_session %}
       <a class="btn ghost sm" href="{% url 'web:session_detail' next_session.id %}"
-         title="{{ next_session.date|date:'m/d' }} {{ next_session.title }}">下一課 →</a>
-    {% else %}<span class="btn ghost sm disabled">下一課 →</span>{% endif %}
+         title="{{ next_session.date|date:'m/d' }} {{ next_session.title }}">{% translate "下一課 →" %}</a>
+    {% else %}<span class="btn ghost sm disabled">{% translate "下一課 →" %}</span>{% endif %}
   </div>
 </div>
 
@@ -92,8 +91,8 @@
           });
         });
         if (filled) {
-          fill.textContent = '已填 ' + filled + ' 格';
-          setTimeout(function () { fill.textContent = '套用'; }, 1600);
+          fill.textContent = '{% translate "已填 " %}' + filled + '{% translate " 格" %}';
+          setTimeout(function () { fill.textContent = '{% translate "套用" %}'; }, 1600);
         }
         return;
       }

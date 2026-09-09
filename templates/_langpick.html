@@ -1,0 +1,19 @@
+{% load i18n %}
+{% comment %}
+  語言切換：登入的人會存回帳號，未登入的人只寫 cookie。
+  用 form 而不是連結，換語言不會被瀏覽器或 CDN 當成另一個網址快取起來。
+{% endcomment %}
+<form class="langpick" method="post" action="{% url 'web:set_language' %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <label class="sr-only" for="langpick">{% translate "介面語言" %}</label>
+  <select id="langpick" name="language" onchange="this.form.submit()"
+          aria-label="{% translate '介面語言' %}" title="{% translate '介面語言' %}">
+    {% get_current_language as CURRENT_LANG %}
+    {% get_available_languages as LANGS %}
+    {% for code, name in LANGS %}
+      <option value="{{ code }}" {% if code == CURRENT_LANG %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn ghost sm" type="submit">{% translate "切換" %}</button></noscript>
+</form>

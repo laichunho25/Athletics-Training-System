@@ -1,14 +1,14 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
-{% block title %}運動員狀態總覽{% endblock %}
+{% block title %}{% translate "運動員狀態總覽" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
     <h1>{{ athlete.user.get_full_name|default:athlete.user.username }}</h1>
     <div class="subtitle" style="margin:0">
-      {{ athlete.primary_event.name_zh }} · {{ athlete.age }} 歲 ·
-      {{ athlete.height_cm }} cm / {{ athlete.current_weight_kg }} kg ·
+      {% blocktranslate with v0=athlete.primary_event.display_name v1=athlete.age v2=athlete.height_cm v3=athlete.current_weight_kg %}{{ v0 }} · {{ v1 }} 歲 · {{ v2 }} cm / {{ v3 }} kg ·{% endblocktranslate %}
       <span class="badge {% if athlete.status == 'HEALTHY' %}b-green{% elif athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ athlete.get_status_display }}</span>
     </div>
   </div>
@@ -17,9 +17,9 @@
 
 {% if injuries %}
 <div class="alert yellow">
-  ⚠️ 目前有 {{ injuries|length }} 筆進行中傷患：
-  {% for i in injuries %}{{ i.get_body_part_display }}（疼痛 {{ i.current_pain_level }}/10）{% if not forloop.last %}、{% endif %}{% endfor %}
-  · <a href="{% url 'web:injuries' %}">前往傷患管理</a>
+  {% blocktranslate with v0=injuries|length %}⚠️ 目前有 {{ v0 }} 筆進行中傷患：{% endblocktranslate %}
+  {% for i in injuries %}{% blocktranslate with v0=i.get_body_part_display v1=i.current_pain_level %}{{ v0 }}（疼痛 {{ v1 }}/10）{% endblocktranslate %}{% if not forloop.last %}、{% endif %}{% endfor %}
+  · <a href="{% url 'web:injuries' %}">{% translate "前往傷患管理" %}</a>
 </div>
 {% endif %}
 
@@ -27,70 +27,70 @@
 <div class="grid grid-4 mb">
   <div class="card stat">
     <div class="label">
-      距離目標賽事
-      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="targetDlg.showModal()">修改</button>{% endif %}
+      {% translate "距離目標賽事" %}
+      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="targetDlg.showModal()">{% translate "修改" %}</button>{% endif %}
     </div>
     <div class="value c-accent">{{ d.countdown|default:"—" }}</div>
     <div class="hint">
-      {{ d.target_competition.name|default:"尚未設定目標賽事" }}
+      {{ d.target_competition.name|default:_("尚未設定目標賽事") }}
       {% if d.target_competition %}<br>{{ d.target_competition.date }} · {{ d.target_competition.get_level_display }}{% endif %}
     </div>
   </div>
 
   <div class="card stat">
     <div class="label">
-      目前分期
-      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="phaseDlg.showModal()">修改</button>{% endif %}
+      {% translate "目前分期" %}
+      {% if can_edit_plan %}<button type="button" class="linkbtn" onclick="phaseDlg.showModal()">{% translate "修改" %}</button>{% endif %}
     </div>
     <div class="value sm">{{ d.current_phase.get_phase_type_display|default:"—" }}</div>
     <div class="hint">
-      {% if d.current_week %}第 {{ d.current_week }} 週 / {{ macro.total_weeks }} 週{% else %}尚未建立週期計劃{% endif %}
+      {% if d.current_week %}{% blocktranslate with v0=d.current_week v1=macro.total_weeks %}第 {{ v0 }} 週 / {{ v1 }} 週{% endblocktranslate %}{% else %}{% translate "尚未建立週期計劃" %}{% endif %}
       {% if d.current_phase %}<br>{{ d.current_phase.focus|truncatechars:40 }}{% endif %}
     </div>
   </div>
 
   <div class="card stat">
-    <div class="label">ACWR 負荷比</div>
+    <div class="label">{% translate "ACWR 負荷比" %}</div>
     <div class="value {{ acwr_color }}">
       {% if acwr.acwr %}{{ acwr.acwr }}{% else %}—{% endif %}
       <span style="font-size:20px">{{ acwr.icon }}</span>
     </div>
     <div class="hint">
       <span class="badge {{ acwr_badge }}">{{ acwr.risk_label }}</span>
-      急性 {{ acwr.acute_load }} / 慢性 {{ acwr.chronic_load }} AU
+      {% blocktranslate with v0=acwr.acute_load v1=acwr.chronic_load %}急性 {{ v0 }} / 慢性 {{ v1 }} AU{% endblocktranslate %}
     </div>
   </div>
 
   <div class="card stat">
-    <div class="label">今日準備度</div>
+    <div class="label">{% translate "今日準備度" %}</div>
     <div class="value {% if readiness.score >= 75 %}c-green{% elif readiness.score >= 55 %}c-yellow{% else %}c-red{% endif %}">
       {{ readiness.score|default:"—" }}
     </div>
-    <div class="hint">{{ readiness.label }} · {{ readiness.inputs }} 項輸入</div>
+    <div class="hint">{% blocktranslate with v0=readiness.label v1=readiness.inputs %}{{ v0 }} · {{ v1 }} 項輸入{% endblocktranslate %}</div>
   </div>
 </div>
 
 <div class="alert {% if acwr.risk_flag == 'HIGH' %}red{% elif acwr.risk_flag == 'ELEVATED' %}yellow{% elif acwr.risk_flag == 'OPTIMAL' %}green{% else %}blue{% endif %}">
-  {{ acwr.icon }} <strong>負荷建議：</strong>{{ acwr.advice }}
+  {{ acwr.icon }} <strong>{% translate "負荷建議：" %}</strong>{{ acwr.advice }}
 </div>
 
 <div class="grid grid-2 mb">
   <!-- --------------------------------------------------------- 今日課表 -->
   <div class="card pad0">
     <div class="card-head">
-      <span>今日課表 · {{ d.date }}</span>
-      <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">看月曆</a>
+      <span>{% blocktranslate with v0=d.date %}今日課表 · {{ v0 }}{% endblocktranslate %}</span>
+      <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">{% translate "看月曆" %}</a>
     </div>
     {% if d.today_sessions %}
       <table>
-        <thead><tr><th>時段</th><th>課別</th><th>內容</th><th>狀態</th><th class="num">負荷</th></tr></thead>
+        <thead><tr><th>{% translate "時段" %}</th><th>{% translate "課別" %}</th><th>{% translate "內容" %}</th><th>{% translate "狀態" %}</th><th class="num">{% translate "負荷" %}</th></tr></thead>
         <tbody>
         {% for s in d.today_sessions %}
           <tr>
             <td>{{ s.get_time_slot_display }}</td>
             <td>{{ s.get_session_type_display }}</td>
             <td><a href="{% url 'web:session_detail' s.id %}">{{ s.title }}</a>
-                {% if s.is_modified %}<span class="badge b-yellow">已調整</span>{% endif %}</td>
+                {% if s.is_modified %}<span class="badge b-yellow">{% translate "已調整" %}</span>{% endif %}</td>
             <td>
               <span class="badge {% if s.status == 'COMPLETED' %}b-green{% elif s.status == 'PARTIAL' %}b-yellow{% elif s.status == 'SKIPPED' %}b-red{% else %}b-blue{% endif %}">{{ s.get_status_display }}</span>
             </td>
@@ -100,17 +100,17 @@
         </tbody>
       </table>
     {% else %}
-      <div class="empty">今日無安排課表（休息日）·
-        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">到日曆排一堂</a></div>
+      <div class="empty">{% translate "今日無安排課表（休息日）·" %}
+        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">{% translate "到日曆排一堂" %}</a></div>
     {% endif %}
   </div>
 
   <!-- --------------------------------------------------------- 本週一覽 -->
   <div class="card pad0">
-    <div class="card-head"><span>本週課表（{{ week_start }} 起）</span></div>
+    <div class="card-head"><span>{% blocktranslate with v0=week_start %}本週課表（{{ v0 }} 起）{% endblocktranslate %}</span></div>
     {% if week_sessions %}
       <table>
-        <thead><tr><th>日期</th><th>課表</th><th>狀態</th><th class="num">RPE</th><th class="num">負荷</th></tr></thead>
+        <thead><tr><th>{% translate "日期" %}</th><th>{% translate "課表" %}</th><th>{% translate "狀態" %}</th><th class="num">RPE</th><th class="num">{% translate "負荷" %}</th></tr></thead>
         <tbody>
         {% for s in week_sessions %}
           <tr>
@@ -124,8 +124,8 @@
         </tbody>
       </table>
     {% else %}
-      <div class="empty">本週尚無課表 ·
-        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">到日曆排課</a></div>
+      <div class="empty">{% translate "本週尚無課表 ·" %}
+        <a href="{% url 'web:calendar' %}?athlete={{ athlete.id }}">{% translate "到日曆排課" %}</a></div>
     {% endif %}
   </div>
 </div>
@@ -133,8 +133,8 @@
 <!-- ----------------------------------------------------------- 負荷走勢 -->
 <div class="card pad0 mb">
   <div class="card-head">
-    <span>近 8 週訓練負荷與 ACWR</span>
-    <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ athlete.id }}">完整分析</a>
+    <span>{% translate "近 8 週訓練負荷與 ACWR" %}</span>
+    <a class="btn ghost sm" href="{% url 'web:analytics' %}?athlete={{ athlete.id }}">{% translate "完整分析" %}</a>
   </div>
   <div class="chart-box tall"><canvas id="loadChart"></canvas></div>
 </div>
@@ -142,28 +142,28 @@
 <!-- --------------------------------------------------- 一般資料 / 體組成 -->
 <div class="card pad0 mt" id="body">
   <div class="card-head">
-    <span>基本指標與體組成</span>
+    <span>{% translate "基本指標與體組成" %}</span>
     {% if can_edit_plan %}
     <span class="flex">
-      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.showModal()">貼上文字</button>
-      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.showModal()">匯入檔案</button>
-      <button type="button" class="btn sm" onclick="bodyDlg.showModal()">新增／更新紀錄</button>
+      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.showModal()">{% translate "貼上文字" %}</button>
+      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.showModal()">{% translate "匯入檔案" %}</button>
+      <button type="button" class="btn sm" onclick="bodyDlg.showModal()">{% translate "新增／更新紀錄" %}</button>
     </span>
     {% endif %}
   </div>
 
   <!-- 一般資料 -->
   <div class="pad">
-    <div class="small c-dim mb">一般資料</div>
+    <div class="small c-dim mb">{% translate "一般資料" %}</div>
     <div class="metagrid">
-      <div class="meta"><span class="lbl">身高</span><b>{{ athlete.height_cm }} cm</b></div>
-      <div class="meta"><span class="lbl">體重</span><b>{{ athlete.current_weight_kg }} kg</b></div>
-      <div class="meta"><span class="lbl">性別</span><b>{{ athlete.get_sex_display }}</b></div>
-      <div class="meta"><span class="lbl">出生年月日</span><b>{{ athlete.birth_date|date:"Y-m-d" }}（{{ athlete.age }} 歲）</b></div>
+      <div class="meta"><span class="lbl">{% translate "身高" %}</span><b>{{ athlete.height_cm }} cm</b></div>
+      <div class="meta"><span class="lbl">{% translate "體重" %}</span><b>{{ athlete.current_weight_kg }} kg</b></div>
+      <div class="meta"><span class="lbl">{% translate "性別" %}</span><b>{{ athlete.get_sex_display }}</b></div>
+      <div class="meta"><span class="lbl">{% translate "出生年月日" %}</span><b>{% blocktranslate with v0=athlete.birth_date|date:"Y-m-d" v1=athlete.age %}{{ v0 }}（{{ v1 }} 歲）{% endblocktranslate %}</b></div>
       <div class="meta"><span class="lbl">BMI</span><b>{{ athlete.bmi|default:"—" }}</b></div>
-      <div class="meta"><span class="lbl">主項</span><b>{{ athlete.primary_event.name_zh }}</b></div>
-      <div class="meta"><span class="lbl">學校／體育會</span><b>{{ athlete.school_or_club|default:"—" }}</b></div>
-      <div class="meta"><span class="lbl">每週訓練日</span><b>{{ athlete.training_days_per_week }} 日</b></div>
+      <div class="meta"><span class="lbl">{% translate "主項" %}</span><b>{{ athlete.primary_event.display_name }}</b></div>
+      <div class="meta"><span class="lbl">{% translate "學校／體育會" %}</span><b>{{ athlete.school_or_club|default:"—" }}</b></div>
+      <div class="meta"><span class="lbl">{% translate "每週訓練日" %}</span><b>{% blocktranslate with v0=athlete.training_days_per_week %}{{ v0 }} 日{% endblocktranslate %}</b></div>
     </div>
   </div>
 
@@ -172,13 +172,13 @@
   <div class="pad" style="border-top:1px solid var(--border)">
     <div class="between mb">
       <div class="small c-dim">
-        最新體組成 · {{ body_latest.date }}{% if body_latest.measured_at %} {{ body_latest.measured_at|time:"H:i" }}{% endif %}
+        {% blocktranslate with v0=body_latest.date %}最新體組成 · {{ v0 }}{% endblocktranslate %}{% if body_latest.measured_at %} {{ body_latest.measured_at|time:"H:i" }}{% endif %}
         {% if body_latest.device %} · {{ body_latest.device }}{% endif %}
         <span class="badge b-dim">{{ body_latest.get_source_display }}</span>
       </div>
       {% if body_deltas %}
       <div class="small">
-        對比 {{ body_previous.date }}：
+        {% blocktranslate with v0=body_previous.date %}對比 {{ v0 }}：{% endblocktranslate %}
         {% for dlt in body_deltas %}
           <span class="{{ dlt.color }}">{{ dlt.label }} {{ dlt.diff }}</span>{% if not forloop.last %} · {% endif %}
         {% endfor %}
@@ -187,23 +187,23 @@
     </div>
 
     <div class="bodygrid">
-      <div class="bodycell"><span>體重</span><b>{{ body_latest.weight_kg }} <em>kg</em></b></div>
-      <div class="bodycell"><span>體脂肪率</span><b>{{ body_latest.body_fat_pct|default:"—" }} <em>%</em></b></div>
-      <div class="bodycell"><span>肌肉量</span><b>{{ body_latest.muscle_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>{% translate "體重" %}</span><b>{{ body_latest.weight_kg }} <em>kg</em></b></div>
+      <div class="bodycell"><span>{% translate "體脂肪率" %}</span><b>{{ body_latest.body_fat_pct|default:"—" }} <em>%</em></b></div>
+      <div class="bodycell"><span>{% translate "肌肉量" %}</span><b>{{ body_latest.muscle_mass_kg|default:"—" }} <em>kg</em></b></div>
       <div class="bodycell"><span>BMI</span><b>{{ body_latest.bmi_value|default:"—" }}</b></div>
-      <div class="bodycell"><span>脂肪重</span><b>{{ body_latest.fat_mass_kg|default:"—" }} <em>kg</em></b></div>
-      <div class="bodycell"><span>去脂體重</span><b>{{ body_latest.lean_mass_kg|default:"—" }} <em>kg</em></b></div>
-      <div class="bodycell"><span>內臟脂肪等級</span><b>{{ body_latest.visceral_fat_level|default:"—" }}</b></div>
-      <div class="bodycell"><span>推定骨量</span><b>{{ body_latest.bone_mass_kg|default:"—" }} <em>kg</em></b></div>
-      <div class="bodycell"><span>體水分率</span><b>{{ body_latest.body_water_pct|default:"—" }} <em>%</em></b></div>
-      <div class="bodycell"><span>基礎代謝量</span><b>{{ body_latest.bmr_kcal|default:"—" }} <em>kcal</em></b></div>
-      <div class="bodycell"><span>肌肉質量指數</span><b>{{ body_latest.muscle_quality_score|default:"—" }}</b></div>
-      <div class="bodycell"><span>體內年齡</span><b>{{ body_latest.metabolic_age|default:"—" }} <em>歲</em></b></div>
+      <div class="bodycell"><span>{% translate "脂肪重" %}</span><b>{{ body_latest.fat_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>{% translate "去脂體重" %}</span><b>{{ body_latest.lean_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>{% translate "內臟脂肪等級" %}</span><b>{{ body_latest.visceral_fat_level|default:"—" }}</b></div>
+      <div class="bodycell"><span>{% translate "推定骨量" %}</span><b>{{ body_latest.bone_mass_kg|default:"—" }} <em>kg</em></b></div>
+      <div class="bodycell"><span>{% translate "體水分率" %}</span><b>{{ body_latest.body_water_pct|default:"—" }} <em>%</em></b></div>
+      <div class="bodycell"><span>{% translate "基礎代謝量" %}</span><b>{{ body_latest.bmr_kcal|default:"—" }} <em>kcal</em></b></div>
+      <div class="bodycell"><span>{% translate "肌肉質量指數" %}</span><b>{{ body_latest.muscle_quality_score|default:"—" }}</b></div>
+      <div class="bodycell"><span>{% translate "體內年齡" %}</span><b>{{ body_latest.metabolic_age|default:"—" }} <em>{% translate "歲" %}</em></b></div>
     </div>
 
     {% if body_latest.mba_rating or body_latest.note %}
       <div class="small c-dim mt">
-        {% if body_latest.mba_rating %}MBA 判定：{{ body_latest.mba_rating }}{% endif %}
+        {% if body_latest.mba_rating %}{% blocktranslate with v0=body_latest.mba_rating %}MBA 判定：{{ v0 }}{% endblocktranslate %}{% endif %}
         {% if body_latest.note %}{% if body_latest.mba_rating %} · {% endif %}{{ body_latest.note }}{% endif %}
       </div>
     {% endif %}
@@ -212,7 +212,7 @@
   {% if body_latest.has_segments %}
   <div class="detailtable">
     <table>
-      <thead><tr><th>部位</th><th class="num">肌肉量 (kg)</th><th class="num">脂肪率 (%)</th><th class="num">肌肉品質點數</th></tr></thead>
+      <thead><tr><th>{% translate "部位" %}</th><th class="num">{% translate "肌肉量 (kg)" %}</th><th class="num">{% translate "脂肪率 (%)" %}</th><th class="num">{% translate "肌肉品質點數" %}</th></tr></thead>
       <tbody>
       {% for seg in body_latest.segments %}
         <tr>
@@ -228,8 +228,8 @@
   {% endif %}
   {% else %}
     <div class="empty">
-      尚未有體組成紀錄。
-      {% if can_edit_plan %}可以用上面的「匯入檔案」讀入體脂磅匯出的 CSV，或手動新增一筆。{% endif %}
+      {% translate "尚未有體組成紀錄。" %}
+      {% if can_edit_plan %}{% translate "可以用上面的「匯入檔案」讀入體脂磅匯出的 CSV，或手動新增一筆。" %}{% endif %}
     </div>
   {% endif %}
 </div>
@@ -237,7 +237,7 @@
 {% if body_history|length > 1 %}
 <!-- 體組成走勢 -->
 <div class="card pad0 mt">
-  <div class="card-head"><span>身體變化走勢（最近 {{ body_history|length }} 次量測）</span></div>
+  <div class="card-head"><span>{% blocktranslate with v0=body_history|length %}身體變化走勢（最近 {{ v0 }} 次量測）{% endblocktranslate %}</span></div>
   <div class="chart-box tall"><canvas id="bodyChart"></canvas></div>
 </div>
 {% endif %}
@@ -245,15 +245,15 @@
 {% if body_history %}
 <!-- 量測紀錄 -->
 <div class="card pad0 mt">
-  <div class="card-head"><span>體組成紀錄 (Record History)</span></div>
+  <div class="card-head"><span>{% translate "體組成紀錄 (Record History)" %}</span></div>
   <div class="detailtable">
     <table>
       <thead>
         <tr>
-          <th>日期</th><th class="num">體重 (kg)</th><th class="num">體脂肪率 (%)</th>
-          <th class="num">肌肉量 (kg)</th><th class="num">BMI</th><th class="num">內臟脂肪</th>
-          <th class="num">體水分率 (%)</th><th class="num">基礎代謝 (kcal)</th>
-          <th>來源</th>{% if can_edit_plan %}<th></th>{% endif %}
+          <th>{% translate "日期" %}</th><th class="num">{% translate "體重 (kg)" %}</th><th class="num">{% translate "體脂肪率 (%)" %}</th>
+          <th class="num">{% translate "肌肉量 (kg)" %}</th><th class="num">BMI</th><th class="num">{% translate "內臟脂肪" %}</th>
+          <th class="num">{% translate "體水分率 (%)" %}</th><th class="num">{% translate "基礎代謝 (kcal)" %}</th>
+          <th>{% translate "來源" %}</th>{% if can_edit_plan %}<th></th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -273,11 +273,11 @@
           {% if can_edit_plan %}
           <td class="num">
             <form method="post" action="{% url 'web:athlete_body_metric' athlete.id %}"
-                  onsubmit="return confirm('刪除 {{ log.date }} 的體組成紀錄？')">
+                  onsubmit="return confirm('{% blocktranslate with v0=log.date %}刪除 {{ v0 }} 的體組成紀錄？{% endblocktranslate %}')">
               {% csrf_token %}
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="log_id" value="{{ log.id }}">
-              <button class="linkbtn" type="submit" title="刪除">×</button>
+              <button class="linkbtn" type="submit" title="{% translate '刪除' %}">×</button>
             </form>
           </td>
           {% endif %}
@@ -292,32 +292,32 @@
 <div class="mt"></div>
 <!-- ----------------------------------------------------------- 個人最佳 -->
 <div class="card pad0">
-  <div class="card-head"><span>個人最佳成績 (PB)</span></div>
+  <div class="card-head"><span>{% translate "個人最佳成績 (PB)" %}</span></div>
   <table>
-    <thead><tr><th>項目</th><th>成績</th><th>日期</th><th>賽事</th></tr></thead>
+    <thead><tr><th>{% translate "項目" %}</th><th>{% translate "成績" %}</th><th>{% translate "日期" %}</th><th>{% translate "賽事" %}</th></tr></thead>
     <tbody>
     {% for pb in athlete.personal_bests.all %}
       {% if pb.is_current %}
       <tr>
-        <td>{{ pb.event.name_zh }}</td>
+        <td>{{ pb.event.display_name }}</td>
         <td class="num c-accent"><strong>{{ pb.mark_display }}</strong></td>
         <td class="num">{{ pb.date }}</td>
         <td>{{ pb.competition_name|default:"—" }}</td>
       </tr>
       {% endif %}
     {% empty %}
-      <tr><td colspan="4" class="empty">尚未登錄 PB</td></tr>
+      <tr><td colspan="4" class="empty">{% translate "尚未登錄 PB" %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
 
 <div class="card mt small c-dim">
-  <strong>快速指令選單</strong>
-  [1] <a href="{% url 'web:calendar' %}">新增／記錄 program</a>
-  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
-  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
-  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+  <strong>{% translate "快速指令選單" %}</strong>
+  [1] <a href="{% url 'web:calendar' %}">{% translate "新增／記錄 program" %}</a>
+  [2] <a href="{% url 'web:analytics' %}">{% translate "查看本週負荷分析" %}</a>
+  [3] <a href="{% url 'web:nutrition' %}">{% translate "調整營養菜單" %}</a>
+  [4] <a href="{% url 'web:injuries' %}">{% translate "更新傷患狀態" %}</a>
 </div>
 {% if can_edit_plan %}
 <!-- ------------------------------------------------- 體組成 輸入／匯入 -->
@@ -326,88 +326,88 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="save">
     <div class="between mb">
-      <h2>新增／更新體組成紀錄</h2>
-      <button type="button" class="btn ghost sm" onclick="bodyDlg.close()">關閉</button>
+      <h2>{% translate "新增／更新體組成紀錄" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyDlg.close()">{% translate "關閉" %}</button>
     </div>
-    <div class="alert blue small">同一個日期已經有紀錄的話，會直接覆蓋那一筆。只填量得到的欄位就好。</div>
+    <div class="alert blue small">{% translate "同一個日期已經有紀錄的話，會直接覆蓋那一筆。只填量得到的欄位就好。" %}</div>
 
     <div class="row">
-      <div class="field"><label>日期</label>
+      <div class="field"><label>{% translate "日期" %}</label>
         <input type="date" name="date" value="{{ body_today_iso }}" required></div>
-      <div class="field"><label>量測時間</label>
+      <div class="field"><label>{% translate "量測時間" %}</label>
         <input type="time" name="measured_at"></div>
-      <div class="field"><label>量測機型</label>
-        <input type="text" name="device" maxlength="40" placeholder="例：RD-545AS"></div>
+      <div class="field"><label>{% translate "量測機型" %}</label>
+        <input type="text" name="device" maxlength="40" placeholder="{% translate '例：RD-545AS' %}"></div>
     </div>
 
-    <div class="small c-dim mb">全身數據</div>
+    <div class="small c-dim mb">{% translate "全身數據" %}</div>
     <div class="row">
-      <div class="field"><label>體重 (kg) *</label>
+      <div class="field"><label>{% translate "體重 (kg) *" %}</label>
         <input type="number" name="weight_kg" step="0.1" min="20" max="250" required></div>
-      <div class="field"><label>體脂肪率 (%)</label>
+      <div class="field"><label>{% translate "體脂肪率 (%)" %}</label>
         <input type="number" name="body_fat_pct" step="0.1" min="1" max="70"></div>
-      <div class="field"><label>肌肉量 (kg)</label>
+      <div class="field"><label>{% translate "肌肉量 (kg)" %}</label>
         <input type="number" name="muscle_mass_kg" step="0.01" min="1" max="150"></div>
       <div class="field"><label>BMI</label>
         <input type="number" name="bmi" step="0.1" min="8" max="60"></div>
     </div>
     <div class="row">
-      <div class="field"><label>肌肉量判定指數</label>
+      <div class="field"><label>{% translate "肌肉量判定指數" %}</label>
         <input type="number" name="muscle_mass_index" step="1"></div>
-      <div class="field"><label>肌肉質量指數</label>
+      <div class="field"><label>{% translate "肌肉質量指數" %}</label>
         <input type="number" name="muscle_quality_score" step="1"></div>
-      <div class="field"><label>內臟脂肪等級</label>
+      <div class="field"><label>{% translate "內臟脂肪等級" %}</label>
         <input type="number" name="visceral_fat_level" step="0.1" min="0" max="60"></div>
-      <div class="field"><label>推定骨量 (kg)</label>
+      <div class="field"><label>{% translate "推定骨量 (kg)" %}</label>
         <input type="number" name="bone_mass_kg" step="0.01" min="0" max="10"></div>
     </div>
     <div class="row">
-      <div class="field"><label>體水分率 (%)</label>
+      <div class="field"><label>{% translate "體水分率 (%)" %}</label>
         <input type="number" name="body_water_pct" step="0.1" min="20" max="90"></div>
-      <div class="field"><label>基礎代謝量 (kcal)</label>
+      <div class="field"><label>{% translate "基礎代謝量 (kcal)" %}</label>
         <input type="number" name="bmr_kcal" step="1" min="500" max="5000"></div>
-      <div class="field"><label>體內年齡 (歲)</label>
+      <div class="field"><label>{% translate "體內年齡 (歲)" %}</label>
         <input type="number" name="metabolic_age" step="1" min="5" max="120"></div>
-      <div class="field"><label>MBA 判定</label>
-        <input type="text" name="mba_rating" maxlength="20" placeholder="例：業餘"></div>
+      <div class="field"><label>{% translate "MBA 判定" %}</label>
+        <input type="text" name="mba_rating" maxlength="20" placeholder="{% translate '例：業餘' %}"></div>
     </div>
 
     <details class="mb">
-      <summary class="small c-accent" style="cursor:pointer;margin-bottom:12px">部位數據（右／左上肢、右／左腳、軀幹）</summary>
-      <div class="small c-dim mb">部位肌肉量 (kg)</div>
+      <summary class="small c-accent" style="cursor:pointer;margin-bottom:12px">{% translate "部位數據（右／左上肢、右／左腳、軀幹）" %}</summary>
+      <div class="small c-dim mb">{% translate "部位肌肉量 (kg)" %}</div>
       <div class="row">
-        <div class="field"><label>右上肢</label><input type="number" name="muscle_arm_r" step="0.01"></div>
-        <div class="field"><label>左上肢</label><input type="number" name="muscle_arm_l" step="0.01"></div>
-        <div class="field"><label>右腳</label><input type="number" name="muscle_leg_r" step="0.01"></div>
-        <div class="field"><label>左腳</label><input type="number" name="muscle_leg_l" step="0.01"></div>
-        <div class="field"><label>軀幹</label><input type="number" name="muscle_trunk" step="0.01"></div>
+        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="muscle_arm_r" step="0.01"></div>
+        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="muscle_arm_l" step="0.01"></div>
+        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="muscle_leg_r" step="0.01"></div>
+        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="muscle_leg_l" step="0.01"></div>
+        <div class="field"><label>{% translate "軀幹" %}</label><input type="number" name="muscle_trunk" step="0.01"></div>
       </div>
-      <div class="small c-dim mb">部位脂肪率 (%)</div>
+      <div class="small c-dim mb">{% translate "部位脂肪率 (%)" %}</div>
       <div class="row">
-        <div class="field"><label>右上肢</label><input type="number" name="fat_arm_r" step="0.1"></div>
-        <div class="field"><label>左上肢</label><input type="number" name="fat_arm_l" step="0.1"></div>
-        <div class="field"><label>右腳</label><input type="number" name="fat_leg_r" step="0.1"></div>
-        <div class="field"><label>左腳</label><input type="number" name="fat_leg_l" step="0.1"></div>
-        <div class="field"><label>軀幹</label><input type="number" name="fat_trunk" step="0.1"></div>
+        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="fat_arm_r" step="0.1"></div>
+        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="fat_arm_l" step="0.1"></div>
+        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="fat_leg_r" step="0.1"></div>
+        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="fat_leg_l" step="0.1"></div>
+        <div class="field"><label>{% translate "軀幹" %}</label><input type="number" name="fat_trunk" step="0.1"></div>
       </div>
-      <div class="small c-dim mb">部位肌肉品質點數</div>
+      <div class="small c-dim mb">{% translate "部位肌肉品質點數" %}</div>
       <div class="row">
-        <div class="field"><label>右上肢</label><input type="number" name="mq_arm_r" step="1"></div>
-        <div class="field"><label>左上肢</label><input type="number" name="mq_arm_l" step="1"></div>
-        <div class="field"><label>右腳</label><input type="number" name="mq_leg_r" step="1"></div>
-        <div class="field"><label>左腳</label><input type="number" name="mq_leg_l" step="1"></div>
+        <div class="field"><label>{% translate "右上肢" %}</label><input type="number" name="mq_arm_r" step="1"></div>
+        <div class="field"><label>{% translate "左上肢" %}</label><input type="number" name="mq_arm_l" step="1"></div>
+        <div class="field"><label>{% translate "右腳" %}</label><input type="number" name="mq_leg_r" step="1"></div>
+        <div class="field"><label>{% translate "左腳" %}</label><input type="number" name="mq_leg_l" step="1"></div>
       </div>
       <div class="row">
-        <div class="field"><label>靜息心率</label><input type="number" name="resting_hr" step="1"></div>
+        <div class="field"><label>{% translate "靜息心率" %}</label><input type="number" name="resting_hr" step="1"></div>
         <div class="field"><label>HRV (ms)</label><input type="number" name="hrv" step="1"></div>
       </div>
     </details>
 
     <div class="field">
-      <label>備註</label>
-      <textarea name="note" rows="2" placeholder="例：訓練前空腹量測"></textarea>
+      <label>{% translate "備註" %}</label>
+      <textarea name="note" rows="2" placeholder="{% translate '例：訓練前空腹量測' %}"></textarea>
     </div>
-    <button class="btn" type="submit">儲存體組成紀錄</button>
+    <button class="btn" type="submit">{% translate "儲存體組成紀錄" %}</button>
   </form>
 </dialog>
 
@@ -416,42 +416,39 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="paste">
     <div class="between mb">
-      <h2>貼上磅的文字</h2>
-      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.close()">關閉</button>
+      <h2>{% translate "貼上磅的文字" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyPasteDlg.close()">{% translate "關閉" %}</button>
     </div>
 
     <div class="alert blue small">
-      <b>用手機截圖也可以：</b>在相簿長按截圖 → iPhone 用「實時文字」、Android 用 Google Lens
-      選取全部文字 → 複製 → 貼到下面。項目名與數值分兩行也讀得懂，「標準／多／高」等評價字會自動略過。
-      手機不方便的話，也可以直接在下面上傳截圖，讓瀏覽器自己辨識。
+      <b>{% translate "用手機截圖也可以：" %}</b>{% translate "在相簿長按截圖 → iPhone 用「實時文字」、Android 用 Google Lens 選取全部文字 → 複製 → 貼到下面。項目名與數值分兩行也讀得懂，「標準／多／高」等評價字會自動略過。 手機不方便的話，也可以直接在下面上傳截圖，讓瀏覽器自己辨識。" %}
     </div>
 
     <div class="field">
-      <label>或：上傳截圖自動辨識</label>
+      <label>{% translate "或：上傳截圖自動辨識" %}</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input type="file" id="ocrFile" accept="image/*">
-        <button type="button" class="btn ghost sm" id="ocrRun">辨識圖片文字</button>
+        <button type="button" class="btn ghost sm" id="ocrRun">{% translate "辨識圖片文字" %}</button>
       </div>
       <div class="small c-dim" id="ocrStatus" style="margin-top:6px">
-        圖片不會上傳，整個辨識都在你的瀏覽器裡跑。第一次要下載約 10MB 中文辨識模型（之後會快取），
-        辨識大約 5–15 秒。結果會填到下面，<b>請自己核對數字再儲存</b>。
+        {% translate "圖片不會上傳，整個辨識都在你的瀏覽器裡跑。第一次要下載約 10MB 中文辨識模型（之後會快取）， 辨識大約 5–15 秒。結果會填到下面，" %}<b>{% translate "請自己核對數字再儲存" %}</b>。
       </div>
     </div>
 
     <div class="field">
-      <label>量測日期</label>
+      <label>{% translate "量測日期" %}</label>
       <input type="date" name="date" value="{{ body_today_iso }}">
       <div class="small c-dim" style="margin-top:4px">
-        貼上的文字裡若已有日期，可以把這格清空，改用文字裡的日期。
+        {% translate "貼上的文字裡若已有日期，可以把這格清空，改用文字裡的日期。" %}
       </div>
     </div>
 
     <div class="field">
-      <label>貼上內容</label>
+      <label>{% translate "貼上內容" %}</label>
       <textarea name="text" id="bodyPasteText" rows="12" required
-                placeholder="體重&#10;69.20 kg&#10;體脂肪率&#10;標準&#10;16.30 %&#10;肌肉量&#10;54.90 kg&#10;…"></textarea>
+                placeholder="{% translate '體重&#10;69.20 kg&#10;體脂肪率&#10;標準&#10;16.30 %&#10;肌肉量&#10;54.90 kg&#10;…' %}"></textarea>
     </div>
-    <button class="btn" type="submit">讀取並更新</button>
+    <button class="btn" type="submit">{% translate "讀取並更新" %}</button>
   </form>
 </dialog>
 
@@ -460,23 +457,23 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="import">
     <div class="between mb">
-      <h2>匯入體組成檔案</h2>
-      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.close()">關閉</button>
+      <h2>{% translate "匯入體組成檔案" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="bodyImportDlg.close()">{% translate "關閉" %}</button>
     </div>
 
     <div class="field">
-      <label>檔案（CSV / TSV / TXT）</label>
+      <label>{% translate "檔案（CSV / TSV / TXT）" %}</label>
       <input type="file" name="file" accept=".csv,.tsv,.txt,text/csv,text/plain" required>
     </div>
 
     <div class="alert blue small">
-      兩種格式都讀得懂：<br>
-      ① 一行一個項目 —— <code>體重,69.20 kg</code>、<code>體脂肪率,16.30 %</code>…（磅的 App 那一頁直接貼出來）<br>
-      ② 表格 —— 第一行是欄名（日期、體重、體脂肪率、肌肉量…），其餘每行一次量測，可一次匯入多天。<br>
-      單位、「標準／多／高」等評價字會自動略過；同一天已有紀錄會被覆蓋。<br>
-      範例檔：<code>docs/body_composition_sample.csv</code>
+      {% translate "兩種格式都讀得懂：" %}<br>
+      {% translate "① 一行一個項目 ——" %} <code>{% translate "體重,69.20 kg" %}</code>、<code>{% translate "體脂肪率,16.30 %" %}</code>{% translate "…（磅的 App 那一頁直接貼出來）" %}<br>
+      {% translate "② 表格 —— 第一行是欄名（日期、體重、體脂肪率、肌肉量…），其餘每行一次量測，可一次匯入多天。" %}<br>
+      {% translate "單位、「標準／多／高」等評價字會自動略過；同一天已有紀錄會被覆蓋。" %}<br>
+      {% translate "範例檔：" %}<code>docs/body_composition_sample.csv</code>
     </div>
-    <button class="btn" type="submit">上傳並更新</button>
+    <button class="btn" type="submit">{% translate "上傳並更新" %}</button>
   </form>
 </dialog>
 
@@ -486,41 +483,41 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="set_target">
     <div class="between mb">
-      <h2>設定目標賽事</h2>
-      <button type="button" class="btn ghost sm" onclick="targetDlg.close()">關閉</button>
+      <h2>{% translate "設定目標賽事" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="targetDlg.close()">{% translate "關閉" %}</button>
     </div>
 
     <div class="field">
-      <label>目標賽事</label>
+      <label>{% translate "目標賽事" %}</label>
       <select name="competition" id="compPick" onchange="toggleNewComp()">
-        <option value="">— 請選擇 —</option>
+        <option value="">{% translate "— 請選擇 —" %}</option>
         {% for c in competitions %}
           <option value="{{ c.id }}" {% if macro and macro.target_competition_id == c.id %}selected{% endif %}>
             {{ c.name }}（{{ c.date }}）
           </option>
         {% endfor %}
-        <option value="__new__">＋ 新增一個賽事…</option>
+        <option value="__new__">{% translate "＋ 新增一個賽事…" %}</option>
       </select>
     </div>
 
     <div id="newComp" style="display:none">
       <div class="row">
         <div class="field">
-          <label>賽事名稱</label>
-          <input type="text" name="comp_name" maxlength="150" placeholder="例：全港學界田徑錦標賽">
+          <label>{% translate "賽事名稱" %}</label>
+          <input type="text" name="comp_name" maxlength="150" placeholder="{% translate '例：全港學界田徑錦標賽' %}">
         </div>
         <div class="field">
-          <label>比賽日期</label>
+          <label>{% translate "比賽日期" %}</label>
           <input type="date" name="comp_date" value="{{ today_iso }}">
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label>場地</label>
+          <label>{% translate "場地" %}</label>
           <input type="text" name="comp_venue" maxlength="150">
         </div>
         <div class="field">
-          <label>層級</label>
+          <label>{% translate "層級" %}</label>
           <select name="comp_level">
             {% for value, label in competition_levels %}
               <option value="{{ value }}" {% if value == 'REGIONAL' %}selected{% endif %}>{{ label }}</option>
@@ -532,26 +529,25 @@
 
     <div class="row">
       <div class="field">
-        <label>備戰開始日期</label>
+        <label>{% translate "備戰開始日期" %}</label>
         <input type="date" name="start_date" value="{{ macro.start_date|date:'Y-m-d' }}">
-        <div class="small c-dim" style="margin-top:4px">留空＝由比賽日往回數，自動對齊週一</div>
+        <div class="small c-dim" style="margin-top:4px">{% translate "留空＝由比賽日往回數，自動對齊週一" %}</div>
       </div>
       <div class="field">
-        <label>總週數</label>
+        <label>{% translate "總週數" %}</label>
         <input type="number" name="total_weeks" min="1" max="52" value="{{ macro.total_weeks|default:16 }}">
       </div>
       <div class="field">
-        <label>基準週負荷 (AU)</label>
+        <label>{% translate "基準週負荷 (AU)" %}</label>
         <input type="number" name="baseline_weekly_load" min="100" max="20000" step="50"
                value="{{ macro.baseline_weekly_load|default:1800 }}">
       </div>
     </div>
 
     <div class="alert blue small">
-      改動開始日期、總週數或基準負荷會依模板重建分期與週計劃；
-      已排的課表會重新對回新的週次。
+      {% translate "改動開始日期、總週數或基準負荷會依模板重建分期與週計劃； 已排的課表會重新對回新的週次。" %}
     </div>
-    <button class="btn" type="submit">儲存目標賽事</button>
+    <button class="btn" type="submit">{% translate "儲存目標賽事" %}</button>
   </form>
 </dialog>
 
@@ -560,15 +556,15 @@
     {% csrf_token %}
     <input type="hidden" name="action" value="set_phase">
     <div class="between mb">
-      <h2>修改分期</h2>
-      <button type="button" class="btn ghost sm" onclick="phaseDlg.close()">關閉</button>
+      <h2>{% translate "修改分期" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="phaseDlg.close()">{% translate "關閉" %}</button>
     </div>
 
     {% if not macro %}
-      <div class="alert yellow">要先設定目標賽事，才有分期可以改。</div>
+      <div class="alert yellow">{% translate "要先設定目標賽事，才有分期可以改。" %}</div>
     {% else %}
       <div class="field">
-        <label>要改哪一段分期</label>
+        <label>{% translate "要改哪一段分期" %}</label>
         <select name="phase_id" id="phasePick" onchange="fillPhase()">
           {% for ph in phases %}
             <option value="{{ ph.id }}"
@@ -576,15 +572,15 @@
                     data-end="{{ ph.week_end }}" data-load="{{ ph.target_weekly_load }}"
                     data-focus="{{ ph.focus }}"
                     {% if d.current_phase and d.current_phase.id == ph.id %}selected{% endif %}>
-              {{ ph.get_phase_type_display }}（W{{ ph.week_start }}–W{{ ph.week_end }}）{% if d.current_phase and d.current_phase.id == ph.id %} · 目前{% endif %}
+              {{ ph.get_phase_type_display }}（W{{ ph.week_start }}–W{{ ph.week_end }}）{% if d.current_phase and d.current_phase.id == ph.id %} {% translate "· 目前" %}{% endif %}
             </option>
           {% endfor %}
-          <option value="">＋ 新增一段分期</option>
+          <option value="">{% translate "＋ 新增一段分期" %}</option>
         </select>
       </div>
 
       <div class="field">
-        <label>期別</label>
+        <label>{% translate "期別" %}</label>
         <div class="typepick">
           {% for value, label in phase_types %}
             <label class="typeopt">
@@ -598,33 +594,33 @@
 
       <div class="row">
         <div class="field">
-          <label>起始週</label>
+          <label>{% translate "起始週" %}</label>
           <input type="number" name="week_start" id="phWeekStart" min="1" max="{{ macro.total_weeks }}"
                  value="{{ d.current_phase.week_start|default:1 }}">
         </div>
         <div class="field">
-          <label>結束週</label>
+          <label>{% translate "結束週" %}</label>
           <input type="number" name="week_end" id="phWeekEnd" min="1" max="{{ macro.total_weeks }}"
                  value="{{ d.current_phase.week_end|default:macro.total_weeks }}">
         </div>
         <div class="field">
-          <label>目標週負荷 (AU)</label>
+          <label>{% translate "目標週負荷 (AU)" %}</label>
           <input type="number" name="target_weekly_load" id="phLoad" min="0" max="20000" step="50"
                  value="{{ d.current_phase.target_weekly_load|default:macro.baseline_weekly_load }}">
         </div>
       </div>
 
       <div class="field">
-        <label>訓練重心</label>
+        <label>{% translate "訓練重心" %}</label>
         <textarea name="focus" id="phFocus" rows="3"
-                  placeholder="例：專項速度/耐力、最大力量→爆發力轉化">{{ d.current_phase.focus }}</textarea>
+                  placeholder="{% translate '例：專項速度/耐力、最大力量→爆發力轉化' %}">{{ d.current_phase.focus }}</textarea>
       </div>
 
       <div class="between">
-        <button class="btn" type="submit">儲存分期</button>
+        <button class="btn" type="submit">{% translate "儲存分期" %}</button>
         <button class="btn ghost" type="submit" name="reset" value="1"
-                onclick="return confirm('會依預設模板重建整份分期，自訂的重心與目標負荷會被覆蓋。要繼續嗎？')">
-          重建預設分期
+                onclick="return confirm('{% translate "會依預設模板重建整份分期，自訂的重心與目標負荷會被覆蓋。要繼續嗎？" %}')">
+          {% translate "重建預設分期" %}
         </button>
       </div>
     {% endif %}
@@ -640,7 +636,7 @@ new Chart(document.getElementById('loadChart'), {
   data: {
     labels: {{ chart_labels|safe }},
     datasets: [
-      { type: 'bar', label: '週總負荷 (AU)', data: {{ chart_load|safe }},
+      { type: 'bar', label: '{% translate "週總負荷 (AU)" %}', data: {{ chart_load|safe }},
         backgroundColor: '#ff6b3599', borderColor: '#ff6b35', borderWidth: 1, yAxisID: 'y' },
       { type: 'line', label: 'ACWR', data: {{ chart_acwr|safe }},
         borderColor: '#4da3ff', backgroundColor: '#4da3ff', tension: .3,

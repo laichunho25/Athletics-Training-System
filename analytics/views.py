@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from django.utils.translation import gettext as _
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -42,7 +43,7 @@ class ACWRView(APIView):
     def get(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         on_date = request.query_params.get("date")
         on_date = date.fromisoformat(on_date) if on_date else date.today()
         return Response(services.acwr_report(athlete, on_date))
@@ -54,7 +55,7 @@ class LoadProgressionView(APIView):
     def get(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         weeks = int(request.query_params.get("weeks", 12))
         rows = services.weekly_load_progression(athlete, weeks)
         return Response(
@@ -76,11 +77,11 @@ class PerformanceTrendView(APIView):
     def get(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         code = request.query_params.get("event")
         event = Event.objects.filter(code=code).first() if code else athlete.primary_event
         if event is None:
-            return Response({"detail": "找不到項目。"}, status=404)
+            return Response({"detail": _("找不到項目。")}, status=404)
         days = int(request.query_params.get("days", 365))
         return Response(services.performance_trend(athlete, event, days))
 
@@ -93,10 +94,10 @@ class StrengthTrendView(APIView):
 
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         exercise = Exercise.objects.filter(code=request.query_params.get("exercise")).first()
         if exercise is None:
-            return Response({"detail": "請提供有效的 exercise 代碼。"}, status=400)
+            return Response({"detail": _("請提供有效的 exercise 代碼。")}, status=400)
         days = int(request.query_params.get("days", 365))
         return Response(services.strength_trend(athlete, exercise, days))
 
@@ -107,7 +108,7 @@ class VolumeDistributionView(APIView):
     def get(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         days = int(request.query_params.get("days", 28))
         return Response({"days": days, "distribution": services.volume_distribution(athlete, days)})
 
@@ -118,7 +119,7 @@ class ReadinessView(APIView):
     def get(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         on_date = request.query_params.get("date")
         on_date = date.fromisoformat(on_date) if on_date else date.today()
         return Response(services.readiness_score(athlete, on_date))
@@ -130,7 +131,7 @@ class RebuildView(APIView):
     def post(self, request, athlete_id):
         athlete = _get_athlete(request, athlete_id)
         if athlete is None:
-            return Response({"detail": "找不到此運動員或無權限。"}, status=404)
+            return Response({"detail": _("找不到此運動員或無權限。")}, status=404)
         days = int(request.data.get("days", 90))
         services.rebuild_all(athlete, days)
-        return Response({"detail": f"已重算 {athlete} 近 {days} 天的負荷彙總。"})
+        return Response({"detail": _("已重算 %(v0)s 近 %(v1)s 天的負荷彙總。") % {"v0": athlete, "v1": days}})

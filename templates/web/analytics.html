@@ -1,14 +1,14 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
-{% block title %}數據分析{% endblock %}
+{% block title %}{% translate "數據分析" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>數據分析</h1>
+    <h1>{% translate "數據分析" %}</h1>
     <div class="subtitle" style="margin:0">
-      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
-      日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} · 日曆上的 program 做完之後，在這裡把成績登進來，系統自動算趨勢{% endblocktranslate %}
     </div>
   </div>
   {% include "web/_athlete_links.html" %}
@@ -24,9 +24,9 @@
 
 <!-- 一頁的欄位很多，這兩顆一次過把所有欄收起／展開，先看標題再挑要看哪一段 -->
 <div class="foldbar">
-  <button type="button" class="btn ghost sm" data-fold-all="1">全部收起</button>
-  <button type="button" class="btn ghost sm" data-fold-all="0">全部展開</button>
-  <span class="small c-dim">每一欄標題右邊的 ▾ 也可以單獨收起，收起哪幾欄會記住。</span>
+  <button type="button" class="btn ghost sm" data-fold-all="1">{% translate "全部收起" %}</button>
+  <button type="button" class="btn ghost sm" data-fold-all="0">{% translate "全部展開" %}</button>
+  <span class="small c-dim">{% translate "每一欄標題右邊的 ▾ 也可以單獨收起，收起哪幾欄會記住。" %}</span>
 </div>
 
 <div class="grid anagrid mb">
@@ -42,8 +42,8 @@
   <!-- ------------------------------------------------------ 最常做的動作 -->
   <div class="card pad0 mb">
     <div class="card-head">
-      <span>最常做的動作</span>
-      <span class="small c-dim">近 365 天 · 依練過幾天排</span>
+      <span>{% translate "最常做的動作" %}</span>
+      <span class="small c-dim">{% translate "近 365 天 · 依練過幾天排" %}</span>
     </div>
     <div class="itemlist">
       {% for t in tops %}
@@ -53,9 +53,9 @@
           <span class="name">
             <span class="rank">{{ forloop.counter }}</span>
             <span class="ellip" title="{{ t.item.display_name }}{% if t.item.unit %}（{{ t.item.unit }}）{% endif %}">{{ t.item.name }}</span>
-            <span class="meta" title="近 365 天練過 {{ t.days }} 天、共 {{ t.count }} 組">{{ t.days }}d/{{ t.count }}組</span>
+            <span class="meta" title="{% blocktranslate with v0=t.days v1=t.count %}近 365 天練過 {{ v0 }} 天、共 {{ v1 }} 組{% endblocktranslate %}">{% blocktranslate with v0=t.days v1=t.count %}{{ v0 }}d/{{ v1 }}組{% endblocktranslate %}</span>
           </span>
-          <span class="meta" title="最佳 {{ t.best|default:'—' }}{{ t.item.unit }}{% if t.change_pct != None %}；期內變化 {{ t.change_pct }}%{% endif %}">
+          <span class="meta" title="{% blocktranslate with v0=t.best|default:'—' v1=t.item.unit %}最佳 {{ v0 }}{{ v1 }}{% endblocktranslate %}{% if t.change_pct != None %}{% blocktranslate with v0=t.change_pct %}；期內變化 {{ v0 }}%{% endblocktranslate %}{% endif %}">
             {% if t.best != None %}{{ t.best }}{{ t.item.unit }}{% else %}—{% endif %}
             {% if t.change_pct != None %}
               <span class="{% if t.improving %}c-green{% else %}c-red{% endif %}">{% if t.change_pct > 0 %}+{% endif %}{{ t.change_pct }}%</span>
@@ -64,14 +64,14 @@
         </a>
         <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ t.item.id }}"
                 data-name="{{ t.item.display_name }}" data-builtin="{{ t.item.is_builtin|yesno:"1," }}"
-                title="把「{{ t.item.display_name }}」從清單刪掉">×</button>
+                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
        </div>
       {% empty %}
-        <div class="empty">這個範疇還沒有任何紀錄</div>
+        <div class="empty">{% translate "這個範疇還沒有任何紀錄" %}</div>
       {% endfor %}
     </div>
     <div class="small c-dim" style="padding:10px 16px 12px;border-top:1px solid var(--border)">
-      點一個動作就能看到它每一次的紀錄內容與比較。
+      {% translate "點一個動作就能看到它每一次的紀錄內容與比較。" %}
     </div>
   </div>
   {% endif %}
@@ -80,8 +80,8 @@
   <!-- -------------------------------------------------------- 賽事清單 -->
   <div class="card pad0 mb">
     <div class="card-head">
-      <span>比賽紀錄</span>
-      <span class="small c-dim">{{ meets|length }} 場</span>
+      <span>{% translate "比賽紀錄" %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=meets|length %}{{ v0 }} 場{% endblocktranslate %}</span>
     </div>
     <div class="itemlist">
       {% for m in meets %}
@@ -91,12 +91,12 @@
             <span class="meta" title="{{ m.date }}">{{ m.date|date:"y/m/d" }}</span>
           </span>
           <span class="meta">
-            {{ m.item_count }} 項
+            {% blocktranslate with v0=m.item_count %}{{ v0 }} 項{% endblocktranslate %}
             {% if m.pb_count %}· <span class="c-green">{{ m.pb_count }} PB</span>{% endif %}
           </span>
         </a>
       {% empty %}
-        <div class="empty">還沒有比賽紀錄。挑一個比賽項目，把成績登進來。</div>
+        <div class="empty">{% translate "還沒有比賽紀錄。挑一個比賽項目，把成績登進來。" %}</div>
       {% endfor %}
     </div>
   </div>
@@ -106,7 +106,7 @@
   <div class="card pad0 mb">
     <div class="card-head">
       <span>{{ domain_label }}</span>
-      <span class="small c-dim">{{ overview|length }} 個項目{% if not is_competition %} · 依動作分類{% endif %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=overview|length %}{{ v0 }} 個項目{% endblocktranslate %}{% if not is_competition %} {% translate "· 依動作分類" %}{% endif %}</span>
     </div>
     <div class="itemlist">
       {% if is_competition %}
@@ -117,8 +117,8 @@
               <span class="ellip" title="{{ row.item.display_name }}">{{ row.item.name }}</span>
               {% if row.item.unit %}<span class="meta">{{ row.item.unit }}</span>{% endif %}
             </span>
-            <span class="meta" title="{% if row.count %}最近 {{ row.latest|default:'—' }}{{ row.item.unit }}（{{ row.latest_date|default:'—' }}）· 共 {{ row.count }} 筆{% else %}還沒有紀錄{% endif %}">
-              {% if row.count %}{{ row.latest|default:"—" }} · {{ row.count }}筆{% else %}—{% endif %}
+            <span class="meta" title="{% if row.count %}{% blocktranslate with v0=row.latest|default:'—' v1=row.item.unit v2=row.latest_date|default:'—' v3=row.count %}最近 {{ v0 }}{{ v1 }}（{{ v2 }}）· 共 {{ v3 }} 筆{% endblocktranslate %}{% else %}{% translate '還沒有紀錄' %}{% endif %}">
+              {% if row.count %}{% blocktranslate with v0=row.latest|default:"—" v1=row.count %}{{ v0 }} · {{ v1 }}筆{% endblocktranslate %}{% else %}—{% endif %}
             </span>
           </a>
         {% endfor %}
@@ -130,22 +130,22 @@
           <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
              class="{% if item and row.item.id == item.id %}active{% endif %}">
             <span class="name">
-              <span class="ellip" title="{{ row.item.display_name }}{% if row.item.unit %}（{{ row.item.unit }}）{% endif %}{% if not row.item.is_builtin %} · 自訂項目{% endif %}">{{ row.item.name }}</span>
+              <span class="ellip" title="{{ row.item.display_name }}{% if row.item.unit %}（{{ row.item.unit }}）{% endif %}{% if not row.item.is_builtin %} · {% translate '自訂項目' %}{% endif %}">{{ row.item.name }}</span>
               {% if row.item.unit %}<span class="meta">{{ row.item.unit }}</span>{% endif %}
-              {% if not row.item.is_builtin %}<span class="badge b-dim" title="自訂項目">自訂</span>{% endif %}
+              {% if not row.item.is_builtin %}<span class="badge b-dim" title="{% translate '自訂項目' %}">{% translate "自訂" %}</span>{% endif %}
             </span>
-            <span class="meta" title="{% if row.count %}最近 {{ row.latest|default:'—' }}{{ row.item.unit }}（{{ row.latest_date|default:'—' }}）· 共 {{ row.count }} 筆{% else %}還沒有紀錄{% endif %}">
-              {% if row.count %}{{ row.latest|default:"—" }} · {{ row.count }}筆{% else %}—{% endif %}
+            <span class="meta" title="{% if row.count %}{% blocktranslate with v0=row.latest|default:'—' v1=row.item.unit v2=row.latest_date|default:'—' v3=row.count %}最近 {{ v0 }}{{ v1 }}（{{ v2 }}）· 共 {{ v3 }} 筆{% endblocktranslate %}{% else %}{% translate '還沒有紀錄' %}{% endif %}">
+              {% if row.count %}{% blocktranslate with v0=row.latest|default:"—" v1=row.count %}{{ v0 }} · {{ v1 }}筆{% endblocktranslate %}{% else %}—{% endif %}
             </span>
           </a>
           <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ row.item.id }}"
                   data-name="{{ row.item.display_name }}" data-builtin="{{ row.item.is_builtin|yesno:"1," }}"
-                  title="把「{{ row.item.display_name }}」從清單刪掉">×</button>
+                  title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
           </div>
         {% endfor %}
       {% empty %}
         {% if not is_competition %}
-          <div class="empty">還沒有項目。用下面的「加入要追蹤的項目」挑一個動作就可以開始記錄。</div>
+          <div class="empty">{% translate "還沒有項目。用下面的「加入要追蹤的項目」挑一個動作就可以開始記錄。" %}</div>
         {% endif %}
       {% endfor %}
     </div>
@@ -156,8 +156,8 @@
   <!-- ------------------------------------------------ 從活動庫加入項目 -->
   <div class="card pad0 mb">
     <div class="card-head" data-fold-default="closed">
-      <span>加入要追蹤的項目</span>
-      <span class="small c-dim">項目庫共 {{ activity_library|length }} 個動作</span>
+      <span>{% translate "加入要追蹤的項目" %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=activity_library|length %}項目庫共 {{ v0 }} 個動作{% endblocktranslate %}</span>
     </div>
     <div style="padding:14px 18px">
       {% if is_track %}
@@ -168,26 +168,23 @@
         <input type="hidden" name="action" value="add_track_item">
         <input type="hidden" name="domain" value="TRACK">
         <div class="field">
-          <label>① 挑練習方式（距離另外填）</label>
+          <label>{% translate "① 挑練習方式（距離另外填）" %}</label>
           <select name="method" required>
-            <option value="">— 挑一個方式 —</option>
+            <option value="">{% translate "— 挑一個方式 —" %}</option>
             {% for v, l in track_methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
           </select>
         </div>
         <div class="row">
           <div class="field">
-            <label>距離 (m)</label>
-            <input type="number" name="distance_m" min="1" step="1" placeholder="例：150">
+            <label>{% translate "距離 (m)" %}</label>
+            <input type="number" name="distance_m" min="1" step="1" placeholder="{% translate '例：150' %}">
           </div>
           <div class="field" style="flex:1;align-self:flex-end">
-            <button class="btn sm" type="submit">加入要追蹤的項目</button>
+            <button class="btn sm" type="submit">{% translate "加入要追蹤的項目" %}</button>
           </div>
         </div>
         <div class="small c-dim">
-          例：挑「反覆跑」＋ 填 150 → 加進來的項目就是「150m 反覆跑」。
-          同一個距離用不同方式（150m 節奏跑 / 150m 反覆跑）是兩個項目，
-          之後可以在下面的「多項目一起分析」勾起來一起比。
-          距離留空就只記方式（例：起跑）。
+          {% translate "例：挑「反覆跑」＋ 填 150 → 加進來的項目就是「150m 反覆跑」。 同一個距離用不同方式（150m 節奏跑 / 150m 反覆跑）是兩個項目， 之後可以在下面的「多項目一起分析」勾起來一起比。 距離留空就只記方式（例：起跑）。" %}
         </div>
       </form>
       {% endif %}
@@ -197,24 +194,23 @@
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>{% if is_track %}②{% else %}①{% endif %} 從<a href="{% url 'web:library' %}">運動練習項目庫</a>挑（挑好按「加進清單」）</label>
+          <label>{% if is_track %}②{% else %}①{% endif %} {% translate "從" %}<a href="{% url 'web:library' %}">{% translate "運動練習項目庫" %}</a>{% translate "挑（挑好按「加進清單」）" %}</label>
           {% if not activity_library %}
-            <div class="empty">項目庫還沒有內容，請先跑一次 <code>manage.py seed_activities</code>。</div>
+            <div class="empty">{% translate "項目庫還沒有內容，請先跑一次" %} <code>manage.py seed_activities</code>。</div>
           {% endif %}
           <div class="small c-dim" style="margin-bottom:4px">
-            先挑運動種類與運動項目（例：田徑 → 短跑），右邊才列出相關的動作。
-            每個動作在做什麼、預設練幾組幾次，都寫在
-            <a href="{% url 'web:library' %}">運動練習項目庫</a>裡。
+            {% translate "先挑運動種類與運動項目（例：田徑 → 短跑），右邊才列出相關的動作。 每個動作在做什麼、預設練幾組幾次，都寫在" %}
+            <a href="{% url 'web:library' %}">{% translate "運動練習項目庫" %}</a>{% translate "裡。" %}
           </div>
         </div>
         <div class="row" data-libpick>
           <div class="field" style="flex:1">
-            <label>運動種類 → 運動項目</label>
+            <label>{% translate "運動種類 → 運動項目" %}</label>
             <select data-lp="sport"></select>
             <select data-lp="discipline" style="margin-top:6px"></select>
           </div>
           <div class="field" style="flex:1">
-            <label>訓練動作</label>
+            <label>{% translate "訓練動作" %}</label>
           <select name="definition" data-lp="activity" size="8" style="height:auto" required>
             {% for g in activity_groups %}
               <optgroup label="{{ g.label }}">
@@ -227,8 +223,8 @@
           </div>
         </div>
         <div class="flex">
-          <button class="btn sm" type="submit">加進清單</button>
-          <span class="small c-dim">加進來之後就能在下面的項目清單點開記錄。</span>
+          <button class="btn sm" type="submit">{% translate "加進清單" %}</button>
+          <span class="small c-dim">{% translate "加進來之後就能在下面的項目清單點開記錄。" %}</span>
         </div>
       </form>
 
@@ -237,9 +233,9 @@
         <input type="hidden" name="action" value="add_item">
         <input type="hidden" name="domain" value="{{ domain }}">
         <div class="field">
-          <label>{% if is_track %}③{% else %}②{% endif %} 或直接打名稱（打得中項目庫就會自動帶入英文名與分類）</label>
+          <label>{% if is_track %}③{% else %}②{% endif %} {% translate "或直接打名稱（打得中項目庫就會自動帶入英文名與分類）" %}</label>
           <input type="text" name="name" list="libitems" required
-                 placeholder="例：槓鈴深蹲 / Back Squat">
+                 placeholder="{% translate '例：槓鈴深蹲 / Back Squat' %}">
           <datalist id="libitems">
             {% for d in activity_library %}
               <option value="{{ d.name }}">{{ d.name_en }}</option>
@@ -247,44 +243,44 @@
           </datalist>
         </div>
         <div class="flex">
-          <button class="btn sm ghost" type="submit">加進清單</button>
+          <button class="btn sm ghost" type="submit">{% translate "加進清單" %}</button>
         </div>
       </form>
 
       <details>
-        <summary class="small c-accent" style="cursor:pointer">{% if is_track %}④{% else %}③{% endif %} 項目庫沒有？自己定義一個項目</summary>
+        <summary class="small c-accent" style="cursor:pointer">{% if is_track %}④{% else %}③{% endif %} {% translate "項目庫沒有？自己定義一個項目" %}</summary>
         <form method="post" class="mt">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_item">
           <input type="hidden" name="domain" value="{{ domain }}">
           <div class="field">
-            <label>項目名稱</label>
-            <input type="text" name="name" placeholder="例：120m 計時、單腳跳距離" required>
+            <label>{% translate "項目名稱" %}</label>
+            <input type="text" name="name" placeholder="{% translate '例：120m 計時、單腳跳距離' %}" required>
           </div>
           <div class="field">
-            <label>英文名稱</label>
-            <input type="text" name="name_en" placeholder="例：120m Time Trial">
+            <label>{% translate "英文名稱" %}</label>
+            <input type="text" name="name_en" placeholder="{% translate '例：120m Time Trial' %}">
           </div>
           <div class="field">
-            <label>動作分類</label>
+            <label>{% translate "動作分類" %}</label>
             <select name="category">
               {% for v, l in metric_categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
             </select>
           </div>
           <div class="row">
             <div class="field">
-              <label>單位</label>
-              <input type="text" name="unit" placeholder="秒 / m / kg / cm">
+              <label>{% translate "單位" %}</label>
+              <input type="text" name="unit" placeholder="{% translate '秒 / m / kg / cm' %}">
             </div>
             <div class="field">
-              <label>方向</label>
+              <label>{% translate "方向" %}</label>
               <select name="higher_is_better">
-                <option value="1">數值越大越好（距離、重量）</option>
-                <option value="">數值越小越好（計時、名次）</option>
+                <option value="1">{% translate "數值越大越好（距離、重量）" %}</option>
+                <option value="">{% translate "數值越小越好（計時、名次）" %}</option>
               </select>
             </div>
           </div>
-          <button class="btn sm" type="submit">新增項目</button>
+          <button class="btn sm" type="submit">{% translate "新增項目" %}</button>
         </form>
       </details>
     </div>
@@ -293,8 +289,8 @@
   <!-- ------------------------------------------ 多個項目一起分析 -->
   <div class="card pad0 mb">
     <div class="card-head" data-fold-default="closed">
-      <span>多項目一起分析</span>
-      <span class="small c-dim">勾 2 個以上</span>
+      <span>{% translate "多項目一起分析" %}</span>
+      <span class="small c-dim">{% translate "勾 2 個以上" %}</span>
     </div>
     <div style="padding:14px 18px">
       {% if multi_error %}
@@ -306,24 +302,22 @@
         {% if item %}<input type="hidden" name="item" value="{{ item.id }}">{% endif %}
         <input type="hidden" name="compare" value="{{ compare }}">
         <div class="field">
-          <label>挑幾個項目放在一起比</label>
+          <label>{% translate "挑幾個項目放在一起比" %}</label>
           <select name="items" multiple size="8" style="height:auto">
             {% for it in multi_choices %}
               <option value="{{ it.id }}" {% if it.id in picked_ids %}selected{% endif %}>
                 {{ it.display }}
               </option>
             {% empty %}
-              <option disabled>這個範疇還沒有任何紀錄</option>
+              <option disabled>{% translate "這個範疇還沒有任何紀錄" %}</option>
             {% endfor %}
           </select>
-          <span class="small c-dim">按住 Ctrl（Mac 是 ⌘）可以複選。
-            相近的訓練項目——同一個距離不同方式、或同一個方式不同距離——
-            勾起來才看得出哪一種練得起來。</span>
+          <span class="small c-dim">{% translate "按住 Ctrl（Mac 是 ⌘）可以複選。 相近的訓練項目——同一個距離不同方式、或同一個方式不同距離—— 勾起來才看得出哪一種練得起來。" %}</span>
         </div>
         <div class="flex">
-          <button class="btn sm" type="submit">一起分析</button>
+          <button class="btn sm" type="submit">{% translate "一起分析" %}</button>
           {% if multi %}
-            <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}{% if item %}&item={{ item.id }}{% endif %}&compare={{ compare }}">清除</a>
+            <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}{% if item %}&item={{ item.id }}{% endif %}&compare={{ compare }}">{% translate "清除" %}</a>
           {% endif %}
         </div>
       </form>
@@ -339,18 +333,18 @@
     <div class="card-head">
       <span class="ellip" title="{{ item.display_name }}{% if item.unit %}（{{ item.unit }}）{% endif %}">{{ item.name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
       <span class="small c-dim">
-        {% if item.higher_is_better %}越大越好{% else %}越小越好{% endif %} · {{ analysis.count }} 筆紀錄
+        {% if item.higher_is_better %}{% translate "越大越好" %}{% else %}{% translate "越小越好" %}{% endif %} {% blocktranslate with v0=analysis.count %}· {{ v0 }} 筆紀錄{% endblocktranslate %}
         <form method="post" style="display:inline;margin-left:10px"
               onsubmit="if (!confirm(this.dataset.warn)) { return false; } this.confirm.value = '1'; return true;"
-              data-warn="{% if item_record_count %}「{{ item.display_name }}」底下有 {{ item_record_count }} 筆紀錄，刪除後這些紀錄也會一起不見，確定嗎？{% else %}確定要把「{{ item.display_name }}」從清單刪掉嗎？{% endif %}">
+              data-warn="{% if item_record_count %}{% blocktranslate with v0=item.display_name v1=item_record_count %}「{{ v0 }}」底下有 {{ v1 }} 筆紀錄，刪除後這些紀錄也會一起不見，確定嗎？{% endblocktranslate %}{% else %}{% blocktranslate with v0=item.display_name %}確定要把「{{ v0 }}」從清單刪掉嗎？{% endblocktranslate %}{% endif %}">
           {% csrf_token %}
           <input type="hidden" name="action" value="delete_item">
           <input type="hidden" name="domain" value="{{ domain }}">
           <input type="hidden" name="item_id" value="{{ item.id }}">
           <input type="hidden" name="confirm" value="">
           <button class="linkbtn c-red" type="submit"
-                  title="{% if item_record_count %}會一併刪掉 {{ item_record_count }} 筆紀錄{% else %}沒有紀錄，直接刪掉{% endif %}">
-            刪除項目
+                  title="{% if item_record_count %}{% blocktranslate with v0=item_record_count %}會一併刪掉 {{ v0 }} 筆紀錄{% endblocktranslate %}{% else %}{% translate '沒有紀錄，直接刪掉' %}{% endif %}">
+            {% translate "刪除項目" %}
           </button>
         </form>
       </span>
@@ -358,39 +352,39 @@
 
     <div class="grid grid-4" style="padding:16px 18px 0">
       <div class="stat">
-        <div class="label">最佳</div>
+        <div class="label">{% translate "最佳" %}</div>
         <div class="value sm c-accent">{{ analysis.best|default:"—" }}</div>
         <div class="hint">{{ item.unit }}</div>
       </div>
       <div class="stat">
-        <div class="label">最近一次</div>
+        <div class="label">{% translate "最近一次" %}</div>
         <div class="value sm">{{ analysis.latest|default:"—" }}</div>
-        <div class="hint">與最佳差 {{ analysis.gap_to_best|default:"—" }}</div>
+        <div class="hint">{% blocktranslate with v0=analysis.gap_to_best|default:"—" %}與最佳差 {{ v0 }}{% endblocktranslate %}</div>
       </div>
       <div class="stat">
-        <div class="label">月變化</div>
+        <div class="label">{% translate "月變化" %}</div>
         <div class="value sm {% if analysis.improving %}c-green{% elif analysis.improving is False %}c-red{% endif %}">
           {% if analysis.slope_per_month %}{% if analysis.slope_per_month > 0 %}+{% endif %}{{ analysis.slope_per_month }}{% else %}—{% endif %}
         </div>
         <div class="hint">
-          {% if analysis.improving %}📈 進步中{% elif analysis.improving is False %}📉 需注意{% else %}資料不足{% endif %}
+          {% if analysis.improving %}{% translate "📈 進步中" %}{% elif analysis.improving is False %}{% translate "📉 需注意" %}{% else %}{% translate "資料不足" %}{% endif %}
         </div>
       </div>
       <div class="stat">
-        <div class="label">平均</div>
+        <div class="label">{% translate "平均" %}</div>
         <div class="value sm">{{ analysis.average|default:"—" }}</div>
-        <div class="hint">總變化 {% if analysis.change_pct %}{{ analysis.change_pct }}%{% else %}—{% endif %}</div>
+        <div class="hint">{% translate "總變化" %} {% if analysis.change_pct %}{{ analysis.change_pct }}%{% else %}—{% endif %}</div>
       </div>
     </div>
 
     <div class="flex" style="padding:8px 18px 0;flex-wrap:wrap">
-      <label class="unitpick">主圖顯示
+      <label class="unitpick">{% translate "主圖顯示" %}
         <select id="mainMode">
-          <option value="all">整體（每一筆）</option>
-          <option value="year">分年份</option>
-          <option value="month">分年份和月份</option>
-          <option value="phase">分時期</option>
-          <option value="status">分狀態</option>
+          <option value="all">{% translate "整體（每一筆）" %}</option>
+          <option value="year">{% translate "分年份" %}</option>
+          <option value="month">{% translate "分年份和月份" %}</option>
+          <option value="phase">{% translate "分時期" %}</option>
+          <option value="status">{% translate "分狀態" %}</option>
         </select>
       </label>
       <span class="small c-dim" id="mainNote"></span>
@@ -405,8 +399,8 @@
           <span class="statuschip{% if not row.value %} none{% endif %}"
                 title="{{ row.feature }}｜{{ row.reading }}">
             <strong>{{ row.label }}</strong>
-            <span>{{ row.days }} 天 / {{ row.count }} 組</span>
-            {% if row.best != None %}<span>最佳 {{ row.best }}{{ item.unit }}</span>{% endif %}
+            <span>{% blocktranslate with v0=row.days v1=row.count %}{{ v0 }} 天 / {{ v1 }} 組{% endblocktranslate %}</span>
+            {% if row.best != None %}<span>{% blocktranslate with v0=row.best v1=item.unit %}最佳 {{ v0 }}{{ v1 }}{% endblocktranslate %}</span>{% endif %}
           </span>
         {% endfor %}
       </div>
@@ -415,8 +409,8 @@
       {% if analysis.considerations %}
       <div class="factors mb">
         <div class="factorhead">
-          先確認這幾件事，再看下面的總結
-          <span class="small c-dim">同一個數字在不同狀態、不同條件下代表的意思不一樣</span>
+          {% translate "先確認這幾件事，再看下面的總結" %}
+          <span class="small c-dim">{% translate "同一個數字在不同狀態、不同條件下代表的意思不一樣" %}</span>
         </div>
         <ol>
           {% for f in analysis.considerations %}
@@ -431,12 +425,12 @@
 
       {% if analysis.status_note %}
         <div class="alert blue mb" style="margin:0 0 10px">
-          <strong>狀態提醒：</strong>{{ analysis.status_note }}
+          <strong>{% translate "狀態提醒：" %}</strong>{{ analysis.status_note }}
         </div>
       {% endif %}
 
       <div class="alert {% if analysis.improving %}green{% elif analysis.improving is False %}yellow{% else %}blue{% endif %}" style="margin:0">
-        <strong>總結分析：</strong>{{ analysis.advice }}
+        <strong>{% translate "總結分析：" %}</strong>{{ analysis.advice }}
       </div>
     </div>
 
@@ -444,8 +438,8 @@
     {% if multi %}
     <!-- ------------------------------ 多個項目一起分析 -->
     <div class="card-head" style="border-top:1px solid var(--border)">
-      <span>多項目一起分析</span>
-      <span class="small c-dim">{{ multi.rows|length }} 個項目</span>
+      <span>{% translate "多項目一起分析" %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=multi.rows|length %}{{ v0 }} 個項目{% endblocktranslate %}</span>
     </div>
     <div style="padding:10px 18px 0">
       <div class="alert blue" style="margin:0">{{ multi.note }}</div>
@@ -455,10 +449,10 @@
       <table class="cmptable">
         <thead>
           <tr>
-            <th>項目</th><th class="num">組數</th><th class="num">天數</th>
-            <th class="num">最佳</th><th class="num">平均</th>
-            <th class="num">最近</th><th class="num">期內變化</th>
-            <th class="num">完成率</th>
+            <th>{% translate "項目" %}</th><th class="num">{% translate "組數" %}</th><th class="num">{% translate "天數" %}</th>
+            <th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th>
+            <th class="num">{% translate "最近" %}</th><th class="num">{% translate "期內變化" %}</th>
+            <th class="num">{% translate "完成率" %}</th>
           </tr>
         </thead>
         <tbody>
@@ -469,9 +463,9 @@
                 <strong>{{ row.item.display_name }}</strong>
               </a>
               <div class="small c-dim">
-                {% if row.empty %}還沒有紀錄
+                {% if row.empty %}{% translate "還沒有紀錄" %}
                 {% else %}{{ row.first_date|date:"y/m/d" }} → {{ row.last_date|date:"y/m/d" }}
-                  · {% if row.item.higher_is_better %}越大越好{% else %}越小越好{% endif %}
+                  · {% if row.item.higher_is_better %}{% translate "越大越好" %}{% else %}{% translate "越小越好" %}{% endif %}
                   {% if row.item.unit %}（{{ row.item.unit }}）{% endif %}{% endif %}
               </div>
             </td>
@@ -493,7 +487,7 @@
 
     <!-- ------------------------------ 整體 / 分年份 / 分時期 比較 -->
     <div class="card-head" style="border-top:1px solid var(--border)">
-      <span>比較</span>
+      <span>{% translate "比較" %}</span>
       <span class="tabs sub">
         {% for value, label in compare_modes %}
           <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ item.id }}&compare={{ value }}"
@@ -507,8 +501,7 @@
       <div class="chart-box"><canvas id="cmpChart"></canvas></div>
       {% if compare == 'phase' %}
       <div class="small c-dim cmpnote">
-        時期取自這名運動員備戰計劃裡的分期；不在任何分期內的日期會歸到「未分期」。
-        一般準備期本來就量大強度低、比賽期量少強度高，跨時期比數字前先看清楚各期的定位。
+        {% translate "時期取自這名運動員備戰計劃裡的分期；不在任何分期內的日期會歸到「未分期」。 一般準備期本來就量大強度低、比賽期量少強度高，跨時期比數字前先看清楚各期的定位。" %}
       </div>
       {% endif %}
       <div class="cmptablewrap">
@@ -516,10 +509,10 @@
           <thead>
             <tr>
               <th>{{ comparison.mode_label }}</th>
-              <th class="num">組數</th><th class="num">天數</th>
-              <th class="num">最佳</th><th class="num">平均</th>
-              <th class="num">最近</th><th class="num">期內變化</th>
-              <th class="num">完成率</th>
+              <th class="num">{% translate "組數" %}</th><th class="num">{% translate "天數" %}</th>
+              <th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th>
+              <th class="num">{% translate "最近" %}</th><th class="num">{% translate "期內變化" %}</th>
+              <th class="num">{% translate "完成率" %}</th>
             </tr>
           </thead>
           <tbody>
@@ -527,8 +520,8 @@
             <tr{% if g.is_best %} class="bestrow"{% endif %}>
               <td>
                 <strong>{{ g.label }}</strong>
-                {% if g.is_best %}<span class="badge b-orange">最佳</span>{% endif %}
-                <div class="small c-dim" title="{{ g.first_date }} 至 {{ g.last_date }}">{{ g.first_date|date:"y/m/d" }} → {{ g.last_date|date:"y/m/d" }}</div>
+                {% if g.is_best %}<span class="badge b-orange">{% translate "最佳" %}</span>{% endif %}
+                <div class="small c-dim" title="{% blocktranslate with v0=g.first_date v1=g.last_date %}{{ v0 }} 至 {{ v1 }}{% endblocktranslate %}">{{ g.first_date|date:"y/m/d" }} → {{ g.last_date|date:"y/m/d" }}</div>
                 {% if g.sublabel %}<div class="small c-dim ellip" title="{{ g.sublabel }}">{{ g.sublabel }}</div>{% endif %}
               </td>
               <td class="num">{{ g.count }}</td>
@@ -547,17 +540,17 @@
       </div>
     </div>
     {% else %}
-      <div class="empty">還沒有足夠的紀錄可以比較。</div>
+      <div class="empty">{% translate "還沒有足夠的紀錄可以比較。" %}</div>
     {% endif %}
 
     <!-- 新增紀錄 -->
     <div class="card-head" data-fold-default="closed" style="border-top:1px solid var(--border)">
-      <span>新增一筆紀錄</span>
+      <span>{% translate "新增一筆紀錄" %}</span>
       <span class="small c-dim">
-        {% if unit_is_weight %}這個項目的數值就是重量（kg），不同組的次數、休息時間可以分開填
-        {% elif is_track %}不同組的強度要求、次數、休息時間可以分開填（強度例：90%、95%、全力）
-        {% else %}不同組的重量、次數、休息時間可以分開填{% endif %}
-        · 目標與完成數值都可以先留空，之後回來這裡補
+        {% if unit_is_weight %}{% translate "這個項目的數值就是重量（kg），不同組的次數、休息時間可以分開填" %}
+        {% elif is_track %}{% translate "不同組的強度要求、次數、休息時間可以分開填（強度例：90%、95%、全力）" %}
+        {% else %}{% translate "不同組的重量、次數、休息時間可以分開填" %}{% endif %}
+        {% translate "· 目標與完成數值都可以先留空，之後回來這裡補" %}
       </span>
     </div>
     {% if domain == 'STRENGTH' %}
@@ -568,16 +561,15 @@
       <input type="hidden" name="action" value="item_unit">
       <input type="hidden" name="domain" value="{{ domain }}">
       <input type="hidden" name="item_id" value="{{ item.id }}">
-      <label class="unitpick">目標／完成數值的單位
+      <label class="unitpick">{% translate "目標／完成數值的單位" %}
         <select name="unit">
           {% for v, l in strength_units %}
             <option value="{{ v }}" {% if item.unit == v %}selected{% endif %}>{{ l }}</option>
           {% endfor %}
         </select>
       </label>
-      <button class="btn ghost sm" type="submit">換單位</button>
-      <span class="small c-dim">現在是 <strong>{{ item.unit|default:"秒" }}</strong>；
-        撐時間的動作（平板支撐、懸垂…）改成秒才記得準</span>
+      <button class="btn ghost sm" type="submit">{% translate "換單位" %}</button>
+      <span class="small c-dim">{% translate "現在是" %} <strong>{{ item.unit|default:_("秒") }}</strong>{% translate "； 撐時間的動作（平板支撐、懸垂…）改成秒才記得準" %}</span>
     </form>
     {% endif %}
     <form method="post" style="padding:14px 18px">
@@ -587,14 +579,14 @@
       <input type="hidden" name="item_id" value="{{ item.id }}">
       <div class="row">
         <div class="field">
-          <label>日期</label>
+          <label>{% translate "日期" %}</label>
           <input type="date" name="date" value="{{ today_iso }}" required>
         </div>
         {% if is_competition %}
         <div class="field" style="flex:1">
-          <label>哪一場比賽</label>
+          <label>{% translate "哪一場比賽" %}</label>
           <select name="competition">
-            <option value="">（未指定賽事）</option>
+            <option value="">{% translate "（未指定賽事）" %}</option>
             {% for c in competitions %}
               <option value="{{ c.id }}">{{ c.date }} · {{ c.name }}</option>
             {% endfor %}
@@ -602,11 +594,11 @@
         </div>
         {% endif %}
         <div class="field" style="grid-column:span 2">
-          <label>對應 program
-            <span class="small c-dim">（只列得出{% for l in linkable_type_labels %}{{ l }}{% if not forloop.last %}／{% endif %}{% endfor %}的課）</span>
+          <label>{% translate "對應 program" %}
+            <span class="small c-dim">{% translate "（只列得出" %}{% for l in linkable_type_labels %}{{ l }}{% if not forloop.last %}／{% endif %}{% endfor %}{% translate "的課）" %}</span>
           </label>
           <select name="session">
-            <option value="">（不對應課表）</option>
+            <option value="">{% translate "（不對應課表）" %}</option>
             {% for s in recent_sessions %}
               <option value="{{ s.id }}">
                 {{ s.date|date:"m/d" }} {{ s.get_session_type_display }} · {{ s.title }}
@@ -620,14 +612,14 @@
       <table class="setgrid">
         <thead>
           <tr>
-            <th style="width:52px">組</th>
-            <th>目標數值（{{ item.unit|default:"秒" }}）</th>
-            <th>完成數值（{{ item.unit|default:"秒" }}）</th>
-            {% if is_track %}<th>強度要求</th>
-            {% elif not unit_is_weight %}<th>重量 (kg)</th>{% endif %}
-            <th>次數</th>
-            <th>休息（分）</th>
-            <th style="width:118px">成功完成</th>
+            <th style="width:52px">{% translate "組" %}</th>
+            <th>{% blocktranslate with v0=item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
+            <th>{% blocktranslate with v0=item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
+            {% if is_track %}<th>{% translate "強度要求" %}</th>
+            {% elif not unit_is_weight %}<th>{% translate "重量 (kg)" %}</th>{% endif %}
+            <th>{% translate "次數" %}</th>
+            <th>{% translate "休息（分）" %}</th>
+            <th style="width:118px">{% translate "成功完成" %}</th>
             <th style="width:34px"></th>
           </tr>
         </thead>
@@ -637,7 +629,7 @@
             <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
             <td><input type="number" step="0.01" name="value" placeholder="—"></td>
             {% if is_track %}
-              <td><input type="text" name="intensity" maxlength="20" placeholder="例：90%"></td>
+              <td><input type="text" name="intensity" maxlength="20" placeholder="{% translate '例：90%' %}"></td>
             {% elif not unit_is_weight %}
               <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
             {% endif %}
@@ -645,64 +637,63 @@
             <td><input type="number" step="0.5" min="0" name="rest_sec" placeholder="—"></td>
             <td>
               <select name="completed">
-                <option value="1">✅ 完成</option>
-                <option value="0">❌ 未完成</option>
+                <option value="1">{% translate "✅ 完成" %}</option>
+                <option value="0">{% translate "❌ 未完成" %}</option>
               </select>
             </td>
-            <td><button type="button" class="linkbtn rmset" title="刪掉這一組">×</button></td>
+            <td><button type="button" class="linkbtn rmset" title="{% translate '刪掉這一組' %}">×</button></td>
           </tr>
         </tbody>
       </table>
       </div>
       <div class="flex mb">
-        <button type="button" class="btn ghost sm" id="addSet">＋ 再加一組（空白）</button>
+        <button type="button" class="btn ghost sm" id="addSet">{% translate "＋ 再加一組（空白）" %}</button>
         <button type="button" class="btn ghost sm" id="copySet"
-                title="數字照抄上一組，只要改動不一樣的那一格">＋ 跟上一組一樣</button>
-        <label class="unitpick">休息時間單位
+                title="{% translate '數字照抄上一組，只要改動不一樣的那一格' %}">{% translate "＋ 跟上一組一樣" %}</button>
+        <label class="unitpick">{% translate "休息時間單位" %}
           <select name="rest_unit">
-            <option value="min" selected>分鐘</option>
-            <option value="sec">秒</option>
+            <option value="min" selected>{% translate "分鐘" %}</option>
+            <option value="sec">{% translate "秒" %}</option>
           </select>
         </label>
-        <span class="small c-dim">每一組各存成一筆紀錄，右邊的圖會逐組畫出來</span>
+        <span class="small c-dim">{% translate "每一組各存成一筆紀錄，右邊的圖會逐組畫出來" %}</span>
       </div>
 
       <div class="row">
         <div class="field">
-          <label>狀態（這天的練習在什麼狀態下進行）</label>
+          <label>{% translate "狀態（這天的練習在什麼狀態下進行）" %}</label>
           <select name="status">
-            <option value="">（未註記）</option>
+            <option value="">{% translate "（未註記）" %}</option>
             {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
           </select>
-          <span class="small c-dim">傷患期或季後休息期跑出來的數字本來就不一樣；
-            註記了，下面的分析才不會把它當成能力退步</span>
+          <span class="small c-dim">{% translate "傷患期或季後休息期跑出來的數字本來就不一樣； 註記了，下面的分析才不會把它當成能力退步" %}</span>
         </div>
         <div class="field">
-          <label>課表區塊（這次所有組共用）</label>
+          <label>{% translate "課表區塊（這次所有組共用）" %}</label>
           <select name="block">
-            <option value="">（未指定）</option>
+            <option value="">{% translate "（未指定）" %}</option>
             {% for v, l in metric_blocks %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
           </select>
-          <span class="small c-dim">這一組數據算是熱身、正課、補充練習還是恢復練習</span>
+          <span class="small c-dim">{% translate "這一組數據算是熱身、正課、補充練習還是恢復練習" %}</span>
         </div>
         <div class="field" style="flex:1">
-          <label>情境（這次所有組共用）</label>
-          <input type="text" name="context" placeholder="例：順風 1.2、賽前熱身、深蹲日">
+          <label>{% translate "情境（這次所有組共用）" %}</label>
+          <input type="text" name="context" placeholder="{% translate '例：順風 1.2、賽前熱身、深蹲日' %}">
         </div>
       </div>
-      <button class="btn" type="submit">記錄</button>
+      <button class="btn" type="submit">{% translate "記錄" %}</button>
     </form>
 
     <!-- 紀錄明細（左）＋ 這些紀錄的分析圖表（右） -->
     <div class="card-head" style="border-top:1px solid var(--border)">
-      <span>紀錄明細</span>
+      <span>{% translate "紀錄明細" %}</span>
       <span class="small c-dim">
-        {{ analysis.count }} 筆
+        {% blocktranslate with v0=analysis.count %}{{ v0 }} 筆{% endblocktranslate %}
         {% if analysis.completion_pct != None %}
-          · 完成率 <strong class="{% if analysis.completion_pct >= 90 %}c-green{% elif analysis.completion_pct >= 70 %}c-yellow{% else %}c-red{% endif %}">{{ analysis.completion_pct }}%</strong>
+          {% translate "· 完成率" %} <strong class="{% if analysis.completion_pct >= 90 %}c-green{% elif analysis.completion_pct >= 70 %}c-yellow{% else %}c-red{% endif %}">{{ analysis.completion_pct }}%</strong>
         {% endif %}
-        {% if analysis.total_tonnage %} · 總噸位 {{ analysis.total_tonnage }} kg{% endif %}
-        {% if analysis.avg_rest_min %} · 平均休息 {{ analysis.avg_rest_min }} 分{% endif %}
+        {% if analysis.total_tonnage %} {% blocktranslate with v0=analysis.total_tonnage %}· 總噸位 {{ v0 }} kg{% endblocktranslate %}{% endif %}
+        {% if analysis.avg_rest_min %} {% blocktranslate with v0=analysis.avg_rest_min %}· 平均休息 {{ v0 }} 分{% endblocktranslate %}{% endif %}
       </span>
     </div>
     <div class="detailsplit">
@@ -737,23 +728,19 @@
           <input type="hidden" name="action" value="item_unit">
           <input type="hidden" name="domain" value="{{ domain }}">
           <input type="hidden" name="item_id" value="{{ item.id }}">
-          <label class="unitpick">「{{ item.name }}」的單位
+          <label class="unitpick">{% blocktranslate with v0=item.name %}「{{ v0 }}」的單位{% endblocktranslate %}
             <select name="unit">
               {% for v, l in strength_units %}
                 <option value="{{ v }}" {% if item.unit == v %}selected{% endif %}>{{ l }}</option>
               {% endfor %}
             </select>
           </label>
-          <button class="btn ghost sm" type="submit">換單位</button>
-          <span class="small c-dim">重量訓練以 kg 為主；撐時間的動作（平板支撐、懸垂…）可以改成秒</span>
+          <button class="btn ghost sm" type="submit">{% translate "換單位" %}</button>
+          <span class="small c-dim">{% translate "重量訓練以 kg 為主；撐時間的動作（平板支撐、懸垂…）可以改成秒" %}</span>
         </form>
         {% endif %}
         <div class="small c-dim" style="padding:10px 16px 0">
-          一天一列，先看當日的{% if unit_is_weight %}最重與最輕{% else %}最高與最低{% endif %}，
-          點日期展開看那天每一組；每一格（連同「區塊」和「program」）都可以直接改，改完按該列的 ✓ 存單筆，
-          或按最下面的 <strong>儲存全部更改</strong> 一次過確認所有更改。
-          組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼；
-          展開後最頂那一列填一個數值按「套用」，就會填進當天所有組。
+          {% translate "一天一列，先看當日的" %}{% if unit_is_weight %}{% translate "最重與最輕" %}{% else %}{% translate "最高與最低" %}{% endif %}{% translate "， 點日期展開看那天每一組；每一格（連同「區塊」和「program」）都可以直接改，改完按該列的 ✓ 存單筆， 或按最下面的" %} <strong>{% translate "儲存全部更改" %}</strong> {% translate "一次過確認所有更改。 組的次序用 ↑ ↓ 調，或直接把「組」那一格改成想要的號碼； 展開後最頂那一列填一個數值按「套用」，就會填進當天所有組。" %}
         </div>
         <div class="daylist">
         {% for d in analysis.days %}
@@ -761,59 +748,59 @@
                    {% if forloop.first %}open{% endif %}>
             <summary>
               <span class="daydate" title="{{ d.date }}（{{ d.date|date:"l" }}）">{{ d.date|date:"m/d" }}</span>
-              <span class="daysets">{{ d.count }} 組</span>
+              <span class="daysets">{% blocktranslate with v0=d.count %}{{ v0 }} 組{% endblocktranslate %}</span>
               <span class="dayhl">
                 {% if d.high != None %}
-                  <span class="hi">{% if d.unit_is_weight %}最重{% else %}最高{% endif %}
+                  <span class="hi">{% if d.unit_is_weight %}{% translate "最重" %}{% else %}{% translate "最高" %}{% endif %}
                     <strong>{{ d.high }}</strong>{{ item.unit }}</span>
-                  <span class="lo">{% if d.unit_is_weight %}最輕{% else %}最低{% endif %}
+                  <span class="lo">{% if d.unit_is_weight %}{% translate "最輕" %}{% else %}{% translate "最低" %}{% endif %}
                     <strong>{{ d.low }}</strong>{{ item.unit }}</span>
                 {% else %}
-                  <span class="c-dim small">還沒填完成數值</span>
+                  <span class="c-dim small">{% translate "還沒填完成數值" %}</span>
                 {% endif %}
               </span>
               <span class="daymeta">
-                {% if d.status_label %}<span class="badge b-blue" title="這天的練習狀態">{{ d.status_label }}</span>{% endif %}
-                {% if d.failed %}<span class="badge b-red">{{ d.failed }} 組未完成</span>{% endif %}
-                {% if d.tonnage %}噸位 {{ d.tonnage }} kg{% endif %}
+                {% if d.status_label %}<span class="badge b-blue" title="{% translate '這天的練習狀態' %}">{{ d.status_label }}</span>{% endif %}
+                {% if d.failed %}<span class="badge b-red">{% blocktranslate with v0=d.failed %}{{ v0 }} 組未完成{% endblocktranslate %}</span>{% endif %}
+                {% if d.tonnage %}{% blocktranslate with v0=d.tonnage %}噸位 {{ v0 }} kg{% endblocktranslate %}{% endif %}
                 {% if d.session %}· <a class="ellip inline" href="{% url 'web:session_detail' d.session.id %}"
-                     title="{{ d.session.date }} {{ d.session.title }}｜點一下回到那一堂課">{{ d.session.title }}</a>{% endif %}
+                     title="{% blocktranslate with v0=d.session.date v1=d.session.title %}{{ v0 }} {{ v1 }}｜點一下回到那一堂課{% endblocktranslate %}">{{ d.session.title }}</a>{% endif %}
               </span>
             </summary>
 
             <table>
               <thead>
                 <tr>
-                  <th class="num">組</th>
-                  <th class="num">目標數值（{{ item.unit|default:"秒" }}）</th>
-                  <th class="num">完成數值（{{ item.unit|default:"秒" }}）</th>
-                  {% if is_track %}<th class="num">強度要求</th>
-                  {% elif not unit_is_weight %}<th class="num">重量</th>{% endif %}
-                  <th class="num">次數</th><th class="num" title="休息時間（分鐘）">休息（分）</th>
-                  <th title="這一組有沒有照課表完成">完成</th>
-                  <th title="這天的練習在什麼狀態下進行">狀態</th>
-                  <th title="這一組屬於課表的哪一段">區塊</th>
-                  <th title="這筆紀錄掛在哪一堂課">program</th><th>情境</th><th></th>
+                  <th class="num">{% translate "組" %}</th>
+                  <th class="num">{% blocktranslate with v0=item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
+                  <th class="num">{% blocktranslate with v0=item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
+                  {% if is_track %}<th class="num">{% translate "強度要求" %}</th>
+                  {% elif not unit_is_weight %}<th class="num">{% translate "重量" %}</th>{% endif %}
+                  <th class="num">{% translate "次數" %}</th><th class="num" title="{% translate '休息時間（分鐘）' %}">{% translate "休息（分）" %}</th>
+                  <th title="{% translate '這一組有沒有照課表完成' %}">{% translate "完成" %}</th>
+                  <th title="{% translate '這天的練習在什麼狀態下進行' %}">{% translate "狀態" %}</th>
+                  <th title="{% translate '這一組屬於課表的哪一段' %}">{% translate "區塊" %}</th>
+                  <th title="{% translate '這筆紀錄掛在哪一堂課' %}">program</th><th>{% translate "情境" %}</th><th></th>
                 </tr>
                 <!-- 最頂這一列不是紀錄：填一個數值按「套用」，
                      就會填進當天所有組（重訓十組同重量不用打十次）。 -->
                 <tr class="fillrow">
-                  <td class="num c-dim" title="填一格就套用到當天所有組">全部</td>
+                  <td class="num c-dim" title="{% translate '填一格就套用到當天所有組' %}">{% translate "全部" %}</td>
                   <td class="num"><input class="editnum" type="number" step="any"
-                                         data-fill="target_value" placeholder="目標"></td>
+                                         data-fill="target_value" placeholder="{% translate '目標' %}"></td>
                   <td class="num"><input class="editnum" type="number" step="any"
-                                         data-fill="value" placeholder="完成"></td>
+                                         data-fill="value" placeholder="{% translate '完成' %}"></td>
                   {% if is_track %}
                     <td class="num"><input class="editnum" type="text" maxlength="20"
-                                           data-fill="intensity" placeholder="強度"></td>
+                                           data-fill="intensity" placeholder="{% translate '強度' %}"></td>
                   {% elif not unit_is_weight %}
                     <td class="num"><input class="editnum" type="number" step="any" min="0"
-                                           data-fill="weight" placeholder="重量"></td>
+                                           data-fill="weight" placeholder="{% translate '重量' %}"></td>
                   {% endif %}
                   <td class="num"><input class="editnum sm" type="number" step="1" min="0"
-                                         data-fill="reps" placeholder="次數"></td>
+                                         data-fill="reps" placeholder="{% translate '次數' %}"></td>
                   <td class="num"><input class="editnum sm" type="number" step="any" min="0"
-                                         data-fill="rest_sec" placeholder="休息"></td>
+                                         data-fill="rest_sec" placeholder="{% translate '休息' %}"></td>
                   <td>
                     <select class="editsel" data-fill="completed">
                       <option value="">—</option>
@@ -844,9 +831,9 @@
                     </select>
                   </td>
                   <td><input class="editnum wide" type="text" maxlength="120"
-                             data-fill="context" placeholder="情境"></td>
+                             data-fill="context" placeholder="{% translate '情境' %}"></td>
                   <td><button type="button" class="btn ghost sm fillall"
-                              title="把上面填了的格套用到當天所有組（還要按儲存才寫回去）">套用</button></td>
+                              title="{% translate '把上面填了的格套用到當天所有組（還要按儲存才寫回去）' %}">{% translate "套用" %}</button></td>
                 </tr>
               </thead>
               <tbody>
@@ -856,52 +843,52 @@
                     <input class="editnum setno" type="number" step="1" min="1"
                            name="set_no_{{ r.id }}" form="recEdit"
                            value="{{ r.set_no|default_if_none:'' }}"
-                           placeholder="—" title="組號——改成想要的次序，存檔後同一天會重排成 1、2、3…">
+                           placeholder="—" title="{% translate '組號——改成想要的次序，存檔後同一天會重排成 1、2、3…' %}">
                   </td>
                   <td class="num">
                     <input class="editnum" type="number" step="any" name="target_value_{{ r.id }}"
                            form="recEdit" value="{{ r.target_value|default_if_none:'' }}"
-                           placeholder="—" title="目標數值（{{ item.unit|default:'秒' }}）">
+                           placeholder="—" title="{% blocktranslate with v0=item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}">
                   </td>
                   <td class="num">
                     <input class="editnum" type="number" step="any" name="value_{{ r.id }}"
                            form="recEdit" value="{{ r.value|default_if_none:'' }}"
-                           placeholder="—" title="完成數值（{{ item.unit|default:'秒' }}）">
+                           placeholder="—" title="{% blocktranslate with v0=item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}">
                   </td>
                   {% if is_track %}
                     <td class="num">
                       <input class="editnum" type="text" maxlength="20" name="intensity_{{ r.id }}"
                              form="recEdit" value="{{ r.intensity }}"
-                             placeholder="—" title="強度要求（例：90%）">
+                             placeholder="—" title="{% translate '強度要求（例：90%）' %}">
                     </td>
                   {% elif not unit_is_weight %}
                     <td class="num">
                       <input class="editnum" type="number" step="any" min="0" name="weight_{{ r.id }}"
                              form="recEdit" value="{{ r.weight_kg|default_if_none:'' }}"
-                             placeholder="—" title="重量 (kg)">
+                             placeholder="—" title="{% translate '重量 (kg)' %}">
                     </td>
                   {% endif %}
                   <td class="num">
                     <input class="editnum sm" type="number" step="1" min="0" name="reps_{{ r.id }}"
                            form="recEdit" value="{{ r.reps|default_if_none:'' }}"
-                           placeholder="—" title="次數">
+                           placeholder="—" title="{% translate '次數' %}">
                   </td>
                   <td class="num">
                     <input class="editnum sm" type="number" step="any" min="0" name="rest_sec_{{ r.id }}"
                            form="recEdit" value="{{ r.rest_min|default_if_none:'' }}"
-                           placeholder="—" title="休息時間（分鐘）{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
+                           placeholder="—" title="{% translate '休息時間（分鐘）' %}{% if r.rest_sec %}＝{{ r.rest_display }}{% endif %}">
                   </td>
                   <td>
                     <select name="completed_{{ r.id }}" form="recEdit" class="editsel"
-                            title="這一組有沒有照課表完成">
+                            title="{% translate '這一組有沒有照課表完成' %}">
                       <option value="1" {% if r.completed %}selected{% endif %}>✅</option>
                       <option value="0" {% if not r.completed %}selected{% endif %}>❌</option>
                     </select>
                   </td>
                   <td>
                     <select name="status_{{ r.id }}" form="recEdit" class="editsel"
-                            title="這天的練習在什麼狀態下進行">
-                      <option value="">未註記</option>
+                            title="{% translate '這天的練習在什麼狀態下進行' %}">
+                      <option value="">{% translate "未註記" %}</option>
                       {% for v, l in metric_statuses %}
                         <option value="{{ v }}" {% if r.status == v %}selected{% endif %}>{{ l }}</option>
                       {% endfor %}
@@ -909,8 +896,8 @@
                   </td>
                   <td>
                     <select name="block_{{ r.id }}" form="recEdit" class="editsel"
-                            title="這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）">
-                      <option value="">未指定</option>
+                            title="{% translate '這一組屬於課表的哪一段（熱身／正課／補充練習／恢復練習）' %}">
+                      <option value="">{% translate "未指定" %}</option>
                       {% for v, l in metric_blocks %}
                         <option value="{{ v }}" {% if r.block == v %}selected{% endif %}>{{ l }}</option>
                       {% endfor %}
@@ -918,8 +905,8 @@
                   </td>
                   <td style="white-space:nowrap">
                     <select name="session_{{ r.id }}" form="recEdit" class="editsel"
-                            title="這筆紀錄掛在哪一堂課（只列得出對得上這個範疇的課別）">
-                      <option value="">（不對應課表）</option>
+                            title="{% translate '這筆紀錄掛在哪一堂課（只列得出對得上這個範疇的課別）' %}">
+                      <option value="">{% translate "（不對應課表）" %}</option>
                       {% if r.session and r.session not in recent_sessions %}
                         <option value="{{ r.session.id }}" selected>
                           {{ r.session.date|date:"m/d" }} {{ r.session.get_session_type_display }} · {{ r.session.title }}
@@ -933,24 +920,24 @@
                     </select>
                     {% if r.session %}
                       <a class="linkbtn" href="{% url 'web:session_detail' r.session.id %}"
-                         title="{{ r.session.date }} {{ r.session.title }}｜點一下回到那一堂課">→</a>
+                         title="{% blocktranslate with v0=r.session.date v1=r.session.title %}{{ v0 }} {{ v1 }}｜點一下回到那一堂課{% endblocktranslate %}">→</a>
                     {% endif %}
                   </td>
                   <td>
                     <input class="editnum wide" type="text" name="context_{{ r.id }}" maxlength="120"
                            form="recEdit" value="{{ r.context }}"
-                           placeholder="情境" title="情境（例：順風 1.2、賽前熱身）">
+                           placeholder="{% translate '情境' %}" title="{% translate '情境（例：順風 1.2、賽前熱身）' %}">
                   </td>
                   <td style="white-space:nowrap">
                     <!-- ✓ 只送這一列（only=<id>）；要一次過確認全部就按最下面那顆 -->
                     <button class="linkbtn" type="submit" form="recMove"
-                            name="up" value="{{ r.id }}" title="往前挪一組">↑</button>
+                            name="up" value="{{ r.id }}" title="{% translate '往前挪一組' %}">↑</button>
                     <button class="linkbtn" type="submit" form="recMove"
-                            name="down" value="{{ r.id }}" title="往後挪一組">↓</button>
+                            name="down" value="{{ r.id }}" title="{% translate '往後挪一組' %}">↓</button>
                     <button class="linkbtn" type="submit" form="recEdit"
-                            name="only" value="{{ r.id }}" title="只存這一列">✓</button>
+                            name="only" value="{{ r.id }}" title="{% translate '只存這一列' %}">✓</button>
                     <button class="linkbtn" type="submit" form="recDel"
-                            name="record_id" value="{{ r.id }}" title="刪除">×</button>
+                            name="record_id" value="{{ r.id }}" title="{% translate '刪除' %}">×</button>
                   </td>
                 </tr>
               {% endfor %}
@@ -958,50 +945,49 @@
             </table>
           </details>
         {% empty %}
-          <div class="empty">尚無紀錄</div>
+          <div class="empty">{% translate "尚無紀錄" %}</div>
         {% endfor %}
         </div>
         {% if analysis.days %}
         <div class="flex" style="padding:12px 16px;border-top:1px solid var(--border)">
-          <button class="btn sm" type="submit" form="recEdit">儲存全部更改</button>
-          <span class="small c-dim">把上面所有列的修改一次過存回去，不用逐列按 ✓；
-            沒動過的欄位維持原樣。</span>
+          <button class="btn sm" type="submit" form="recEdit">{% translate "儲存全部更改" %}</button>
+          <span class="small c-dim">{% translate "把上面所有列的修改一次過存回去，不用逐列按 ✓； 沒動過的欄位維持原樣。" %}</span>
         </div>
         {% endif %}
       </div>
 
       <div class="detailchart">
         <div class="card-head">
-          <span>紀錄分析圖</span>
-          <span class="small c-dim">單日看逐組、多天看變化{% if is_track %}、還可以照強度分開比{% endif %}</span>
+          <span>{% translate "紀錄分析圖" %}</span>
+          <span class="small c-dim">{% translate "單日看逐組、多天看變化" %}{% if is_track %}{% translate "、還可以照強度分開比" %}{% endif %}</span>
         </div>
         {% if analysis.count %}
           <div class="flex" style="padding:10px 16px 0;flex-wrap:wrap">
-            <label class="unitpick">看法
+            <label class="unitpick">{% translate "看法" %}
               <select id="chartMode">
-                <option value="day">單日（逐組）</option>
-                <option value="days">多天比較（同組別對照）</option>
-                <option value="all">全部紀錄</option>
-                {% if is_track %}<option value="intensity">不同強度比較</option>{% endif %}
+                <option value="day">{% translate "單日（逐組）" %}</option>
+                <option value="days">{% translate "多天比較（同組別對照）" %}</option>
+                <option value="all">{% translate "全部紀錄" %}</option>
+                {% if is_track %}<option value="intensity">{% translate "不同強度比較" %}</option>{% endif %}
               </select>
             </label>
-            <label class="unitpick" id="dayPick">日期
+            <label class="unitpick" id="dayPick">{% translate "日期" %}
               <select id="chartDay"></select>
             </label>
-            <label class="unitpick" id="daysPick" hidden>範圍
+            <label class="unitpick" id="daysPick" hidden>{% translate "範圍" %}
               <select id="chartDays">
-                <option value="3">最近 3 天</option>
-                <option value="5" selected>最近 5 天</option>
-                <option value="10">最近 10 天</option>
-                <option value="0">全部日期</option>
+                <option value="3">{% translate "最近 3 天" %}</option>
+                <option value="5" selected>{% translate "最近 5 天" %}</option>
+                <option value="10">{% translate "最近 10 天" %}</option>
+                <option value="0">{% translate "全部日期" %}</option>
               </select>
             </label>
-            <label class="unitpick">{{ item.unit|default:"數值" }}軸比例
+            <label class="unitpick">{% blocktranslate with v0=item.unit|default:_("數值") %}{{ v0 }}軸比例{% endblocktranslate %}
               <select id="chartZoom">
-                <option value="tight" selected>貼齊數據（差別最明顯）</option>
-                <option value="pad">留一點邊</option>
-                <option value="auto">自動</option>
-                <option value="zero">從 0 開始</option>
+                <option value="tight" selected>{% translate "貼齊數據（差別最明顯）" %}</option>
+                <option value="pad">{% translate "留一點邊" %}</option>
+                <option value="auto">{% translate "自動" %}</option>
+                <option value="zero">{% translate "從 0 開始" %}</option>
               </select>
             </label>
           </div>
@@ -1009,16 +995,16 @@
           <div class="chart-box"><canvas id="restChart"></canvas></div>
           <div class="small c-dim" id="chartNote" style="padding:0 16px 14px"></div>
         {% else %}
-          <div class="empty">記錄之後，這裡會逐組畫出分析圖。</div>
+          <div class="empty">{% translate "記錄之後，這裡會逐組畫出分析圖。" %}</div>
         {% endif %}
       </div>
     </div>
     {% else %}
     <div class="empty">
       {% if is_competition %}
-        左邊挑一個比賽項目，就可以把該場比賽的成績登進來。
+        {% translate "左邊挑一個比賽項目，就可以把該場比賽的成績登進來。" %}
       {% else %}
-        左邊從訓練活動庫挑一個動作，或按「自己新增一個項目」，就可以開始記錄。
+        {% translate "左邊從訓練活動庫挑一個動作，或按「自己新增一個項目」，就可以開始記錄。" %}
       {% endif %}
     </div>
     {% endif %}
@@ -1027,9 +1013,9 @@
 
 {% if is_competition %}
 <!-- ==================================================== 比賽分析（逐場） -->
-<h2>比賽分析</h2>
+<h2>{% translate "比賽分析" %}</h2>
 <div class="small c-dim mb">
-  一場比賽一張表：當場成績、比上一場進步多少、離個人最佳還差多少。
+  {% translate "一場比賽一張表：當場成績、比上一場進步多少、離個人最佳還差多少。" %}
 </div>
 
 {% for m in meets %}
@@ -1040,8 +1026,8 @@
         {% if m.level %}<span class="badge b-dim">{{ m.level }}</span>{% endif %}
       </span>
       <span class="small c-dim">
-        {{ m.item_count }} 個項目
-        {% if m.pb_count %}· <span class="badge b-green">{{ m.pb_count }} 項個人最佳</span>{% endif %}
+        {% blocktranslate with v0=m.item_count %}{{ v0 }} 個項目{% endblocktranslate %}
+        {% if m.pb_count %}· <span class="badge b-green">{% blocktranslate with v0=m.pb_count %}{{ v0 }} 項個人最佳{% endblocktranslate %}</span>{% endif %}
       </span>
     </div>
     <div style="padding:12px 18px 0">
@@ -1053,9 +1039,9 @@
       <table class="cmptable">
         <thead>
           <tr>
-            <th>項目</th><th class="num">成績</th><th class="num">上一場</th>
-            <th class="num">較上一場</th><th class="num">個人最佳</th>
-            <th class="num">差距</th><th class="num">當場筆數</th>
+            <th>{% translate "項目" %}</th><th class="num">{% translate "成績" %}</th><th class="num">{% translate "上一場" %}</th>
+            <th class="num">{% translate "較上一場" %}</th><th class="num">{% translate "個人最佳" %}</th>
+            <th class="num">{% translate "差距" %}</th><th class="num">{% translate "當場筆數" %}</th>
           </tr>
         </thead>
         <tbody>
@@ -1083,13 +1069,13 @@
   </div>
 {% empty %}
   <div class="card empty mb">
-    還沒有比賽數據。在上面挑一個比賽項目，選好是哪一場比賽，把成績登進來就會出現分析。
+    {% translate "還沒有比賽數據。在上面挑一個比賽項目，選好是哪一場比賽，把成績登進來就會出現分析。" %}
   </div>
 {% endfor %}
 {% endif %}
 
 <!-- ==================================================== 二、訓練負荷監控 -->
-<h2>訓練負荷監控</h2>
+<h2>{% translate "訓練負荷監控" %}</h2>
 
 <div class="grid grid-4 mb">
   <div class="card stat">
@@ -1098,36 +1084,36 @@
     <div class="hint"><span class="badge {{ acwr_badge }}">{{ acwr.risk_label }}</span> EWMA {{ acwr.acwr_ewma|default:"—" }}</div>
   </div>
   <div class="card stat">
-    <div class="label">Monotony 單調性</div>
+    <div class="label">{% translate "Monotony 單調性" %}</div>
     <div class="value {% if monotony >= 2 %}c-red{% elif monotony >= 1.5 %}c-yellow{% else %}c-green{% endif %}">{{ monotony|default:"—" }}</div>
-    <div class="hint">&gt; 2.0 表示課表變化不足</div>
+    <div class="hint">{% translate "&gt; 2.0 表示課表變化不足" %}</div>
   </div>
   <div class="card stat">
-    <div class="label">Strain 訓練張力</div>
+    <div class="label">{% translate "Strain 訓練張力" %}</div>
     <div class="value">{{ strain|default:"—" }}</div>
-    <div class="hint">週總負荷 × Monotony</div>
+    <div class="hint">{% translate "週總負荷 × Monotony" %}</div>
   </div>
   <div class="card stat">
-    <div class="label">週對週變化</div>
+    <div class="label">{% translate "週對週變化" %}</div>
     <div class="value {% if wow > 15 %}c-red{% elif wow < -15 %}c-blue{% else %}c-green{% endif %}">
       {% if wow > 0 %}+{% endif %}{{ wow|default:"—" }}%
     </div>
-    <div class="hint">建議 ±10% 以內</div>
+    <div class="hint">{% translate "建議 ±10% 以內" %}</div>
   </div>
 </div>
 
 <div class="alert {% if acwr.risk_flag == 'HIGH' %}red{% elif acwr.risk_flag == 'ELEVATED' %}yellow{% elif acwr.risk_flag == 'OPTIMAL' %}green{% else %}blue{% endif %}">
   {{ acwr.icon }} <strong>{{ acwr.risk_label }}：</strong>{{ acwr.advice }}
-  <span class="small">（急性 {{ acwr.acute_load }} AU / 慢性 {{ acwr.chronic_load }} AU）</span>
+  <span class="small">{% blocktranslate with v0=acwr.acute_load v1=acwr.chronic_load %}（急性 {{ v0 }} AU / 慢性 {{ v1 }} AU）{% endblocktranslate %}</span>
 </div>
 
 <div class="card pad0 mb">
   <div class="card-head">
-    <span>週負荷進程與 ACWR</span>
+    <span>{% translate "週負荷進程與 ACWR" %}</span>
     <span class="flex">
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=8">8 週</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=12">12 週</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=26">26 週</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=8">{% translate "8 週" %}</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=12">{% translate "12 週" %}</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}&weeks=26">{% translate "26 週" %}</a>
     </span>
   </div>
   <div class="chart-box tall"><canvas id="c1"></canvas></div>
@@ -1135,14 +1121,14 @@
 
 <div class="grid grid-2">
   <div class="card pad0">
-    <div class="card-head"><span>近 28 天訓練量分佈</span></div>
+    <div class="card-head"><span>{% translate "近 28 天訓練量分佈" %}</span></div>
     <div class="chart-box"><canvas id="c4"></canvas></div>
   </div>
 
   <div class="card pad0">
-    <div class="card-head"><span>分佈明細</span></div>
+    <div class="card-head"><span>{% translate "分佈明細" %}</span></div>
     <table>
-      <thead><tr><th>課別</th><th class="num">負荷 (AU)</th><th class="num">佔比</th><th></th></tr></thead>
+      <thead><tr><th>{% translate "課別" %}</th><th class="num">{% translate "負荷 (AU)" %}</th><th class="num">{% translate "佔比" %}</th><th></th></tr></thead>
       <tbody>
       {% for d in dist %}
         <tr>
@@ -1152,7 +1138,7 @@
           <td style="width:35%"><div class="progress"><div style="width:{{ d.pct }}%"></div></div></td>
         </tr>
       {% empty %}
-        <tr><td colspan="4" class="empty">近 28 天無已完成課表</td></tr>
+        <tr><td colspan="4" class="empty">{% translate "近 28 天無已完成課表" %}</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -1176,11 +1162,11 @@ const pts = {{ chart_points|safe }};
 (function () {
   const REVERSE = {% if item.higher_is_better %}false{% else %}true{% endif %};
   const UNIT = '{{ item.unit }}';
-  const AXIS = UNIT + (REVERSE ? '（軸已反轉：越上面越好）' : '');
+  const AXIS = UNIT + (REVERSE ? '{% translate "（軸已反轉：越上面越好）" %}' : '');
   const canvas = document.getElementById('metricChart');
   const modeSel = document.getElementById('mainMode');
   const note = document.getElementById('mainNote');
-  const MODE_NAME = { year: '年份', month: '月份', phase: '時期', status: '狀態' };
+  const MODE_NAME = { year: '{% translate "年份" %}', month: '{% translate "月份" %}', phase: '{% translate "時期" %}', status: '{% translate "狀態" %}' };
   const scoredPts = pts.filter(p => p.value !== null && p.value !== undefined);
   let chart = null;
 
@@ -1200,20 +1186,20 @@ const pts = {{ chart_points|safe }};
     return {
       labels: keys,
       datasets: [
-        { type: 'bar', label: '最佳' + (UNIT ? ' (' + UNIT + ')' : ''),
+        { type: 'bar', label: '{% translate "最佳" %}' + (UNIT ? ' (' + UNIT + ')' : ''),
           data: keys.map(k => round2(best(vals(k)))),
           backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1 },
-        { type: 'bar', label: '平均' + (UNIT ? ' (' + UNIT + ')' : ''),
+        { type: 'bar', label: '{% translate "平均" %}' + (UNIT ? ' (' + UNIT + ')' : ''),
           data: keys.map(k => round2(mean(vals(k)))),
           backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1 }
       ],
       tip: (items) => {
         const rows = buckets[keys[items[0].dataIndex]];
-        return [rows.length + ' 組 / ' + new Set(rows.map(p => p.date)).size + ' 天',
+        return [rows.length + '{% translate " 組 / " %}' + new Set(rows.map(p => p.date)).size + '{% translate " 天" %}',
                 rows[0].date + ' → ' + rows[rows.length - 1].date];
       },
-      note: '共 ' + keys.length + ' 個' + MODE_NAME[field] + '；每一柱是該' + MODE_NAME[field]
-        + '的最佳與平均（' + (REVERSE ? '數字越小越好' : '數字越大越好') + '）。'
+      note: '{% translate "共 " %}' + keys.length + '{% translate " 個" %}' + MODE_NAME[field] + '{% translate "；每一柱是該" %}' + MODE_NAME[field]
+        + '{% translate "的最佳與平均（" %}' + (REVERSE ? '{% translate "數字越小越好" %}' : '{% translate "數字越大越好" %}') + '）。'
     };
   }
 
@@ -1230,7 +1216,7 @@ const pts = {{ chart_points|safe }};
         fill: true, pointRadius: 4, tension: .2
       }],
       after: (ctx) => [pts[ctx.dataIndex].session, pts[ctx.dataIndex].context].filter(Boolean).join(' · '),
-      note: '近一年 ' + pts.length + ' 筆紀錄按日期排開。'
+      note: '{% translate "近一年 " %}' + pts.length + '{% translate " 筆紀錄按日期排開。" %}'
     };
   }
 
@@ -1242,7 +1228,7 @@ const pts = {{ chart_points|safe }};
       data: { labels: s.labels, datasets: s.datasets },
       options: {
         // 越小越好的項目把 y 軸反過來，圖上「往上＝變好」永遠成立
-        scales: { y: { reverse: REVERSE, title: { display: true, text: AXIS || '數值' } } },
+        scales: { y: { reverse: REVERSE, title: { display: true, text: AXIS || '{% translate "數值" %}' } } },
         plugins: { tooltip: { callbacks: {
           afterLabel: s.after || (() => ''),
           afterBody: s.tip || (() => '')
@@ -1291,18 +1277,18 @@ const pts = {{ chart_points|safe }};
   dates.slice().reverse().forEach((d) => {
     const o = document.createElement('option');
     o.value = d;
-    o.textContent = d + '（' + rowsOf(d).length + ' 組）';
+    o.textContent = d + '（' + rowsOf(d).length + '{% translate " 組）" %}';
     daySel.appendChild(o);
   });
 
   const detail = (p) => [
-    p.completed ? '✅ 成功完成' : '❌ 未完成',
-    p.intensity ? '強度要求 ' + p.intensity : null,
-    p.target !== null ? '目標 ' + p.target + UNIT : null,
-    (!IS_TRACK && p.weight !== null) ? '重量 ' + p.weight + ' kg' : null,
-    p.reps ? p.reps + ' 次' : null,
-    p.rest_sec ? '休息 ' + toMin(p.rest_sec) + ' 分' : null,
-    p.tonnage ? '噸位 ' + p.tonnage + ' kg' : null,
+    p.completed ? '{% translate "✅ 成功完成" %}' : '{% translate "❌ 未完成" %}',
+    p.intensity ? '{% translate "強度要求 " %}' + p.intensity : null,
+    p.target !== null ? '{% translate "目標 " %}' + p.target + UNIT : null,
+    (!IS_TRACK && p.weight !== null) ? '{% translate "重量 " %}' + p.weight + ' kg' : null,
+    p.reps ? p.reps + '{% translate " 次" %}' : null,
+    p.rest_sec ? '{% translate "休息 " %}' + toMin(p.rest_sec) + '{% translate " 分" %}' : null,
+    p.tonnage ? '{% translate "噸位 " %}' + p.tonnage + ' kg' : null,
     p.session, p.context
   ].filter(Boolean);
 
@@ -1310,28 +1296,28 @@ const pts = {{ chart_points|safe }};
   function setSeries(rows, labels) {
     const colors = rows.map(p => (p.completed ? ACC : RED));
     const main = [{
-      type: 'bar', label: '完成數值' + UNIT_SUFFIX, data: rows.map(p => p.value),
+      type: 'bar', label: '{% translate "完成數值" %}' + UNIT_SUFFIX, data: rows.map(p => p.value),
       backgroundColor: colors.map(c => c + '99'), borderColor: colors,
       borderWidth: 1, yAxisID: 'y'
     }];
     if (rows.some(p => p.target !== null)) {
       main.push({
-        type: 'line', label: '目標數值' + UNIT_SUFFIX, data: rows.map(p => p.target),
+        type: 'line', label: '{% translate "目標數值" %}' + UNIT_SUFFIX, data: rows.map(p => p.target),
         borderColor: PURPLE, backgroundColor: PURPLE, borderDash: [5, 4],
         pointRadius: 3, tension: .2, spanGaps: true, yAxisID: 'y'
       });
     }
     if (!IS_TRACK && rows.some(p => p.weight !== null)) {
       main.push({
-        type: 'line', label: '重量 (kg)', data: rows.map(p => p.weight),
+        type: 'line', label: '{% translate "重量 (kg)" %}', data: rows.map(p => p.weight),
         borderColor: BLUE, backgroundColor: BLUE, tension: .25,
         spanGaps: true, yAxisID: 'y1'
       });
     }
     const rest = [
-      { type: 'bar', label: '次數', data: rows.map(p => p.reps),
+      { type: 'bar', label: '{% translate "次數" %}', data: rows.map(p => p.reps),
         backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-      { type: 'line', label: '休息 (分)', data: rows.map(p => toMin(p.rest_sec)),
+      { type: 'line', label: '{% translate "休息 (分)" %}', data: rows.map(p => toMin(p.rest_sec)),
         borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
         tension: .25, spanGaps: true, yAxisID: 'y1' }
     ];
@@ -1341,7 +1327,7 @@ const pts = {{ chart_points|safe }};
   // 一天一條線，x 軸是組別——同一組跨日對照，看得出訓練變化
   function byDay(chosen, field, suffix) {
     const most = Math.max(...chosen.map(d => rowsOf(d).length));
-    const labels = Array.from({ length: most }, (_, i) => '第 ' + (i + 1) + ' 組');
+    const labels = Array.from({ length: most }, (_, i) => '{% translate "第 " %}' + (i + 1) + '{% translate " 組" %}');
     const sets = chosen.map((d, i) => {
       const rows = rowsOf(d);
       const color = SERIES[i % SERIES.length];
@@ -1359,12 +1345,12 @@ const pts = {{ chart_points|safe }};
     day: () => {
       const day = daySel.value || dates[dates.length - 1];
       const rows = rowsOf(day);
-      const spec = setSeries(rows, rows.map((p, i) => '第 ' + setNo(p, i) + ' 組'));
+      const spec = setSeries(rows, rows.map((p, i) => '{% translate "第 " %}' + setNo(p, i) + '{% translate " 組" %}'));
       const done = rows.filter(p => p.completed).length;
-      spec.note = day + ' 這一天共 ' + rows.length + ' 組，完成 ' + done + ' 組。'
-        + '上圖：每一組的完成數值（未完成畫成紅色）'
-        + (IS_TRACK ? '與目標，強度要求在滑過去的提示裡' : '、目標與重量')
-        + '；下圖：次數與休息時間（分鐘）。';
+      spec.note = day + '{% translate " 這一天共 " %}' + rows.length + '{% translate " 組，完成 " %}' + done + '{% translate " 組。" %}'
+        + '{% translate "上圖：每一組的完成數值（未完成畫成紅色）" %}'
+        + (IS_TRACK ? '{% translate "與目標，強度要求在滑過去的提示裡" %}' : '{% translate "、目標與重量" %}')
+        + '{% translate "；下圖：次數與休息時間（分鐘）。" %}';
       return spec;
     },
 
@@ -1372,27 +1358,27 @@ const pts = {{ chart_points|safe }};
       const n = parseInt(daysSel.value, 10);
       const chosen = n ? dates.slice(-n) : dates;
       const value = byDay(chosen, 'value', '');
-      const rest = byDay(chosen, 'rest_min', ' 休息');
+      const rest = byDay(chosen, 'rest_min', '{% translate " 休息" %}');
       return {
         labels: value.labels,
         main: value.sets,
         rest: rest.sets.map(d => Object.assign({}, d, { yAxisID: 'y1' })),
-        note: '拿 ' + chosen.length + ' 天（' + short(chosen[0]) + ' → '
-          + short(chosen[chosen.length - 1]) + '）的同一組別對照，線往'
-          + (REVERSE ? '下' : '上') + '走就是這一組愈做愈好；下圖是各天的休息時間（分鐘）。'
+        note: '{% translate "拿 " %}' + chosen.length + '{% translate " 天（" %}' + short(chosen[0]) + ' → '
+          + short(chosen[chosen.length - 1]) + '{% translate "）的同一組別對照，線往" %}'
+          + (REVERSE ? '{% translate "下" %}' : '{% translate "上" %}') + '{% translate "走就是這一組愈做愈好；下圖是各天的休息時間（分鐘）。" %}'
       };
     },
 
     all: () => {
       const spec = setSeries(pts, pts.map(p => p.label));
-      spec.note = '近一年全部 ' + pts.length + ' 組紀錄按日期排開，看整段時間的起伏。';
+      spec.note = '{% translate "近一年全部 " %}' + pts.length + '{% translate " 組紀錄按日期排開，看整段時間的起伏。" %}';
       return spec;
     },
 
     intensity: () => {
       const groups = {};
       pts.forEach((p) => {
-        const key = (p.intensity || '').trim() || '未填強度';
+        const key = (p.intensity || '').trim() || '{% translate "未填強度" %}';
         (groups[key] = groups[key] || []).push(p);
       });
       // 強度由高到低（純數字的照數字排，文字的排後面）
@@ -1408,28 +1394,28 @@ const pts = {{ chart_points|safe }};
       return {
         labels: keys,
         main: [
-          { type: 'bar', label: '最佳' + UNIT_SUFFIX, data: keys.map(k => stat(k, best)),
+          { type: 'bar', label: '{% translate "最佳" %}' + UNIT_SUFFIX, data: keys.map(k => stat(k, best)),
             backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1, yAxisID: 'y' },
-          { type: 'bar', label: '平均' + UNIT_SUFFIX, data: keys.map(k => stat(k, mean)),
+          { type: 'bar', label: '{% translate "平均" %}' + UNIT_SUFFIX, data: keys.map(k => stat(k, mean)),
             backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' }
         ],
         rest: [
-          { type: 'bar', label: '平均次數',
+          { type: 'bar', label: '{% translate "平均次數" %}',
             data: keys.map(k => round2(mean(num(groups[k].map(p => p.reps))))),
             backgroundColor: GREEN + '99', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-          { type: 'line', label: '平均休息 (分)',
+          { type: 'line', label: '{% translate "平均休息 (分)" %}',
             data: keys.map(k => toMin(mean(num(groups[k].map(p => p.rest_sec))))),
             borderColor: YELLOW, backgroundColor: YELLOW, borderDash: [5, 4],
             tension: .25, spanGaps: true, yAxisID: 'y1' }
         ],
         tip: (ctx) => {
           const rows = groups[keys[ctx.dataIndex]];
-          return ['共 ' + rows.length + ' 組 / ' + new Set(rows.map(p => p.date)).size + ' 天',
-                  '完成 ' + rows.filter(p => p.completed).length + ' 組'];
+          return ['{% translate "共 " %}' + rows.length + '{% translate " 組 / " %}' + new Set(rows.map(p => p.date)).size + '{% translate " 天" %}',
+                  '{% translate "完成 " %}' + rows.filter(p => p.completed).length + '{% translate " 組" %}'];
         },
-        note: '同一個項目照「強度要求」分開比：共 ' + keys.length + ' 種強度，'
-          + '看每一檔強度各跑得出什麼水準（'
-          + (REVERSE ? '數字愈小愈好' : '數字愈大愈好') + '）。'
+        note: '{% translate "同一個項目照「強度要求」分開比：共 " %}' + keys.length + '{% translate " 種強度，" %}'
+          + '{% translate "看每一檔強度各跑得出什麼水準（" %}'
+          + (REVERSE ? '{% translate "數字愈小愈好" %}' : '{% translate "數字愈大愈好" %}') + '）。'
       };
     }
   };
@@ -1446,13 +1432,13 @@ const pts = {{ chart_points|safe }};
   }
 
   const ZOOM_NOTE = {
-    tight: ' Y 軸貼著數據範圍（不是從 0 起），看的是彼此之間的差別。',
-    pad: ' Y 軸在數據上下各留一點空間。',
+    tight: '{% translate " Y 軸貼著數據範圍（不是從 0 起），看的是彼此之間的差別。" %}',
+    pad: '{% translate " Y 軸在數據上下各留一點空間。" %}',
     auto: '',
-    zero: ' Y 軸從 0 起，差別會看起來比較小。'
+    zero: '{% translate " Y 軸從 0 起，差別會看起來比較小。" %}'
   };
 
-  const axisTitle = UNIT + (REVERSE ? '（軸已反轉：越上面越好）' : '');
+  const axisTitle = UNIT + (REVERSE ? '{% translate "（軸已反轉：越上面越好）" %}' : '');
   let mainChart = null, restChart = null;
 
   function render() {
@@ -1478,7 +1464,7 @@ const pts = {{ chart_points|safe }};
       options: {
         scales: {
           y: Object.assign(
-            { reverse: REVERSE, title: { display: true, text: axisTitle || '數值' } },
+            { reverse: REVERSE, title: { display: true, text: axisTitle || '{% translate "數值" %}' } },
             bounds
           ),
           y1: { display: spec.main.some(d => d.yAxisID === 'y1'), position: 'right',
@@ -1494,9 +1480,9 @@ const pts = {{ chart_points|safe }};
       options: {
         scales: {
           y: { display: spec.rest.some(d => d.yAxisID === 'y'), position: 'left',
-               beginAtZero: true, title: { display: true, text: '次' } },
+               beginAtZero: true, title: { display: true, text: '{% translate "次" %}' } },
           y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
-                title: { display: true, text: '分' } }
+                title: { display: true, text: '{% translate "分" %}' } }
         }
       }
     });
@@ -1533,7 +1519,7 @@ const pts = {{ chart_points|safe }};
   new Chart(canvas, {
     data: { labels: dates, datasets: sets },
     options: {
-      scales: { y: { title: { display: true, text: '各項目的當日最佳' } } },
+      scales: { y: { title: { display: true, text: '{% translate "各項目的當日最佳" %}' } } },
       plugins: { tooltip: { mode: 'index', intersect: false } }
     }
   });
@@ -1547,20 +1533,20 @@ new Chart(document.getElementById('cmpChart'), {
   data: {
     labels: {{ cmp_labels|safe }},
     datasets: [
-      { label: '最佳', data: {{ cmp_best|safe }},
+      { label: '{% translate "最佳" %}', data: {{ cmp_best|safe }},
         backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1 },
-      { label: '平均', data: {{ cmp_avg|safe }},
+      { label: '{% translate "平均" %}', data: {{ cmp_avg|safe }},
         backgroundColor: BLUE + '66', borderColor: BLUE, borderWidth: 1 }
     ]
   },
   options: {
     scales: { y: { reverse: {% if item.higher_is_better %}false{% else %}true{% endif %},
                    title: { display: true,
-                            text: '{{ item.unit }}{% if not item.higher_is_better %}（軸已反轉）{% endif %}' } } },
+                            text: '{{ item.unit }}{% if not item.higher_is_better %}{% translate "（軸已反轉）" %}{% endif %}' } } },
     plugins: { tooltip: { callbacks: {
       afterBody: (items) => {
         const counts = {{ cmp_count|safe }};
-        return '共 ' + counts[items[0].dataIndex] + ' 組';
+        return '{% translate "共 " %}' + counts[items[0].dataIndex] + '{% translate " 組" %}';
       }
     } } }
   }
@@ -1634,8 +1620,8 @@ new Chart(document.getElementById('cmpChart'), {
         });
       });
       if (filled) {
-        btn.textContent = '已填 ' + filled + ' 格';
-        setTimeout(() => { btn.textContent = '套用'; }, 1600);
+        btn.textContent = '{% translate "已填 " %}' + filled + '{% translate " 格" %}';
+        setTimeout(() => { btn.textContent = '{% translate "套用" %}'; }, 1600);
       }
     });
   });
@@ -1647,11 +1633,11 @@ new Chart(document.getElementById('cmpChart'), {
   if (!form) { return; }
   document.querySelectorAll('.itemdel').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const name = btn.dataset.name || '這個項目';
+      const name = btn.dataset.name || '{% translate "這個項目" %}';
       const text = btn.dataset.builtin
-        ? '「' + name + '」是系統內建項目，會清掉這名運動員在這個項目底下的所有紀錄'
-          + '（項目本身留著，重新記錄就會再出現）。確定嗎？'
-        : '確定要刪除「' + name + '」嗎？底下的紀錄會一起不見。';
+        ? '「' + name + '{% translate "」是系統內建項目，會清掉這名運動員在這個項目底下的所有紀錄" %}'
+          + '{% translate "（項目本身留著，重新記錄就會再出現）。確定嗎？" %}'
+        : '{% translate "確定要刪除「" %}' + name + '{% translate "」嗎？底下的紀錄會一起不見。" %}';
       if (!confirm(text)) { e.preventDefault(); }
     });
   });
@@ -1661,7 +1647,7 @@ new Chart(document.getElementById('c1'), {
   data: {
     labels: {{ labels|safe }},
     datasets: [
-      { type: 'bar', label: '週總負荷 (AU)', data: {{ loads|safe }},
+      { type: 'bar', label: '{% translate "週總負荷 (AU)" %}', data: {{ loads|safe }},
         backgroundColor: ACC + '99', borderColor: ACC, borderWidth: 1, yAxisID: 'y' },
       { type: 'line', label: 'ACWR', data: {{ acwrs|safe }}, borderColor: BLUE,
         backgroundColor: BLUE, tension: .3, spanGaps: true, yAxisID: 'y1' },

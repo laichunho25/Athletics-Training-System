@@ -1,12 +1,12 @@
-{% load static %}
+{% load static %}{% load i18n %}
 <!DOCTYPE html>
-<html lang="zh-Hant" data-theme="dark">
+{% get_current_language as LANG %}<html lang="{{ LANG }}" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#04070f">
-  <title>ATM · 田徑訓練紀錄與分析系統</title>
-  <meta name="description" content="ATM 為每一位運動員量身建立訓練紀錄與分析：課後強度、負荷趨勢、恢復與傷勢，全部留在同一份檔案裡。附短跑訓練專業用詞中英對照表。">
+  <title>{% translate "ATM · 田徑訓練紀錄與分析系統" %}</title>
+  <meta name="description" content="{% translate 'ATM 為每一位運動員量身建立訓練紀錄與分析：課後強度、負荷趨勢、恢復與傷勢，全部留在同一份檔案裡。附短跑訓練專業用詞中英對照表。' %}">
   <script>
     // 先套用上次選的主題，避免載入時閃一下白底
     (function (d) {
@@ -24,21 +24,22 @@
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="{% url 'web:landing' %}">ATM<i>·</i>田徑</a>
+    <a class="brand" href="{% url 'web:landing' %}">ATM<i>·</i>{% translate "田徑" %}</a>
     <nav>
-      <a href="#phases">一百公尺的四段</a>
-      <a href="#terms">專業用詞</a>
-      <a href="#system">紀錄與分析</a>
-      <a href="{% url 'programs:list' %}">項目報名</a>
+      <a href="#phases">{% translate "一百公尺的四段" %}</a>
+      <a href="#terms">{% translate "專業用詞" %}</a>
+      <a href="#system">{% translate "紀錄與分析" %}</a>
+      <a href="{% url 'programs:list' %}">{% translate "項目報名" %}</a>
+      {% include "_langpick.html" %}
       <button type="button" class="themebtn" data-theme-toggle
-              aria-label="切換淺色／深色主題" title="切換淺色／深色主題">
+              aria-label="{% translate '切換淺色／深色主題' %}" title="{% translate '切換淺色／深色主題' %}">
         <span class="dark-only" aria-hidden="true">☀</span>
         <span class="light-only" aria-hidden="true">☾</span>
       </button>
       {% if user.is_authenticated %}
-        <a class="signin" href="{% url 'web:home' %}">進入系統</a>
+        <a class="signin" href="{% url 'web:home' %}">{% translate "進入系統" %}</a>
       {% else %}
-        <a class="signin" href="{% url 'login' %}">登入</a>
+        <a class="signin" href="{% url 'login' %}">{% translate "登入" %}</a>
       {% endif %}
     </nav>
   </div>
@@ -49,19 +50,17 @@
   <div class="wrap">
     <div class="hero-copy">
       <p class="kicker on-dark">Sprint &middot; 100m / 200m / 400m</p>
-      <h1>課表不是罐頭，<br>紀錄與分析要為人而做</h1>
+      <h1>{% translate "課表不是罐頭，" %}<br>{% translate "紀錄與分析要為人而做" %}</h1>
       <p class="lead">
-        ATM 不派發現成的訓練課表。它把每一堂課的內容、強度、恢復狀況與傷勢完整記下來，
-        再換算成教練看得懂的趨勢——課表是教練在持續訓練中逐步認識這名運動員之後長出來的，
-        系統負責讓這個過程一直有依據可循。
+        {% translate "ATM 不派發現成的訓練課表。它把每一堂課的內容、強度、恢復狀況與傷勢完整記下來， 再換算成教練看得懂的趨勢——課表是教練在持續訓練中逐步認識這名運動員之後長出來的， 系統負責讓這個過程一直有依據可循。" %}
       </p>
       <div class="acts">
         {% if user.is_authenticated %}
-          <a class="signin" href="{% url 'web:home' %}">進入我的儀表板</a>
+          <a class="signin" href="{% url 'web:home' %}">{% translate "進入我的儀表板" %}</a>
         {% else %}
-          <a class="signin" href="{% url 'login' %}">登入 ATM 系統</a>
+          <a class="signin" href="{% url 'login' %}">{% translate "登入 ATM 系統" %}</a>
         {% endif %}
-        <a class="arrow on-dark" href="#system">看系統怎麼運作</a>
+        <a class="arrow on-dark" href="#system">{% translate "看系統怎麼運作" %}</a>
       </div>
     </div>
 
@@ -69,7 +68,7 @@
     <div class="hero-track">
       <div class="track-stage">
         <canvas id="track-hero" tabindex="0" role="img"
-                aria-label="緩慢旋轉的標準四百公尺田徑場：紅色膠面、八條白色分道、綠色內場，標有各項目起跑線、每一百公尺的過程標記與終點線"></canvas>
+                aria-label="{% translate '緩慢旋轉的標準四百公尺田徑場：紅色膠面、八條白色分道、綠色內場，標有各項目起跑線、每一百公尺的過程標記與終點線' %}"></canvas>
         <div class="track-call" data-hero="call" aria-live="assertive"></div>
 
         <!-- 跑完 80 下才彈出來的成績卡，按「再來」才重置 -->
@@ -77,60 +76,57 @@
              aria-labelledby="finish-title" hidden>
           <div class="finish-card">
             <p class="finish-kicker">Finish</p>
-            <h3 class="finish-title" id="finish-title" data-hero="f-title">挑戰完成</h3>
+            <h3 class="finish-title" id="finish-title" data-hero="f-title">{% translate "挑戰完成" %}</h3>
             <p class="finish-time"><span data-hero="f-time">0.00</span><i>s</i></p>
             <dl class="finish-stats">
-              <div><dt>平均速度</dt><dd><span data-hero="f-avg">0.00</span> m/s</dd></div>
-              <div><dt>最高速度</dt><dd><span data-hero="f-top">0.00</span> m/s</dd></div>
-              <div><dt>前 50 / 後 50</dt><dd><span data-hero="f-half">—</span> s</dd></div>
-              <div><dt>連打頻率</dt><dd><span data-hero="f-rate">0.0</span> 下/秒</dd></div>
+              <div><dt>{% translate "平均速度" %}</dt><dd><span data-hero="f-avg">0.00</span> m/s</dd></div>
+              <div><dt>{% translate "最高速度" %}</dt><dd><span data-hero="f-top">0.00</span> m/s</dd></div>
+              <div><dt>{% translate "前 50 / 後 50" %}</dt><dd><span data-hero="f-half">—</span> s</dd></div>
+              <div><dt>{% translate "連打頻率" %}</dt><dd><span data-hero="f-rate">0.0</span> {% translate "下/秒" %}</dd></div>
             </dl>
-            <ol class="finish-splits" data-hero="f-splits" aria-label="每十公尺分段"></ol>
+            <ol class="finish-splits" data-hero="f-splits" aria-label="{% translate '每十公尺分段' %}"></ol>
             <p class="finish-note" data-hero="f-note"></p>
-            <button class="signin" type="button" data-hero="again">再來</button>
+            <button class="signin" type="button" data-hero="again">{% translate "再來" %}</button>
           </div>
         </div>
         <noscript>
-          <p class="track-fallback">開啟 JavaScript 可看到跑道動畫與一百公尺挑戰。</p>
+          <p class="track-fallback">{% translate "開啟 JavaScript 可看到跑道動畫與一百公尺挑戰。" %}</p>
         </noscript>
       </div>
 
       <div class="tapbar">
         <div class="rail"><div class="fill" data-hero="tapfill"></div></div>
-        <span class="n" data-hero="tapnum">0 / 80 下</span>
+        <span class="n" data-hero="tapnum">{% translate "0 / 80 下" %}</span>
       </div>
 
       <div class="track-panel">
         <div class="readouts">
-          <div><span class="l">時間</span><span class="v" data-hero="time">0.00</span><i>s</i></div>
-          <div><span class="l">距離</span><span class="v" data-hero="dist">0.0</span><i>m</i></div>
-          <div><span class="l">速度</span><span class="v" data-hero="speed">0.00</span><i>m/s</i></div>
-          <div><span class="l">階段</span><span class="v p" data-hero="phase">待命</span></div>
+          <div><span class="l">{% translate "時間" %}</span><span class="v" data-hero="time">0.00</span><i>s</i></div>
+          <div><span class="l">{% translate "距離" %}</span><span class="v" data-hero="dist">0.0</span><i>m</i></div>
+          <div><span class="l">{% translate "速度" %}</span><span class="v" data-hero="speed">0.00</span><i>m/s</i></div>
+          <div><span class="l">{% translate "階段" %}</span><span class="v p" data-hero="phase">{% translate "待命" %}</span></div>
         </div>
         <div class="track-acts">
-          <button class="signin" type="button" data-hero="go">接受挑戰</button>
-          <button class="ghost" type="button" data-hero="demo">看示範</button>
+          <button class="signin" type="button" data-hero="go">{% translate "接受挑戰" %}</button>
+          <button class="ghost" type="button" data-hero="demo">{% translate "看示範" %}</button>
         </div>
       </div>
 
       <ol class="splits" data-hero="splits" aria-live="polite"></ol>
       <p class="track-note">
-        挑戰：聽 On your marks → Set → 鳴槍 GO，之後連打滑鼠左鍵，每下前進 1.25 公尺，
-        按滿 80 下衝過終點；GO 之前先按就算搶跑（會補鳴召回槍）。示範則依
-        v(t) ＝ v<sub>max</sub>（1 − e<sup>−t/τ</sup>）演算，僅作階段示意。
+        {% translate "挑戰：聽 On your marks → Set → 鳴槍 GO，之後連打滑鼠左鍵，每下前進 1.25 公尺， 按滿 80 下衝過終點；GO 之前先按就算搶跑（會補鳴召回槍）。示範則依 v(t) ＝ v" %}<sub>max</sub>（1 − e<sup>−t/τ</sup>{% translate "）演算，僅作階段示意。" %}
       </p>
       <p class="track-note">
-        場地按規格繪製：直道 84.39 m、內側緣石半徑 36.50 m、分道寬 1.22 m、共八道，
-        第一道一圈剛好 400 m。<b>100 m</b> 與 <b>110 mH</b> 在直道延伸段上共用一條起跑線；
-        <b>200 m</b>、<b>400 m</b> 的分道差是沿各道自身路線由終點回量算出來的，
-        <b>800 m</b> 用一圈彎道的分道差；白色粗線為終點，另有 100 / 200 / 300 m 的過程標記。
+        {% translate "場地按規格繪製：直道 84.39 m、內側緣石半徑 36.50 m、分道寬 1.22 m、共八道， 第一道一圈剛好 400 m。" %}<b>100 m</b> {% translate "與" %} <b>110 mH</b> {% translate "在直道延伸段上共用一條起跑線；" %}
+        <b>200 m</b>、<b>400 m</b> {% translate "的分道差是沿各道自身路線由終點回量算出來的，" %}
+        <b>800 m</b> {% translate "用一圈彎道的分道差；白色粗線為終點，另有 100 / 200 / 300 m 的過程標記。" %}
       </p>
     </div>
   </div>
   <div class="hero-foot">
     <div class="wrap">
-      <span>適用項目</span>
-      <strong>100 m · 200 m · 400 m · 4×100 m 接力 · 110/100 m 跨欄</strong>
+      <span>{% translate "適用項目" %}</span>
+      <strong>{% translate "100 m · 200 m · 400 m · 4×100 m 接力 · 110/100 m 跨欄" %}</strong>
     </div>
   </div>
 </div>
@@ -141,37 +137,36 @@
     <div class="sec-head">
       <div>
         <p class="kicker">Race Phases</p>
-        <h2>一趟一百公尺，<br>其實是四種能力</h2>
+        <h2>{% translate "一趟一百公尺，" %}<br>{% translate "其實是四種能力" %}</h2>
       </div>
       <p class="lead">
-        起跑、加速、最高速與維持速度，用的是不同的力學與能量系統。
-        分開看，才知道一名運動員的差距落在哪一段——這也是 ATM 分析成績時的切分方式。
+        {% translate "起跑、加速、最高速與維持速度，用的是不同的力學與能量系統。 分開看，才知道一名運動員的差距落在哪一段——這也是 ATM 分析成績時的切分方式。" %}
       </p>
     </div>
 
     <div class="phases">
       <div class="phase">
         <div class="m">0 m</div>
-        <h3>起跑與反應</h3>
-        <p>反應時間，加上前兩步的推蹬方向。離開起跑器時軀幹接近四十五度，急著站起來等於把加速距離讓出去。</p>
+        <h3>{% translate "起跑與反應" %}</h3>
+        <p>{% translate "反應時間，加上前兩步的推蹬方向。離開起跑器時軀幹接近四十五度，急著站起來等於把加速距離讓出去。" %}</p>
         <div class="cue">Block Clearance · Reaction Time</div>
       </div>
       <div class="phase">
         <div class="m">0–30 m</div>
-        <h3>加速期</h3>
-        <p>身體由前傾逐步轉為直立，步頻與步幅同時增長。這一段最吃水平推進力。</p>
+        <h3>{% translate "加速期" %}</h3>
+        <p>{% translate "身體由前傾逐步轉為直立，步頻與步幅同時增長。這一段最吃水平推進力。" %}</p>
         <div class="cue">Drive Phase · Shin Angle</div>
       </div>
       <div class="phase">
         <div class="m">30–60 m</div>
-        <h3>最大速度</h3>
-        <p>速度的天花板。關鍵在觸地時間縮短與下肢剛性，不是更用力往下踩。</p>
+        <h3>{% translate "最大速度" %}</h3>
+        <p>{% translate "速度的天花板。關鍵在觸地時間縮短與下肢剛性，不是更用力往下踩。" %}</p>
         <div class="cue">Maximum Velocity · Ground Contact Time</div>
       </div>
       <div class="phase">
         <div class="m">60–100 m</div>
-        <h3>速度維持</h3>
-        <p>沒有人能一路加速到終點，名次常在這裡拉開。目標是減速得比對手慢。</p>
+        <h3>{% translate "速度維持" %}</h3>
+        <p>{% translate "沒有人能一路加速到終點，名次常在這裡拉開。目標是減速得比對手慢。" %}</p>
         <div class="cue">Speed Endurance · Deceleration</div>
       </div>
     </div>
@@ -184,19 +179,17 @@
     <div class="sec-head">
       <div>
         <p class="kicker">Sprint Terminology</p>
-        <h2>短跑訓練的<br>專業用詞</h2>
+        <h2>{% translate "短跑訓練的" %}<br>{% translate "專業用詞" %}</h2>
       </div>
       <p class="lead">
-        同一件事，教練、運動員與家長常常各有各的說法。把詞固定下來——中英並列、
-        一句話說清楚——課表上的字、系統裡的欄位與跑道邊的口令才會指向同一件事。
-        選一個分類，或直接搜尋；一頁最多十條，其餘用分頁翻。
+        {% translate "同一件事，教練、運動員與家長常常各有各的說法。把詞固定下來——中英並列、 一句話說清楚——課表上的字、系統裡的欄位與跑道邊的口令才會指向同一件事。 選一個分類，或直接搜尋；一頁最多十條，其餘用分頁翻。" %}
       </p>
     </div>
 
     <div class="gloss-bar">
       <div class="chips" data-gloss="chips">
         <button class="chip" type="button" data-cat="all" aria-pressed="false">
-          全部 <b>{{ glossary_count }}</b>
+          {% translate "全部" %} <b>{{ glossary_count }}</b>
         </button>
         {% for group in glossary %}
           <button class="chip" type="button" data-cat="{{ group.id }}"
@@ -206,9 +199,9 @@
         {% endfor %}
       </div>
       <div class="gloss-search">
-        <label class="sr-only" for="gloss-q">搜尋術語</label>
+        <label class="sr-only" for="gloss-q">{% translate "搜尋術語" %}</label>
         <input id="gloss-q" type="search" data-gloss="q" autocomplete="off"
-               placeholder="搜尋中英文或解釋…">
+               placeholder="{% translate '搜尋中英文或解釋…' %}">
         <span class="gloss-count" data-gloss="count"></span>
       </div>
     </div>
@@ -230,8 +223,8 @@
         {% endfor %}
       {% endfor %}
     </div>
-    <p class="gloss-empty" data-gloss="empty" hidden>沒有符合的詞條，換個關鍵字試試。</p>
-    <nav class="gloss-pager" data-gloss="pager" aria-label="術語表分頁" hidden></nav>
+    <p class="gloss-empty" data-gloss="empty" hidden>{% translate "沒有符合的詞條，換個關鍵字試試。" %}</p>
+    <nav class="gloss-pager" data-gloss="pager" aria-label="{% translate '術語表分頁' %}" hidden></nav>
   </div>
 </section>
 
@@ -241,49 +234,48 @@
     <div class="sec-head">
       <div>
         <p class="kicker">Record &amp; Analysis</p>
-        <h2>把訓練變成<br>一份長期的檔案</h2>
+        <h2>{% translate "把訓練變成" %}<br>{% translate "一份長期的檔案" %}</h2>
       </div>
       <p class="lead">
-        好的課表不是查表查出來的，是教練看著同一名運動員練了幾個月之後才寫得出來。
-        ATM 要做的，是讓這幾個月不至於憑印象——每一堂課留下數字，每一次調整都有根據。
+        {% translate "好的課表不是查表查出來的，是教練看著同一名運動員練了幾個月之後才寫得出來。 ATM 要做的，是讓這幾個月不至於憑印象——每一堂課留下數字，每一次調整都有根據。" %}
       </p>
     </div>
 
     <div class="flow">
       <div class="step">
         <div class="n">01</div>
-        <h3>逐課記錄</h3>
-        <p>課後填一次自覺強度與實際時長，跑道上的分段與重量室的組次一併留存。花的時間不到一分鐘，累積下來就是這名運動員的訓練史。</p>
+        <h3>{% translate "逐課記錄" %}</h3>
+        <p>{% translate "課後填一次自覺強度與實際時長，跑道上的分段與重量室的組次一併留存。花的時間不到一分鐘，累積下來就是這名運動員的訓練史。" %}</p>
       </div>
       <div class="step">
         <div class="n">02</div>
-        <h3>每日狀態</h3>
-        <p>睡眠、痠痛、壓力與疼痛分數，構成當日的準備度。今天適不適合照原本的安排練，不必只靠一句「還可以」。</p>
+        <h3>{% translate "每日狀態" %}</h3>
+        <p>{% translate "睡眠、痠痛、壓力與疼痛分數，構成當日的準備度。今天適不適合照原本的安排練，不必只靠一句「還可以」。" %}</p>
       </div>
       <div class="step">
         <div class="n">03</div>
-        <h3>自動換算</h3>
-        <p>系統把紀錄轉成訓練負荷、急慢性負荷比、單調度與壓力值，並標出負荷驟增的那一週。數字用來提問，不是用來下結論。</p>
+        <h3>{% translate "自動換算" %}</h3>
+        <p>{% translate "系統把紀錄轉成訓練負荷、急慢性負荷比、單調度與壓力值，並標出負荷驟增的那一週。數字用來提問，不是用來下結論。" %}</p>
       </div>
       <div class="step">
         <div class="n">04</div>
-        <h3>教練調整</h3>
-        <p>教練看著趨勢與運動員本人的回饋，決定下一段怎麼練。課表因此是「這個人的」，而不是從範本複製過來的。</p>
+        <h3>{% translate "教練調整" %}</h3>
+        <p>{% translate "教練看著趨勢與運動員本人的回饋，決定下一段怎麼練。課表因此是「這個人的」，而不是從範本複製過來的。" %}</p>
       </div>
     </div>
 
     <div class="cols">
       <div>
-        <h3>量身，而不是套用</h3>
-        <p>系統提供的是模板與紀錄結構，不是標準答案。同樣一份模板，派到兩名運動員身上之後會往不同方向長，因為每次調整都寫回各自的檔案。</p>
+        <h3>{% translate "量身，而不是套用" %}</h3>
+        <p>{% translate "系統提供的是模板與紀錄結構，不是標準答案。同樣一份模板，派到兩名運動員身上之後會往不同方向長，因為每次調整都寫回各自的檔案。" %}</p>
       </div>
       <div>
-        <h3>教練與運動員看同一份資料</h3>
-        <p>不需要來回問「上禮拜練了什麼」。團隊儀表板上誰負荷偏高、誰帶著傷還在練，一眼可見，討論從同一個事實開始。</p>
+        <h3>{% translate "教練與運動員看同一份資料" %}</h3>
+        <p>{% translate "不需要來回問「上禮拜練了什麼」。團隊儀表板上誰負荷偏高、誰帶著傷還在練，一眼可見，討論從同一個事實開始。" %}</p>
       </div>
       <div>
-        <h3>安全網先於課表</h3>
-        <p>活動時疼痛達門檻，當日的高強度課自動降級，並依受傷部位換成不加重傷勢的替代動作。能站上跑道，比任何一堂課的內容都重要。</p>
+        <h3>{% translate "安全網先於課表" %}</h3>
+        <p>{% translate "活動時疼痛達門檻，當日的高強度課自動降級，並依受傷部位換成不加重傷勢的替代動作。能站上跑道，比任何一堂課的內容都重要。" %}</p>
       </div>
     </div>
   </div>
@@ -294,20 +286,19 @@
   <div class="wrap">
     <div>
       <p class="kicker on-dark">Get Started</p>
-      <h2>報名訓練，或登入你的檔案</h2>
+      <h2>{% translate "報名訓練，或登入你的檔案" %}</h2>
       <p>
-        公開招生的力量與體能課、專項訓練營都在「項目報名」裡，線上填一次表格即可。
-        系統帳號則由教練或管理員開設，已有帳號的話直接登入。
+        {% translate "公開招生的力量與體能課、專項訓練營都在「項目報名」裡，線上填一次表格即可。 系統帳號則由教練或管理員開設，已有帳號的話直接登入。" %}
       </p>
     </div>
     <div class="box">
-      <p>報名資料會直接成為你在 ATM 的運動員檔案。</p>
-      <a class="signin" href="{% url 'programs:list' %}">查看開放中的項目</a>
+      <p>{% translate "報名資料會直接成為你在 ATM 的運動員檔案。" %}</p>
+      <a class="signin" href="{% url 'programs:list' %}">{% translate "查看開放中的項目" %}</a>
       <p style="margin-top:22px">
         {% if user.is_authenticated %}
-          <a class="arrow on-dark" href="{% url 'web:home' %}">進入我的儀表板</a>
+          <a class="arrow on-dark" href="{% url 'web:home' %}">{% translate "進入我的儀表板" %}</a>
         {% else %}
-          <a class="arrow on-dark" href="{% url 'login' %}">已經有帳號，登入 ATM</a>
+          <a class="arrow on-dark" href="{% url 'login' %}">{% translate "已經有帳號，登入 ATM" %}</a>
         {% endif %}
       </p>
     </div>
@@ -316,14 +307,14 @@
 
 <footer>
   <div class="wrap">
-    <span>ATM · 田徑個人化訓練與管理系統</span>
+    <span>{% translate "ATM · 田徑個人化訓練與管理系統" %}</span>
     <span>
-      <a href="{% url 'programs:list' %}">項目報名</a> ·
-      <a href="#terms">專業用詞</a> ·
+      <a href="{% url 'programs:list' %}">{% translate "項目報名" %}</a> ·
+      <a href="#terms">{% translate "專業用詞" %}</a> ·
       {% if user.is_authenticated %}
-        <a href="{% url 'web:home' %}">儀表板</a>
+        <a href="{% url 'web:home' %}">{% translate "儀表板" %}</a>
       {% else %}
-        <a href="{% url 'login' %}">登入</a>
+        <a href="{% url 'login' %}">{% translate "登入" %}</a>
       {% endif %}
     </span>
   </div>

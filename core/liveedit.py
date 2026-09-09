@@ -13,6 +13,7 @@ from datetime import date as date_cls
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
 from core.models import Role, SessionStatus, SessionType, program_type_choices
 from core.permissions import athlete_ids_visible_to
@@ -34,7 +35,7 @@ class EditError(Exception):
 def _text(value, max_length=None):
     value = (value or "").strip()
     if max_length and len(value) > max_length:
-        raise EditError(f"最多 {max_length} 個字。")
+        raise EditError(_("最多 %(v0)s 個字。") % {"v0": max_length})
     return value
 
 
@@ -43,15 +44,15 @@ def _int(value, low=None, high=None, allow_blank=False):
     if not value:
         if allow_blank:
             return None
-        raise EditError("要填一個數字。")
+        raise EditError(_("要填一個數字。"))
     try:
         number = int(float(value))
     except ValueError:
-        raise EditError(f"「{value}」不是數字。")
+        raise EditError(_("「%(v0)s」不是數字。") % {"v0": value})
     if low is not None and number < low:
-        raise EditError(f"不能小於 {low}。")
+        raise EditError(_("不能小於 %(v0)s。") % {"v0": low})
     if high is not None and number > high:
-        raise EditError(f"不能大於 {high}。")
+        raise EditError(_("不能大於 %(v0)s。") % {"v0": high})
     return number
 
 
@@ -60,28 +61,28 @@ def _decimal(value, allow_blank=True):
     if not value:
         if allow_blank:
             return None
-        raise EditError("要填一個數字。")
+        raise EditError(_("要填一個數字。"))
     try:
         return Decimal(value)
     except InvalidOperation:
-        raise EditError(f"「{value}」不是數字。")
+        raise EditError(_("「%(v0)s」不是數字。") % {"v0": value})
 
 
 def _date(value):
     value = (value or "").strip()
     if not value:
-        raise EditError("要選一個日期。")
+        raise EditError(_("要選一個日期。"))
     try:
         return date_cls.fromisoformat(value)
     except ValueError:
-        raise EditError("日期格式要是 YYYY-MM-DD。")
+        raise EditError(_("日期格式要是 YYYY-MM-DD。"))
 
 
 def _choice(value, choices):
     value = (value or "").strip()
-    valid = {v for v, _ in choices}
+    valid = {v for v, _unused in choices}
     if value not in valid:
-        raise EditError("不認得的選項。")
+        raise EditError(_("不認得的選項。"))
     return value
 
 
@@ -102,84 +103,84 @@ class Field:
         return self.coerce(raw)
 
 
-SLOT_CHOICES = [("AM", "上午"), ("PM", "下午")]
+SLOT_CHOICES = [("AM", _("上午")), ("PM", _("下午"))]
 
 
 SESSION_FIELDS = {
-    "title": Field("text", "課表名稱", lambda v: _text(v, 150)),
-    "description": Field("textarea", "課表概要", lambda v: _text(v)),
-    "date": Field("date", "日期", _date),
-    "time_slot": Field("select", "時段", lambda v: _choice(v, SLOT_CHOICES), SLOT_CHOICES),
+    "title": Field("text", _("課表名稱"), lambda v: _text(v, 150)),
+    "description": Field("textarea", _("課表概要"), lambda v: _text(v)),
+    "date": Field("date", _("日期"), _date),
+    "time_slot": Field("select", _("時段"), lambda v: _choice(v, SLOT_CHOICES), SLOT_CHOICES),
     "session_type": Field(
         "select",
-        "類別",
+        _("類別"),
         lambda v: _choice(v, list(SessionType.choices)),
         program_type_choices(),
     ),
-    "planned_duration_min": Field("number", "計劃時長", lambda v: _int(v, 0, 600)),
+    "planned_duration_min": Field("number", _("計劃時長"), lambda v: _int(v, 0, 600)),
     "actual_duration_min": Field(
-        "number", "實際時長", lambda v: _int(v, 0, 600, allow_blank=True), owner="athlete"
+        "number", _("實際時長"), lambda v: _int(v, 0, 600, allow_blank=True), owner="athlete"
     ),
     "session_rpe": Field(
-        "number", "課後 RPE", lambda v: _int(v, 1, 10, allow_blank=True), owner="athlete"
+        "number", _("課後 RPE"), lambda v: _int(v, 1, 10, allow_blank=True), owner="athlete"
     ),
-    "completion_pct": Field("number", "完成度", lambda v: _int(v, 0, 100), owner="athlete"),
+    "completion_pct": Field("number", _("完成度"), lambda v: _int(v, 0, 100), owner="athlete"),
     "status": Field(
         "select",
-        "狀態",
+        _("狀態"),
         lambda v: _choice(v, SessionStatus.choices),
         list(SessionStatus.choices),
         owner="athlete",
     ),
     "satisfaction": Field(
-        "rating", "訓練滿意度", lambda v: _int(v, 1, 5, allow_blank=True), owner="athlete"
+        "rating", _("訓練滿意度"), lambda v: _int(v, 1, 5, allow_blank=True), owner="athlete"
     ),
-    "athlete_feedback": Field("textarea", "運動員反饋", lambda v: _text(v), owner="athlete"),
-    "coach_comment": Field("textarea", "教練評語", lambda v: _text(v), owner="coach"),
+    "athlete_feedback": Field("textarea", _("運動員反饋"), lambda v: _text(v), owner="athlete"),
+    "coach_comment": Field("textarea", _("教練評語"), lambda v: _text(v), owner="coach"),
 }
 
 ACTIVITY_FIELDS = {
-    "name": Field("text", "活動名稱", lambda v: _text(v, 120)),
+    "name": Field("text", _("活動名稱"), lambda v: _text(v, 120)),
     "block": Field(
-        "select", "區塊", lambda v: _choice(v, BlockType.choices), list(BlockType.choices)
+        "select", _("區塊"), lambda v: _choice(v, BlockType.choices), list(BlockType.choices)
     ),
-    "order": Field("number", "排序", lambda v: _int(v, 1, 99)),
-    "sets": Field("text", "組數", lambda v: _text(v, 30)),
-    "reps": Field("text", "次數", lambda v: _text(v, 30)),
-    "distance": Field("text", "距離", lambda v: _text(v, 30)),
-    "weight": Field("text", "重量", lambda v: _text(v, 40)),
-    "intensity": Field("text", "強度", lambda v: _text(v, 40)),
-    "rest": Field("text", "休息時間", lambda v: _text(v, 80)),
-    "key_points": Field("textarea", "訓練要點", lambda v: _text(v)),
-    "note": Field("textarea", "當日備注", lambda v: _text(v)),
-    "satisfaction": Field("rating", "滿意度", lambda v: _int(v, 1, 5, allow_blank=True)),
+    "order": Field("number", _("排序"), lambda v: _int(v, 1, 99)),
+    "sets": Field("text", _("組數"), lambda v: _text(v, 30)),
+    "reps": Field("text", _("次數"), lambda v: _text(v, 30)),
+    "distance": Field("text", _("距離"), lambda v: _text(v, 30)),
+    "weight": Field("text", _("重量"), lambda v: _text(v, 40)),
+    "intensity": Field("text", _("強度"), lambda v: _text(v, 40)),
+    "rest": Field("text", _("休息時間"), lambda v: _text(v, 80)),
+    "key_points": Field("textarea", _("訓練要點"), lambda v: _text(v)),
+    "note": Field("textarea", _("當日備注"), lambda v: _text(v)),
+    "satisfaction": Field("rating", _("滿意度"), lambda v: _int(v, 1, 5, allow_blank=True)),
 }
 
-NOTE_FIELDS = {"body": Field("textarea", "內容", lambda v: _text(v))}
+NOTE_FIELDS = {"body": Field("textarea", _("內容"), lambda v: _text(v))}
 
 TRACKSET_FIELDS = {
-    "description": Field("text", "內容", lambda v: _text(v, 150)),
-    "distance_m": Field("number", "距離 (m)", lambda v: _int(v, 0, 100000)),
-    "reps": Field("number", "趟數", lambda v: _int(v, 1, 200)),
-    "sets": Field("number", "組數", lambda v: _int(v, 1, 200)),
-    "target_time_sec": Field("number", "目標時間", _decimal),
-    "actual_time_sec": Field("number", "實際時間", _decimal, owner="athlete"),
-    "rest_between_reps_sec": Field("number", "趟間休息", lambda v: _int(v, 0, 36000)),
-    "rest_between_sets_sec": Field("number", "組間休息", lambda v: _int(v, 0, 36000)),
-    "intensity_pct": Field("number", "強度 %", _decimal),
+    "description": Field("text", _("內容"), lambda v: _text(v, 150)),
+    "distance_m": Field("number", _("距離 (m)"), lambda v: _int(v, 0, 100000)),
+    "reps": Field("number", _("趟數"), lambda v: _int(v, 1, 200)),
+    "sets": Field("number", _("組數"), lambda v: _int(v, 1, 200)),
+    "target_time_sec": Field("number", _("目標時間"), _decimal),
+    "actual_time_sec": Field("number", _("實際時間"), _decimal, owner="athlete"),
+    "rest_between_reps_sec": Field("number", _("趟間休息"), lambda v: _int(v, 0, 36000)),
+    "rest_between_sets_sec": Field("number", _("組間休息"), lambda v: _int(v, 0, 36000)),
+    "intensity_pct": Field("number", _("強度 %"), _decimal),
     "rpe": Field("number", "RPE", lambda v: _int(v, 1, 10, allow_blank=True), owner="athlete"),
-    "technical_focus": Field("textarea", "技術重點", lambda v: _text(v)),
+    "technical_focus": Field("textarea", _("技術重點"), lambda v: _text(v)),
 }
 
 STRENGTHSET_FIELDS = {
-    "set_number": Field("number", "第幾組", lambda v: _int(v, 1, 99)),
-    "reps": Field("number", "次數", lambda v: _int(v, 0, 999)),
-    "weight_kg": Field("number", "重量 (kg)", lambda v: _decimal(v, allow_blank=False)),
-    "target_1rm_pct": Field("number", "目標 %1RM", _decimal),
-    "rest_sec": Field("number", "組間休息", lambda v: _int(v, 0, 36000)),
+    "set_number": Field("number", _("第幾組"), lambda v: _int(v, 1, 99)),
+    "reps": Field("number", _("次數"), lambda v: _int(v, 0, 999)),
+    "weight_kg": Field("number", _("重量 (kg)"), lambda v: _decimal(v, allow_blank=False)),
+    "target_1rm_pct": Field("number", _("目標 %1RM"), _decimal),
+    "rest_sec": Field("number", _("組間休息"), lambda v: _int(v, 0, 36000)),
     "rir": Field("number", "RIR", lambda v: _int(v, 0, 10, allow_blank=True), owner="athlete"),
     "rpe": Field("number", "RPE", lambda v: _int(v, 1, 10, allow_blank=True), owner="athlete"),
-    "note": Field("text", "備註", lambda v: _text(v, 150)),
+    "note": Field("text", _("備註"), lambda v: _text(v, 150)),
 }
 
 #: data-edit="<key>:<pk>:<field>" 裡的 <key> 對應表
@@ -281,15 +282,15 @@ def can_delete(obj, user):
 def apply_edit(user, key, pk, field_name, raw_value):
     """把一格的新值寫進去，回傳 (物件, 顯示字串)。"""
     if key not in REGISTRY:
-        raise EditError("不認得的欄位群組。")
+        raise EditError(_("不認得的欄位群組。"))
     model, fields = REGISTRY[key]
     if field_name not in fields:
-        raise EditError(f"「{field_name}」不是可編輯欄位。")
+        raise EditError(_("「%(v0)s」不是可編輯欄位。") % {"v0": field_name})
 
     try:
         obj = model.objects.get(pk=pk)
     except model.DoesNotExist:
-        raise EditError("這筆資料已經不在了，重新整理看看。")
+        raise EditError(_("這筆資料已經不在了，重新整理看看。"))
 
     if not can_edit(obj, user, field_name):
         raise EditDenied(deny_reason(obj, user, fields[field_name]))
@@ -308,12 +309,12 @@ def apply_edit(user, key, pk, field_name, raw_value):
 
 def deny_reason(obj, user, spec):
     if spec is not None and spec.owner == "athlete":
-        return "這一格由運動員本人填寫。"
+        return _("這一格由運動員本人填寫。")
     if spec is not None and spec.owner == "coach":
-        return "這一格由教練填寫。"
+        return _("這一格由教練填寫。")
     writer = writer_of(obj)
-    who = (writer.get_full_name() or writer.username) if writer else "其他人"
-    return f"這是 {who} 寫下的內容，只有本人（或管理員）能改。"
+    who = (writer.get_full_name() or writer.username) if writer else _("其他人")
+    return _("這是 %(v0)s 寫下的內容，只有本人（或管理員）能改。") % {"v0": who}
 
 
 def _after_save(obj, field_name):

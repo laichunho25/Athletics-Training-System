@@ -102,9 +102,13 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',   # 正式環境靜態檔（CSS / Chart.js）
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # 未登入的人（首頁／登入頁／公開報名）靠 cookie 與瀏覽器語言決定語言
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # 登入之後改用帳號上存的語言（要排在 AuthenticationMiddleware 後面才拿得到 user）
+    'core.i18n.UserLanguageMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -167,6 +171,16 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'zh-hant'
+
+# 介面語言：繁中為預設，英文靠 locale/en/LC_MESSAGES/django.mo 供應。
+# 每個帳號自己選（accounts.User.language），未登入的人存在 cookie。
+LANGUAGES = [
+    ('zh-hant', '繁體中文'),
+    ('en', 'English'),
+]
+LOCALE_PATHS = [BASE_DIR / 'locale']
+LANGUAGE_COOKIE_NAME = 'atm_lang'
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365
 
 TIME_ZONE = 'Asia/Hong_Kong'
 

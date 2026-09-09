@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from django.utils.translation import gettext as _
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -64,11 +65,11 @@ class ExerciseViewSet(viewsets.ReadOnlyModelViewSet):
             id=athlete_id, id__in=athlete_ids_visible_to(request.user)
         ).first()
         if athlete is None:
-            return Response({"detail": "請提供有效的 athlete 參數。"}, status=400)
+            return Response({"detail": _("請提供有效的 athlete 參數。")}, status=400)
 
         record = OneRepMax.latest_for(athlete, self.get_object())
         if record is None:
-            return Response({"detail": "此運動員尚無該動作的 1RM 紀錄。"}, status=404)
+            return Response({"detail": _("此運動員尚無該動作的 1RM 紀錄。")}, status=404)
 
         return Response(
             {

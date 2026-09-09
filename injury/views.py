@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from django.utils.translation import gettext as _
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -111,6 +112,6 @@ class ExerciseModificationViewSet(viewsets.ModelViewSet):
         """GET /api/injuries/modifications/by_body_part/?body_part=HAMSTRING"""
         part = request.query_params.get("body_part")
         if not part:
-            return Response({"detail": "請提供 body_part 參數。"}, status=400)
+            return Response({"detail": _("請提供 body_part 參數。")}, status=400)
         rows = [m for m in self.get_queryset() if m.applies_to(part)]
         return Response(self.get_serializer(rows, many=True).data)

@@ -596,3 +596,13 @@ footer a:hover{color:var(--accent-3)}
 .themebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 :root[data-theme="dark"] .light-only{display:none}
 :root:not([data-theme="dark"]) .dark-only{display:none}
+
+/* ---------------------------------------------------- 語言切換 */
+.langpick{display:inline-flex;align-items:center;margin:0}
+.langpick select{
+  height:34px;padding:0 6px;cursor:pointer;
+  font:inherit;font-size:12px;line-height:1;
+  color:var(--body);background:var(--panel-2);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.langpick select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

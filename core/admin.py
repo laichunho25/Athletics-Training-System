@@ -18,6 +18,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy as _
 
 
 def user_may_use_admin(user):
@@ -41,14 +42,14 @@ def user_may_use_admin(user):
 
 # 後台首頁的區塊順序與中文標題。沒有列在這裡的 app 會排到最後面。
 APP_ORDER = [
-    ("accounts", "帳號與檔案"),
-    ("programs", "報名項目"),
-    ("planning", "訓練計劃與日程"),
-    ("training", "訓練紀錄"),
-    ("analytics", "數據分析"),
-    ("nutrition", "營養與恢復"),
-    ("injury", "傷患管理"),
-    ("auth", "權限群組"),
+    ("accounts", _("帳號與檔案")),
+    ("programs", _("報名項目")),
+    ("planning", _("訓練計劃與日程")),
+    ("training", _("訓練紀錄")),
+    ("analytics", _("數據分析")),
+    ("nutrition", _("營養與恢復")),
+    ("injury", _("傷患管理")),
+    ("auth", _("權限群組")),
 ]
 
 # 區塊內的表格順序（用 model 的小寫名稱）。沒列到的排在後面，維持原本的字母序。
@@ -73,15 +74,15 @@ class ATMAdminLoginForm(AdminAuthenticationForm):
         super(AdminAuthenticationForm, self).confirm_login_allowed(user)
         if not user_may_use_admin(user):
             raise ValidationError(
-                "你的帳號沒有後台權限，這裡只開放給管理員。", code="no_admin"
+                _("你的帳號沒有後台權限，這裡只開放給管理員。"), code="no_admin"
             )
 
 
 class ATMAdminSite(admin.AdminSite):
     login_form = ATMAdminLoginForm
-    site_header = "ATM 後台管理"
-    site_title = "ATM 後台"
-    index_title = "資料管理"
+    site_header = _("ATM 後台管理")
+    site_title = _("ATM 後台")
+    index_title = _("資料管理")
 
     def get_app_list(self, request, app_label=None):
         """把後台首頁重排成「跟系統選單同一個順序」，並換成看得懂的中文區塊名。
@@ -116,6 +117,6 @@ class ATMAdminSite(admin.AdminSite):
         """後台這一區已登入卻沒權限的人，直接請回系統，不給他再試密碼的表單。"""
         user = request.user
         if user.is_authenticated and not user_may_use_admin(user):
-            messages.error(request, "你的帳號沒有後台權限，這裡只開放給管理員。")
+            messages.error(request, _("你的帳號沒有後台權限，這裡只開放給管理員。"))
             return redirect("web:home")
         return super().login(request, extra_context)

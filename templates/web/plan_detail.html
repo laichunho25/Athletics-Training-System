@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block title %}{{ project.title }}{% endblock %}
 
 {% block content %}
@@ -6,9 +7,9 @@
   <div>
     <h1>{{ project.title }}</h1>
     <div class="subtitle" style="margin:0">
-      <a href="{% url 'web:plan' %}">計劃</a> ／ {{ project.get_status_display }}
+      <a href="{% url 'web:plan' %}">{% translate "計劃" %}</a> ／ {{ project.get_status_display }}
       {% if project.schedule_text %}· {{ project.schedule_text }}{% endif %}
-      · {{ rows|length }} 名運動員
+      {% blocktranslate with v0=rows|length %}· {{ v0 }} 名運動員{% endblocktranslate %}
     </div>
   </div>
   <span class="flex">
@@ -20,36 +21,36 @@
 
 {% if high_risk %}
 <div class="alert red">
-  🔴 <strong>高受傷風險（ACWR &gt; 1.50）：</strong>
+  🔴 <strong>{% translate "高受傷風險（ACWR &gt; 1.50）：" %}</strong>
   {% for r in high_risk %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.acwr }}）{% if not forloop.last %}、{% endif %}{% endfor %}
-  — 建議本週減量 20–30%。
+  {% translate "— 建議本週減量 20–30%。" %}
 </div>
 {% endif %}
 {% if injured %}
 <div class="alert yellow">
-  ⚠️ <strong>傷患中：</strong>
-  {% for r in injured %}{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}（{{ r.injuries }} 筆）{% if not forloop.last %}、{% endif %}{% endfor %}
+  ⚠️ <strong>{% translate "傷患中：" %}</strong>
+  {% for r in injured %}{% blocktranslate with v0=r.athlete.user.get_full_name|default:r.athlete.user.username v1=r.injuries %}{{ v0 }}（{{ v1 }} 筆）{% endblocktranslate %}{% if not forloop.last %}、{% endif %}{% endfor %}
 </div>
 {% endif %}
 
 <div class="card pad0 mb">
   <div class="card-head">
-    <span>項目內運動員狀況 · {{ today }}</span>
-    <span class="small c-dim">點運動員可看完整狀態</span>
+    <span>{% blocktranslate with v0=today %}項目內運動員狀況 · {{ v0 }}{% endblocktranslate %}</span>
+    <span class="small c-dim">{% translate "點運動員可看完整狀態" %}</span>
   </div>
   <table>
     <thead>
       <tr>
-        <th>運動員</th><th>主項</th><th>狀態</th>
-        <th class="num">ACWR</th><th>風險</th><th class="num">準備度</th>
-        <th class="num">傷患</th><th class="num">本週課</th><th>最近一堂</th><th></th>
+        <th>{% translate "運動員" %}</th><th>{% translate "主項" %}</th><th>{% translate "狀態" %}</th>
+        <th class="num">ACWR</th><th>{% translate "風險" %}</th><th class="num">{% translate "準備度" %}</th>
+        <th class="num">{% translate "傷患" %}</th><th class="num">{% translate "本週課" %}</th><th>{% translate "最近一堂" %}</th><th></th>
       </tr>
     </thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td><strong>{{ r.athlete.user.get_full_name|default:r.athlete.user.username }}</strong></td>
-        <td>{{ r.athlete.primary_event.name_zh }}</td>
+        <td>{{ r.athlete.primary_event.display_name }}</td>
         <td><span class="badge {% if r.athlete.status == 'HEALTHY' %}b-green{% elif r.athlete.status == 'NIGGLE' %}b-yellow{% else %}b-red{% endif %}">{{ r.status }}</span></td>
         <td class="num {{ r.color }}"><strong>{% if r.acwr %}{{ r.acwr }}{% else %}—{% endif %}</strong></td>
         <td><span class="badge {{ r.badge }}">{{ r.icon }} {{ r.risk_label }}</span></td>
@@ -60,12 +61,12 @@
           {% if r.last_session %}{{ r.last_session.date|date:"m/d" }} {{ r.last_session.title }}{% else %}—{% endif %}
         </td>
         <td>
-          <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ r.athlete.id }}">狀態</a>
-          <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ r.athlete.id }}">日曆</a>
+          <a class="btn ghost sm" href="{% url 'web:dashboard' %}?athlete={{ r.athlete.id }}">{% translate "狀態" %}</a>
+          <a class="btn ghost sm" href="{% url 'web:calendar' %}?athlete={{ r.athlete.id }}">{% translate "日曆" %}</a>
         </td>
       </tr>
     {% empty %}
-      <tr><td colspan="10" class="empty">這個項目還沒有已匯入 ATM 的運動員</td></tr>
+      <tr><td colspan="10" class="empty">{% translate "這個項目還沒有已匯入 ATM 的運動員" %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -75,14 +76,14 @@
 <form method="post" class="card pad0">
   {% csrf_token %}
   <div class="card-head">
-    <span>尚未匯入 ATM 的報名表（{{ not_imported|length }} 份）</span>
-    <span class="small c-dim">勾選後按「載入計劃」；標示「已註冊運動員」的會沿用原有檔案，不會另開帳號</span>
+    <span>{% blocktranslate with v0=not_imported|length %}尚未匯入 ATM 的報名表（{{ v0 }} 份）{% endblocktranslate %}</span>
+    <span class="small c-dim">{% translate "勾選後按「載入計劃」；標示「已註冊運動員」的會沿用原有檔案，不會另開帳號" %}</span>
   </div>
   <table>
     <thead>
       <tr>
         <th style="width:2rem"><input type="checkbox" id="pick-all"></th>
-        <th>姓名</th><th>學校 / 體育會</th><th>項目分類</th><th>重複登記</th><th>狀態</th><th class="num">報名日期</th>
+        <th>{% translate "姓名" %}</th><th>{% translate "學校 / 體育會" %}</th><th>{% translate "項目分類" %}</th><th>{% translate "重複登記" %}</th><th>{% translate "狀態" %}</th><th class="num">{% translate "報名日期" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -94,10 +95,10 @@
         <td>{{ a.get_event_category_display }}</td>
         <td>
           {% if a.existing_match %}
-            <span class="badge b-orange">已註冊運動員</span>
+            <span class="badge b-orange">{% translate "已註冊運動員" %}</span>
             <div class="small c-dim">{{ a.existing_match }}｜{{ a.existing_reason }}</div>
           {% else %}
-            <span class="small c-dim">新運動員</span>
+            <span class="small c-dim">{% translate "新運動員" %}</span>
           {% endif %}
         </td>
         <td><span class="badge b-dim">{{ a.get_status_display }}</span></td>
@@ -107,8 +108,8 @@
     </tbody>
   </table>
   <div class="card-head">
-    <span class="small c-dim">載入後系統會建立帳號（密碼為隨機值，需到後台重設）</span>
-    <button class="btn sm" type="submit">載入計劃</button>
+    <span class="small c-dim">{% translate "載入後系統會建立帳號（密碼為隨機值，需到後台重設）" %}</span>
+    <button class="btn sm" type="submit">{% translate "載入計劃" %}</button>
   </div>
 </form>
 <script>

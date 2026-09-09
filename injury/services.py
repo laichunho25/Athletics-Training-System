@@ -1,6 +1,7 @@
 """傷患調整引擎：依當前傷患與疼痛程度，過濾/替換訓練內容。"""
 
 from datetime import date
+from django.utils.translation import gettext_lazy as _
 
 from core.models import AthleteStatus, SessionType
 from injury.models import ExerciseModification, Injury, InjuryStatus, PainLog
@@ -34,11 +35,11 @@ def should_block_high_intensity(athlete, on_date=None):
     """回傳 (是否封鎖, 原因)。"""
     pain = worst_pain_today(athlete, on_date)
     if pain is not None and pain >= PAIN_BLOCK_THRESHOLD:
-        return True, f"今日活動時疼痛達 {pain}/10（門檻 {PAIN_BLOCK_THRESHOLD}），已封鎖高強度課表。"
+        return True, _("今日活動時疼痛達 %(v0)s/10（門檻 %(v1)s），已封鎖高強度課表。") % {"v0": pain, "v1": PAIN_BLOCK_THRESHOLD}
     acute = active_injuries(athlete).filter(status=InjuryStatus.ACUTE)
     if acute.exists():
         parts = "、".join(i.get_body_part_display() for i in acute)
-        return True, f"{parts} 處於急性期，禁止高強度訓練。"
+        return True, _("%(v0)s 處於急性期，禁止高強度訓練。") % {"v0": parts}
     return False, ""
 
 
@@ -109,12 +110,14 @@ def apply_modifications(session):
 
     if blocked and session.session_type in HIGH_INTENSITY_TYPES:
         session.session_type = SessionType.RECOVERY
-        session.title = f"[傷患調整] {session.title}"
+        session.title = _("[傷患調整] %(v0)s") % {"v0": session.title}
         session.is_modified = True
         session.planned_duration_min = min(session.planned_duration_min, 45)
         session.description = (
-            f"{session.description}\n\n⚠️ 系統自動調整：{reason}\n"
-            "建議改為：上肢循環、水中跑、活動度與核心穩定訓練。"
+            _("""%(v0)s
+
+⚠️ 系統自動調整：%(v1)s
+建議改為：上肢循環、水中跑、活動度與核心穩定訓練。""") % {"v0": session.description, "v1": reason}
         ).strip()
         session.save()
         session.track_sets.all().delete()
@@ -136,7 +139,7 @@ def apply_modifications(session):
                     "set_id": s_set.id,
                 }
             )
-            s_set.note = f"傷患替代：原 {s_set.exercise.name_zh}"
+            s_set.note = _("傷患替代：原 %(v0)s") % {"v0": s_set.exercise.name_zh}
             s_set.exercise_id = new_id
             s_set.save()
             session.is_modified = True
@@ -145,7 +148,7 @@ def apply_modifications(session):
                 {
                     "type": "EXERCISE_REMOVED",
                     "from": s_set.exercise.name_zh,
-                    "rationale": "疼痛超過所有替代方案的容許值，建議暫停此動作。",
+                    "rationale": _("疼痛超過所有替代方案的容許值，建議暫停此動作。"),
                     "set_id": s_set.id,
                 }
             )
@@ -171,12 +174,12 @@ def sync_athlete_status(athlete):
 
 
 RTP_CRITERIA = [
-    "無痛全速跑（疼痛 0/10，連續 3 次訓練）",
-    "患側 / 健側等長力量差異 < 10%",
-    "CMJ 恢復至個人基線的 90% 以上",
-    "完成專項技術動作無代償",
-    "連續 7 天靜態疼痛為 0",
-    "醫療人員 / 物理治療師書面同意",
+    _("無痛全速跑（疼痛 0/10，連續 3 次訓練）"),
+    _("患側 / 健側等長力量差異 < 10%"),
+    _("CMJ 恢復至個人基線的 90% 以上"),
+    _("完成專項技術動作無代償"),
+    _("連續 7 天靜態疼痛為 0"),
+    _("醫療人員 / 物理治療師書面同意"),
 ]
 
 
@@ -196,7 +199,7 @@ def rtp_checklist(injury):
         "total": len(criteria),
         "percent": round(met / len(criteria) * 100) if criteria else 0,
         "cleared": met == len(criteria),
-        "note": "全部條件達標方可回歸完整訓練；任一未達標請維持 RTP 階段。",
+        "note": _("全部條件達標方可回歸完整訓練；任一未達標請維持 RTP 階段。"),
     }
 
 
@@ -205,19 +208,19 @@ def rtp_checklist(injury):
 #: 急性期（受傷後 1-3 天）現場處置。取代舊的 RICE：早期發炎是修復的一部分，
 #: 所以不再一律冰敷與吃消炎藥，改成保護、抬高、加壓、衛教。
 PEACE_STEPS = [
-    ("P", "Protect 保護", "立即停止運動、卸下負重或用拐杖護具限制患部活動，避免二次傷害。"),
-    ("E", "Elevate 抬高", "把受傷肢體抬到高於心臟，靠重力促進回流、減少腫脹。"),
-    ("A", "Avoid 避免消炎", "避免長時間冰敷與過度使用消炎藥（NSAIDs）——早期發炎是組織修復的必要過程。"),
-    ("C", "Compress 壓迫", "用彈性繃帶或壓力襪包裹患部，限制關節腔與組織間的腫脹。"),
-    ("E", "Educate 衛教", "聽身體的聲音、找專業人員評估，別盲目推拿或提早復出。"),
+    ("P", _("Protect 保護"), _("立即停止運動、卸下負重或用拐杖護具限制患部活動，避免二次傷害。")),
+    ("E", _("Elevate 抬高"), _("把受傷肢體抬到高於心臟，靠重力促進回流、減少腫脹。")),
+    ("A", _("Avoid 避免消炎"), _("避免長時間冰敷與過度使用消炎藥（NSAIDs）——早期發炎是組織修復的必要過程。")),
+    ("C", _("Compress 壓迫"), _("用彈性繃帶或壓力襪包裹患部，限制關節腔與組織間的腫脹。")),
+    ("E", _("Educate 衛教"), _("聽身體的聲音、找專業人員評估，別盲目推拿或提早復出。")),
 ]
 
 #: 亞急性期與復健期（紅腫退了之後）。
 LOVE_STEPS = [
-    ("L", "Load 適度負重", "在不引起明顯疼痛的前提下及早負重，刺激纖維重新正確排列。"),
-    ("O", "Optimism 保持樂觀", "心理因素影響康復速度，建立信心能顯著提升復健成效。"),
-    ("V", "Vascularisation 促進循環", "做不痛的低衝擊有氧（定速腳踏車、水中跑），增加患部血流。"),
-    ("E", "Exercise 運動復健", "在指導下逐步恢復關節活動度、肌力、核心穩定與本體覺。"),
+    ("L", _("Load 適度負重"), _("在不引起明顯疼痛的前提下及早負重，刺激纖維重新正確排列。")),
+    ("O", _("Optimism 保持樂觀"), _("心理因素影響康復速度，建立信心能顯著提升復健成效。")),
+    ("V", _("Vascularisation 促進循環"), _("做不痛的低衝擊有氧（定速腳踏車、水中跑），增加患部血流。")),
+    ("E", _("Exercise 運動復健"), _("在指導下逐步恢復關節活動度、肌力、核心穩定與本體覺。")),
 ]
 
 
@@ -228,16 +231,15 @@ def peace_love_guide(injury):
     return {
         "days": days,
         "phase": "PEACE" if acute else "LOVE",
-        "phase_label": "急性期現場處置 PEACE" if acute else "復健期 LOVE",
+        "phase_label": _("急性期現場處置 PEACE") if acute else _("復健期 LOVE"),
         "why": (
-            "受傷 1-3 天：目標是限制組織進一步受損、控制發炎、緩解疼痛。"
+            _("受傷 1-3 天：目標是限制組織進一步受損、控制發炎、緩解疼痛。")
             if acute
-            else "急性疼痛與紅腫減退後：目標轉為組織修復與功能重建。"
+            else _("急性疼痛與紅腫減退後：目標轉為組織修復與功能重建。")
         ),
         "steps": PEACE_STEPS if acute else LOVE_STEPS,
         "escalate": (
-            "無法負重、關節變形、劇烈刺痛或腫脹持續不退 → 24-72 小時內看復健科 / 骨科 / 運動醫學科，"
-            "必要時 X 光排除骨折、超聲波或 MRI 評估韌帶與肌肉。"
+            _("無法負重、關節變形、劇烈刺痛或腫脹持續不退 → 24-72 小時內看復健科 / 骨科 / 運動醫學科，必要時 X 光排除骨折、超聲波或 MRI 評估韌帶與肌肉。")
         ),
     }
 
@@ -260,7 +262,7 @@ def load_verdict(injury, on_date=None):
     on_date = on_date or date.today()
     log = injury.pain_logs.filter(date__lte=on_date).order_by("-date").first()
     if log is None:
-        return {"has_data": False, "checks": [], "verdict": "", "advice": "先記一次今日回報，系統才判斷得出加量或減量。"}
+        return {"has_data": False, "checks": [], "verdict": "", "advice": _("先記一次今日回報，系統才判斷得出加量或減量。")}
 
     nxt = injury.pain_logs.filter(date__gt=log.date).order_by("date").first()
     before = log.pain_before
@@ -273,36 +275,36 @@ def load_verdict(injury, on_date=None):
     checks = []
     # 1. 運動當下
     if during is None:
-        checks.append(check("運動當下疼痛 ≤ 3", None, "未記錄"))
+        checks.append(check(_("運動當下疼痛 ≤ 3"), None, _("未記錄")))
     else:
         checks.append(
             check(
-                "運動當下疼痛 ≤ 3",
+                _("運動當下疼痛 ≤ 3"),
                 during <= PAIN_DURING_LIMIT,
-                f"記錄 {during}/10"
-                + ("" if during <= PAIN_DURING_LIMIT else "，超過門檻應當場降強度或停下"),
+                _("記錄 %(v0)s/10") % {"v0": during}
+                + ("" if during <= PAIN_DURING_LIMIT else _("，超過門檻應當場降強度或停下")),
             )
         )
     # 2. 運動後不加劇
     if after is None or before is None:
-        checks.append(check("運動後疼痛不加劇", None, "需要同時填運動前與運動後"))
+        checks.append(check(_("運動後疼痛不加劇"), None, _("需要同時填運動前與運動後")))
     else:
         checks.append(
             check(
-                "運動後疼痛不加劇",
+                _("運動後疼痛不加劇"),
                 after <= before,
-                f"運動前 {before} → 運動後 {after}",
+                _("運動前 %(v0)s → 運動後 %(v1)s") % {"v0": before, "v1": after},
             )
         )
     # 3. 隔天恢復
     if nxt is None or nxt.pain_before is None or before is None:
-        checks.append(check("隔天早上完全恢復", None, "等明天的回報才判斷得出"))
+        checks.append(check(_("隔天早上完全恢復"), None, _("等明天的回報才判斷得出")))
     else:
         checks.append(
             check(
-                "隔天早上完全恢復",
+                _("隔天早上完全恢復"),
                 nxt.pain_before <= before,
-                f"{log.date} 前 {before} → {nxt.date} 早上 {nxt.pain_before}",
+                _("%(v0)s 前 %(v1)s → %(v2)s 早上 %(v3)s") % {"v0": log.date, "v1": before, "v2": nxt.date, "v3": nxt.pain_before},
             )
         )
 
@@ -310,20 +312,17 @@ def load_verdict(injury, on_date=None):
     unknown = [c for c in checks if c["ok"] is None]
 
     if failed:
-        verdict, tone = "減量", "red"
+        verdict, tone = _("減量"), "red"
         advice = (
-            "有標準沒過，代表現在的強度或總量超過負荷。下一次先降一項——"
-            "強度（幾分力、幾公斤、幾分速）與總量（球數、距離、組數）不要同時降兩項，"
-            "才知道是哪一項太多。"
+            _("有標準沒過，代表現在的強度或總量超過負荷。下一次先降一項——強度（幾分力、幾公斤、幾分速）與總量（球數、距離、組數）不要同時降兩項，才知道是哪一項太多。")
         )
     elif unknown:
-        verdict, tone = "資料不足", "dim"
-        advice = "把運動前 / 運動中 / 運動後三個數字都填上，明天再填一次早上的數字，系統就判斷得出。"
+        verdict, tone = _("資料不足"), "dim"
+        advice = _("把運動前 / 運動中 / 運動後三個數字都填上，明天再填一次早上的數字，系統就判斷得出。")
     else:
-        verdict, tone = "可小幅加量", "green"
+        verdict, tone = _("可小幅加量"), "green"
         advice = (
-            "三個標準都過了，身體能適應這個強度與總量。下一次只加一項，"
-            "幅度約 10%，加完再用同樣三個標準檢查一次。"
+            _("三個標準都過了，身體能適應這個強度與總量。下一次只加一項，幅度約 10%，加完再用同樣三個標準檢查一次。")
         )
 
     return {
@@ -382,56 +381,56 @@ def team_training_mode(injuries):
 # 這不是醫療建議，是給教練一個共同語言：現在在哪一階、下一步要看到什麼才過關。
 STAGE_PLAYBOOK = {
     "ASSESS": {
-        "goal": "先確定是什麼傷、能不能練",
+        "goal": _("先確定是什麼傷、能不能練"),
         "actions": [
-            "48 小時內找醫生或物理治療師做一次評估",
-            "必要時安排影像檢查（X 光 / 超聲波 / MRI）",
-            "先停掉所有會誘發疼痛的動作，改做不痛的替代動作",
+            _("48 小時內找醫生或物理治療師做一次評估"),
+            _("必要時安排影像檢查（X 光 / 超聲波 / MRI）"),
+            _("先停掉所有會誘發疼痛的動作，改做不痛的替代動作"),
         ],
         "modalities": ["DOCTOR", "IMAGING", "REST", "ICE"],
-        "next_when": "拿到診斷、知道禁忌動作之後 → 進入消炎止痛",
+        "next_when": _("拿到診斷、知道禁忌動作之後 → 進入消炎止痛"),
     },
     "RELIEVE": {
-        "goal": "把靜態疼痛與腫脹壓下來",
+        "goal": _("把靜態疼痛與腫脹壓下來"),
         "actions": [
-            "急性期 72 小時：相對休息、冰敷、加壓、抬高",
-            "維持不痛範圍內的關節活動，避免完全不動",
-            "用替代動作維持其他部位的體能與有氧",
+            _("急性期 72 小時：相對休息、冰敷、加壓、抬高"),
+            _("維持不痛範圍內的關節活動，避免完全不動"),
+            _("用替代動作維持其他部位的體能與有氧"),
         ],
         "modalities": ["ICE", "PHYSIO", "MEDICATION", "TAPING", "REST"],
-        "next_when": "靜態疼痛 ≤ 2、腫脹消退 → 進入恢復功能",
+        "next_when": _("靜態疼痛 ≤ 2、腫脹消退 → 進入恢復功能"),
     },
     "RESTORE": {
-        "goal": "把活動度與基本肌力拿回來",
+        "goal": _("把活動度與基本肌力拿回來"),
         "actions": [
-            "每日等長 → 向心 → 離心的漸進負荷",
-            "處理代償：對側與鄰近關節一併訓練",
-            "手法治療或針灸處理殘留的緊繃點",
+            _("每日等長 → 向心 → 離心的漸進負荷"),
+            _("處理代償：對側與鄰近關節一併訓練"),
+            _("手法治療或針灸處理殘留的緊繃點"),
         ],
         "modalities": ["PHYSIO", "STRENGTH", "MANUAL", "ACUPUNCTURE", "STRETCH"],
-        "next_when": "活動度對稱、患側肌力達健側 80% → 進入重建體能",
+        "next_when": _("活動度對稱、患側肌力達健側 80% → 進入重建體能"),
     },
     "RECONDITION": {
-        "goal": "把專項強度加回去，準備回歸",
+        "goal": _("把專項強度加回去，準備回歸"),
         "actions": [
-            "跑動由慢到快分級：慢跑 → 節奏跑 → 加速 → 全速",
-            "加入離心負荷與增強式，重建肌腱耐受度",
-            "每次加量後 24 小時內疼痛不得回升超過 2 分",
+            _("跑動由慢到快分級：慢跑 → 節奏跑 → 加速 → 全速"),
+            _("加入離心負荷與增強式，重建肌腱耐受度"),
+            _("每次加量後 24 小時內疼痛不得回升超過 2 分"),
         ],
         "modalities": ["STRENGTH", "PHYSIO", "STRETCH", "TAPING"],
-        "next_when": "通過 RTP 檢核表全部條件 → 結案回歸完整訓練",
+        "next_when": _("通過 RTP 檢核表全部條件 → 結案回歸完整訓練"),
     },
 }
 
 # 不同傷型會多一條要特別留意的事
 TYPE_CAUTION = {
-    "STRAIN": "肌肉拉傷最常在「還會痛就衝刺」時復發，離心負荷要練足。",
-    "SPRAIN": "扭傷後本體感覺會下降，單腳平衡與變向訓練不能省。",
-    "TENDINOPATHY": "肌腱病變怕的是完全休息，要用可忍受的疼痛（≤3/10）持續加載。",
-    "PERIOSTITIS": "骨膜炎先減衝擊量與換場地／鞋，止痛只是治標。",
-    "STRESS_FRACTURE": "應力性骨折必須由醫生決定何時負重，不可自行加量。",
-    "CONTUSION": "挫傷早期避免熱敷與強力按摩，慎防骨化性肌炎。",
-    "OVERUSE": "過度使用是訓練量的問題，回歸前要一併修正課表安排。",
+    "STRAIN": _("肌肉拉傷最常在「還會痛就衝刺」時復發，離心負荷要練足。"),
+    "SPRAIN": _("扭傷後本體感覺會下降，單腳平衡與變向訓練不能省。"),
+    "TENDINOPATHY": _("肌腱病變怕的是完全休息，要用可忍受的疼痛（≤3/10）持續加載。"),
+    "PERIOSTITIS": _("骨膜炎先減衝擊量與換場地／鞋，止痛只是治標。"),
+    "STRESS_FRACTURE": _("應力性骨折必須由醫生決定何時負重，不可自行加量。"),
+    "CONTUSION": _("挫傷早期避免熱敷與強力按摩，慎防骨化性肌炎。"),
+    "OVERUSE": _("過度使用是訓練量的問題，回歸前要一併修正課表安排。"),
 }
 
 

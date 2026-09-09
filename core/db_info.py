@@ -6,6 +6,7 @@
 """
 
 from django.db import connection
+from django.utils.translation import gettext as _
 
 
 def describe_database():
@@ -15,10 +16,10 @@ def describe_database():
     name = cfg.get("NAME") or "—"
     host = cfg.get("HOST") or ""
     if engine == "sqlite3":
-        return f"SQLite（檔案 {name}）"
+        return _("SQLite（檔案 %(v0)s）") % {"v0": name}
     port = cfg.get("PORT") or ""
     where = host + (f":{port}" if port else "")
-    return f"{engine}（{name} @ {where or '未指定主機'}）"
+    return f"{engine}（{name} @ {where or _("未指定主機")}）"
 
 
 def is_sqlite():

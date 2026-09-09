@@ -8,19 +8,22 @@ from datetime import date, datetime, timedelta
 from datetime import timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F, Max, Min, Q, Value
-from django.utils import timezone
+from django.utils import timezone, translation
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models.functions import Coalesce, Greatest
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.utils.translation import gettext_lazy as _
 
 from accounts.body_import import parse_body_composition
-from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event
+from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, User
 from analytics import services as an
 from analytics.models import (
     STRENGTH_UNITS,
@@ -52,6 +55,7 @@ from analytics.recording import (
     resequence,
     update_records,
 )
+from core import i18n as core_i18n
 from core import liveedit
 from core.athlete_context import athlete_switcher, current_athlete, remember, remembered_id
 from core.glossary import all_terms, as_groups
@@ -127,6 +131,12 @@ from training.library import (
 
 logger = logging.getLogger(__name__)
 
+
+def jdump(value):
+    """圖表資料轉 JSON；夾在裡面的翻譯字串一律當成文字處理。"""
+    return json.dumps(value, default=str)
+
+
 #: 「多項目一起分析」一次最多放幾個項目——圖上超過這個數量就看不出東西了，
 #: 也順便擋掉手改網址塞一大串 items 的情況。
 MULTI_ITEM_LIMIT = 8
@@ -151,6 +161,33 @@ def csrf_failure(request, reason=""):
 def healthz(request):
     """Render 健康檢查端點：不碰資料庫、不強制轉 https，永遠回 200。"""
     return HttpResponse("ok", content_type="text/plain")
+
+
+@require_POST
+def set_language(request):
+    """切換介面語言。
+
+    登入的人存回帳號（換裝置也跟著走），未登入的人只存 cookie。
+    兩邊都寫 cookie，登出之後畫面也不會突然跳回另一種語言。
+    """
+    lang = core_i18n.supported(request.POST.get("language"))
+    nxt = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/"
+    if not url_has_allowed_host_and_scheme(
+        nxt, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        nxt = "/"
+    response = redirect(nxt)
+    if lang:
+        if request.user.is_authenticated:
+            User.objects.filter(pk=request.user.pk).update(language=lang)
+        translation.activate(lang)
+        response.set_cookie(
+            settings.LANGUAGE_COOKIE_NAME,
+            lang,
+            max_age=settings.LANGUAGE_COOKIE_AGE,
+            samesite="Lax",
+        )
+    return response
 
 
 RISK_CSS = {
@@ -247,9 +284,9 @@ def dashboard(request):
             "readiness": d["readiness"],
             "week_sessions": week_sessions,
             "week_start": week_start,
-            "chart_labels": json.dumps([p["label"] for p in prog]),
-            "chart_load": json.dumps([p["total_load"] for p in prog]),
-            "chart_acwr": json.dumps([p["acwr"] for p in prog]),
+            "chart_labels": jdump([p["label"] for p in prog]),
+            "chart_load": jdump([p["total_load"] for p in prog]),
+            "chart_acwr": jdump([p["acwr"] for p in prog]),
             "injuries": athlete.active_injuries,
             **_body_context(athlete),
         },
@@ -291,18 +328,18 @@ BODY_NUMBER_FIELDS = {
 
 #: 走勢圖上畫哪幾條線：(欄位, 圖例, 顏色, 用哪一個 y 軸)
 BODY_CHART_SERIES = [
-    ("weight_kg", "體重 (kg)", "#ff6b35", "y"),
-    ("muscle_mass_kg", "肌肉量 (kg)", "#3fb950", "y"),
-    ("body_fat_pct", "體脂肪率 (%)", "#58a6ff", "y1"),
-    ("body_water_pct", "體水分率 (%)", "#a371f7", "y1"),
+    ("weight_kg", _("體重 (kg)"), "#ff6b35", "y"),
+    ("muscle_mass_kg", _("肌肉量 (kg)"), "#3fb950", "y"),
+    ("body_fat_pct", _("體脂肪率 (%)"), "#58a6ff", "y1"),
+    ("body_water_pct", _("體水分率 (%)"), "#a371f7", "y1"),
 ]
 
 #: 「與上一次比較」要看的欄位：(欄位, 中文, 小數位, 變多算不算好事)
 BODY_DELTA_FIELDS = [
-    ("weight_kg", "體重", 1, None),
-    ("body_fat_pct", "體脂肪率", 1, False),
-    ("muscle_mass_kg", "肌肉量", 2, True),
-    ("visceral_fat_level", "內臟脂肪等級", 1, False),
+    ("weight_kg", _("體重"), 1, None),
+    ("body_fat_pct", _("體脂肪率"), 1, False),
+    ("muscle_mass_kg", _("肌肉量"), 2, True),
+    ("visceral_fat_level", _("內臟脂肪等級"), 1, False),
 ]
 
 
@@ -315,8 +352,8 @@ def _body_context(athlete):
     # 走勢圖由舊排到新；缺值留 None，讓 Chart.js 用 spanGaps 接起來
     rows = list(reversed(history))
     chart = {
-        "labels": json.dumps([r.date.strftime("%m/%d") for r in rows]),
-        "series": json.dumps(
+        "labels": jdump([r.date.strftime("%m/%d") for r in rows]),
+        "series": jdump(
             [
                 {
                     "label": label,
@@ -376,7 +413,7 @@ def _body_value(raw, as_int):
     try:
         number = Decimal(text)
     except (InvalidOperation, ValueError):
-        raise ValueError(f"「{text}」不是有效的數字。")
+        raise ValueError(_("「%(v0)s」不是有效的數字。") % {"v0": text})
     return int(number.to_integral_value()) if as_int else number
 
 
@@ -395,7 +432,7 @@ def _body_save(request, athlete):
         for field, as_int in BODY_NUMBER_FIELDS.items()
     }
     if values["weight_kg"] is None:
-        raise ValueError("體重是必填的。")
+        raise ValueError(_("體重是必填的。"))
     values["device"] = request.POST.get("device", "").strip()[:40]
     values["mba_rating"] = request.POST.get("mba_rating", "").strip()[:20]
     values["note"] = request.POST.get("note", "").strip()
@@ -403,10 +440,13 @@ def _body_save(request, athlete):
     values["source"] = BodyMetricLog.Source.MANUAL
     values["source_file"] = ""
 
-    _, created = BodyMetricLog.objects.update_or_create(
+    _unused, created = BodyMetricLog.objects.update_or_create(
         athlete=athlete, date=on_date, defaults=values
     )
-    messages.success(request, f"已{'新增' if created else '更新'} {on_date} 的體組成紀錄。")
+    if created:
+        messages.success(request, _("已新增 %(date)s 的體組成紀錄。") % {"date": on_date})
+    else:
+        messages.success(request, _("已更新 %(date)s 的體組成紀錄。") % {"date": on_date})
 
 
 def _body_store(request, athlete, text, label, source_file="", on_date=None):
@@ -414,8 +454,7 @@ def _body_store(request, athlete, text, label, source_file="", on_date=None):
     records, unknown = parse_body_composition(text, default_date=on_date or date.today())
     if not records:
         raise ValueError(
-            f"{label}裡找不到可用的體組成資料（至少要有體重）。"
-            "可以用磅的 App 匯出 CSV，或把「項目 數值」一行一項貼進來。"
+            _("%(v0)s裡找不到可用的體組成資料（至少要有體重）。可以用磅的 App 匯出 CSV，或把「項目 數值」一行一項貼進來。") % {"v0": label}
         )
 
     created = updated = 0
@@ -425,7 +464,7 @@ def _body_store(request, athlete, text, label, source_file="", on_date=None):
             record_date = on_date
         record["source"] = BodyMetricLog.Source.IMPORT
         record["source_file"] = source_file[:120]
-        _, was_created = BodyMetricLog.objects.update_or_create(
+        _unused, was_created = BodyMetricLog.objects.update_or_create(
             athlete=athlete, date=record_date, defaults=record
         )
         created += was_created
@@ -433,21 +472,21 @@ def _body_store(request, athlete, text, label, source_file="", on_date=None):
 
     parts = []
     if created:
-        parts.append(f"新增 {created} 筆")
+        parts.append(_("新增 %(v0)s 筆") % {"v0": created})
     if updated:
-        parts.append(f"更新 {updated} 筆")
-    messages.success(request, f"已從{label}{'、'.join(parts)}體組成紀錄。")
+        parts.append(_("更新 %(v0)s 筆") % {"v0": updated})
+    messages.success(request, _("已從%(v0)s%(v1)s體組成紀錄。") % {"v0": label, "v1": '、'.join(parts)})
     if unknown:
-        messages.warning(request, "有幾個項目看不懂、已略過：" + "、".join(unknown[:8]))
+        messages.warning(request, _("有幾個項目看不懂、已略過：") + "、".join(unknown[:8]))
 
 
 def _body_import(request, athlete):
     """上傳體組成磅匯出的檔案，直接更新最新的身體狀態。"""
     upload = request.FILES.get("file")
     if upload is None:
-        raise ValueError("請先選一個檔案。")
+        raise ValueError(_("請先選一個檔案。"))
     if upload.size > 2 * 1024 * 1024:
-        raise ValueError("檔案太大了（上限 2 MB）。")
+        raise ValueError(_("檔案太大了（上限 2 MB）。"))
 
     raw = upload.read()
     for encoding in ("utf-8-sig", "utf-16", "big5", "cp950", "gbk"):
@@ -457,7 +496,7 @@ def _body_import(request, athlete):
         except (UnicodeDecodeError, UnicodeError):
             continue
     else:
-        raise ValueError("讀不懂這個檔案的編碼，請另存成 UTF-8 的 CSV。")
+        raise ValueError(_("讀不懂這個檔案的編碼，請另存成 UTF-8 的 CSV。"))
 
     _body_store(request, athlete, text, f"「{upload.name}」", source_file=upload.name)
 
@@ -470,13 +509,13 @@ def _body_paste(request, athlete):
     """
     text = request.POST.get("text", "").strip()
     if not text:
-        raise ValueError("請先把磅上的文字貼進來。")
+        raise ValueError(_("請先把磅上的文字貼進來。"))
     if len(text) > 20000:
-        raise ValueError("貼進來的文字太長了（上限 2 萬字）。")
+        raise ValueError(_("貼進來的文字太長了（上限 2 萬字）。"))
 
     # 貼上的內容常常沒有日期（App 的日期在另一個畫面），所以讓使用者自己指定
     on_date = _body_date(request.POST.get("date")) if request.POST.get("date") else None
-    _body_store(request, athlete, text, "貼上的文字", source_file="貼上文字", on_date=on_date)
+    _body_store(request, athlete, text, _("貼上的文字"), source_file="貼上文字", on_date=on_date)
 
 
 @login_required
@@ -485,11 +524,11 @@ def athlete_body_metric(request, pk):
     """狀態總覽頁的體組成區塊：手動輸入、檔案匯入、刪除一筆。"""
     athlete = get_object_or_404(AthleteProfile, pk=pk)
     if athlete.id not in set(athlete_ids_visible_to(request.user)):
-        raise Http404("看不到這名運動員。")
+        raise Http404(_("看不到這名運動員。"))
 
     back = f"{reverse('web:dashboard')}?athlete={athlete.id}"
     if not _can_edit_plan(request.user, athlete):
-        messages.error(request, "只有這名運動員本人、他的教練或管理員可以改體組成紀錄。")
+        messages.error(request, _("只有這名運動員本人、他的教練或管理員可以改體組成紀錄。"))
         return redirect(back)
 
     action = request.POST.get("action")
@@ -501,14 +540,14 @@ def athlete_body_metric(request, pk):
         elif action == "paste":
             _body_paste(request, athlete)
         elif action == "delete":
-            deleted, _ = BodyMetricLog.objects.filter(
+            deleted, _unused = BodyMetricLog.objects.filter(
                 athlete=athlete, pk=request.POST.get("log_id")
             ).delete()
-            messages.success(request, "已刪除該筆體組成紀錄。" if deleted else "找不到那筆紀錄。")
+            messages.success(request, _("已刪除該筆體組成紀錄。") if deleted else _("找不到那筆紀錄。"))
         else:
-            messages.error(request, "不認得的動作。")
+            messages.error(request, _("不認得的動作。"))
     except ValueError as exc:
-        messages.error(request, f"沒有存起來：{exc}")
+        messages.error(request, _("沒有存起來：%(v0)s") % {"v0": exc})
     return redirect(back)
 
 
@@ -573,24 +612,24 @@ ATHLETE_SORTS = {
 
 #: 表頭與「目前排序」提示用的中文欄名
 SORT_LABELS = {
-    "name": "姓名",
-    "updated": "最後更新",
-    "project": "計劃",
-    "event": "主項",
-    "age": "年紀",
-    "status": "傷患狀態",
+    "name": _("姓名"),
+    "updated": _("最後更新"),
+    "project": _("計劃"),
+    "event": _("主項"),
+    "age": _("年紀"),
+    "status": _("傷患狀態"),
 }
 
 #: 「最後更新」篩選：找最近有動的人，或找久沒人理的人
 UPDATED_FILTERS = [
-    ("7", "7 天內有更新"),
-    ("30", "30 天內有更新"),
-    ("stale30", "超過 30 天沒更新"),
-    ("stale90", "超過 90 天沒更新"),
+    ("7", _("7 天內有更新")),
+    ("30", _("30 天內有更新")),
+    ("stale30", _("超過 30 天沒更新")),
+    ("stale90", _("超過 90 天沒更新")),
 ]
 
 #: 傷患狀態欄的篩選選項（除了三種 status，再加一個「身上有未結案傷患」）
-INJURY_FILTERS = list(AthleteStatus.choices) + [("HAS_INJURY", "有未結案傷患")]
+INJURY_FILTERS = list(AthleteStatus.choices) + [("HAS_INJURY", _("有未結案傷患"))]
 
 
 def _flip(ordering):
@@ -611,10 +650,10 @@ def _sort_urls(request, sort, direction):
 def _athlete_scope_note(user):
     """列表看得到誰，直接寫在標題下面，免得以為是資料掉了。"""
     if _is_admin(user):
-        return "管理員：看得到系統內所有運動員"
+        return _("管理員：看得到系統內所有運動員")
     if user.role == Role.COACH:
-        return "教練：只看得到直屬與自己負責的計劃裡的運動員"
-    return "運動員：只看得到自己的狀態總覽"
+        return _("教練：只看得到直屬與自己負責的計劃裡的運動員")
+    return _("運動員：只看得到自己的狀態總覽")
 
 
 @login_required
@@ -788,11 +827,11 @@ def _save_target(request, athlete):
     if choice == "__new__":
         name = request.POST.get("comp_name", "").strip()
         if not name:
-            raise ValueError("要填賽事名稱。")
+            raise ValueError(_("要填賽事名稱。"))
         try:
             comp_date = date.fromisoformat(request.POST.get("comp_date", ""))
         except ValueError:
-            raise ValueError("比賽日期格式要是 YYYY-MM-DD。")
+            raise ValueError(_("比賽日期格式要是 YYYY-MM-DD。"))
         competition, created = Competition.objects.get_or_create(
             name=name,
             date=comp_date,
@@ -808,7 +847,7 @@ def _save_target(request, athlete):
     elif choice:
         competition = get_object_or_404(Competition, pk=choice)
     else:
-        raise ValueError("要選一個目標賽事。")
+        raise ValueError(_("要選一個目標賽事。"))
 
     total_weeks = _plan_int(request.POST.get("total_weeks"), 1, 52, 16)
     baseline = _plan_int(request.POST.get("baseline_weekly_load"), 100, 20000, 1800)
@@ -818,7 +857,7 @@ def _save_target(request, athlete):
         try:
             start = date.fromisoformat(raw_start)
         except ValueError:
-            raise ValueError("開始日期格式要是 YYYY-MM-DD。")
+            raise ValueError(_("開始日期格式要是 YYYY-MM-DD。"))
     else:
         # 沒填就從比賽日往回數，湊成完整的 N 週（由週一開始）
         start = an.monday_of(competition.date - timedelta(weeks=total_weeks - 1))
@@ -848,8 +887,7 @@ def _save_target(request, athlete):
 
     messages.success(
         request,
-        f"目標賽事已設為「{competition.name}」（{competition.date}）"
-        f"：{start} 起共 {total_weeks} 週，{competition.countdown_display}。",
+        _("目標賽事已設為「%(v0)s」（%(v1)s）：%(v2)s 起共 %(v3)s 週，%(v4)s。") % {"v0": competition.name, "v1": competition.date, "v2": start, "v3": total_weeks, "v4": competition.countdown_display},
     )
 
 
@@ -857,11 +895,11 @@ def _save_phase(request, athlete):
     """存分期：改的是 Phase 本身，日曆、週計劃、負荷分析看到的都會跟著變。"""
     macro = athlete.macrocycles.filter(is_active=True).first()
     if macro is None:
-        raise ValueError("要先設定目標賽事，才有分期可以改。")
+        raise ValueError(_("要先設定目標賽事，才有分期可以改。"))
 
     if request.POST.get("reset") == "1":
         _rebuild_cycle(macro)
-        messages.success(request, "已依預設模板重建整份分期與週計劃。")
+        messages.success(request, _("已依預設模板重建整份分期與週計劃。"))
         return
 
     phase_id = request.POST.get("phase_id", "")
@@ -869,12 +907,12 @@ def _save_phase(request, athlete):
 
     phase_type = request.POST.get("phase_type", "")
     if phase_type not in PhaseType.values:
-        raise ValueError("不認得的期別。")
+        raise ValueError(_("不認得的期別。"))
 
     week_start = _plan_int(request.POST.get("week_start"), 1, macro.total_weeks, 1)
     week_end = _plan_int(request.POST.get("week_end"), 1, macro.total_weeks, macro.total_weeks)
     if week_end < week_start:
-        raise ValueError("結束週不能早於起始週。")
+        raise ValueError(_("結束週不能早於起始週。"))
 
     if phase is None:
         phase = Phase(macrocycle=macro)
@@ -892,8 +930,7 @@ def _save_phase(request, athlete):
     _relink_microcycles(macro)
     messages.success(
         request,
-        f"分期已更新為「{phase.get_phase_type_display()}」"
-        f"（第 {week_start}–{week_end} 週，目標週負荷 {phase.target_weekly_load} AU）。",
+        _("分期已更新為「%(v0)s」（第 %(v1)s–%(v2)s 週，目標週負荷 %(v3)s AU）。") % {"v0": phase.get_phase_type_display(), "v1": week_start, "v2": week_end, "v3": phase.target_weekly_load},
     )
 
 
@@ -907,11 +944,11 @@ def athlete_plan_edit(request, pk):
     """
     athlete = get_object_or_404(AthleteProfile, pk=pk)
     if athlete.id not in set(athlete_ids_visible_to(request.user)):
-        raise Http404("看不到這名運動員。")
+        raise Http404(_("看不到這名運動員。"))
 
     back = f"{reverse('web:dashboard')}?athlete={athlete.id}"
     if not _can_edit_plan(request.user, athlete):
-        messages.error(request, "只有這名運動員本人、他的教練或管理員可以改備戰計劃。")
+        messages.error(request, _("只有這名運動員本人、他的教練或管理員可以改備戰計劃。"))
         return redirect(back)
 
     action = request.POST.get("action")
@@ -921,9 +958,9 @@ def athlete_plan_edit(request, pk):
         elif action == "set_phase":
             _save_phase(request, athlete)
         else:
-            messages.error(request, "不認得的動作。")
+            messages.error(request, _("不認得的動作。"))
     except ValueError as exc:
-        messages.error(request, f"沒有存起來：{exc}")
+        messages.error(request, _("沒有存起來：%(v0)s") % {"v0": exc})
     return redirect(back)
 
 
@@ -965,7 +1002,7 @@ def plan_view(request):
 
     if request.method == "POST":
         if not is_admin:
-            messages.error(request, "只有管理員可以分配項目。")
+            messages.error(request, _("只有管理員可以分配項目。"))
             return redirect("web:plan")
 
         action = request.POST.get("action")
@@ -975,7 +1012,7 @@ def plan_view(request):
             coach_ids = request.POST.getlist("coach_ids")
             added = 0
             for coach in CoachProfile.objects.filter(id__in=coach_ids):
-                _, created = ProjectAssignment.objects.update_or_create(
+                _unused, created = ProjectAssignment.objects.update_or_create(
                     project=project,
                     coach=coach,
                     defaults={
@@ -986,13 +1023,13 @@ def plan_view(request):
                 )
                 added += int(created)
             messages.success(
-                request, f"已把「{project.title}」分配給 {len(coach_ids)} 位教練（新增 {added} 筆）。"
+                request, _("已把「%(v0)s」分配給 %(v1)s 位教練（新增 %(v2)s 筆）。") % {"v0": project.title, "v1": len(coach_ids), "v2": added}
             )
         elif action == "unassign":
             ProjectAssignment.objects.filter(
                 project=project, coach_id=request.POST.get("coach_id")
             ).delete()
-            messages.info(request, f"已取消「{project.title}」的一筆教練分配。")
+            messages.info(request, _("已取消「%(v0)s」的一筆教練分配。") % {"v0": project.title})
         return redirect("web:plan")
 
     visible = set(athlete_ids_visible_to(request.user))
@@ -1029,7 +1066,7 @@ def plan_detail(request, pk):
     """單一報名項目：這個項目裡的運動員現在怎麼樣。"""
     project = get_object_or_404(Project, pk=pk)
     if not projects_for(request.user).filter(pk=pk).exists():
-        raise Http404("這個項目沒有分配給你。")
+        raise Http404(_("這個項目沒有分配給你。"))
 
     if request.method == "POST":
         return _plan_detail_import(request, project)
@@ -1060,14 +1097,14 @@ def plan_detail(request, pk):
 def _plan_detail_import(request, project):
     """在計劃頁直接把選取的報名表載入成 ATM 運動員檔案（等同後台的「匯入 ATM」）。"""
     if not _is_admin(request.user):
-        messages.error(request, "只有管理員可以匯入報名表。")
+        messages.error(request, _("只有管理員可以匯入報名表。"))
         return redirect("web:plan_detail", pk=project.pk)
 
     applications = project.applications.filter(
         athlete__isnull=True, id__in=request.POST.getlist("application_ids")
     )
     if not applications:
-        messages.warning(request, "沒有選取任何未匯入的報名表。")
+        messages.warning(request, _("沒有選取任何未匯入的報名表。"))
         return redirect("web:plan_detail", pk=project.pk)
 
     created = linked = 0
@@ -1086,17 +1123,14 @@ def _plan_detail_import(request, project):
     if created:
         messages.success(
             request,
-            f"已把 {created} 份報名載入「{project.title}」，"
-            "帳號密碼為隨機值，請用後台的『重設密碼』給對方。",
+            _("已把 %(v0)s 份報名載入「%(v1)s」，帳號密碼為隨機值，請用後台的『重設密碼』給對方。") % {"v0": created, "v1": project.title},
         )
     if linked:
         messages.success(
             request,
-            f"其中 {linked} 位是已註冊運動員，已把「{project.title}」加進原有檔案，"
-            "沿用舊有紀錄，沒有另開帳號。"
+            _("其中 %(v0)s 位是已註冊運動員，已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有另開帳號。") % {"v0": linked, "v1": project.title}
             if created
-            else f"{linked} 位已註冊運動員已把「{project.title}」加進原有檔案，"
-            "沿用舊有紀錄，沒有另開帳號。",
+            else _("%(v0)s 位已註冊運動員已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有另開帳號。") % {"v0": linked, "v1": project.title},
         )
     return redirect("web:plan_detail", pk=project.pk)
 
@@ -1105,12 +1139,12 @@ def _plan_detail_import(request, project):
 
 
 DEFAULT_PROGRAM_TITLES = {
-    SessionType.TRACK: "田徑場訓練",
-    SessionType.STRENGTH: "重量訓練",
-    SessionType.RECOVERY: "恢復訓練",
-    SessionType.REHAB: "治療康復",
-    SessionType.COMPETITION: "比賽",
-    SessionType.OTHER: "其他安排",
+    SessionType.TRACK: _("田徑場訓練"),
+    SessionType.STRENGTH: _("重量訓練"),
+    SessionType.RECOVERY: _("恢復訓練"),
+    SessionType.REHAB: _("治療康復"),
+    SessionType.COMPETITION: _("比賽"),
+    SessionType.OTHER: _("其他安排"),
 }
 
 
@@ -1138,7 +1172,7 @@ def calendar_view(request):
     if request.method == "POST" and request.POST.get("action") == "add_program":
         session_type = request.POST.get("session_type", SessionType.TRACK)
         if session_type not in DEFAULT_PROGRAM_TITLES:
-            messages.error(request, "不認得的 program 類別。")
+            messages.error(request, _("不認得的 program 類別。"))
             return redirect(f"{request.path}?athlete={athlete.id}")
 
         on_date = date.fromisoformat(request.POST["date"])
@@ -1158,7 +1192,7 @@ def calendar_view(request):
         )
         messages.success(
             request,
-            f"已在 {on_date} 新增「{session.title}」（{session.get_session_type_display()}）。",
+            _("已在 %(v0)s 新增「%(v1)s」（%(v2)s）。") % {"v0": on_date, "v1": session.title, "v2": session.get_session_type_display()},
         )
         return redirect(
             f"{request.path}?athlete={athlete.id}&year={on_date.year}&month={on_date.month}"
@@ -1200,7 +1234,7 @@ def _calendar_context(athlete, request):
     weeks, cursor = [], grid_start
     while cursor <= grid_end:
         row = []
-        for _ in range(7):
+        for _unused in range(7):
             row.append(
                 {
                     "date": cursor,
@@ -1220,7 +1254,7 @@ def _calendar_context(athlete, request):
         "weeks": weeks,
         "year": year,
         "month": month,
-        "month_name": f"{year} 年 {month} 月",
+        "month_name": _("%(v0)s 年 %(v1)s 月") % {"v0": year, "v1": month},
         "prev": {"year": prev_m.year, "month": prev_m.month},
         "next": {"year": next_m.year, "month": next_m.month},
         "macro": macro,
@@ -1256,24 +1290,24 @@ def session_detail(request, pk):
             if satisfaction:
                 session.satisfaction = int(satisfaction)
                 session.save(update_fields=["satisfaction", "updated_at"])
-            messages.success(request, f"已送出訓練後檢討和反饋，本次負荷 {session.session_load} AU。")
+            messages.success(request, _("已送出訓練後檢討和反饋，本次負荷 %(v0)s AU。") % {"v0": session.session_load})
         elif action == "coach_comment":
             session.coach_comment = request.POST.get("coach_comment", "")
             session.save(update_fields=["coach_comment", "updated_at"])
-            messages.success(request, "已儲存教練評語。")
+            messages.success(request, _("已儲存教練評語。"))
         elif action == "modify":
             changes = inj.apply_modifications(session)
-            messages.info(request, f"已依傷患調整，共 {len(changes)} 項變更。")
+            messages.info(request, _("已依傷患調整，共 %(v0)s 項變更。") % {"v0": len(changes)})
         elif action == "add_activity":
             _add_activity(request, session)
         elif action == "new_definition":
             _new_definition(request, session)
         elif action == "delete_activity":
-            _delete_row(request, SessionActivity, request.POST.get("id"), "活動")
+            _delete_row(request, SessionActivity, request.POST.get("id"), _("活動"))
         elif action == "add_note":
             _add_note(request, session)
         elif action == "delete_note":
-            _delete_row(request, SessionNote, request.POST.get("id"), "記事")
+            _delete_row(request, SessionNote, request.POST.get("id"), _("記事"))
         elif action == "add_metric":
             _add_metric(request, session)
         elif action == "plan_sets":
@@ -1299,7 +1333,7 @@ def _visible_session(request, pk):
         pk=pk,
     )
     if session.athlete_id not in set(athlete_ids_visible_to(request.user)):
-        raise Http404("無權限存取此課表。")
+        raise Http404(_("無權限存取此課表。"))
     # 開了誰的課表，頂欄與側欄就跟著切到誰——不會停在上一個看過的人身上
     remember(request, session.athlete_id)
     return session
@@ -1485,13 +1519,13 @@ def _add_metric(request, session):
     if not domains:
         messages.error(
             request,
-            f"「{session.get_session_type_display()}」這個課別沒有對應的數據紀錄範疇。",
+            _("「%(v0)s」這個課別沒有對應的數據紀錄範疇。") % {"v0": session.get_session_type_display()},
         )
         return
 
     domain = request.POST.get("domain") or domains[0]
     if domain not in domains:
-        messages.error(request, "這個課別不能登這個範疇的數據。")
+        messages.error(request, _("這個課別不能登這個範疇的數據。"))
         return
 
     item = None
@@ -1502,7 +1536,7 @@ def _add_metric(request, session):
         # 課表上已經寫了動作名稱，登數據時直接沿用同一個名字當項目
         item = item_for_name(domain, request.POST.get("item_name", ""), user=request.user)
     if item is None:
-        messages.error(request, "請挑一個數據項目，或直接打一個名稱。")
+        messages.error(request, _("請挑一個數據項目，或直接打一個名稱。"))
         return
 
     try:
@@ -1516,7 +1550,7 @@ def _add_metric(request, session):
     except RecordError as exc:
         messages.error(request, str(exc))
         return
-    messages.success(request, f"{msg}同一筆在「數據分析 → {item.get_domain_display()}」也看得到。")
+    messages.success(request, _("%(v0)s同一筆在「數據分析 → %(v1)s」也看得到。") % {"v0": msg, "v1": item.get_domain_display()})
 
     # 選了區塊就順手把這個動作放進上面課表的那一區
     moved = _sync_block_activity(
@@ -1546,7 +1580,7 @@ def _sync_block_activity(request, session, name, block):
         existing.block = block
         existing.order = (last.order + 1) if last else 1
         existing.save(update_fields=["block", "order", "updated_at"])
-        return f"課表上的「{existing.name}」已改放到{label}。"
+        return _("課表上的「%(v0)s」已改放到%(v1)s。") % {"v0": existing.name, "v1": label}
 
     row_def = _definition_for_name(name)
     defaults = row_def.defaults_payload() if row_def else {}
@@ -1566,7 +1600,7 @@ def _sync_block_activity(request, session, name, block):
         key_points=defaults.get("key_points", ""),
         created_by=request.user,
     )
-    return f"已把「{name}」加進課表的{label}。"
+    return _("已把「%(v0)s」加進課表的%(v1)s。") % {"v0": name, "v1": label}
 
 
 def _open_planned_sets(request, session):
@@ -1576,7 +1610,7 @@ def _open_planned_sets(request, session):
     還有舊課表補開用的。已經有紀錄的行一律不動。
     """
     if not _can_log_metrics(request, session):
-        messages.error(request, "只有運動員本人或管理員可以開這堂課的紀錄列。")
+        messages.error(request, _("只有運動員本人或管理員可以開這堂課的紀錄列。"))
         return
 
     opened, rows = 0, 0
@@ -1598,12 +1632,12 @@ def _open_planned_sets(request, session):
     if opened:
         messages.success(
             request,
-            f"已依課表開好 {opened} 組空白紀錄（{rows} 個動作），練完填完成數值就好。",
+            _("已依課表開好 %(v0)s 組空白紀錄（%(v1)s 個動作），練完填完成數值就好。") % {"v0": opened, "v1": rows},
         )
     else:
         messages.info(
             request,
-            "沒有可以開的組：課表上的動作要嘛已經有紀錄，要嘛「組數」那一格還沒寫數字。",
+            _("沒有可以開的組：課表上的動作要嘛已經有紀錄，要嘛「組數」那一格還沒寫數字。"),
         )
 
 
@@ -1622,20 +1656,20 @@ def _edit_metrics(request, session):
     所以數據分析頁的「紀錄明細」同時更新，不用兩邊各改一次。
     """
     if not _can_log_metrics(request, session):
-        messages.error(request, "只有這名運動員本人（或管理員）能改這堂課的數據。")
+        messages.error(request, _("只有這名運動員本人（或管理員）能改這堂課的數據。"))
         return
 
     records = list(session.metric_records.select_related("item"))
     only = request.POST.get("only") or None
     if only and not any(str(r.pk) == str(only) for r in records):
-        messages.error(request, "這筆紀錄已經不在這堂課裡了。")
+        messages.error(request, _("這筆紀錄已經不在這堂課裡了。"))
         return
 
     before = {r.pk: r.block for r in records}
     changed, problems = update_records(request.POST, records, only=only)
     text = edit_message(changed, problems)
     if changed:
-        messages.success(request, text + "數據分析的「紀錄明細」同時更新了。")
+        messages.success(request, text + _("數據分析的「紀錄明細」同時更新了。"))
     else:
         messages.info(request, text)
 
@@ -1654,13 +1688,13 @@ def _delete_metric(request, session):
         pk=request.POST.get("record_id"), session=session
     ).first()
     if record is None:
-        messages.error(request, "這筆紀錄已經不在了。")
+        messages.error(request, _("這筆紀錄已經不在了。"))
         return
     if not _can_log_metrics(request, session):
-        messages.error(request, "只有這名運動員本人（或管理員）能刪這筆數據。")
+        messages.error(request, _("只有這名運動員本人（或管理員）能刪這筆數據。"))
         return
     record.delete()
-    messages.info(request, "已刪除一筆數據紀錄。")
+    messages.info(request, _("已刪除一筆數據紀錄。"))
 
 
 def _move_metric(request, session):
@@ -1669,19 +1703,22 @@ def _move_metric(request, session):
     跟數據分析「紀錄明細」的 ↑ ↓ 是同一個做法（同一個 move_record）。
     """
     if not _can_log_metrics(request, session):
-        messages.error(request, "只有這名運動員本人（或管理員）能調這堂課的數據。")
+        messages.error(request, _("只有這名運動員本人（或管理員）能調這堂課的數據。"))
         return
     direction = "up" if request.POST.get("up") else "down"
     record = MetricRecord.objects.filter(
         pk=request.POST.get(direction) or request.POST.get("record_id"), session=session
     ).first()
     if record is None:
-        messages.error(request, "這筆紀錄已經不在這堂課裡了。")
+        messages.error(request, _("這筆紀錄已經不在這堂課裡了。"))
         return
     if move_record(record, direction):
-        messages.info(request, f"已把這一組往{'前' if direction == 'up' else '後'}挪。")
+        messages.info(
+            request,
+            _("已把這一組往前挪。") if direction == "up" else _("已把這一組往後挪。"),
+        )
     else:
-        messages.info(request, "這一組已經在最" + ("前" if direction == "up" else "後") + "面了。")
+        messages.info(request, _("這一組已經在最") + (_("前") if direction == "up" else _("後")) + _("面了。"))
 
 
 def _switch_item_unit(request, session):
@@ -1691,17 +1728,17 @@ def _switch_item_unit(request, session):
     所以單位是跟著項目走的，換了之後這個項目所有紀錄都用同一個單位。
     """
     if not _can_log_metrics(request, session):
-        messages.error(request, "只有這名運動員本人（或管理員）能改項目單位。")
+        messages.error(request, _("只有這名運動員本人（或管理員）能改項目單位。"))
         return
     item = MetricItem.objects.filter(pk=request.POST.get("item_id")).first()
     if item is None:
-        messages.error(request, "找不到這個項目。")
+        messages.error(request, _("找不到這個項目。"))
         return
     unit = request.POST.get("unit", "")
     if set_item_unit(item, unit):
-        messages.success(request, f"「{item.name}」的單位已改成 {item.unit}。")
+        messages.success(request, _("「%(v0)s」的單位已改成 %(v1)s。") % {"v0": item.name, "v1": item.unit})
     else:
-        messages.info(request, "單位沒有變動。")
+        messages.info(request, _("單位沒有變動。"))
 
 
 def _add_activity(request, session):
@@ -1713,7 +1750,7 @@ def _add_activity(request, session):
     """
     block = request.POST.get("block")
     if block not in BlockType.values:
-        messages.error(request, "不認得的課表區塊。")
+        messages.error(request, _("不認得的課表區塊。"))
         return
 
     definition = None
@@ -1730,7 +1767,7 @@ def _add_activity(request, session):
     if not names and definition:
         names = [definition.name]
     if not names:
-        messages.error(request, "請挑一個活動，或自己打一個名稱。")
+        messages.error(request, _("請挑一個活動，或自己打一個名稱。"))
         return
 
     single = len(names) == 1
@@ -1787,11 +1824,11 @@ def _add_activity(request, session):
                 activity, item, athlete=session.athlete, session=session
             )
 
-    msg = f"已加入 {'、'.join(added)} 到{BlockType(block).label}。"
+    msg = _("已加入 %(v0)s 到%(v1)s。") % {"v0": '、'.join(added), "v1": BlockType(block).label}
     if opened:
-        msg += f"（已依組數在「本課數據紀錄」開好 {opened} 組，練完只要填完成數值）"
+        msg += _("（已依組數在「本課數據紀錄」開好 %(v0)s 組，練完只要填完成數值）") % {"v0": opened}
     elif linked:
-        msg += f"（{len(linked)} 項已同步到數據分析的項目清單）"
+        msg += _("（%(v0)s 項已同步到數據分析的項目清單）") % {"v0": len(linked)}
     messages.success(request, msg)
 
 
@@ -1807,7 +1844,7 @@ def _new_definition(request, session):
     """把一個新的訓練活動寫進名稱庫，之後所有課表都挑得到。"""
     name = request.POST.get("name", "").strip()
     if not name:
-        messages.error(request, "請填活動名稱。")
+        messages.error(request, _("請填活動名稱。"))
         return
     block = request.POST.get("default_block")
     if block not in BlockType.values:
@@ -1847,15 +1884,14 @@ def _new_definition(request, session):
         },
     )
     if created and definition.is_approved:
-        messages.success(request, f"已新增訓練活動「{name}」，以後可以直接挑。")
+        messages.success(request, _("已新增訓練活動「%(v0)s」，以後可以直接挑。") % {"v0": name})
     elif created:
         messages.success(
             request,
-            f"已把「{name}」送進運動練習項目庫，等管理員確認後所有人都挑得到；"
-            "在那之前只有你自己看得到。",
+            _("已把「%(v0)s」送進運動練習項目庫，等管理員確認後所有人都挑得到；在那之前只有你自己看得到。") % {"v0": name},
         )
     else:
-        messages.info(request, f"「{name}」已經在活動清單裡了。")
+        messages.info(request, _("「%(v0)s」已經在活動清單裡了。") % {"v0": name})
 
     if request.POST.get("also_add"):
         post = request.POST.copy()
@@ -1868,7 +1904,7 @@ def _new_definition(request, session):
 def _add_note(request, session):
     body = request.POST.get("body", "").strip()
     if not body:
-        messages.error(request, "記事不能是空的。")
+        messages.error(request, _("記事不能是空的。"))
         return
     kind = request.POST.get("kind")
     SessionNote.objects.create(
@@ -1877,19 +1913,19 @@ def _add_note(request, session):
         kind=kind if kind in NoteKind.values else NoteKind.NOTE,
         body=body,
     )
-    messages.success(request, "已寫入，同一版面的教練與運動員都看得到。")
+    messages.success(request, _("已寫入，同一版面的教練與運動員都看得到。"))
 
 
 def _delete_row(request, model, pk, label):
     obj = model.objects.filter(pk=pk).first()
     if obj is None:
-        messages.error(request, f"這筆{label}已經不在了。")
+        messages.error(request, _("這筆%(v0)s已經不在了。") % {"v0": label})
         return
     if not liveedit.can_delete(obj, request.user):
-        messages.error(request, f"只能刪自己寫下的{label}。")
+        messages.error(request, _("只能刪自己寫下的%(v0)s。") % {"v0": label})
         return
     obj.delete()
-    messages.success(request, f"已刪除這筆{label}。")
+    messages.success(request, _("已刪除這筆%(v0)s。") % {"v0": label})
 
 
 # --------------------------------------------------- 點格子即改 / 即時同步
@@ -1906,11 +1942,11 @@ def inline_edit(request):
     try:
         payload = json.loads(request.body or b"{}")
     except ValueError:
-        return JsonResponse({"ok": False, "error": "看不懂的請求格式。"}, status=400)
+        return JsonResponse({"ok": False, "error": _("看不懂的請求格式。")}, status=400)
 
     parts = str(payload.get("target", "")).split(":")
     if len(parts) != 3:
-        return JsonResponse({"ok": False, "error": "看不懂要改哪一格。"}, status=400)
+        return JsonResponse({"ok": False, "error": _("看不懂要改哪一格。")}, status=400)
     key, pk, field_name = parts
 
     try:
@@ -2001,7 +2037,7 @@ def analytics_view(request):
                     category=metric_category_for_activity(definition.category),
                     name_en=definition.name_en,
                 )
-                messages.success(request, f"已把「{item.display_name}」加進項目清單。")
+                messages.success(request, _("已把「%(v0)s」加進項目清單。") % {"v0": item.display_name})
                 return redirect(f"{back}&item={item.id}")
 
             # 直接打名稱：打得中活動庫的話，英文名與分類照活動庫帶
@@ -2012,9 +2048,9 @@ def analytics_view(request):
                     or ActivityDefinition.objects.filter(name_en__iexact=name).first()
                 )
             if not name:
-                messages.error(request, "請填項目名稱。")
+                messages.error(request, _("請填項目名稱。"))
             elif domain not in MetricDomain.values:
-                messages.error(request, "不認得的範疇。")
+                messages.error(request, _("不認得的範疇。"))
             elif "unit" not in request.POST:
                 # 只打了名稱（沒展開自訂表單）：單位與方向照範疇的預設值給
                 item = item_for_name(
@@ -2026,7 +2062,7 @@ def analytics_view(request):
                     ),
                     name_en=match.name_en if match else "",
                 )
-                messages.success(request, f"已把「{item.display_name}」加進項目清單。")
+                messages.success(request, _("已把「%(v0)s」加進項目清單。") % {"v0": item.display_name})
                 return redirect(f"{back}&item={item.id}")
             else:
                 item, created = MetricItem.objects.get_or_create(
@@ -2050,9 +2086,9 @@ def analytics_view(request):
                     },
                 )
                 if created:
-                    messages.success(request, f"已新增項目「{item.display_name}」。")
+                    messages.success(request, _("已新增項目「%(v0)s」。") % {"v0": item.display_name})
                 else:
-                    messages.info(request, f"「{item.display_name}」已經在清單裡了。")
+                    messages.info(request, _("「%(v0)s」已經在清單裡了。") % {"v0": item.display_name})
                 back += f"&item={item.id}"
             return redirect(back)
 
@@ -2061,7 +2097,7 @@ def analytics_view(request):
             # 合起來就是一個可以追蹤的項目（例：150m 反覆跑）。
             method = request.POST.get("method", "")
             if method not in TrackMethod.values:
-                messages.error(request, "請先挑一個練習方式（節奏跑／反覆跑／起跑…）。")
+                messages.error(request, _("請先挑一個練習方式（節奏跑／反覆跑／起跑…）。"))
                 return redirect(f"{request.path}?athlete={athlete.id}&domain=TRACK")
             raw = (request.POST.get("distance_m") or "").strip()
             distance = None
@@ -2069,12 +2105,12 @@ def analytics_view(request):
                 try:
                     distance = max(1, int(float(raw)))
                 except ValueError:
-                    messages.error(request, "距離要填數字（公尺），或留空只記方式。")
+                    messages.error(request, _("距離要填數字（公尺），或留空只記方式。"))
                     return redirect(f"{request.path}?athlete={athlete.id}&domain=TRACK")
             item = track_item_for(method, distance, user=request.user)
             messages.success(
                 request,
-                f"已把「{item.display_name}」加進要追蹤的項目清單，可以開始登數據了。",
+                _("已把「%(v0)s」加進要追蹤的項目清單，可以開始登數據了。") % {"v0": item.display_name},
             )
             return redirect(
                 f"{request.path}?athlete={athlete.id}&domain=TRACK&item={item.id}"
@@ -2087,8 +2123,7 @@ def analytics_view(request):
             if count and not request.POST.get("confirm"):
                 messages.error(
                     request,
-                    f"「{item.display_name}」底下還有 {count} 筆紀錄，"
-                    "要先確認才刪得掉。",
+                    _("「%(v0)s」底下還有 %(v1)s 筆紀錄，要先確認才刪得掉。") % {"v0": item.display_name, "v1": count},
                 )
                 return redirect(f"{back}&item={item.id}")
             if item.is_builtin:
@@ -2097,15 +2132,14 @@ def analytics_view(request):
                 mine.delete()
                 messages.success(
                     request,
-                    f"已清掉「{item.display_name}」的 {count} 筆紀錄；"
-                    "這是系統內建項目，重新記錄就會再出現。",
+                    _("已清掉「%(v0)s」的 %(v1)s 筆紀錄；這是系統內建項目，重新記錄就會再出現。") % {"v0": item.display_name, "v1": count},
                 )
             else:
                 item.delete()
                 messages.success(
                     request,
-                    f"已刪除項目「{item.display_name}」"
-                    + (f"，連同 {count} 筆紀錄。" if count else "。"),
+                    _("已刪除項目「%(v0)s」") % {"v0": item.display_name}
+                    + (_("，連同 %(v0)s 筆紀錄。") % {"v0": count} if count else "。"),
                 )
             return redirect(back)
 
@@ -2113,9 +2147,9 @@ def analytics_view(request):
             # 重量訓練以 kg 為主，撐時間的動作（平板支撐、懸垂…）可以換成秒
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
             if set_item_unit(item, request.POST.get("unit", "")):
-                messages.success(request, f"「{item.name}」的單位已改成 {item.unit}。")
+                messages.success(request, _("「%(v0)s」的單位已改成 %(v1)s。") % {"v0": item.name, "v1": item.unit})
             else:
-                messages.info(request, "單位沒有變動。")
+                messages.info(request, _("單位沒有變動。"))
             return redirect(f"{back}&item={item.id}")
 
         if action == "add_record":
@@ -2158,7 +2192,7 @@ def analytics_view(request):
             )
             only = request.POST.get("only") or None
             if only and not any(str(r.pk) == str(only) for r in editable):
-                raise Http404("無權限修改這筆紀錄。")
+                raise Http404(_("無權限修改這筆紀錄。"))
 
             def find_session(raw):
                 """只認這名運動員自己的課，別人的 program 掛不上去。"""
@@ -2186,26 +2220,30 @@ def analytics_view(request):
                 MetricRecord, pk=request.POST.get(direction) or request.POST.get("record_id")
             )
             if record.athlete_id != athlete.id:
-                raise Http404("無權限調整這筆紀錄。")
+                raise Http404(_("無權限調整這筆紀錄。"))
             if move_record(record, direction):
                 messages.info(
                     request,
-                    f"已把 {record.date} 的這一組往{'前' if direction == 'up' else '後'}挪。",
+                    (
+                        _("已把 %(date)s 的這一組往前挪。")
+                        if direction == "up"
+                        else _("已把 %(date)s 的這一組往後挪。")
+                    ) % {"date": record.date},
                 )
             else:
-                messages.info(request, "這一組已經在最" + ("前" if direction == "up" else "後") + "面了。")
+                messages.info(request, _("這一組已經在最") + (_("前") if direction == "up" else _("後")) + _("面了。"))
             return redirect(f"{back}&item={record.item_id}#day-{record.date}")
 
         if action == "delete_record":
             record = get_object_or_404(MetricRecord, pk=request.POST.get("record_id"))
             if record.athlete_id != athlete.id:
-                raise Http404("無權限刪除這筆紀錄。")
+                raise Http404(_("無權限刪除這筆紀錄。"))
             item_id = record.item_id
             on_date = record.date
             record.delete()
             # 刪掉中間那一組之後，剩下的組號補回 1、2、3…
             resequence(athlete.id, item_id, on_date)
-            messages.info(request, "已刪除一筆紀錄。")
+            messages.info(request, _("已刪除一筆紀錄。"))
             return redirect(f"{back}&item={item_id}")
 
     # ---- 訓練負荷 ----
@@ -2257,7 +2295,7 @@ def analytics_view(request):
     # ---- 整體 / 分年份 / 分時期 比較 ----
     compare_modes = an.compare_modes_for(domain)
     compare = request.GET.get("compare", "all")
-    if compare not in {m for m, _ in compare_modes}:
+    if compare not in {m for m, _unused in compare_modes}:
         compare = "all"
     comparison = an.metric_comparison(athlete, item, compare) if item else None
     tops = [] if is_competition else an.top_movements(athlete, domain)
@@ -2291,7 +2329,7 @@ def analytics_view(request):
         try:
             multi = an.multi_item_analysis(athlete, picked_items)
             multi_series = multi["series"]
-            json.dumps(multi_series)      # 先試序列化，壞掉的資料不要留到樣板才炸
+            jdump(multi_series)      # 先試序列化，壞掉的資料不要留到樣板才炸
         except Exception:                 # noqa: BLE001 - 什麼原因都不該讓這一頁 500
             logger.exception(
                 "多項目一起分析失敗：athlete=%s domain=%s items=%s",
@@ -2299,7 +2337,7 @@ def analytics_view(request):
             )
             multi = None
             multi_series = []
-            multi_error = "這幾個項目一起分析時出了問題，已記錄下來；先分開看各自的趨勢。"
+            multi_error = _("這幾個項目一起分析時出了問題，已記錄下來；先分開看各自的趨勢。")
 
     # 可以勾來一起分析的項目：這個範疇底下有紀錄的都列出來
     multi_choices = [row["item"] for row in overview if row["count"]]
@@ -2320,12 +2358,12 @@ def analytics_view(request):
             "strain": an.calculate_strain(athlete, week_start),
             "wow": an.week_over_week_change(athlete, week_start),
             "weeks": weeks,
-            "labels": json.dumps([p["label"] for p in prog]),
-            "loads": json.dumps([p["total_load"] for p in prog]),
-            "acwrs": json.dumps([p["acwr"] for p in prog]),
-            "monotonies": json.dumps([p["monotony"] for p in prog]),
-            "dist_labels": json.dumps([d["type"] for d in dist]),
-            "dist_values": json.dumps([d["load"] for d in dist]),
+            "labels": jdump([p["label"] for p in prog]),
+            "loads": jdump([p["total_load"] for p in prog]),
+            "acwrs": jdump([p["acwr"] for p in prog]),
+            "monotonies": jdump([p["monotony"] for p in prog]),
+            "dist_labels": jdump([d["type"] for d in dist]),
+            "dist_values": jdump([d["load"] for d in dist]),
             "dist": dist,
             # 數據紀錄
             "domains": MetricDomain.choices,
@@ -2360,7 +2398,7 @@ def analytics_view(request):
             "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
             # 田徑練習用「強度要求」取代重量欄；重量訓練維持原樣
             "is_track": domain == MetricDomain.TRACK,
-            "chart_points": json.dumps(analysis["points"] if analysis else []),
+            "chart_points": jdump(analysis["points"] if analysis else []),
             "recent_sessions": recent_sessions,
             "linkable_type_labels": [
                 dict(SessionType.choices)[t] for t in linkable_types
@@ -2373,22 +2411,22 @@ def analytics_view(request):
             "multi_choices": multi_choices,
             "picked_ids": picked_ids,
             "picked_csv": ",".join(str(i) for i in picked_ids),
-            "multi_series": json.dumps(multi_series),
+            "multi_series": jdump(multi_series),
             "multi_error": multi_error,
             "compare": comparison["mode"] if comparison else "all",
             "compare_modes": compare_modes,
             "comparison": comparison,
             "phase_guide": PHASE_GUIDE,
-            "cmp_labels": json.dumps(
+            "cmp_labels": jdump(
                 [g["label"] for g in comparison["groups"]] if comparison else []
             ),
-            "cmp_best": json.dumps(
+            "cmp_best": jdump(
                 [g["best"] for g in comparison["groups"]] if comparison else []
             ),
-            "cmp_avg": json.dumps(
+            "cmp_avg": jdump(
                 [g["average"] for g in comparison["groups"]] if comparison else []
             ),
-            "cmp_count": json.dumps(
+            "cmp_count": jdump(
                 [g["count"] for g in comparison["groups"]] if comparison else []
             ),
         },
@@ -2422,10 +2460,10 @@ def nutrition_view(request):
                     "water_intake_ml": request.POST.get("water_intake_ml") or 0,
                 },
             )
-            messages.success(request, "已儲存今日晨間問卷。")
+            messages.success(request, _("已儲存今日晨間問卷。"))
         elif action == "recalc":
             nu.calculate_targets(athlete, today, goal=request.POST.get("goal", "MAINTAIN"))
-            messages.success(request, "已重新計算今日營養目標。")
+            messages.success(request, _("已重新計算今日營養目標。"))
         elif action == "meal_add":
             _save_meal(request, athlete)
         elif action == "meal_regrams":
@@ -2433,7 +2471,7 @@ def nutrition_view(request):
         elif action == "meal_delete":
             meal = get_object_or_404(MealLog, pk=request.POST["meal_id"], athlete=athlete)
             meal.delete()
-            messages.success(request, "已刪除該筆飲食紀錄。")
+            messages.success(request, _("已刪除該筆飲食紀錄。"))
         return redirect("web:nutrition")
 
     target = NutritionTarget.objects.filter(athlete=athlete, date=today).first()
@@ -2476,13 +2514,13 @@ def nutrition_view(request):
             "insight": insight,
             "photo_ai": nuvision.api_available(),
             "today": today,
-            "macro_labels": json.dumps(["碳水", "蛋白質", "脂肪"]),
-            "macro_values": json.dumps([split["carb"], split["protein"], split["fat"]]),
-            "sleep_labels": json.dumps([r["date"].strftime("%m/%d") for r in sleep_rows]),
-            "sleep_values": json.dumps(
+            "macro_labels": jdump([_("碳水"), _("蛋白質"), _("脂肪")]),
+            "macro_values": jdump([split["carb"], split["protein"], split["fat"]]),
+            "sleep_labels": jdump([r["date"].strftime("%m/%d") for r in sleep_rows]),
+            "sleep_values": jdump(
                 [float(r["sleep_hours"]) if r["sleep_hours"] else None for r in sleep_rows]
             ),
-            "soreness_values": json.dumps([r["soreness_level"] for r in sleep_rows]),
+            "soreness_values": jdump([r["soreness_level"] for r in sleep_rows]),
         },
     )
 
@@ -2492,7 +2530,7 @@ def _save_meal(request, athlete):
     photo = request.FILES.get("photo")
     description = request.POST.get("description", "").strip()
     if not photo and not description:
-        messages.warning(request, "請上傳相片或至少寫下吃了什麼。")
+        messages.warning(request, _("請上傳相片或至少寫下吃了什麼。"))
         return
 
     image_bytes = photo.read() if photo else None
@@ -2526,14 +2564,12 @@ def _save_meal(request, athlete):
     if meal.kcal:
         messages.success(
             request,
-            f"已記錄{meal.get_meal_type_display()}：{meal.kcal} kcal"
-            f"（碳水 {meal.carb_g}g／蛋白 {meal.protein_g}g／脂肪 {meal.fat_g}g）。",
+            _("已記錄%(v0)s：%(v1)s kcal（碳水 %(v2)sg／蛋白 %(v3)sg／脂肪 %(v4)sg）。") % {"v0": meal.get_meal_type_display(), "v1": meal.kcal, "v2": meal.carb_g, "v3": meal.protein_g, "v4": meal.fat_g},
         )
     else:
         messages.warning(
             request,
-            "認不出食物，紀錄已建立但營養值是 0——"
-            "可以在下面直接改份量，或用「白飯 200g、雞胸 150g」這種寫法再試一次。",
+            _("認不出食物，紀錄已建立但營養值是 0——可以在下面直接改份量，或用「白飯 200g、雞胸 150g」這種寫法再試一次。"),
         )
 
 
@@ -2561,7 +2597,7 @@ def _regrams_meal(request, athlete):
         changed += 1
 
     if not changed:
-        messages.warning(request, "份量沒有變動。")
+        messages.warning(request, _("份量沒有變動。"))
         return
 
     total = nuvision.totals(items)
@@ -2578,7 +2614,7 @@ def _regrams_meal(request, athlete):
             "fiber_g", "sodium_mg", "updated_at",
         ]
     )
-    messages.success(request, f"已更新 {changed} 個品項的份量，總熱量 {meal.kcal} kcal。")
+    messages.success(request, _("已更新 %(v0)s 個品項的份量，總熱量 %(v1)s kcal。") % {"v0": changed, "v1": meal.kcal})
 
 
 # ------------------------------------------------------------------ 傷患
@@ -2613,7 +2649,7 @@ def _log_pain(request, athlete, injury, prefix="", quiet=False):
         except (TypeError, ValueError):
             return default
 
-    log, _ = PainLog.objects.update_or_create(
+    log, _unused = PainLog.objects.update_or_create(
         injury=injury,
         date=date.today(),
         defaults={
@@ -2635,11 +2671,10 @@ def _log_pain(request, athlete, injury, prefix="", quiet=False):
             n += len(inj.apply_modifications(session))
         messages.warning(
             request,
-            f"{injury.get_body_part_display()} 疼痛 {log.pain_during_activity}/10 已超過門檻，"
-            f"今日課表已自動調整（{n} 項變更）。",
+            _("%(v0)s 疼痛 %(v1)s/10 已超過門檻，今日課表已自動調整（%(v2)s 項變更）。") % {"v0": injury.get_body_part_display(), "v1": log.pain_during_activity, "v2": n},
         )
     elif not quiet:
-        messages.success(request, "已記錄今日疼痛。")
+        messages.success(request, _("已記錄今日疼痛。"))
     return log
 
 
@@ -2662,7 +2697,7 @@ def injuries_view(request):
                 mechanism=request.POST.get("mechanism", ""),
             )
             inj.sync_athlete_status(athlete)
-            messages.success(request, f"已建立傷患紀錄：{injury.get_body_part_display()}")
+            messages.success(request, _("已建立傷患紀錄：%(v0)s") % {"v0": injury.get_body_part_display()})
         elif action == "pain_log":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             _log_pain(request, athlete, injury, prefix="")
@@ -2677,9 +2712,9 @@ def injuries_view(request):
                 _log_pain(request, athlete, injury, prefix=f"_{injury.id}", quiet=True)
                 done += 1
             if done:
-                messages.success(request, f"已回報 {done} 處傷患的今日狀況。")
+                messages.success(request, _("已回報 %(v0)s 處傷患的今日狀況。") % {"v0": done})
             else:
-                messages.warning(request, "沒有填任何一處的今日疼痛。")
+                messages.warning(request, _("沒有填任何一處的今日疼痛。"))
         elif action == "set_training_mode":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             injury.training_mode = request.POST.get("training_mode", TrainingMode.MODIFIED)
@@ -2687,8 +2722,7 @@ def injuries_view(request):
             injury.save(update_fields=["training_mode", "training_note", "updated_at"])
             messages.success(
                 request,
-                f"{injury.get_body_part_display()} 今日處理方式："
-                f"{injury.get_training_mode_display()}。",
+                _("%(v0)s 今日處理方式：%(v1)s。") % {"v0": injury.get_body_part_display(), "v1": injury.get_training_mode_display()},
             )
         elif action == "rtp_toggle":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
@@ -2697,17 +2731,17 @@ def injuries_view(request):
             injury.save(update_fields=["rtp_progress", "updated_at"])
             rtp = inj.rtp_checklist(injury)
             if rtp["cleared"]:
-                messages.success(request, "RTP 條件全部達標，可與教練確認回歸完整訓練。")
+                messages.success(request, _("RTP 條件全部達標，可與教練確認回歸完整訓練。"))
             else:
                 messages.success(
-                    request, f"已更新 RTP 進度：{rtp['met']}/{rtp['total']} 項達標。"
+                    request, _("已更新 RTP 進度：%(v0)s/%(v1)s 項達標。") % {"v0": rtp['met'], "v1": rtp['total']}
                 )
         elif action == "update_status":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             injury.status = request.POST["status"]
             injury.save(update_fields=["status", "updated_at"])
             inj.sync_athlete_status(athlete)
-            messages.success(request, f"已更新狀態為 {injury.get_status_display()}。")
+            messages.success(request, _("已更新狀態為 %(v0)s。") % {"v0": injury.get_status_display()})
         elif action == "set_direction":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
             injury.treatment_status = request.POST.get(
@@ -2728,7 +2762,7 @@ def injuries_view(request):
                 ]
             )
             messages.success(
-                request, f"已更新治療方向：{injury.get_treatment_status_display()}。"
+                request, _("已更新治療方向：%(v0)s。") % {"v0": injury.get_treatment_status_display()}
             )
         elif action == "treatment_log":
             injury = get_object_or_404(Injury, pk=request.POST["injury_id"], athlete=athlete)
@@ -2745,8 +2779,7 @@ def injuries_view(request):
             )
             messages.success(
                 request,
-                f"已記錄 {log.date} 的{log.get_treatment_type_display()}"
-                f"（{log.get_effect_display()}）。",
+                _("已記錄 %(v0)s 的%(v1)s（%(v2)s）。") % {"v0": log.date, "v1": log.get_treatment_type_display(), "v2": log.get_effect_display()},
             )
         return redirect("web:injuries")
 
@@ -2766,9 +2799,9 @@ def injuries_view(request):
                 "peace_love": inj.peace_love_guide(i),
                 "care_picked": picked,
                 "care_free": free,
-                "labels": json.dumps([r["date"].strftime("%m/%d") for r in trend]),
-                "rest": json.dumps([r["pain_at_rest"] for r in trend]),
-                "activity": json.dumps([r["pain_during_activity"] for r in trend]),
+                "labels": jdump([r["date"].strftime("%m/%d") for r in trend]),
+                "rest": jdump([r["pain_at_rest"] for r in trend]),
+                "activity": jdump([r["pain_during_activity"] for r in trend]),
                 "today_log": i.pain_logs.filter(date=date.today()).first(),
             }
         )
@@ -2813,10 +2846,10 @@ def injuries_view(request):
 
 #: 項目庫上「確認 / 退回」按鈕作用在哪一張表
 LIBRARY_MODELS = {
-    "sport": (SportType, "運動種類"),
-    "discipline": (Discipline, "運動項目"),
-    "kind": (MovementKind, "訓練動作種類"),
-    "activity": (ActivityDefinition, "動作"),
+    "sport": (SportType, _("運動種類")),
+    "discipline": (Discipline, _("運動項目")),
+    "kind": (MovementKind, _("訓練動作種類")),
+    "activity": (ActivityDefinition, _("動作")),
 }
 
 
@@ -2852,31 +2885,31 @@ def library_view(request):
         # 自己加的東西自己看得到（掛著「待確認」），但要管理員按過才會公開。
         # 管理員自己加的就直接算確認過，不用再確認自己一次。
         status = LibraryStatus.APPROVED if can_approve else LibraryStatus.PENDING
-        pending_note = "" if can_approve else "，等管理員確認後所有人都看得到"
+        pending_note = "" if can_approve else _("，等管理員確認後所有人都看得到")
 
         if action in ("approve", "reject"):
             if not can_approve:
-                messages.error(request, "只有管理員可以確認項目庫的新增內容。")
+                messages.error(request, _("只有管理員可以確認項目庫的新增內容。"))
                 return redirect(back)
             obj, label = _library_object(request)
             if obj is None:
-                messages.error(request, "找不到要處理的項目。")
+                messages.error(request, _("找不到要處理的項目。"))
             elif action == "approve":
                 obj.status = LibraryStatus.APPROVED
                 obj.save(update_fields=["status", "updated_at"])
-                messages.success(request, f"已確認{label}「{obj.name}」，現在所有人都看得到。")
+                messages.success(request, _("已確認%(v0)s「%(v1)s」，現在所有人都看得到。") % {"v0": label, "v1": obj.name})
             else:
                 obj.status = LibraryStatus.REJECTED
                 obj.save(update_fields=["status", "updated_at"])
-                messages.info(request, f"已退回{label}「{obj.name}」。")
+                messages.info(request, _("已退回%(v0)s「%(v1)s」。") % {"v0": label, "v1": obj.name})
             return redirect(back)
 
         if action == "add_sport":
             name = request.POST.get("name", "").strip()
             if not name:
-                messages.error(request, "請填運動種類的名稱。")
+                messages.error(request, _("請填運動種類的名稱。"))
             elif SportType.objects.filter(name=name).exists():
-                messages.info(request, f"「{name}」已經在項目庫裡了。")
+                messages.info(request, _("「%(v0)s」已經在項目庫裡了。") % {"v0": name})
             else:
                 SportType.objects.create(
                     name=name,
@@ -2885,7 +2918,7 @@ def library_view(request):
                     status=status,
                     created_by=request.user,
                 )
-                messages.success(request, f"已加入運動種類「{name}」{pending_note}。")
+                messages.success(request, _("已加入運動種類「%(v0)s」%(v1)s。") % {"v0": name, "v1": pending_note})
             return redirect(back)
 
         if action == "add_discipline":
@@ -2893,11 +2926,11 @@ def library_view(request):
             name = request.POST.get("name", "").strip()
             category = request.POST.get("activity_category")
             if sport is None:
-                messages.error(request, "請先挑一個運動種類。")
+                messages.error(request, _("請先挑一個運動種類。"))
             elif not name:
-                messages.error(request, "請填運動項目的名稱。")
+                messages.error(request, _("請填運動項目的名稱。"))
             elif Discipline.objects.filter(sport=sport, name=name).exists():
-                messages.info(request, f"「{sport.name} · {name}」已經在項目庫裡了。")
+                messages.info(request, _("「%(v0)s · %(v1)s」已經在項目庫裡了。") % {"v0": sport.name, "v1": name})
             else:
                 Discipline.objects.create(
                     sport=sport,
@@ -2913,16 +2946,16 @@ def library_view(request):
                     created_by=request.user,
                 )
                 messages.success(
-                    request, f"已加入運動項目「{sport.name} · {name}」{pending_note}。"
+                    request, _("已加入運動項目「%(v0)s · %(v1)s」%(v2)s。") % {"v0": sport.name, "v1": name, "v2": pending_note}
                 )
             return redirect(back)
 
         if action == "add_kind":
             name = request.POST.get("name", "").strip()
             if not name:
-                messages.error(request, "請填訓練動作種類的名稱。")
+                messages.error(request, _("請填訓練動作種類的名稱。"))
             elif MovementKind.objects.filter(name=name).exists():
-                messages.info(request, f"「{name}」已經在項目庫裡了。")
+                messages.info(request, _("「%(v0)s」已經在項目庫裡了。") % {"v0": name})
             else:
                 MovementKind.objects.create(
                     name=name,
@@ -2931,7 +2964,7 @@ def library_view(request):
                     status=status,
                     created_by=request.user,
                 )
-                messages.success(request, f"已加入訓練動作種類「{name}」{pending_note}。")
+                messages.success(request, _("已加入訓練動作種類「%(v0)s」%(v1)s。") % {"v0": name, "v1": pending_note})
             return redirect(back)
 
         if action == "add_activity":
@@ -2942,11 +2975,11 @@ def library_view(request):
             kind = MovementKind.objects.filter(pk=request.POST.get("movement_kind")).first()
             block = request.POST.get("default_block")
             if not name:
-                messages.error(request, "請填動作名稱。")
+                messages.error(request, _("請填動作名稱。"))
             elif discipline is None:
-                messages.error(request, "請挑這個動作屬於哪個運動項目。")
+                messages.error(request, _("請挑這個動作屬於哪個運動項目。"))
             elif ActivityDefinition.objects.filter(name__iexact=name).exists():
-                messages.info(request, f"「{name}」已經在項目庫裡了。")
+                messages.info(request, _("「%(v0)s」已經在項目庫裡了。") % {"v0": name})
             else:
                 ActivityDefinition.objects.create(
                     name=name,
@@ -2967,7 +3000,7 @@ def library_view(request):
                     status=status,
                     created_by=request.user,
                 )
-                messages.success(request, f"已加入動作「{name}」{pending_note}。")
+                messages.success(request, _("已加入動作「%(v0)s」%(v1)s。") % {"v0": name, "v1": pending_note})
             return redirect(back)
 
         if action in ("add_to_discipline", "remove_from_discipline"):
@@ -2978,28 +3011,27 @@ def library_view(request):
                 pk=request.POST.get("discipline")
             ).first()
             if activity is None or target is None:
-                messages.error(request, "找不到要處理的動作或運動項目。")
+                messages.error(request, _("找不到要處理的動作或運動項目。"))
             elif action == "add_to_discipline":
                 if target.id == activity.discipline_id:
                     messages.info(
-                        request, f"「{activity.name}」本來就在「{target.full_label}」底下。"
+                        request, _("「%(v0)s」本來就在「%(v1)s」底下。") % {"v0": activity.name, "v1": target.full_label}
                     )
                 else:
                     # 只是多掛一個位置（不是新東西），不用再等管理員確認
                     activity.extra_disciplines.add(target)
                     messages.success(
                         request,
-                        f"已把「{activity.name}」也加進「{target.full_label}」，"
-                        "兩邊的清單都挑得到。",
+                        _("已把「%(v0)s」也加進「%(v1)s」，兩邊的清單都挑得到。") % {"v0": activity.name, "v1": target.full_label},
                     )
             else:
                 activity.extra_disciplines.remove(target)
                 messages.info(
-                    request, f"已把「{activity.name}」從「{target.full_label}」移走。"
+                    request, _("已把「%(v0)s」從「%(v1)s」移走。") % {"v0": activity.name, "v1": target.full_label}
                 )
             return redirect(back)
 
-        messages.error(request, "不認得的操作。")
+        messages.error(request, _("不認得的操作。"))
         return redirect(back)
 
     sport = SportType.objects.filter(pk=request.GET.get("sport") or 0).first()

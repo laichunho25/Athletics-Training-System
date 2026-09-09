@@ -15,6 +15,7 @@ import io
 
 from django.core.management import call_command
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 
 from core.models import Role
 from training.models import (
@@ -214,7 +215,7 @@ def library_catalog(user, definitions=None):
         homes = definition_disciplines(d)
         if not homes:
             # 還沒歸到運動項目的舊資料，用分類名稱擺在「其他」底下，免得挑不到
-            bucket("other", "其他", 999, f"c{d.category}",
+            bucket("other", _("其他"), 999, f"c{d.category}",
                    labels.get(d.category, "其他"), 999)["activities"].append(entry)
             continue
         for disc in homes:

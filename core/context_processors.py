@@ -1,6 +1,7 @@
 """樣板全域變數。"""
 
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 from core.admin import user_may_use_admin
 from core.athlete_context import ATHLETE_SCOPED_PAGES, athlete_switcher, current_athlete
@@ -18,16 +19,16 @@ def site_flags(request):
 
 #: 麵包屑與側欄共用的一份頁面清單：頁代號 → (模組, 頁名)
 NAV_PAGES = {
-    "athletes": ("運動員", "運動員列表"),
-    "team": ("運動員", "全隊燈號總覽"),
-    "dashboard": ("運動員", "運動員狀態總覽"),
-    "plan": ("訓練管理", "計劃"),
-    "calendar": ("訓練管理", "訓練日曆"),
-    "session": ("訓練管理", "課表明細"),
-    "library": ("訓練管理", "運動練習項目庫"),
-    "analytics": ("數據與健康", "數據分析"),
-    "nutrition": ("數據與健康", "營養與恢復"),
-    "injuries": ("數據與健康", "傷患管理"),
+    "athletes": (_("運動員"), _("運動員列表")),
+    "team": (_("運動員"), _("全隊燈號總覽")),
+    "dashboard": (_("運動員"), _("運動員狀態總覽")),
+    "plan": (_("訓練管理"), _("計劃")),
+    "calendar": (_("訓練管理"), _("訓練日曆")),
+    "session": (_("訓練管理"), _("課表明細")),
+    "library": (_("訓練管理"), _("運動練習項目庫")),
+    "analytics": (_("數據與健康"), _("數據分析")),
+    "nutrition": (_("數據與健康"), _("營養與恢復")),
+    "injuries": (_("數據與健康"), _("傷患管理")),
 }
 
 

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load static %}
-{% block title %}訓練日曆{% endblock %}
+{% block title %}{% translate "訓練日曆" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>訓練日曆</h1>
+    <h1>{% translate "訓練日曆" %}</h1>
     <div class="subtitle" style="margin:0">
-      {{ athlete.user.get_full_name|default:athlete.user.username }} ·
-      本月 {{ month_count }} 課 / {{ month_load }} AU
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username v1=month_count v2=month_load %}{{ v0 }} · 本月 {{ v1 }} 課 / {{ v2 }} AU{% endblocktranslate %}
     </div>
   </div>
   {% include "web/_athlete_links.html" %}
@@ -20,8 +20,7 @@
     <div>
       <strong>{{ macro }}</strong>
       <span class="small c-dim">
-        {{ macro.start_date }} → {{ macro.end_date }} ·
-        第 {{ macro.current_week_number|default:"—" }} / {{ macro.total_weeks }} 週
+        {% blocktranslate with v0=macro.start_date v1=macro.end_date v2=macro.current_week_number|default:"—" v3=macro.total_weeks %}{{ v0 }} → {{ v1 }} · 第 {{ v2 }} / {{ v3 }} 週{% endblocktranslate %}
       </span>
     </div>
     <span class="badge b-blue">{{ macro.target_competition.countdown_display }}</span>
@@ -41,9 +40,9 @@
   <div class="card-head">
     <span>{{ month_name }}</span>
     <span class="flex">
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ prev.year }}&month={{ prev.month }}">← 上月</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}">本月</a>
-      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ next.year }}&month={{ next.month }}">下月 →</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ prev.year }}&month={{ prev.month }}">{% translate "← 上月" %}</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}">{% translate "本月" %}</a>
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}&year={{ next.year }}&month={{ next.month }}">{% translate "下月 →" %}</a>
     </span>
   </div>
 
@@ -54,14 +53,14 @@
 </div>
 
 <div class="flex mt small c-dim" style="flex-wrap:wrap">
-  <span class="badge b-blue">已排定</span>
-  <span class="badge b-green">已完成</span>
-  <span class="badge b-yellow">部分完成</span>
-  <span class="badge b-red">缺席</span>
+  <span class="badge b-blue">{% translate "已排定" %}</span>
+  <span class="badge b-green">{% translate "已完成" %}</span>
+  <span class="badge b-yellow">{% translate "部分完成" %}</span>
+  <span class="badge b-red">{% translate "缺席" %}</span>
   {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
-  <span>· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復
-    <span class="no-touch"><br>· <strong>把課表直接拖到另一天就是改日期</strong></span>
-    <span class="only-touch"><br>· 要改日期，點進課表按抬頭的「日期」那一格</span>
+  <span>{% translate "· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復" %}
+    <span class="no-touch"><br>· <strong>{% translate "把課表直接拖到另一天就是改日期" %}</strong></span>
+    <span class="only-touch"><br>{% translate "· 要改日期，點進課表按抬頭的「日期」那一格" %}</span>
   </span>
 </div>
 
@@ -72,30 +71,30 @@
     <input type="hidden" name="action" value="add_program">
     <input type="hidden" name="athlete" value="{{ athlete.id }}">
     <div class="between mb">
-      <h2 style="margin:0">新增 program</h2>
-      <button type="button" class="btn ghost sm" onclick="progDlg.close()">關閉</button>
+      <h2 style="margin:0">{% translate "新增 program" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="progDlg.close()">{% translate "關閉" %}</button>
     </div>
 
     <div class="row">
       <div class="field">
-        <label>日期</label>
+        <label>{% translate "日期" %}</label>
         <input type="date" name="date" id="progDate" value="{{ today_iso }}" required>
       </div>
       <div class="field">
-        <label>時段</label>
+        <label>{% translate "時段" %}</label>
         <select name="time_slot">
-          <option value="AM">上午</option>
-          <option value="PM" selected>下午</option>
+          <option value="AM">{% translate "上午" %}</option>
+          <option value="PM" selected>{% translate "下午" %}</option>
         </select>
       </div>
       <div class="field">
-        <label>計劃時長（分）</label>
+        <label>{% translate "計劃時長（分）" %}</label>
         <input type="number" name="planned_duration_min" min="10" max="480" value="90">
       </div>
     </div>
 
     <div class="field">
-      <label>類別</label>
+      <label>{% translate "類別" %}</label>
       <div class="typepick">
         {% for value, label in program_types %}
           <label class="typeopt">
@@ -107,25 +106,25 @@
     </div>
 
     <div class="field">
-      <label>名稱</label>
-      <input type="text" name="title" placeholder="留空會自動用類別名稱，例：加速度課 / 下肢最大力量">
+      <label>{% translate "名稱" %}</label>
+      <input type="text" name="title" placeholder="{% translate '留空會自動用類別名稱，例：加速度課 / 下肢最大力量' %}">
     </div>
     <div class="field">
-      <label>概要</label>
+      <label>{% translate "概要" %}</label>
       <textarea name="description" rows="3"
-        placeholder="這裡先寫大方向就好；建立之後點進課表可以分熱身／正課／補充練習／恢復練習輸入每項活動"></textarea>
+        placeholder="{% translate '這裡先寫大方向就好；建立之後點進課表可以分熱身／正課／補充練習／恢復練習輸入每項活動' %}"></textarea>
     </div>
 
-    <button class="btn" type="submit">加入日曆</button>
+    <button class="btn" type="submit">{% translate "加入日曆" %}</button>
   </form>
 </dialog>
 
 <div class="card mt small c-dim">
-  <strong>快速指令選單</strong>
-  [1] 點日期 ＋ <em>新增 program</em>
-  [2] <a href="{% url 'web:analytics' %}">查看本週負荷分析</a>
-  [3] <a href="{% url 'web:nutrition' %}">調整營養菜單</a>
-  [4] <a href="{% url 'web:injuries' %}">更新傷患狀態</a>
+  <strong>{% translate "快速指令選單" %}</strong>
+  {% translate "[1] 點日期 ＋" %} <em>{% translate "新增 program" %}</em>
+  [2] <a href="{% url 'web:analytics' %}">{% translate "查看本週負荷分析" %}</a>
+  [3] <a href="{% url 'web:nutrition' %}">{% translate "調整營養菜單" %}</a>
+  [4] <a href="{% url 'web:injuries' %}">{% translate "更新傷患狀態" %}</a>
 </div>
 {% endblock %}
 

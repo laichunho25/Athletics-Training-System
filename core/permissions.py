@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from django.utils.translation import gettext_lazy as _
 
 from core.models import Role
 
@@ -42,7 +43,7 @@ def resolve_athlete(obj):
 class IsCoachOrAdmin(permissions.BasePermission):
     """僅教練或管理員可寫入（派發計劃、建立賽事等）。"""
 
-    message = "只有教練或管理員可以執行此操作。"
+    message = _("只有教練或管理員可以執行此操作。")
 
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
@@ -59,7 +60,7 @@ class IsOwnAthleteDataOrCoach(permissions.BasePermission):
     管理員：全部。
     """
 
-    message = "你沒有權限存取這名運動員的資料。"
+    message = _("你沒有權限存取這名運動員的資料。")
 
     def has_permission(self, request, view):
         return request.user.is_authenticated

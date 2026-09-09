@@ -1,10 +1,10 @@
-{% load static %}<!DOCTYPE html>
-<html lang="zh-Hant" data-theme="dark">
+{% load static %}{% load i18n %}<!DOCTYPE html>
+{% get_current_language as LANG %}<html lang="{{ LANG }}" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b10">
-  <title>{% block title %}ATM{% endblock %} · 田徑訓練管理系統</title>
+  <title>{% block title %}ATM{% endblock %} {% translate "· 田徑訓練管理系統" %}</title>
   <link rel="stylesheet" href="{% static 'css/atm.css' %}">
   <script>
     // 先套用使用者上次選的外觀／密度／側欄狀態，避免載入時閃一下
@@ -28,7 +28,7 @@
   <!-- ------------------------------------------------------ 左側主導航 -->
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
-      <a class="brand" href="{% url 'web:landing' %}">ATM<span>·</span><b>田徑</b></a>
+      <a class="brand" href="{% url 'web:landing' %}">ATM<span>·</span><b>{% translate "田徑" %}</b></a>
     </div>
 
     {% comment %}
@@ -36,50 +36,50 @@
     {% endcomment %}
     <nav class="nav">
       <div class="nav-group">
-        <div class="nav-title">運動員</div>
-        <a href="{% url 'web:athlete_list' %}" data-tip="運動員列表"
+        <div class="nav-title">{% translate "運動員" %}</div>
+        <a href="{% url 'web:athlete_list' %}" data-tip="{% translate '運動員列表' %}"
            class="nav-item {% if page == 'athletes' %}active{% endif %}">
-          <svg class="ic"><use href="#i-people"></use></svg><span>運動員列表</span></a>
+          <svg class="ic"><use href="#i-people"></use></svg><span>{% translate "運動員列表" %}</span></a>
         {% if nav_athletes %}
-        <a href="{% url 'web:coach_dashboard' %}" data-tip="全隊燈號總覽"
+        <a href="{% url 'web:coach_dashboard' %}" data-tip="{% translate '全隊燈號總覽' %}"
            class="nav-item {% if page == 'team' %}active{% endif %}">
-          <svg class="ic"><use href="#i-shield"></use></svg><span>全隊燈號總覽</span></a>
+          <svg class="ic"><use href="#i-shield"></use></svg><span>{% translate "全隊燈號總覽" %}</span></a>
         {% endif %}
-        <a href="{% url 'web:dashboard' %}{{ nav_athlete_qs }}" data-tip="運動員狀態總覽"
+        <a href="{% url 'web:dashboard' %}{{ nav_athlete_qs }}" data-tip="{% translate '運動員狀態總覽' %}"
            class="nav-item {% if page == 'dashboard' %}active{% endif %}">
-          <svg class="ic"><use href="#i-gauge"></use></svg><span>運動員狀態總覽</span></a>
+          <svg class="ic"><use href="#i-gauge"></use></svg><span>{% translate "運動員狀態總覽" %}</span></a>
       </div>
 
       <div class="nav-group">
-        <div class="nav-title">訓練管理</div>
-        <a href="{% url 'web:plan' %}" data-tip="計劃"
+        <div class="nav-title">{% translate "訓練管理" %}</div>
+        <a href="{% url 'web:plan' %}" data-tip="{% translate '計劃' %}"
            class="nav-item {% if page == 'plan' %}active{% endif %}">
-          <svg class="ic"><use href="#i-clipboard"></use></svg><span>計劃</span></a>
-        <a href="{% url 'web:calendar' %}{{ nav_athlete_qs }}" data-tip="訓練日曆"
+          <svg class="ic"><use href="#i-clipboard"></use></svg><span>{% translate "計劃" %}</span></a>
+        <a href="{% url 'web:calendar' %}{{ nav_athlete_qs }}" data-tip="{% translate '訓練日曆' %}"
            class="nav-item {% if page == 'calendar' or page == 'session' %}active{% endif %}">
-          <svg class="ic"><use href="#i-calendar"></use></svg><span>訓練日曆</span></a>
-        <a href="{% url 'web:library' %}" data-tip="運動練習項目庫"
+          <svg class="ic"><use href="#i-calendar"></use></svg><span>{% translate "訓練日曆" %}</span></a>
+        <a href="{% url 'web:library' %}" data-tip="{% translate '運動練習項目庫' %}"
            class="nav-item {% if page == 'library' %}active{% endif %}">
-          <svg class="ic"><use href="#i-rows"></use></svg><span>運動練習項目庫</span></a>
+          <svg class="ic"><use href="#i-rows"></use></svg><span>{% translate "運動練習項目庫" %}</span></a>
       </div>
 
       <div class="nav-group">
-        <div class="nav-title">數據與健康</div>
-        <a href="{% url 'web:analytics' %}{{ nav_athlete_qs }}" data-tip="數據分析"
+        <div class="nav-title">{% translate "數據與健康" %}</div>
+        <a href="{% url 'web:analytics' %}{{ nav_athlete_qs }}" data-tip="{% translate '數據分析' %}"
            class="nav-item {% if page == 'analytics' %}active{% endif %}">
-          <svg class="ic"><use href="#i-chart"></use></svg><span>數據分析</span></a>
-        <a href="{% url 'web:nutrition' %}{{ nav_athlete_qs }}" data-tip="營養與恢復"
+          <svg class="ic"><use href="#i-chart"></use></svg><span>{% translate "數據分析" %}</span></a>
+        <a href="{% url 'web:nutrition' %}{{ nav_athlete_qs }}" data-tip="{% translate '營養與恢復' %}"
            class="nav-item {% if page == 'nutrition' %}active{% endif %}">
-          <svg class="ic"><use href="#i-heart"></use></svg><span>營養與恢復</span></a>
-        <a href="{% url 'web:injuries' %}{{ nav_athlete_qs }}" data-tip="傷患管理"
+          <svg class="ic"><use href="#i-heart"></use></svg><span>{% translate "營養與恢復" %}</span></a>
+        <a href="{% url 'web:injuries' %}{{ nav_athlete_qs }}" data-tip="{% translate '傷患管理' %}"
            class="nav-item {% if page == 'injuries' %}active{% endif %}">
-          <svg class="ic"><use href="#i-shield"></use></svg><span>傷患管理</span></a>
+          <svg class="ic"><use href="#i-shield"></use></svg><span>{% translate "傷患管理" %}</span></a>
       </div>
     </nav>
 
     <div class="sb-foot">
-      <button type="button" class="sb-collapse" data-act="collapse" data-tip="展開選單">
-        <svg class="ic"><use href="#i-collapse"></use></svg><span>收合選單</span>
+      <button type="button" class="sb-collapse" data-act="collapse" data-tip="{% translate '展開選單' %}">
+        <svg class="ic"><use href="#i-collapse"></use></svg><span>{% translate "收合選單" %}</span>
       </button>
     </div>
   </aside>
@@ -88,7 +88,7 @@
   <!-- ------------------------------------------------------- 右側工作區 -->
   <div class="main">
     <header class="topbar">
-      <button type="button" class="iconbtn only-mobile" data-act="open-nav" aria-label="開啟選單">
+      <button type="button" class="iconbtn only-mobile" data-act="open-nav" aria-label="{% translate '開啟選單' %}">
         <svg class="ic"><use href="#i-menu"></use></svg>
       </button>
 
@@ -96,23 +96,24 @@
 
       <form class="topsearch" method="get" action="{% url 'web:athlete_list' %}">
         <svg class="ic"><use href="#i-search"></use></svg>
-        <input type="search" name="q" placeholder="搜尋運動員、主項或計劃" aria-label="全域搜尋">
+        <input type="search" name="q" placeholder="{% translate '搜尋運動員、主項或計劃' %}" aria-label="{% translate '全域搜尋' %}">
       </form>
 
       <div class="topacts">
         {% include "web/_switcher.html" %}
-        <span class="syslive" title="系統連線正常，時間為本機時間">
+        {% include "_langpick.html" %}
+        <span class="syslive" title="{% translate '系統連線正常，時間為本機時間' %}">
           <i class="led"></i>LIVE<span class="clock" id="sysClock">--:--</span>
         </span>
-        <label class="densitypick" title="表格間距">
+        <label class="densitypick" title="{% translate '表格間距' %}">
           <svg class="ic"><use href="#i-rows"></use></svg>
-          <select data-act="density" aria-label="表格間距">
-            <option value="compact">緊湊</option>
-            <option value="default" selected>標準</option>
-            <option value="loose">寬鬆</option>
+          <select data-act="density" aria-label="{% translate '表格間距' %}">
+            <option value="compact">{% translate "緊湊" %}</option>
+            <option value="default" selected>{% translate "標準" %}</option>
+            <option value="loose">{% translate "寬鬆" %}</option>
           </select>
         </label>
-        <button type="button" class="iconbtn" data-act="theme" aria-label="切換淺色／深色">
+        <button type="button" class="iconbtn" data-act="theme" aria-label="{% translate '切換淺色／深色' %}">
           <svg class="ic light-only"><use href="#i-moon"></use></svg>
           <svg class="ic dark-only"><use href="#i-sun"></use></svg>
         </button>
@@ -124,7 +125,7 @@
           </span>
           <form method="post" action="{% url 'logout' %}" style="margin-left:4px">
             {% csrf_token %}
-            <button class="btn ghost sm" type="submit">登出</button>
+            <button class="btn ghost sm" type="submit">{% translate "登出" %}</button>
           </form>
         </div>
       </div>
