@@ -12786,3 +12786,79 @@ msgstr "Please supply a valid athlete parameter."
 #: .\training\views.py:72
 msgid "此運動員尚無該動作的 1RM 紀錄。"
 msgstr "This athlete has no 1RM record for that exercise."
+
+#: .\core\views.py
+msgid "只有管理員或這個項目的負責教練可以派課。"
+msgstr "Only an administrator or a coach assigned to this plan can hand out sessions."
+
+#: .\core\views.py
+msgid "請至少選一名運動員。"
+msgstr "Pick at least one athlete."
+
+#: .\core\views.py
+msgid "找不到那一堂範本課表，這次只用表格填的內容。"
+msgstr "That template session no longer exists; only the details typed in the form were used."
+
+#: .\core\views.py
+msgid "一次最多派 %(v0)s 堂課，現在是 %(v1)s 人 × %(v2)s 天；請分幾次派。"
+msgstr "At most %(v0)s sessions can be handed out at once; this is %(v1)s athletes x %(v2)s days. Please do it in batches."
+
+#: .\core\views.py
+msgid "已把「%(v0)s」派給 %(v1)s 名運動員 × %(v2)s 天，共建立 %(v3)s 堂課。"
+msgstr "Handed “%(v0)s” to %(v1)s athletes x %(v2)s days - %(v3)s sessions created."
+
+#: .\core\views.py
+msgid "（每堂連同 %(v0)s 項活動）"
+msgstr " (each with %(v0)s activities)"
+
+#: .\templates\web\plan_detail.html
+msgid "派同一個 program 給項目內運動員"
+msgstr "Hand the same program to athletes in this plan"
+
+#: .\templates\web\plan_detail.html
+msgid "每人每天各建一堂獨立的課，之後各自改不影響別人"
+msgstr "One separate session per athlete per day; later edits to one do not touch the others"
+
+#: .\templates\web\plan_detail.html
+msgid "派給誰"
+msgstr "Hand it to"
+
+#: .\templates\web\plan_detail.html
+msgid "全選／全不選"
+msgstr "Select all / none"
+
+#: .\templates\web\plan_detail.html
+msgid "傷"
+msgstr "Injured"
+
+#: .\templates\web\plan_detail.html
+msgid "還要派到哪些日子（一行一個，或用逗號分開，最多 %(v0)s 天）"
+msgstr "Which other days as well (one per line, or comma separated; up to %(v0)s days)"
+
+#: .\templates\web\plan_detail.html
+msgid "以現有課表為範本（可留空）"
+msgstr "Use an existing session as the template (optional)"
+
+#: .\templates\web\plan_detail.html
+msgid "— 不用範本，照下面填的來 —"
+msgstr "- No template; use what is typed below -"
+
+#: .\templates\web\plan_detail.html
+msgid "%(v0)s 項活動"
+msgstr "%(v0)s activities"
+
+#: .\templates\web\plan_detail.html
+msgid "連同範本課表裡的活動一起派（狀態、RPE、反饋這些不會抄）"
+msgstr "Include the activities from the template session (status, RPE and feedback are not copied)"
+
+#: .\templates\web\plan_detail.html
+msgid "留空會用範本的名稱，沒有範本就用類別名稱"
+msgstr "Leave blank to use the template's name, or the session type's name when there is no template"
+
+#: .\templates\web\plan_detail.html
+msgid "留空會用範本的概要；派出去之後點進任何一堂課都可以再分區加活動"
+msgstr "Leave blank to use the template's summary; after handing it out, open any session to add activities block by block"
+
+#: .\templates\web\plan_detail.html
+msgid "加入日曆並派發課表"
+msgstr "Add to calendar and hand out"

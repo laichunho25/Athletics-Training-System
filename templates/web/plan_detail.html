@@ -72,9 +72,108 @@
   </table>
 </div>
 
+{% if can_assign and rows %}
+<div class="card pad0 mb">
+  <div class="card-head">
+    <span>{% translate "派同一個 program 給項目內運動員" %}</span>
+    <span class="small c-dim">{% translate "每人每天各建一堂獨立的課，之後各自改不影響別人" %}</span>
+  </div>
+  <form method="post" style="padding:14px 18px">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="bulk_program">
+
+    <div class="field">
+      <label>{% translate "派給誰" %}
+        <button type="button" class="linkbtn" id="ath-all">{% translate "全選／全不選" %}</button>
+      </label>
+      <div class="flex" style="flex-wrap:wrap;gap:10px">
+        {% for r in rows %}
+          <label class="flex small" style="gap:4px">
+            <input type="checkbox" class="ath-pick" name="athlete_ids" value="{{ r.athlete.id }}" checked>
+            {{ r.athlete.user.get_full_name|default:r.athlete.user.username }}
+            {% if r.injuries %}<span class="badge b-red">{% translate "傷" %}</span>{% endif %}
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>{% translate "日期" %}</label>
+        <input type="date" name="date" value="{{ today_iso }}" required>
+      </div>
+      <div class="field">
+        <label>{% translate "時段" %}</label>
+        <select name="time_slot">
+          <option value="AM">{% translate "上午" %}</option>
+          <option value="PM" selected>{% translate "下午" %}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>{% translate "計劃時長（分）" %}</label>
+        <input type="number" name="planned_duration_min" min="10" max="480" value="90">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>{% blocktranslate with v0=max_dates %}還要派到哪些日子（一行一個，或用逗號分開，最多 {{ v0 }} 天）{% endblocktranslate %}</label>
+      <textarea name="dates" rows="2" placeholder="2026-09-16&#10;2026-09-23"></textarea>
+    </div>
+
+    <div class="field">
+      <label>{% translate "類別" %}</label>
+      <div class="typepick">
+        {% for value, label in program_types %}
+          <label class="typeopt">
+            <input type="radio" name="session_type" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label>{% translate "以現有課表為範本（可留空）" %}</label>
+      <select name="source">
+        <option value="">{% translate "— 不用範本，照下面填的來 —" %}</option>
+        {% for s in source_sessions %}
+          <option value="{{ s.id }}">
+            {{ s.date|date:"m/d" }} {{ s.title }} · {{ s.athlete.user.get_full_name|default:s.athlete.user.username }}（{% blocktranslate with v0=s.n_activities %}{{ v0 }} 項活動{% endblocktranslate %}）
+          </option>
+        {% endfor %}
+      </select>
+      <label class="flex small mt">
+        <input type="checkbox" name="copy_activities" value="1" checked>
+        {% translate "連同範本課表裡的活動一起派（狀態、RPE、反饋這些不會抄）" %}
+      </label>
+    </div>
+
+    <div class="field">
+      <label>{% translate "名稱" %}</label>
+      <input type="text" name="title" placeholder="{% translate '留空會用範本的名稱，沒有範本就用類別名稱' %}">
+    </div>
+    <div class="field">
+      <label>{% translate "概要" %}</label>
+      <textarea name="description" rows="2"
+        placeholder="{% translate '留空會用範本的概要；派出去之後點進任何一堂課都可以再分區加活動' %}"></textarea>
+    </div>
+
+    <button class="btn" type="submit">{% translate "加入日曆並派發課表" %}</button>
+  </form>
+</div>
+<script>
+  document.getElementById('ath-all').addEventListener('click', function () {
+    var boxes = document.querySelectorAll('.ath-pick');
+    var turnOn = Array.prototype.some.call(boxes, function (b) { return !b.checked; });
+    boxes.forEach(function (b) { b.checked = turnOn; });
+  });
+</script>
+{% endif %}
+
 {% if is_admin and not_imported %}
 <form method="post" class="card pad0">
   {% csrf_token %}
+  <input type="hidden" name="action" value="import">
   <div class="card-head">
     <span>{% blocktranslate with v0=not_imported|length %}尚未匯入 ATM 的報名表（{{ v0 }} 份）{% endblocktranslate %}</span>
     <span class="small c-dim">{% translate "勾選後按「載入計劃」；標示「已註冊運動員」的會沿用原有檔案，不會另開帳號" %}</span>

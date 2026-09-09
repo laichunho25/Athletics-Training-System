@@ -1161,11 +1161,14 @@ def plan_detail(request, pk):
         raise Http404(_("這個項目沒有分配給你。"))
 
     if request.method == "POST":
+        if request.POST.get("action") == "bulk_program":
+            return _plan_bulk_program(request, project)
         return _plan_detail_import(request, project)
 
     visible = set(athlete_ids_visible_to(request.user))
     athletes = [a for a in project_athletes(project) if a.id in visible]
     rows = [_athlete_row(a) for a in athletes]
+    can_assign = _can_assign_program(request.user, project)
 
     return render(
         request,
@@ -1182,7 +1185,35 @@ def plan_detail(request, pk):
                 project.applications.filter(athlete__isnull=True)
             ),
             "today": date.today(),
+            "can_assign": can_assign,
+            "program_types": program_type_choices(),
+            "today_iso": date.today().isoformat(),
+            "source_sessions": _plan_source_sessions(athletes) if can_assign else [],
+            "max_dates": MAX_COPY_DATES,
         },
+    )
+
+
+def _can_assign_program(user, project):
+    """誰可以一次過派課給整個項目：管理員，以及被分配到這個項目的教練。"""
+    if _is_admin(user):
+        return True
+    coach = getattr(user, "coach_profile", None)
+    if coach is None:
+        return False
+    return (
+        project.assignments.filter(coach=coach, is_active=True).exists()
+        or project.coaches.filter(pk=coach.pk).exists()
+    )
+
+
+def _plan_source_sessions(athletes):
+    """可以拿來當範本的課表：項目裡運動員近期排過的課，由新到舊。"""
+    return (
+        TrainingSession.objects.filter(athlete__in=[a.id for a in athletes])
+        .select_related("athlete__user")
+        .annotate(n_activities=Count("activities"))
+        .order_by("-date", "-id")[:PLAN_SOURCE_LIMIT]
     )
 
 
@@ -1223,6 +1254,130 @@ def _plan_detail_import(request, project):
             _("其中 %(v0)s 位是已註冊運動員，已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有另開帳號。") % {"v0": linked, "v1": project.title}
             if created
             else _("%(v0)s 位已註冊運動員已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有另開帳號。") % {"v0": linked, "v1": project.title},
+        )
+    return redirect("web:plan_detail", pk=project.pk)
+
+
+#: 「以現有課表為範本」下拉選單最多列幾堂課
+PLAN_SOURCE_LIMIT = 50
+
+#: 一次派課最多建幾堂課（運動員數 × 日期數），免得手滑排出幾百堂
+MAX_BULK_SESSIONS = 200
+
+
+def _plan_bulk_program(request, project):
+    """把同一個 program（連同課表內容）一次派給項目裡指定的運動員。
+
+    被分配到這個項目的教練和管理員都可以用；每一名選中的運動員、每一個選中的
+    日期都會各自建一堂獨立的課，之後誰要改自己那一堂都不影響別人。
+    挑了範本課表的話，四區的活動也照抄一份過去（練完才填的東西一概不抄）。
+    """
+    if not _can_assign_program(request.user, project):
+        messages.error(request, _("只有管理員或這個項目的負責教練可以派課。"))
+        return redirect("web:plan_detail", pk=project.pk)
+
+    visible = set(athlete_ids_visible_to(request.user))
+    picked = set(request.POST.getlist("athlete_ids"))
+    in_project = [a for a in project_athletes(project) if a.id in visible]
+    athletes = [a for a in in_project if str(a.id) in picked]
+    if not athletes:
+        messages.error(request, _("請至少選一名運動員。"))
+        return redirect("web:plan_detail", pk=project.pk)
+
+    dates, bad = _copy_dates(request)
+    if not dates:
+        messages.error(request, _("請選至少一個日期。"))
+        return redirect("web:plan_detail", pk=project.pk)
+    dropped = dates[MAX_COPY_DATES:]
+    dates = dates[:MAX_COPY_DATES]
+
+    if len(athletes) * len(dates) > MAX_BULK_SESSIONS:
+        messages.error(
+            request,
+            _("一次最多派 %(v0)s 堂課，現在是 %(v1)s 人 × %(v2)s 天；請分幾次派。")
+            % {"v0": MAX_BULK_SESSIONS, "v1": len(athletes), "v2": len(dates)},
+        )
+        return redirect("web:plan_detail", pk=project.pk)
+
+    source = None
+    if request.POST.get("source"):
+        source = TrainingSession.objects.filter(
+            pk=request.POST["source"], athlete__in=[a.id for a in in_project]
+        ).first()
+        if source is None:
+            messages.warning(request, _("找不到那一堂範本課表，這次只用表格填的內容。"))
+
+    session_type = request.POST.get("session_type") or (
+        source.session_type if source else SessionType.TRACK
+    )
+    if session_type not in DEFAULT_PROGRAM_TITLES:
+        messages.error(request, _("不認得的 program 類別。"))
+        return redirect("web:plan_detail", pk=project.pk)
+
+    title = request.POST.get("title", "").strip() or (
+        source.title if source else DEFAULT_PROGRAM_TITLES[session_type]
+    )
+    description = request.POST.get("description", "").strip() or (
+        source.description if source else ""
+    )
+    duration = _plan_int(
+        request.POST.get("planned_duration_min"),
+        10,
+        480,
+        source.planned_duration_min if source else 90,
+    )
+    time_slot = request.POST.get("time_slot")
+    if time_slot not in ("AM", "PM"):
+        time_slot = "PM"
+
+    rows = (
+        list(source.activities.select_related("definition").order_by("block", "order", "id"))
+        if source and request.POST.get("copy_activities")
+        else []
+    )
+
+    coach = getattr(request.user, "coach_profile", None)
+    created = 0
+    for athlete in athletes:
+        for on_date in dates:
+            session = TrainingSession.objects.create(
+                athlete=athlete,
+                microcycle=_microcycle_for(athlete, on_date),
+                date=on_date,
+                time_slot=time_slot,
+                session_type=session_type,
+                title=title,
+                description=description,
+                assigned_by=coach,
+                created_by=request.user,
+                planned_duration_min=duration,
+            )
+            for row in rows:
+                _spawn_activity(
+                    request,
+                    session,
+                    row.block,
+                    row.order,
+                    row.name,
+                    {key: getattr(row, key) for key in ACTIVITY_VALUE_FIELDS},
+                    definition=row.definition,
+                )
+            created += 1
+
+    msg = _("已把「%(v0)s」派給 %(v1)s 名運動員 × %(v2)s 天，共建立 %(v3)s 堂課。") % {
+        "v0": title,
+        "v1": len(athletes),
+        "v2": len(dates),
+        "v3": created,
+    }
+    if rows:
+        msg += _("（每堂連同 %(v0)s 項活動）") % {"v0": len(rows)}
+    messages.success(request, msg)
+    if bad:
+        messages.warning(request, _("看不懂這些日期，已跳過：%(v0)s") % {"v0": "、".join(bad)})
+    if dropped:
+        messages.warning(
+            request, _("一次最多複製 %(v0)s 天，其餘的沒有建立。") % {"v0": MAX_COPY_DATES}
         )
     return redirect("web:plan_detail", pk=project.pk)
 
