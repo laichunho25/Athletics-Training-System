@@ -7,6 +7,12 @@ Pillow>=11.0                # ImageField（頭像 / 餐點照片）
 # ---- 選用：餐點相片辨識 ----
 anthropic>=0.40             # 沒裝或沒設 ANTHROPIC_API_KEY 就自動退回食物字典估算
 
+# ---- 選用：影片庫的雲端儲存（Cloudflare R2）----
+# 沒設 R2_BUCKET 等環境變數的話，影片就存在本機 MEDIA_ROOT，不用裝這兩個。
+# 正式站一定要設：Render 的容器每次部署都會重置，存本機等於重開就沒了。
+django-storages>=1.14       # S3 相容儲存後端
+boto3>=1.35                 # 簽發直傳用的 presigned URL
+
 # ---- 部署（Render）----
 gunicorn>=23.0              # WSGI 伺服器
 whitenoise[brotli]>=6.8     # 靜態檔（CSS / Chart.js）

@@ -1,0 +1,179 @@
+{% extends "base.html" %}{% load i18n %}{% load static %}
+{% block title %}{{ video.display_title }}{% endblock %}
+
+{% block content %}
+
+<div class="between mb">
+  <div>
+    <h1>{{ video.display_title }}</h1>
+    <div class="subtitle mono">
+      {{ video.date|date:'Y-m-d' }} · {{ video.get_kind_display }}
+      {% if video.duration_display %} · {{ video.duration_display }}{% endif %}
+      {% if video.size_display %} · {{ video.size_display }}{% endif %}
+      {% if video.uploaded_by %} · {% blocktranslate with v0=video.uploaded_by.get_full_name|default:video.uploaded_by.username %}{{ v0 }} 上傳{% endblocktranslate %}{% endif %}
+    </div>
+    {% if video.linked_label %}
+      <div class="small c-blue">{% translate "對應" %}：{{ video.linked_label }}</div>
+    {% endif %}
+  </div>
+  <div class="flex">
+    <a class="btn ghost sm" href="{% url 'web:video_list' %}?athlete={{ athlete.id }}">
+      {% translate "回影片庫" %}</a>
+    <form method="post" style="display:inline">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="keeper">
+      <button class="btn ghost sm {% if video.is_keeper %}on{% endif %}" type="submit"
+              title="{% translate '標記為範本的影片不會被保留期限清掉' %}">
+        {% if video.is_keeper %}{% translate "已設為範本" %}{% else %}{% translate "設為範本" %}{% endif %}
+      </button>
+    </form>
+    {% if can_delete %}
+      <form method="post" style="display:inline"
+            onsubmit="return confirm('{% translate "刪掉這條影片？檔案會一併移除，無法復原。" %}')">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete">
+        <button class="btn ghost sm c-red" type="submit">{% translate "刪除" %}</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if video.note %}<div class="card mb">{{ video.note }}</div>{% endif %}
+
+<div class="vidsplit">
+
+  <!-- --------------------------------------------------------- 播放器 -->
+  <div>
+    <div class="card pad0 mb">
+      <div class="vidstage {% if other %}vidstage-two{% endif %}">
+        <div class="vidpane">
+          <video id="player" class="vidplayer" controls playsinline preload="metadata"
+                 {% if video.poster %}poster="{{ video.poster.url }}"{% endif %}
+                 src="{{ video.playback_url }}"></video>
+          {% if other %}<div class="small c-dim mono vidlabel">{{ video.date|date:'m-d' }} · {{ video.display_title }}</div>{% endif %}
+        </div>
+        {% if other %}
+          <div class="vidpane">
+            <video id="player2" class="vidplayer" controls playsinline preload="metadata"
+                   {% if other.poster %}poster="{{ other.poster.url }}"{% endif %}
+                   src="{{ other.playback_url }}"></video>
+            <div class="small c-dim mono vidlabel">{{ other.date|date:'m-d' }} · {{ other.display_title }}</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="vidbar" id="vidbar">
+        <div class="flex">
+          <button type="button" class="btn ghost sm" data-vid="step" data-dir="-1"
+                  title="{% translate '往回一格' %}">◀|</button>
+          <button type="button" class="btn ghost sm" data-vid="play">{% translate "播放" %}</button>
+          <button type="button" class="btn ghost sm" data-vid="step" data-dir="1"
+                  title="{% translate '往前一格' %}">|▶</button>
+        </div>
+        <div class="flex">
+          <span class="small c-dim">{% translate "速度" %}</span>
+          <button type="button" class="btn ghost sm" data-vid="rate" data-rate="0.25">0.25×</button>
+          <button type="button" class="btn ghost sm" data-vid="rate" data-rate="0.5">0.5×</button>
+          <button type="button" class="btn ghost sm on" data-vid="rate" data-rate="1">1×</button>
+        </div>
+        <div class="flex">
+          <span class="small c-dim">{% translate "格率" %}</span>
+          <select class="editsel" id="v-fps" title="{% translate '逐格的一格有多久，依拍攝時的每秒格數' %}">
+            <option value="30" selected>30 fps</option>
+            <option value="60">60 fps</option>
+            <option value="120">120 fps</option>
+            <option value="240">240 fps</option>
+          </select>
+        </div>
+        <span class="mono small" id="v-clock">0.00s</span>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------ 並排比對 -->
+    <div class="card pad0 mb">
+      <div class="card-head"><span>{% translate "並排比對" %}</span></div>
+      <div style="padding:14px 18px">
+        {% if others %}
+          <form method="get" class="flex">
+            <select name="vs" class="editsel" style="min-width:260px">
+              <option value="">{% translate "— 不比對 —" %}</option>
+              {% for o in others %}
+                <option value="{{ o.pk }}" {% if other and other.pk == o.pk %}selected{% endif %}>
+                  {{ o.date|date:'Y-m-d' }} · {{ o.display_title }}
+                </option>
+              {% endfor %}
+            </select>
+            <button class="btn sm" type="submit">{% translate "比對" %}</button>
+            {% if other %}
+              <button type="button" class="btn ghost sm" data-vid="sync">{% translate "兩片一起播" %}</button>
+            {% endif %}
+          </form>
+          <div class="small c-dim mt">
+            {% translate "同一個動作隔幾個月再拍一條，並排看最容易看出改了什麼。" %}
+          </div>
+        {% else %}
+          <div class="small c-dim">{% translate "這位運動員還沒有第二條片可以比。" %}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ----------------------------------------------------------- 批註 -->
+  <div>
+    <div class="card pad0 mb">
+      <div class="card-head">
+        <span>{% translate "批註" %}</span>
+        <span class="small c-dim">{% blocktranslate with v0=notes|length %}{{ v0 }} 條{% endblocktranslate %}</span>
+      </div>
+
+      {% if can_annotate %}
+        <form method="post" style="padding:14px 18px" id="noteform">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="note_add">
+          <div class="flex mb">
+            <span class="small c-dim">{% translate "釘在" %}</span>
+            <input type="text" name="at_sec" id="note-at" class="editnum sm mono" value="0.00"
+                   title="{% translate '按「用目前時間」會填入播放頭的位置' %}">
+            <span class="small c-dim">{% translate "秒" %}</span>
+            <button type="button" class="btn ghost sm" data-vid="grab">{% translate "用目前時間" %}</button>
+          </div>
+          <textarea name="body" rows="3" placeholder="{% translate '例：起身時右膝往內倒，第二拍最明顯' %}" required></textarea>
+          <button class="btn sm mt" type="submit">{% translate "加上批註" %}</button>
+        </form>
+      {% endif %}
+
+      <div class="notes" style="padding:0 18px 14px">
+        {% for n in notes %}
+          <div class="note">
+            <div class="between">
+              <button type="button" class="linkbtn mono" data-vid="seek" data-at="{{ n.at_sec }}">
+                {{ n.at_display }}
+              </button>
+              <span class="small c-dim">
+                {{ n.author.get_full_name|default:n.author.username|default:"—" }}
+                · {{ n.created_at|date:'m-d H:i' }}
+              </span>
+            </div>
+            <div>{{ n.body|linebreaksbr }}</div>
+            <form method="post" style="margin-top:4px">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="note_delete">
+              <input type="hidden" name="note_id" value="{{ n.pk }}">
+              <button class="linkbtn small c-dim" type="submit">{% translate "刪除" %}</button>
+            </form>
+          </div>
+        {% empty %}
+          <div class="small c-dim">
+            {% translate "還沒有批註。播到看得出問題的那一格，按「用目前時間」就會釘在那一秒。" %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/video.js' %}"></script>
+{% endblock %}

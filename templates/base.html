@@ -61,6 +61,9 @@
         <a href="{% url 'web:library' %}" data-tip="{% translate '運動練習項目庫' %}"
            class="nav-item {% if page == 'library' %}active{% endif %}">
           <svg class="ic"><use href="#i-rows"></use></svg><span>{% translate "運動練習項目庫" %}</span></a>
+        <a href="{% url 'web:video_list' %}{{ nav_athlete_qs }}" data-tip="{% translate '影片庫' %}"
+           class="nav-item {% if page == 'video' %}active{% endif %}">
+          <svg class="ic"><use href="#i-video"></use></svg><span>{% translate "影片庫" %}</span></a>
       </div>
 
       <div class="nav-group">

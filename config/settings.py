@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'injury',         # 模組6 傷患管理
 
     'programs',       # 公開報名（項目 / 報名表 → 匯入 ATM）
+    'video',          # 訓練影片庫（上傳、逐格回放、時間點批註）
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -207,6 +208,35 @@ STORAGES = {
 MEDIA_URL = "media/"
 # Render 掛載持久磁碟時設 DJANGO_MEDIA_ROOT=/var/data/media，否則重新部署會遺失上傳檔
 MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
+
+# ------------------------------------------------------------ 上傳檔案存哪
+# 設了 R2_BUCKET（連同 account / key / secret）就整包搬去 Cloudflare R2——
+# 影片、頭像、餐點相片一起。沒設就維持上面的本機檔案系統，本機開發不用改任何東西。
+#
+# 影片動輒上百 MB，放容器裡每次部署就沒了，而且每次播放都是流量；
+# R2 不收 egress，這是選它而不是 Render Disk 的主因。詳見 docs/影片分析.md。
+if os.environ.get("R2_BUCKET"):
+    _R2_ACCOUNT = os.environ.get("R2_ACCOUNT_ID", "")
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": os.environ["R2_BUCKET"],
+            "access_key": os.environ.get("R2_ACCESS_KEY_ID"),
+            "secret_key": os.environ.get("R2_SECRET_ACCESS_KEY"),
+            "endpoint_url": os.environ.get(
+                "R2_ENDPOINT", f"https://{_R2_ACCOUNT}.r2.cloudflarestorage.com"
+            ),
+            "region_name": "auto",
+            # 影片不設成公開讀取；播放網址由 video/storage.py 簽出來，有時效
+            "default_acl": None,
+            "querystring_auth": True,
+            "signature_version": "s3v4",
+        },
+    }
+
+#: 單檔上限（見 video.models.MAX_UPLOAD_BYTES）。Django 預設 2.5MB 以上就寫暫存檔，
+#: 影片一律走暫存檔，不要整條讀進記憶體。
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 
 
 # ------------------------------------------------------------ 正式環境安全性

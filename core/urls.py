@@ -25,5 +25,9 @@ urlpatterns = [
     path("analytics/", views.analytics_view, name="analytics"),
     path("nutrition/", views.nutrition_view, name="nutrition"),
     path("injuries/", views.injuries_view, name="injuries"),
+    # 影片庫：上傳走 R2 直傳時，檔案本身不經過 Django（見 video_sign）
+    path("videos/", views.video_list, name="video_list"),
+    path("videos/sign/", views.video_sign, name="video_sign"),
+    path("video/<int:pk>/", views.video_detail, name="video_detail"),
     path("language/", views.set_language, name="set_language"),
 ]

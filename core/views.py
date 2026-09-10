@@ -139,6 +139,15 @@ from training.library import (
     pending_submissions,
     visible_definitions,
 )
+from video import services as vsvc
+from video import storage as vstorage
+from video.models import (
+    ALLOWED_EXTENSIONS,
+    MAX_UPLOAD_BYTES,
+    VideoKind,
+    VideoNote,
+    make_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -3635,3 +3644,164 @@ def library_view(request):
             "library_count": visible_definitions(request.user).count(),
         },
     )
+
+
+# ==================================================================== 影片庫
+# 上傳的片放哪、誰看得到都在 video.services；這裡只把 request 拆開再轉交。
+# 檔案本身不一定經過這幾個 view——R2 開著時瀏覽器直接把片 PUT 上去
+# （見 video_sign），Django 只收到一筆 metadata。
+
+
+@login_required
+def video_list(request):
+    """影片庫：上傳新片，以及依運動員列出既有的片。"""
+    athlete = _current_athlete(request)
+    if athlete is None:
+        return render(request, "web/no_athlete.html", {"page": "video"})
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        try:
+            if action == "upload":
+                video = vsvc.save_video(
+                    request.user, athlete, request.POST, upload=request.FILES.get("file")
+                )
+                messages.success(
+                    request, _("已上傳「%(v0)s」。") % {"v0": video.display_title}
+                )
+                return redirect("web:video_detail", pk=video.pk)
+            if action == "delete":
+                video = vsvc.get_video(request.user, request.POST.get("video_id"))
+                title = video.display_title
+                vsvc.delete_video(request.user, video)
+                messages.success(request, _("已刪除「%(v0)s」。") % {"v0": title})
+            else:
+                messages.error(request, _("不認得的操作。"))
+        except vsvc.VideoError as exc:
+            messages.error(request, str(exc))
+        return redirect(f"{reverse('web:video_list')}?athlete={athlete.id}")
+
+    videos = list(vsvc.visible_videos(request.user, athlete=athlete))
+    kind = request.GET.get("kind")
+    if kind in VideoKind.values:
+        videos = [v for v in videos if v.kind == kind]
+
+    today = date.today()
+    return render(
+        request,
+        "web/video.html",
+        {
+            "page": "video",
+            "athlete": athlete,
+            "athletes": _athlete_switcher(request),
+            "videos": videos,
+            "kinds": VideoKind.choices,
+            "picked_kind": kind or "",
+            "today": today,
+            "links": vsvc.link_choices(athlete, today),
+            "direct_upload": vstorage.r2_enabled(),
+            "max_mb": int(MAX_UPLOAD_BYTES / 1024 / 1024),
+            "allowed_ext": ", ".join(f".{e}" for e in ALLOWED_EXTENSIONS),
+        },
+    )
+
+
+@login_required
+def video_detail(request, pk):
+    """單條影片：變速與逐格回放、時間點批註，另可並排比對另一條片。"""
+    try:
+        video = vsvc.get_video(request.user, pk)
+    except vsvc.VideoError as exc:
+        messages.error(request, str(exc))
+        return redirect("web:video_list")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        try:
+            if action == "note_add":
+                vsvc.add_note(
+                    request.user, video, request.POST.get("at_sec"), request.POST.get("body")
+                )
+                messages.success(request, _("已加上批註。"))
+            elif action == "note_delete":
+                note = get_object_or_404(VideoNote, pk=request.POST["note_id"], video=video)
+                vsvc.delete_note(request.user, note)
+                messages.success(request, _("已刪除批註。"))
+            elif action == "keeper":
+                video.is_keeper = not video.is_keeper
+                video.save(update_fields=["is_keeper", "updated_at"])
+                messages.success(
+                    request,
+                    _("已標記為範本，保留期限不會清掉這條片。")
+                    if video.is_keeper
+                    else _("已取消範本標記。"),
+                )
+            elif action == "delete":
+                vsvc.delete_video(request.user, video)
+                messages.success(request, _("已刪除該影片。"))
+                return redirect(f"{reverse('web:video_list')}?athlete={video.athlete_id}")
+            else:
+                messages.error(request, _("不認得的操作。"))
+        except vsvc.VideoError as exc:
+            messages.error(request, str(exc))
+        return redirect("web:video_detail", pk=video.pk)
+
+    # 並排比對：?vs=<另一條片的 id>，只收看得到的片
+    other = None
+    vs_id = request.GET.get("vs")
+    if vs_id:
+        other = vsvc.visible_videos(request.user).filter(pk=vs_id).first()
+
+    same_athlete = (
+        vsvc.visible_videos(request.user, athlete=video.athlete)
+        .exclude(pk=video.pk)
+        .order_by("-date", "-id")[:50]
+    )
+    return render(
+        request,
+        "web/video_detail.html",
+        {
+            "page": "video",
+            "athlete": video.athlete,
+            "video": video,
+            "other": other,
+            "others": same_athlete,
+            "notes": list(video.notes.select_related("author")),
+            "can_delete": vsvc.may_delete(request.user, video),
+            "can_annotate": vsvc.may_annotate(request.user, video),
+        },
+    )
+
+
+@login_required
+@require_POST
+def video_sign(request):
+    """發一個 presigned PUT 網址，讓瀏覽器把影片直接送去 R2。
+
+    沒設 R2 時回 `{"direct": false}`，前端就退回一般的表單上傳——
+    本機開發不用開任何雲端帳號也能做完整流程。
+    """
+    athlete = _current_athlete(request)
+    if athlete is None:
+        return JsonResponse({"error": str(_("先挑一位運動員。"))}, status=400)
+
+    filename = request.POST.get("filename", "")
+    try:
+        vsvc.check_filename(filename)
+        vsvc.check_size(int(request.POST.get("size") or 0))
+    except vsvc.VideoError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": str(_("檔案大小不正確。"))}, status=400)
+
+    if not vstorage.r2_enabled():
+        return JsonResponse({"direct": False})
+
+    key = make_key(athlete.id, filename)
+    content_type = request.POST.get("content_type") or "video/mp4"
+    url = vstorage.presign_put(key, content_type)
+    if not url:
+        # 設了 R2 但簽不出來（沒裝 boto3、金鑰錯）——不要卡死，退回表單上傳
+        logger.warning("R2 已設定但無法簽發上傳網址，改走 Django 上傳")
+        return JsonResponse({"direct": False})
+    return JsonResponse({"direct": True, "url": url, "key": key, "content_type": content_type})

@@ -1296,3 +1296,66 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   /* 課表主表在手機上橫捲；欄位收窄一點，一次多看得到一兩欄 */
   .acttable { min-width: 700px; }
 }
+
+
+/* ================================================================ 影片庫
+   卡片牆用固定 16:9 的縮圖框，片長蓋在右下角——一整頁掃過去，
+   高矮一致才看得快。 */
+.vidcard { display: flex; flex-direction: column; gap: 4px; }
+.vidcard .between { gap: 8px; }
+.vidthumb {
+  position: relative; display: block; aspect-ratio: 16 / 9;
+  background: var(--surface-3); border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--border);
+}
+.vidthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vidthumb:hover { border-color: var(--accent); }
+.vidthumb-blank {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; color: var(--text-dim); opacity: .45;
+}
+.vidthumb-blank .ic { width: 30px; height: 30px; }
+.vidlen {
+  position: absolute; right: 5px; bottom: 5px; font-style: normal;
+  padding: 1px 5px; border-radius: 2px; font-size: 11px;
+  background: rgba(0, 0, 0, .68); color: #fff;
+}
+
+/* 上傳前的預覽：左邊一小格畫面，右邊是讀出來的長度尺寸與警告 */
+.vidprev { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; }
+.vidprev video {
+  width: 220px; max-width: 40vw; aspect-ratio: 16 / 9; object-fit: cover;
+  background: #000; border-radius: var(--radius-sm); border: 1px solid var(--border);
+}
+.vidprev-meta { display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
+.vidprog { display: flex; align-items: center; gap: 10px; }
+.vidprog .progress { flex: 1 1 auto; margin-top: 0; }
+
+/* 詳情頁：左邊播放器，右邊批註 */
+.vidsplit { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+
+.vidstage { display: grid; grid-template-columns: 1fr; background: #000; }
+.vidstage.vidstage-two { grid-template-columns: 1fr 1fr; gap: 1px; }
+.vidpane { position: relative; min-width: 0; }
+.vidplayer { width: 100%; max-height: 62vh; display: block; background: #000; }
+.vidlabel {
+  position: absolute; left: 6px; top: 6px; padding: 1px 6px; border-radius: 2px;
+  background: rgba(0, 0, 0, .6); color: #ddd;
+}
+
+/* 逐格與變速那一列——跟 .progbar 一樣貼在卡片底，只是在下緣 */
+.vidbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: 8px 14px; border-top: 1px solid var(--border); background: var(--bg);
+}
+.vidbar .flex { gap: 6px; }
+.vidbar #v-clock { margin-left: auto; }
+.vidbar .editsel { padding: 3px 6px; font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .vidsplit { grid-template-columns: 1fr; }
+  .vidstage.vidstage-two { grid-template-columns: 1fr; gap: 2px; }
+  .vidplayer { max-height: 50vh; }
+  .vidprev { flex-direction: column; }
+  .vidprev video { width: 100%; max-width: none; }
+}

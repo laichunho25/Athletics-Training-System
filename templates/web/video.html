@@ -1,0 +1,165 @@
+{% extends "base.html" %}{% load i18n %}{% load static %}
+{% block title %}{% translate "影片庫" %}{% endblock %}
+
+{% block content %}
+
+<div class="between mb">
+  <div>
+    <h1>{% translate "影片庫" %}</h1>
+    <div class="subtitle">
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} 的訓練影片{% endblocktranslate %}
+      · {% blocktranslate with v0=videos|length %}{{ v0 }} 條{% endblocktranslate %}
+    </div>
+  </div>
+  <div class="flex">
+    <a class="btn ghost sm {% if not picked_kind %}on{% endif %}"
+       href="?athlete={{ athlete.id }}">{% translate "全部" %}</a>
+    {% for value, label in kinds %}
+      <a class="btn ghost sm {% if picked_kind == value %}on{% endif %}"
+         href="?athlete={{ athlete.id }}&kind={{ value }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------- 上傳 -->
+<div class="card pad0 mb">
+  <div class="card-head" data-fold-key="video-add">
+    <span>{% translate "上傳影片" %}</span>
+    {% if direct_upload %}
+      <span class="badge b-green">{% translate "直傳雲端儲存" %}</span>
+    {% else %}
+      <span class="badge b-dim">{% translate "本機儲存（未設定 R2）" %}</span>
+    {% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data" style="padding:16px 18px"
+        id="vidform"
+        data-sign-url="{% url 'web:video_sign' %}"
+        data-direct="{% if direct_upload %}1{% endif %}"
+        data-max-mb="{{ max_mb }}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="upload">
+    {% comment %}以下幾個值由 video.js 讀出來填：長度、尺寸、封面圖，以及直傳後的物件位置{% endcomment %}
+    <input type="hidden" name="duration_sec" id="v-duration">
+    <input type="hidden" name="width" id="v-width">
+    <input type="hidden" name="height" id="v-height">
+    <input type="hidden" name="size_bytes" id="v-size">
+    <input type="hidden" name="poster" id="v-poster">
+    <input type="hidden" name="remote_key" id="v-key">
+
+    <div class="row">
+      <div class="field">
+        <label>{% translate "影片檔" %}</label>
+        <input type="file" name="file" id="v-file" accept="video/*" required>
+        <span class="small c-dim">
+          {% blocktranslate with v0=allowed_ext v1=max_mb %}{{ v0 }}，單檔上限 {{ v1 }} MB{% endblocktranslate %}
+        </span>
+      </div>
+      <div class="field">
+        <label>{% translate "拍攝日期" %}</label>
+        <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+      </div>
+      <div class="field">
+        <label>{% translate "類別" %}</label>
+        <select name="kind">
+          {% for value, label in kinds %}
+            <option value="{{ value }}" {% if value == 'STRENGTH' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>{% translate "標題" %}</label>
+        <input type="text" name="title" placeholder="{% translate '例：深蹲 100kg 第 3 組' %}">
+      </div>
+      <div class="field">
+        <label>{% translate "對應數據紀錄（可留空）" %}</label>
+        <select name="record">
+          <option value="">{% translate "— 不綁 —" %}</option>
+          {% for value, label in links.records %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>{% translate "對應課表活動（可留空）" %}</label>
+        <select name="activity">
+          <option value="">{% translate "— 不綁 —" %}</option>
+          {% for value, label in links.activities %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>{% translate "說明" %}</label>
+      <input type="text" name="note" placeholder="{% translate '例：今日最後一組，覺得右膝有點內扣' %}">
+    </div>
+
+    <div id="v-preview" class="vidprev" hidden>
+      <video id="v-probe" muted playsinline preload="metadata"></video>
+      <div class="vidprev-meta">
+        <div id="v-meta" class="small c-dim mono"></div>
+        <div id="v-warn" class="small c-orange" hidden></div>
+      </div>
+    </div>
+
+    <div class="vidprog mt" id="v-progwrap" hidden>
+      <div class="progress"><div id="v-prog" style="width:0%"></div></div>
+      <span class="small c-dim mono" id="v-progtext">0%</span>
+    </div>
+
+    <button class="btn mt" type="submit" id="v-submit">{% translate "上傳" %}</button>
+    <span class="small c-dim" style="margin-left:8px">
+      {% translate "橫著拍、整個人入鏡、背景乾淨一點，日後回看比較得出來。iPhone 請在「設定 → 相機 → 格式」選「最相容」，否則瀏覽器可能播不了。" %}
+    </span>
+  </form>
+</div>
+
+<!-- ------------------------------------------------------------- 影片列表 -->
+{% if videos %}
+  <div class="grid grid-3">
+    {% for v in videos %}
+      <div class="card vidcard">
+        <a href="{% url 'web:video_detail' v.pk %}" class="vidthumb">
+          {% if v.poster %}
+            <img src="{{ v.poster.url }}" alt="{{ v.display_title }}" loading="lazy">
+          {% else %}
+            <span class="vidthumb-blank"><svg class="ic"><use href="#i-video"></use></svg></span>
+          {% endif %}
+          {% if v.duration_display %}<em class="vidlen mono">{{ v.duration_display }}</em>{% endif %}
+        </a>
+        <div class="between mt">
+          <strong class="ellip">{{ v.display_title }}</strong>
+          <span class="badge b-dim">{{ v.get_kind_display }}</span>
+        </div>
+        <div class="small c-dim mono">
+          {{ v.date|date:'Y-m-d' }}
+          {% if v.size_display %} · {{ v.size_display }}{% endif %}
+          {% if v.note_count %} · {% blocktranslate with v0=v.note_count %}{{ v0 }} 條批註{% endblocktranslate %}{% endif %}
+        </div>
+        {% if v.linked_label %}
+          <div class="small c-blue ellip">{{ v.linked_label }}</div>
+        {% endif %}
+        {% if v.note %}<div class="small c-dim ellip">{{ v.note }}</div>{% endif %}
+        <div class="between mt">
+          <a class="btn ghost sm" href="{% url 'web:video_detail' v.pk %}">{% translate "看片" %}</a>
+          {% if v.is_keeper %}<span class="badge b-yellow">{% translate "範本" %}</span>{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card empty">
+    {% translate "還沒有影片。用上面的表單傳第一條——拍一組深蹲或一趟加速跑都可以。" %}
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/video.js' %}"></script>
+{% endblock %}
