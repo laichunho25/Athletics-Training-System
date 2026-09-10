@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% translate "登紀錄" %}{% endblock %}
+
+{% block content %}
+<div class="between mb">
+  <div>
+    <h1>{% translate "登紀錄" %}</h1>
+    <div class="subtitle" style="margin:0">
+      {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} ·
+ 先挑範疇，再挑項目，然後一列一組把數字填進去{% endblocktranslate %}
+    </div>
+  </div>
+  {% include "web/_athlete_links.html" %}
+</div>
+
+<!-- ==================================================== 第一步：挑範疇 -->
+{% if not domain %}
+<div class="card">
+  <div class="small c-dim mb">{% translate "要登哪一個範疇的數據？" %}</div>
+  <div class="domainpick">
+    {% for value, label in domains %}
+      <a class="domainopt" href="?athlete={{ athlete.id }}&domain={{ value }}">
+        <b>{{ label }}</b>
+        <span class="c-dim small">
+          {% if value == 'TRACK' %}{% translate "跑的：節奏跑、反覆跑、起跑…先挑方式再填距離" %}
+          {% elif value == 'STRENGTH' %}{% translate "舉的：深蹲、臥推、爆發上膊…一組一列填重量與次數" %}
+          {% else %}{% translate "比賽當天的成績，挑得到是哪一場比賽" %}{% endif %}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+  <div class="small c-dim mt">
+    {% translate "課表上排好的活動，也可以在那一天的課表按活動旁的「登記錄」——兩邊寫的是同一份數據。" %}
+  </div>
+</div>
+{% else %}
+
+<div class="tabs">
+  {% for value, label in domains %}
+    <a href="?athlete={{ athlete.id }}&domain={{ value }}"
+       class="{% if value == domain %}active{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="grid anagrid mb">
+ <div>
+  <!-- ------------------------------------------------ 第二步：挑項目 -->
+  <div class="card mb">
+    <div class="between mb">
+      <strong>{% translate "登哪一個項目" %}</strong>
+      <span class="small c-dim">{{ domain_label }}</span>
+    </div>
+
+    {% if recent_items %}
+    <div class="field">
+      <label>{% translate "最近登過的" %}</label>
+      <div class="flex" style="flex-wrap:wrap;gap:6px">
+        {% for row in recent_items %}
+          <a class="btn ghost sm {% if item and row.item.id == item.id %}on{% endif %}"
+             href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}"
+             title="{% if row.last_date %}{% blocktranslate with v0=row.last_date %}最後一次登錄 {{ v0 }}{% endblocktranslate %}{% else %}{% translate '還沒有紀錄' %}{% endif %}">
+            {{ row.item.name }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="get" class="row">
+      <input type="hidden" name="athlete" value="{{ athlete.id }}">
+      <input type="hidden" name="domain" value="{{ domain }}">
+      <div class="field" style="flex:1">
+        <label>{% translate "全部項目" %}</label>
+        <select name="item" onchange="this.form.submit()">
+          <option value="">{% translate "（挑一個項目）" %}</option>
+          {% for it in items %}
+            <option value="{{ it.id }}" {% if item and it.id == item.id %}selected{% endif %}>
+              {{ it.display_name }}{% if it.unit %}（{{ it.unit }}）{% endif %}
+            </option>
+          {% empty %}
+            <option disabled>{% translate "這個範疇還沒有項目" %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="align-self:end">
+        <button class="btn ghost sm" type="submit">{% translate "挑這一個" %}</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ------------------------------------------- 清單裡沒有就自己開一個 -->
+  <div class="card pad0 mb">
+    <div class="card-head" data-fold-default="closed">
+      <span>{% translate "清單裡沒有？開一個新項目" %}</span>
+    </div>
+    <div style="padding:14px 18px">
+      {% if is_track %}
+      {# 田徑練習：距離是多變的，先挑方式、再填距離，合起來才是一個項目 #}
+      <form method="post" class="row">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_track_item">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        <div class="field">
+          <label>{% translate "練習方式" %}</label>
+          <select name="method">
+            {% for value, label in track_methods %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>{% translate "距離（米）" %}</label>
+          <input type="number" name="distance_m" min="1" step="1" placeholder="{% translate '例：150' %}">
+        </div>
+        <div class="field" style="align-self:end">
+          <button class="btn sm" type="submit">{% translate "開項目" %}</button>
+        </div>
+      </form>
+      <div class="small c-dim mt">{% translate "例：挑「反覆跑」＋ 填 150，就會開出「150m 反覆跑」這一項。距離留空就只記方式。" %}</div>
+      {% else %}
+      <form method="post" class="row">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_item">
+        <input type="hidden" name="domain" value="{{ domain }}">
+        <div class="field" style="flex:1">
+          <label>{% translate "項目名稱" %}</label>
+          <input type="text" name="name" required
+                 placeholder="{% if is_competition %}{% translate '例：100m、跳遠' %}{% else %}{% translate '例：背蹲舉、爆發上膊' %}{% endif %}">
+        </div>
+        <div class="field" style="align-self:end">
+          <button class="btn sm" type="submit">{% translate "開項目" %}</button>
+        </div>
+      </form>
+      <div class="small c-dim mt">{% translate "名稱打得中運動練習項目庫的話，英文名與分類會照著帶過來，不會開出第二個一樣的項目。" %}</div>
+      {% endif %}
+    </div>
+  </div>
+ </div>
+
+ <div>
+  <!-- ------------------------------------------- 第三步：填每一組的數字 -->
+  {% if not item %}
+  <div class="card">
+    <div class="c-dim small">{% translate "先在左邊挑一個項目（或開一個新的），這裡就會出現填數字的格子。" %}</div>
+  </div>
+  {% else %}
+  <div class="card pad0 mb">
+    <div class="card-head">
+      <span class="ellip" title="{{ item.display_name }}">{{ item.name }}{% if item.unit %}（{{ item.unit }}）{% endif %}</span>
+      <span class="small c-dim">
+        {% if unit_is_weight %}{% translate "這個項目的數值就是重量（kg），不同組的次數、休息時間可以分開填" %}
+        {% elif is_track %}{% translate "不同組的強度要求、次數、休息時間可以分開填（強度例：90%、95%、全力）" %}
+        {% else %}{% translate "不同組的重量、次數、休息時間可以分開填" %}{% endif %}
+      </span>
+    </div>
+
+    <form method="post" style="padding:14px 18px">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_record">
+      <input type="hidden" name="domain" value="{{ domain }}">
+      <input type="hidden" name="item_id" value="{{ item.id }}">
+
+      <div class="row">
+        <div class="field">
+          <label>{% translate "日期" %}</label>
+          <input type="date" name="date" value="{{ today_iso }}" required>
+        </div>
+        <div class="field" style="flex:1">
+          <label>{% translate "對應 program（可留空）" %}</label>
+          <select name="session">
+            <option value="">{% translate "（不對應課表）" %}</option>
+            {% for s in recent_sessions %}
+              <option value="{{ s.id }}">{{ s.date|date:"Y-m-d" }} · {{ s.title }}（{{ s.get_session_type_display }}）</option>
+            {% endfor %}
+          </select>
+          <span class="small c-dim">{% translate "挑了課表，這一組就掛在那一堂課底下；自己加練的留空就好" %}</span>
+        </div>
+        <div class="field">
+          <label>{% translate "課表區塊" %}</label>
+          <select name="block">
+            <option value="">{% translate "（不指定）" %}</option>
+            {% for value, label in metric_blocks %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="setgridwrap">
+      <table class="setgrid">
+        <thead>
+          <tr>
+            <th style="width:52px">{% translate "組" %}</th>
+            <th class="dist" style="width:96px">{% translate "距離 (m)" %}</th>
+            <th>{% blocktranslate with v0=item.unit|default:_("秒") %}目標數值（{{ v0 }}）{% endblocktranslate %}</th>
+            <th>{% blocktranslate with v0=item.unit|default:_("秒") %}完成數值（{{ v0 }}）{% endblocktranslate %}</th>
+            {% if is_track %}<th>{% translate "強度要求" %}</th>
+            {% elif not unit_is_weight %}<th>{% translate "重量 (kg)" %}</th>{% endif %}
+            <th>{% translate "次數" %}</th>
+            <th>{% translate "休息（分）" %}</th>
+            <th style="width:118px">{% translate "成功完成" %}</th>
+            <th style="width:34px"></th>
+          </tr>
+        </thead>
+        <tbody id="setRows">
+          <tr>
+            <td class="setno num">1</td>
+            <td class="dist"><input type="number" step="0.1" min="0" name="distance_m"
+                                    title="{% translate '這一組的距離（米）' %}" placeholder="—"></td>
+            <td><input type="number" step="0.01" name="target_value" placeholder="—"></td>
+            <td><input type="number" step="0.01" name="value" placeholder="—"></td>
+            {% if is_track %}
+              <td><input type="text" name="intensity" maxlength="20" placeholder="{% translate '例：90%' %}"></td>
+            {% elif not unit_is_weight %}
+              <td><input type="number" step="0.5" min="0" name="weight" placeholder="—"></td>
+            {% endif %}
+            <td><input type="number" step="1" min="0" name="reps" placeholder="—"></td>
+            <td><input type="number" step="0.5" min="0" name="rest_sec" placeholder="—"></td>
+            <td>
+              <select name="completed">
+                <option value="1">{% translate "✅ 完成" %}</option>
+                <option value="0">{% translate "❌ 未完成" %}</option>
+              </select>
+            </td>
+            <td><button type="button" class="linkbtn rmset" title="{% translate '刪掉這一組' %}">×</button></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="flex mb">
+        <button type="button" class="btn ghost sm" id="addSet">{% translate "＋ 再加一組（空白）" %}</button>
+        <button type="button" class="btn ghost sm" id="copySet"
+                title="{% translate '數字照抄上一組，只要改動不一樣的那一格' %}">{% translate "＋ 跟上一組一樣" %}</button>
+        <label class="unitpick">{% translate "休息時間單位" %}
+          <select name="rest_unit">
+            <option value="min" selected>{% translate "分鐘" %}</option>
+            <option value="sec">{% translate "秒" %}</option>
+          </select>
+        </label>
+        <span class="small c-dim">{% translate "每一組各存成一筆紀錄，數據分析那邊會逐組畫出來" %}</span>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>{% translate "狀態（這天的練習在什麼狀態下進行）" %}</label>
+          <select name="status">
+            <option value="">{% translate "（未註記）" %}</option>
+            {% for v, l in metric_statuses %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+          </select>
+          <span class="small c-dim">{% translate "傷患期或季後休息期跑出來的數字本來就不一樣； 註記了，數據分析才不會把它當成能力退步" %}</span>
+        </div>
+        <div class="field" style="flex:1">
+          <label>{% translate "情境（這次所有組共用）" %}</label>
+          <input type="text" name="context" placeholder="{% translate '例：順風 1.2、賽前熱身、深蹲日' %}">
+        </div>
+      </div>
+
+      {% if is_competition %}
+      {# 比賽數據要知道是哪一場，比賽分析才排得出「逐場」那幾張表 #}
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label>{% translate "哪一場比賽" %}</label>
+          <select name="competition">
+            <option value="">{% translate "（不指定場次）" %}</option>
+            {% for c in competitions %}
+              <option value="{{ c.id }}">{{ c.date|date:"Y-m-d" }} · {{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <span class="small c-dim">{% translate "挑了場次，成績才會出現在「比賽分析」那幾張逐場的表" %}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <button class="btn" type="submit">{% translate "記錄" %}</button>
+    </form>
+  </div>
+
+  <!-- ------------------------------------------------- 剛登進去的那幾筆 -->
+  <div class="card pad0">
+    <div class="card-head">
+      <span>{% translate "這個項目最近登的" %}</span>
+      <span class="small c-dim">
+        <a href="{% url 'web:analytics' %}?athlete={{ athlete.id }}&domain={{ domain }}&item={{ item.id }}">{% translate "到數據分析看趨勢、改紀錄 →" %}</a>
+      </span>
+    </div>
+    <div class="detailtable">
+      <table>
+        <thead>
+          <tr>
+            <th>{% translate "日期" %}</th>
+            <th>{% translate "組" %}</th>
+            <th>{% translate "完成數值" %}</th>
+            <th>{% translate "距離 (m)" %}</th>
+            <th>{% translate "次數" %}</th>
+            <th>{% translate "情境" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in latest %}
+            <tr>
+              <td class="num">{{ r.date|date:"Y-m-d" }}</td>
+              <td class="num">{{ r.set_no|default_if_none:"—" }}</td>
+              <td class="num">{% if r.value is not None %}{{ r.value }}{{ item.unit }}{% else %}—{% endif %}</td>
+              <td class="num">{{ r.distance_m|default_if_none:"—" }}</td>
+              <td class="num">{{ r.reps|default_if_none:"—" }}</td>
+              <td class="c-dim small">{{ r.context|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="c-dim small">{% translate "這個項目還沒有紀錄，上面填一組就開始了。" %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+ </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/fold.js' %}"></script>
+<script src="{% static 'js/setgrid.js' %}"></script>
+<script>
+  if (window.ATM && ATM.mountSetGrid) { ATM.mountSetGrid(); }
+</script>
+{% endblock %}

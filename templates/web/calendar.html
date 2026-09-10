@@ -69,6 +69,7 @@
   {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
   <span>{% translate "· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復" %}
     <br>· <strong>{% translate "課表右上角的 ⧉ 就是把整堂課（連活動）複製到其他日子，或複製給同計劃的其他運動員" %}</strong>
+    <br>· <strong>{% translate "旁邊的 🗑 是把整堂課刪掉（只有排這堂課的人和管理員看得到）" %}</strong>
     <span class="no-touch"><br>· <strong>{% translate "把課表直接拖到另一天就是改日期" %}</strong></span>
     <span class="only-touch"><br>{% translate "· 要改日期，點進課表按抬頭的「日期」那一格" %}</span>
   </span>
@@ -200,6 +201,37 @@
     </label>
 
     <button class="btn mt" type="submit">{% translate "複製" %}</button>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------- 刪掉整堂課 -->
+<dialog id="delDlg" class="dlg">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_session">
+    <input type="hidden" name="athlete" value="{{ athlete.id }}">
+    <input type="hidden" name="session" id="delSession">
+    <div class="between mb">
+      <h2 style="margin:0">{% translate "刪除課表" %}</h2>
+      <button type="button" class="btn ghost sm" onclick="delDlg.close()">{% translate "關閉" %}</button>
+    </div>
+
+    <div class="field">
+      <label>{% translate "要刪掉的課表" %}</label>
+      <div id="delSrc" class="ro"></div>
+    </div>
+
+    <div class="alert yellow">
+      {% translate "整堂課會從日曆上消失，連同熱身／正課／補充練習／恢復練習四區的活動與記事。 已經登進去的訓練紀錄不會刪，在數據分析照樣看得到，只是不再對應這一堂課。" %}
+    </div>
+    <div class="small c-dim mb" id="delCount"
+         data-has="{% translate '這一課底下有 {n} 項活動，會一起刪掉。' %}"
+         data-none="{% translate '這一課還沒有活動。' %}"></div>
+
+    <div class="flex">
+      <button class="btn danger" type="submit">{% translate "確定刪除" %}</button>
+      <button type="button" class="btn ghost" onclick="delDlg.close()">{% translate "取消" %}</button>
+    </div>
   </form>
 </dialog>
 

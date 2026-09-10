@@ -1505,6 +1505,13 @@ def calendar_view(request):
             f"{request.path}?athlete={athlete.id}&year={target.year}&month={target.month}"
         )
 
+    # ---- 把日曆上的課表整堂刪掉 ----
+    if request.method == "POST" and request.POST.get("action") == "delete_session":
+        target = _delete_session(request, athlete) or date.today()
+        return redirect(
+            f"{request.path}?athlete={athlete.id}&year={target.year}&month={target.month}"
+        )
+
     ctx = _calendar_context(athlete, request)
     ctx.update(
         {
@@ -1635,6 +1642,43 @@ def _picked_peers(request, athlete):
     """複製課表對話框裡勾了的同計劃運動員（勾了看不到的人一律當沒勾）。"""
     picked = set(request.POST.getlist("peer_ids"))
     return [p for p in _plan_peers(request.user, athlete) if str(p.id) in picked]
+
+
+def _delete_session(request, athlete):
+    """把日曆上一堂課整堂刪掉，回傳它原本在哪一天（好讓畫面停在同一個月）。
+
+    課表底下的活動與記事跟著一起刪；已經登進去的數據紀錄不會刪——
+    那是練過的成績，只是不再掛在這一堂課底下，數據分析照樣看得到。
+    """
+    session = TrainingSession.objects.filter(
+        pk=request.POST.get("session"), athlete=athlete
+    ).first()
+    if session is None:
+        messages.error(request, _("找不到要刪除的課表。"))
+        return None
+    if not liveedit.can_delete(session, request.user):
+        messages.error(
+            request,
+            _("「%(v0)s」是別人排的課，只有排課的人或管理員刪得掉。") % {"v0": session.title},
+        )
+        return session.date
+
+    on_date, title = session.date, session.title
+    activities = session.activities.count()
+    records = session.metric_records.count()
+    session.delete()
+
+    msg = _("已刪除 %(v0)s 的「%(v1)s」。") % {"v0": on_date, "v1": title}
+    if activities:
+        msg += _("（連同 %(v0)s 項活動）") % {"v0": activities}
+    messages.success(request, msg)
+    if records:
+        messages.info(
+            request,
+            _("這堂課登過的 %(v0)s 筆訓練紀錄留著沒有刪，在數據分析照樣看得到，只是不再對應這一堂課。")
+            % {"v0": records},
+        )
+    return on_date
 
 
 def _copy_session(request, athlete):
@@ -1801,6 +1845,8 @@ def _calendar_context(athlete, request):
         "today_iso": today.isoformat(),
         "cal_version": f"{_stamp(sessions)}|{_stamp(meets)}",
         "can_move": {s.id: liveedit.can_edit(s, request.user, "date") for s in sessions},
+        # 日曆上每一堂課右上角的 🗑：規則跟改自己寫的東西一樣（管理員例外）
+        "can_delete": {s.id: liveedit.can_delete(s, request.user) for s in sessions},
     }
 
 
@@ -2563,6 +2609,199 @@ def calendar_live(request):
         return JsonResponse({"changed": False, "version": ctx["cal_version"]})
     html = render_to_string("web/_calendar_grid.html", ctx, request=request)
     return JsonResponse({"changed": True, "version": ctx["cal_version"], "html": html})
+
+
+# ------------------------------------------------------------------ 登紀錄
+#
+# 課表那邊是「排了什麼就登什麼」——挑一行活動按「登記錄」。
+# 但很多數據不是從課表來的：自己加練的一組、比賽當天的成績、
+# 教練事後幫運動員補登的。所以頂欄放一顆「登紀錄」，任何一頁都按得到：
+# 先挑範疇（田徑練習訓練紀錄／重量訓練紀錄／比賽數據），再挑項目，然後填數字。
+# 寫進去的跟課表、數據分析是同一張 MetricRecord，不用重打第二次。
+
+
+def _record_back(request, athlete, domain, item=None):
+    """登紀錄頁的回程網址（留在同一位、同一個範疇、同一個項目）。"""
+    url = f"{reverse('web:record')}?athlete={athlete.id}"
+    if domain:
+        url += f"&domain={domain}"
+    if item is not None:
+        url += f"&item={item.id}"
+    return url
+
+
+def _record_add_item(request, athlete, domain):
+    """登紀錄頁的「找不到就自己開一個項目」。
+
+    名稱打得中活動庫的話，英文名與分類照活動庫帶——跟數據分析那邊同一套規則，
+    才不會同一個動作在兩邊開出兩個項目。
+    """
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, _("請填項目名稱。"))
+        return None
+    match = (
+        ActivityDefinition.objects.filter(name__iexact=name).first()
+        or ActivityDefinition.objects.filter(name_en__iexact=name).first()
+    )
+    item = item_for_name(
+        domain,
+        match.name if match else name,
+        user=request.user,
+        category=metric_category_for_activity(match.category) if match else None,
+        name_en=match.name_en if match else "",
+    )
+    messages.success(request, _("已把「%(v0)s」加進項目清單，可以開始登數據了。") % {"v0": item.display_name})
+    return item
+
+
+@login_required
+def record_view(request):
+    """登紀錄：先挑範疇，再挑項目，然後一列一組把數字填進去。
+
+    教練、運動員、管理員都進得來——看得到這名運動員就登得了他的數據，
+    教練替運動員補登、運動員自己記，走的是同一頁。
+    """
+    athlete = _current_athlete(request)
+    if athlete is None:
+        return render(request, "web/no_athlete.html", {"page": "record"})
+
+    ensure_builtin_items()
+
+    # 範疇沒挑（或挑了不認得的）就停在「先選範疇」那一步
+    raw_domain = request.POST.get("domain") if request.method == "POST" else request.GET.get("domain")
+    domain = raw_domain if raw_domain in MetricDomain.values else ""
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if not domain:
+            messages.error(request, _("請先挑一個範疇。"))
+            return redirect(_record_back(request, athlete, ""))
+
+        if action == "add_item":
+            item = _record_add_item(request, athlete, domain)
+            return redirect(_record_back(request, athlete, domain, item))
+
+        if action == "add_track_item":
+            # 田徑練習：距離是多變的，先挑方式、再填距離，合起來才是一個項目
+            method = request.POST.get("method", "")
+            if method not in TrackMethod.values:
+                messages.error(request, _("請先挑一個練習方式（節奏跑／反覆跑／起跑…）。"))
+                return redirect(_record_back(request, athlete, domain))
+            raw = (request.POST.get("distance_m") or "").strip()
+            distance = None
+            if raw:
+                try:
+                    distance = max(1, int(float(raw)))
+                except ValueError:
+                    messages.error(request, _("距離要填數字（公尺），或留空只記方式。"))
+                    return redirect(_record_back(request, athlete, domain))
+            item = track_item_for(method, distance, user=request.user)
+            messages.success(
+                request,
+                _("已把「%(v0)s」加進要追蹤的項目清單，可以開始登數據了。") % {"v0": item.display_name},
+            )
+            return redirect(_record_back(request, athlete, domain, item))
+
+        if action == "add_record":
+            item = get_object_or_404(
+                MetricItem, pk=request.POST.get("item_id") or 0, domain=domain
+            )
+            session = None
+            if request.POST.get("session"):
+                session = athlete.sessions.filter(pk=request.POST["session"]).first()
+            competition = None
+            if request.POST.get("competition"):
+                competition = athlete_competitions(athlete).filter(
+                    pk=request.POST["competition"]
+                ).first()
+            try:
+                # 一列一組：同一天不同組的重量／次數／休息時間都不一樣
+                _created, msg = create_records(
+                    athlete=athlete,
+                    item=item,
+                    session=session,
+                    post=request.POST,
+                    on_date=request.POST.get("date") or date.today(),
+                    competition=competition,
+                )
+            except RecordError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, msg)
+            return redirect(_record_back(request, athlete, domain, item))
+
+        return redirect(_record_back(request, athlete, domain))
+
+    # ---- 挑項目 ----
+    item = None
+    if domain and request.GET.get("item"):
+        item = MetricItem.objects.filter(
+            pk=request.GET["item"], domain=domain, is_active=True
+        ).first()
+
+    # 挑得到的全部項目，以及「最近登過的」——常記的那幾項不用在長清單裡找
+    choices = (
+        list(MetricItem.objects.filter(domain=domain, is_active=True).order_by("name"))
+        if domain
+        else []
+    )
+    recent_items = (
+        an.overview_by_recent(an.metric_overview(athlete, domain, used_only=True))[:12]
+        if domain
+        else []
+    )
+
+    # 這一筆可以掛到哪一堂 program（只列得出對得上這個範疇的課別）
+    recent_sessions = (
+        athlete.sessions.filter(
+            date__gte=date.today() - timedelta(days=90),
+            session_type__in=session_types_for_domain(domain),
+        ).order_by("-date")[:60]
+        if domain
+        else []
+    )
+
+    # 剛登完想確認有沒有記到：把這個項目最近幾筆列出來
+    latest = (
+        list(
+            MetricRecord.objects.filter(athlete=athlete, item=item)
+            .order_by("-date", "-set_no", "-id")[:12]
+        )
+        if item
+        else []
+    )
+
+    unit = (item.unit or "").strip().lower() if item else ""
+    return render(
+        request,
+        "web/record.html",
+        {
+            "page": "record",
+            "athlete": athlete,
+            "athletes": _athlete_switcher(request),
+            "domains": MetricDomain.choices,
+            "domain": domain,
+            "domain_label": dict(MetricDomain.choices).get(domain, ""),
+            "items": choices,
+            "recent_items": recent_items,
+            "item": item,
+            "latest": latest,
+            "recent_sessions": recent_sessions,
+            "competitions": (
+                athlete_competitions(athlete).order_by("-date")[:60]
+                if domain == MetricDomain.COMPETITION
+                else []
+            ),
+            "metric_statuses": TrainingStatus.choices,
+            "metric_blocks": block_choices(),
+            "track_methods": track_method_choices(),
+            "unit_is_weight": unit == "kg",
+            "is_track": domain == MetricDomain.TRACK,
+            "is_competition": domain == MetricDomain.COMPETITION,
+            "today_iso": date.today().isoformat(),
+        },
+    )
 
 
 # ------------------------------------------------------------------ 分析

@@ -571,6 +571,8 @@ input:focus, select:focus, textarea:focus {
 .btn.ghost:hover { border-color: var(--accent); color: var(--accent); filter: none;
                    background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .btn.sm { padding: 4px 11px; font-size: 12.5px; }
+/* 刪掉東西的按鈕：紅底，按下去之前先看得出這一顆不一樣 */
+.btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
 
 /* ---------------------------------------------------------------- 其他 */
 .progress {
@@ -676,6 +678,7 @@ code {
   /* 課表外面包了一層（放 ⧉ 用），一週一列時要由它去吃整個寬度 */
   .cal .evrow { flex: 1 1 100%; margin-left: 68px; }
   .cal .evrow .ev { margin-left: 0; padding-right: 26px; }
+  .cal .evrow.acts2 .ev { padding-right: 44px; }
   .cal .addday { opacity: .6; margin-left: auto; }
 }
 
@@ -695,6 +698,24 @@ code {
 }
 .dlg::backdrop { background: rgba(4, 7, 11, .72); }
 .dlg h2 { margin: 0; }
+
+/* 「登紀錄」第一步：挑範疇。三張卡並排，按哪一張就登哪一個範疇 */
+.domainpick {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.domainopt {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface-2); color: var(--text); text-decoration: none;
+  border: 1px solid var(--border-strong); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); padding: 12px 14px;
+}
+.domainopt:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.topacts .logrecbtn { display: inline-flex; align-items: center; gap: 6px; }
+.topacts .logrecbtn .ic { width: 14px; height: 14px; }
 
 /* 類別選擇：把 radio 做成一排可點的按鍵 */
 .typepick { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -891,15 +912,21 @@ td.dist input { border-color: color-mix(in srgb, var(--accent) 40%, var(--border
 /* 日曆：每一堂課右上角的 ⧉ ＝ 複製到其他日子（拖是搬，⧉ 是抄一份） */
 .cal .evrow { position: relative; display: block; }
 .cal .evrow .ev { padding-right: 22px; }
-.cal .copyev {
-  position: absolute; top: 1px; right: 1px; width: 18px; height: 18px;
+/* 刪得掉的課多一顆 🗑，字要再讓出一格 */
+.cal .evrow.acts2 .ev { padding-right: 40px; }
+.cal .evacts { position: absolute; top: 1px; right: 1px; display: flex; gap: 1px; }
+.cal .copyev, .cal .delev {
+  width: 18px; height: 18px;
   line-height: 1; padding: 0; background: transparent; border: 1px solid transparent;
   border-radius: 2px; color: var(--text-dim); font-size: 12px; cursor: pointer;
   opacity: 0; transition: opacity .12s;
 }
-.cal .day:hover .copyev { opacity: 1; }
-@media (hover: none) { .cal .copyev { opacity: .6; border-color: var(--border); } }
+.cal .day:hover .copyev, .cal .day:hover .delev { opacity: 1; }
+@media (hover: none) {
+  .cal .copyev, .cal .delev { opacity: .6; border-color: var(--border); }
+}
 .cal .copyev:hover { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.cal .delev:hover { background: var(--red); color: #fff; border-color: var(--red); }
 
 /* 日曆：把課表拖到別的日期 */
 .cal .ev.movable { cursor: grab; }

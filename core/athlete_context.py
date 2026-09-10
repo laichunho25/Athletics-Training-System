@@ -13,7 +13,7 @@ SESSION_KEY = "atm_athlete_id"
 
 #: 會跟著「目前運動員」走的頁面（側欄連結要帶上 ?athlete=）
 ATHLETE_SCOPED_PAGES = (
-    "dashboard", "calendar", "analytics", "nutrition", "injuries", "video",
+    "dashboard", "calendar", "record", "analytics", "nutrition", "injuries", "video",
 )
 
 

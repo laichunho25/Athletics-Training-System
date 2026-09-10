@@ -449,6 +449,20 @@
     dlg.showModal();
   }
 
+  function openDeleteDialog(button) {
+    var dlg = document.getElementById('delDlg');
+    if (!dlg) { return; }
+    var count = parseInt(button.dataset.count || '0', 10);
+    document.getElementById('delSession').value = button.dataset.session;
+    document.getElementById('delSrc').textContent =
+      button.dataset.title + '（' + button.dataset.date + '）';
+    var note = document.getElementById('delCount');
+    note.textContent = count
+      ? (note.dataset.has || '{n}').replace('{n}', count)
+      : (note.dataset.none || '');
+    dlg.showModal();
+  }
+
   function mountCalendar() {
     var wrap = document.getElementById('calwrap');
     var dialog = document.getElementById('progDlg');
@@ -466,6 +480,12 @@
       if (copy) {
         event.preventDefault();
         openCopyDialog(copy);
+        return;
+      }
+      var del = event.target.closest('.delev');
+      if (del) {
+        event.preventDefault();
+        openDeleteDialog(del);
         return;
       }
     });

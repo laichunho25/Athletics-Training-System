@@ -1,0 +1,41 @@
+{% load i18n %}{% comment %}
+頂欄的「登紀錄」。教練、運動員、管理員在任何一頁都按得到——
+按了先挑要登哪一個範疇（田徑練習訓練紀錄／重量訓練紀錄／比賽數據），
+再到登紀錄頁挑項目、填每一組的數字。
+
+寫進去的跟課表那邊按「登記錄」是同一張表，所以數據分析立刻看得到。
+{% endcomment %}
+{% if nav_athlete %}
+<button type="button" class="btn sm logrecbtn" data-act="log-record"
+        title="{% translate '登一筆訓練／比賽數據；按了再挑範疇' %}">
+  <svg class="ic"><use href="#i-chart"></use></svg><span>{% translate "登紀錄" %}</span>
+</button>
+
+<dialog id="logDlg" class="dlg">
+  <div class="between mb">
+    <h2 style="margin:0">{% translate "登紀錄" %}</h2>
+    <button type="button" class="btn ghost sm" onclick="logDlg.close()">{% translate "關閉" %}</button>
+  </div>
+
+  <div class="small c-dim mb">
+    {% blocktranslate with v0=nav_athlete.user.get_full_name|default:nav_athlete.user.username %}要登的是 {{ v0 }} 的數據。先挑一個範疇，下一步再挑項目、填每一組的數字。{% endblocktranslate %}
+  </div>
+
+  <div class="domainpick">
+    {% for value, label in RECORD_DOMAINS %}
+      <a class="domainopt" href="{% url 'web:record' %}?athlete={{ nav_athlete.id }}&domain={{ value }}">
+        <b>{{ label }}</b>
+        <span class="c-dim small">
+          {% if value == 'TRACK' %}{% translate "跑的：節奏跑、反覆跑、起跑…先挑方式再填距離" %}
+          {% elif value == 'STRENGTH' %}{% translate "舉的：深蹲、臥推、爆發上膊…一組一列填重量與次數" %}
+          {% else %}{% translate "比賽當天的成績，挑得到是哪一場比賽" %}{% endif %}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="small c-dim mt">
+    {% translate "課表上排好的活動，也可以在那一天的課表按活動旁的「登記錄」——兩邊寫的是同一份數據。" %}
+  </div>
+</dialog>
+{% endif %}

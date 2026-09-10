@@ -68,6 +68,9 @@
 
       <div class="nav-group">
         <div class="nav-title">{% translate "數據與健康" %}</div>
+        <a href="{% url 'web:record' %}{{ nav_athlete_qs }}" data-tip="{% translate '登紀錄' %}"
+           class="nav-item {% if page == 'record' %}active{% endif %}">
+          <svg class="ic"><use href="#i-rows"></use></svg><span>{% translate "登紀錄" %}</span></a>
         <a href="{% url 'web:analytics' %}{{ nav_athlete_qs }}" data-tip="{% translate '數據分析' %}"
            class="nav-item {% if page == 'analytics' %}active{% endif %}">
           <svg class="ic"><use href="#i-chart"></use></svg><span>{% translate "數據分析" %}</span></a>
@@ -103,6 +106,7 @@
       </form>
 
       <div class="topacts">
+        {% include "web/_logrecord.html" %}
         {% include "web/_switcher.html" %}
         {% include "_langpick.html" %}
         <span class="syslive" title="{% translate '系統連線正常，時間為本機時間' %}">

@@ -20,6 +20,10 @@
       root.classList.add('nav-open');
     } else if (act === 'close-nav') {
       root.classList.remove('nav-open');
+    } else if (act === 'log-record') {
+      // 頂欄的「登紀錄」：先挑範疇，挑完才到登紀錄頁挑項目
+      var dlg = document.getElementById('logDlg');
+      if (dlg) { dlg.showModal(); }
     } else if (act === 'theme') {
       var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
       root.dataset.theme = next;
