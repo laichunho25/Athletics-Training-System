@@ -124,13 +124,6 @@ class ComparisonTests(TestCase):
         )
         self.assertContains(page, "未分期")
 
-    def test_top_movements_card_is_shown(self):
-        page = self.client.get(
-            f"{reverse('web:analytics')}?athlete={self.athlete.id}&domain={MetricDomain.STRENGTH}"
-        )
-        self.assertContains(page, "最常做的動作")
-
-
 class ItemListTests(TestCase):
     """項目清單：只列挑出來／登過的，並依動作分類分組。"""
 

@@ -1003,6 +1003,43 @@ td.dist input { border-color: color-mix(in srgb, var(--accent) 40%, var(--border
 .setdetail table { min-width: 760px; font-variant-numeric: tabular-nums; }
 tr.failedrow > td { background: color-mix(in srgb, var(--red) 10%, transparent); }
 tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
+/* ------------------------- 田徑練習訓練紀錄：清單 → 挑幾筆 → 分析 */
+.logbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.logbar .unitpick.grow { flex: 1 1 240px; }
+.logbar .unitpick.grow input { width: 100%; padding: 4px 8px; font-size: 12px; }
+.logwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.logtable { min-width: 900px; font-variant-numeric: tabular-nums; }
+.logtable th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); }
+.logtable td { white-space: nowrap; }
+.logtable td.ellip { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.logtable .logdate { font-family: var(--mono); font-weight: 600; letter-spacing: .3px; }
+.logtable .pickcell { width: 34px; text-align: center; }
+.logtable tbody tr:hover > td { background: var(--surface-2); }
+.logfoot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface-2);
+}
+.logfoot #pickCount { color: var(--accent); font-family: var(--mono); font-size: 14px; }
+/* 三張小表（照距離／照強度／照狀態）並排，窄螢幕自己疊起來 */
+.logsplit {
+  display: grid; gap: 1px; background: var(--border);
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  border-top: 1px solid var(--border);
+}
+.logsplit > div { background: var(--surface); min-width: 0; }
+.logsplit .logtable { min-width: 320px; }
+.card-head.sub { background: var(--surface-2); font-size: 11px; }
+/* 分析底下用白話寫的幾句結論 */
+.logsay {
+  padding: 10px 16px 14px; border-top: 1px solid var(--border);
+  font-size: 12.5px; line-height: 1.7; color: var(--text-dim);
+}
+.logsay > div + div { margin-top: 2px; }
+
 /* ------------------------------------------------------------ 響應式 */
 .only-mobile { display: none; }
 /* 只在有／沒有滑鼠的裝置上出現（拖動改日期在觸控螢幕上不成立） */
@@ -1256,6 +1293,7 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   .detailtable table, .dayrow table { min-width: 560px; }
   .setgridwrap .setgrid { min-width: 560px; }
   .cmptable { min-width: 560px; }
+  .logtable { min-width: 720px; }
   .editnum { width: 58px; }
   .editnum.sm { width: 46px; }
   .editnum.wide { min-width: 76px; }

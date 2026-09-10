@@ -29,6 +29,7 @@ from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, 
 from analytics import body_strength as bs
 from analytics import dimensions as dim
 from analytics import services as an
+from analytics import track_log as tlog
 from analytics.models import (
     STRENGTH_UNITS,
     MetricCategory,
@@ -43,11 +44,9 @@ from analytics.models import (
     ensure_builtin_items,
     item_for_name,
     metric_category_for_activity,
-    pinned_items,
     rename_item,
     session_types_for_domain,
     set_item_unit,
-    toggle_pin,
     track_item_for,
     track_method_choices,
 )
@@ -160,6 +159,60 @@ def jdump(value):
 #: 「多項目一起分析」一次最多放幾個項目——圖上超過這個數量就看不出東西了，
 #: 也順便擋掉手改網址塞一大串 items 的情況。
 MULTI_ITEM_LIMIT = 8
+
+
+def _positive_int(raw):
+    """網址上的數字參數；不是正整數就當作沒填。
+
+    isdecimal 而不是 isdigit：上標「²」這種字 isdigit() 是 True，int() 卻會炸；
+    網址是使用者改得到的東西，不能假設它乾淨。
+    """
+    raw = (raw or "").strip()
+    return int(raw) if raw.isdecimal() and int(raw) > 0 else None
+
+
+def _int_list(values, limit=None):
+    """一串網址參數（可能是 "1,2,3" 也可能重複出現）→ 去重後的正整數清單。"""
+    out = []
+    for raw in values:
+        for part in str(raw).split(","):
+            number = _positive_int(part)
+            if number is not None and number not in out:
+                out.append(number)
+    return out[:limit] if limit else out
+
+
+def _period_chart(report):
+    """同距離跨時段：一條線一個距離（平均秒數），柱是那一段的訓練量。"""
+    labels = [p["label"] for p in report["periods"]]
+    return {
+        "labels": labels,
+        "volume": [t["volume_m"] for t in report["totals"]],
+        "series": [
+            {
+                "label": row["label"],
+                "avg": [c["average"] if c else None for c in row["cells"]],
+                "best": [c["best"] if c else None for c in row["cells"]],
+            }
+            for row in report["rows"]
+        ],
+    }
+
+
+def _cross_chart(report):
+    """田徑 × 重量 × 身體：一段時間一格，三件事同一張圖。"""
+    rows = report["rows"]
+    return {
+        "labels": [r["label"] for r in rows],
+        "avg": [r["track"]["average"] for r in rows],
+        "volume": [r["track"]["volume_m"] for r in rows],
+        "tonnage": [r["strength"]["tonnage"] if r["strength"] else None for r in rows],
+        "per_bw": [r["strength"]["avg_per_bw"] if r["strength"] else None for r in rows],
+        "weight": [r["body"]["weight"] if r["body"] else None for r in rows],
+        "fat_pct": [r["body"]["fat_pct"] if r["body"] else None for r in rows],
+        "muscle_pct": [r["body"]["muscle_pct"] if r["body"] else None for r in rows],
+    }
+
 
 def csrf_failure(request, reason=""):
     """CSRF 檢查失敗時的說明頁（settings.CSRF_FAILURE_VIEW）。
@@ -2595,22 +2648,6 @@ def analytics_view(request):
                 f"{request.path}?athlete={athlete.id}&domain=TRACK&item={item.id}"
             )
 
-        if action in ("pin_item", "unpin_item"):
-            # 「主要必看的訓練項目」＝從下面的項目清單 pin 出來的那幾項。
-            # 清單練久了會很長，每天真正要看的就那幾個動作，釘出來才不用每次翻。
-            item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
-            already = athlete.pinned_items.filter(item=item).exists()
-            if action == "pin_item" and not already:
-                toggle_pin(athlete, item, user=request.user)
-                messages.success(
-                    request,
-                    _("已把「%(v0)s」釘到「主要必看的訓練項目」。") % {"v0": item.display_name},
-                )
-            elif action == "unpin_item" and already:
-                toggle_pin(athlete, item, user=request.user)
-                messages.info(request, _("已取消釘選「%(v0)s」。") % {"v0": item.display_name})
-            return redirect(f"{back}&item={item.id}")
-
         if action == "delete_item":
             item = get_object_or_404(MetricItem, pk=request.POST.get("item_id"))
             mine = MetricRecord.objects.filter(athlete=athlete, item=item)
@@ -2809,13 +2846,6 @@ def analytics_view(request):
     if compare not in {m for m, _unused in compare_modes}:
         compare = "all"
     comparison = an.metric_comparison(athlete, item, compare) if item else None
-    # 「主要必看的訓練項目」＝從項目清單釘出來的那幾項；
-    # 還沒釘過的人先看「最常做的動作」，右邊的 📌 按一下就變成自己的必看清單。
-    pinned = [] if is_competition else pinned_items(athlete, domain)
-    pinned_ids = [i.id for i in pinned]
-    tops = [] if is_competition else (
-        an.movement_stats(athlete, pinned) if pinned else an.top_movements(athlete, domain)
-    )
     # ---- 多個項目一起分析 ----
     # 同一個距離不同方式（150m 節奏跑 / 150m 反覆跑）、或相近的重訓動作，
     # 各自看趨勢看不出所以然，勾幾個放在一起才知道哪一種練得起來。
@@ -2886,6 +2916,40 @@ def analytics_view(request):
         athlete, request.GET.get("dmode", "phase")
     ) if is_strength else None
 
+    # ---- 田徑練習訓練紀錄：一張清單 → 挑幾筆 → 三個方向分析 ----
+    # 先用年份月份與關鍵字（打「150」就出所有 150m）把要看的那幾筆挑出來，
+    # 再挑方向：這幾筆本身練得怎樣／同一距離跨時段怎麼變／拼上重量與體組成。
+    is_track = domain == MetricDomain.TRACK
+    log = log_options = log_analysis = None
+    log_year = log_month = None
+    log_query = ""
+    log_dir, log_gmode, log_picks = "perf", "month", []
+    if is_track:
+        log_year = _positive_int(request.GET.get("ty"))
+        log_month = _positive_int(request.GET.get("tm"))
+        if log_month and not 1 <= log_month <= 12:
+            log_month = None
+        log_query = (request.GET.get("q") or "").strip()[:80]
+        log = tlog.search_records(athlete, log_year, log_month, log_query)
+        log_options = tlog.filter_options(athlete, log_year)
+        # pick＝畫面上勾的那幾列，keep＝勾過但被目前篩選條件濾走的那幾筆，
+        # 兩個加起來才是「使用者心裡挑的那一批」，換了年月也不會掉。
+        log_picks = _int_list(
+            request.GET.getlist("pick") + request.GET.getlist("keep"),
+            limit=tlog.MAX_PICKS,
+        )
+        picked = tlog.picked_records(athlete, log_picks)
+        log_picks = [r.id for r in picked]
+        log_dir = request.GET.get("dir", "perf")
+        if log_dir not in {d for d, _unused in tlog.DIRECTIONS}:
+            log_dir = "perf"
+        log_gmode = request.GET.get("gmode", "month")
+        if log_gmode not in {g for g, _unused in tlog.GROUPINGS}:
+            log_gmode = "month"
+        log_analysis = tlog.analyse(
+            athlete, picked, log_dir, log_gmode, viewer=request.user
+        )
+
     return render(
         request,
         "web/analytics.html",
@@ -2935,17 +2999,49 @@ def analytics_view(request):
             # 單位就是 kg 的項目（背蹲舉 1RM…），數值＝重量，表單不再重複問一次
             "unit_is_weight": bool(item and (item.unit or "").strip().lower() == "kg"),
             # 田徑練習用「強度要求」取代重量欄；重量訓練維持原樣
-            "is_track": domain == MetricDomain.TRACK,
+            "is_track": is_track,
             "chart_points": jdump(analysis["points"] if analysis else []),
             "recent_sessions": recent_sessions,
             "linkable_type_labels": [
                 dict(SessionType.choices)[t] for t in linkable_types
             ],
             "today_iso": date.today().isoformat(),
-            # 主要必看的訓練項目（沒釘過就先給最常做的動作）+ 整體／年份／時期比較
-            "tops": tops,
-            "pinned_ids": pinned_ids,
-            "has_pins": bool(pinned),
+            # 田徑練習訓練紀錄：清單 + 篩選 + 挑幾筆分析
+            "log": log,
+            "log_options": log_options,
+            "log_year": log_year,
+            "log_month": log_month,
+            "log_query": log_query,
+            "log_picks": log_picks,
+            "log_pick_count": len(log_picks),
+            # 勾過、但被目前的年月／關鍵字濾走的那幾筆：藏在表單裡帶著走，
+            # 換一個月份繼續勾，選取的東西才不會掉。
+            "log_keep": (
+                [i for i in log_picks if i not in {r.id for r in log["rows"]}]
+                if log
+                else []
+            ),
+            "log_csv": ",".join(str(i) for i in log_picks),
+            "log_dir": log_dir,
+            "log_gmode": log_gmode,
+            "log_directions": tlog.DIRECTIONS,
+            "log_groupings": tlog.GROUPINGS,
+            "log_analysis": log_analysis,
+            "log_points": jdump(
+                log_analysis["perf"]["points"]
+                if log_analysis and log_analysis["direction"] == "perf"
+                else []
+            ),
+            "log_period_json": jdump(
+                _period_chart(log_analysis["period"])
+                if log_analysis and log_analysis["direction"] == "period"
+                else {}
+            ),
+            "log_cross_json": jdump(
+                _cross_chart(log_analysis["cross"])
+                if log_analysis and log_analysis["direction"] == "cross"
+                else {}
+            ),
             # 多項目一起分析
             "multi": multi,
             "multi_choices": multi_choices,

@@ -27,6 +27,8 @@
   <span class="small c-dim">{% translate "每一欄標題右邊的 ▾ 也可以單獨收起，收起哪幾欄會記住。" %}</span>
 </div>
 
+{% if is_track %}{% include "web/_track_log.html" %}{% endif %}
+
 <div class="grid anagrid mb">
  <div>
   <!-- 左邊清單上的每一個 × 都是這張表單的送出鍵，各帶自己的 item_id。 -->
@@ -44,60 +46,6 @@
     <input type="hidden" name="item_id" value="">
     <input type="hidden" name="name" value="">
   </form>
-  <!-- 清單上的每一個 📌 都是這張表單的送出鍵，各帶自己的 item_id。 -->
-  <form method="post" id="itemPin" hidden>
-    {% csrf_token %}
-    <input type="hidden" name="action" value="pin_item">
-    <input type="hidden" name="domain" value="{{ domain }}">
-  </form>
-  {% if not is_competition %}
-  <!-- 主要必看的訓練項目：下面項目清單上的 📌 按一下就釘到這裡。
-       還沒釘過任何東西的時候，先給「最常做的動作」當預設。 -->
-  <form method="post" id="itemUnpin" hidden>
-    {% csrf_token %}
-    <input type="hidden" name="action" value="unpin_item">
-    <input type="hidden" name="domain" value="{{ domain }}">
-  </form>
-  <div class="card pad0 mb">
-    <div class="card-head">
-      <span>{% translate "主要必看的訓練項目" %}</span>
-    </div>
-    <div class="itemlist">
-      {% for t in tops %}
-       <div class="itemrow">
-        <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ t.item.id }}&compare={{ compare }}"
-           class="{% if item and t.item.id == item.id %}active{% endif %}">
-          <span class="name">
-            <span class="rank">{{ forloop.counter }}</span>
-            <span class="ellip" title="{{ t.item.display_name }}{% if t.item.unit %}（{{ t.item.unit }}）{% endif %} · {% blocktranslate with v0=t.days v1=t.count %}近 365 天練過 {{ v0 }} 天、共 {{ v1 }} 組{% endblocktranslate %}">{{ t.item.name }}</span>
-          </span>
-          <span class="meta" title="{% blocktranslate with v0=t.best|default:'—' v1=t.item.unit %}最佳 {{ v0 }}{{ v1 }}{% endblocktranslate %}{% if t.change_pct != None %}{% blocktranslate with v0=t.change_pct %}；期內變化 {{ v0 }}%{% endblocktranslate %}{% endif %}">
-            {% if t.best != None %}{{ t.best }}{{ t.item.unit }}{% else %}—{% endif %}
-            {% if t.change_pct != None %}
-              <span class="{% if t.improving %}c-green{% else %}c-red{% endif %}">{% if t.change_pct > 0 %}+{% endif %}{{ t.change_pct }}%</span>
-            {% endif %}
-          </span>
-        </a>
-        {% if has_pins %}
-        <button class="itempin on" type="submit" form="itemUnpin" name="item_id" value="{{ t.item.id }}"
-                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」從必看清單取下來{% endblocktranslate %}">📌</button>
-        {% else %}
-        <button class="itempin" type="submit" form="itemPin" name="item_id" value="{{ t.item.id }}"
-                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」釘成必看項目{% endblocktranslate %}">📌</button>
-        {% endif %}
-        <button class="itemedit" type="button" data-id="{{ t.item.id }}" data-name="{{ t.item.name }}"
-                title="{% blocktranslate with v0=t.item.display_name %}改「{{ v0 }}」的名稱{% endblocktranslate %}">✎</button>
-        <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ t.item.id }}"
-                data-name="{{ t.item.display_name }}" data-builtin="{{ t.item.is_builtin|yesno:"1," }}"
-                title="{% blocktranslate with v0=t.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
-       </div>
-      {% empty %}
-        <div class="empty">{% translate "這個範疇還沒有任何紀錄" %}</div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
   {% if is_competition %}
   <!-- -------------------------------------------------------- 賽事清單 -->
   <div class="card pad0 mb">
@@ -160,13 +108,6 @@
               {% if row.count %}{% blocktranslate with v0=row.latest|default:"—" v1=row.count %}{{ v0 }} · {{ v1 }}筆{% endblocktranslate %}{% else %}—{% endif %}
             </span>
           </a>
-          {% if row.item.id in pinned_ids %}
-          <button class="itempin on" type="submit" form="itemUnpin" name="item_id" value="{{ row.item.id }}"
-                  title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」從必看清單取下來{% endblocktranslate %}">📌</button>
-          {% else %}
-          <button class="itempin" type="submit" form="itemPin" name="item_id" value="{{ row.item.id }}"
-                  title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」釘成必看項目{% endblocktranslate %}">📌</button>
-          {% endif %}
           <button class="itemedit" type="button" data-id="{{ row.item.id }}" data-name="{{ row.item.name }}"
                   title="{% blocktranslate with v0=row.item.display_name %}改「{{ v0 }}」的名稱{% endblocktranslate %}">✎</button>
           <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ row.item.id }}"
@@ -1172,6 +1113,148 @@
 <script src="{% static 'js/fold.js' %}" data-page="analytics"></script>
 <script>
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
+const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
+
+{% if is_track %}
+// ---- 田徑練習訓練紀錄：勾選 -------------------------------------------
+// 勾過但被目前篩選濾走的那幾筆藏在 keep 裡，所以「已選 N 筆」要把它們算進去。
+(function () {
+  const form = document.getElementById('trackLog');
+  if (!form) { return; }
+  const boxes = () => [...form.querySelectorAll('input[name="pick"]')];
+  const kept = () => form.querySelectorAll('input[name="keep"]').length;
+  const count = document.getElementById('pickCount');
+  const all = document.getElementById('pickAll');
+  const clear = document.getElementById('pickNone');
+
+  function refresh() {
+    const on = boxes().filter(b => b.checked).length;
+    count.textContent = on + kept();
+    if (all) {
+      all.checked = on > 0 && on === boxes().length;
+      all.indeterminate = on > 0 && on < boxes().length;
+    }
+  }
+  form.addEventListener('change', (e) => { if (e.target.name === 'pick') { refresh(); } });
+  if (all) {
+    all.addEventListener('change', () => {
+      boxes().forEach(b => { b.checked = all.checked; });
+      refresh();
+    });
+  }
+  if (clear) {
+    clear.addEventListener('click', () => {
+      boxes().forEach(b => { b.checked = false; });
+      form.querySelectorAll('input[name="keep"]').forEach(el => el.remove());
+      refresh();
+    });
+  }
+  refresh();
+})();
+
+{% if log_analysis.direction == 'perf' %}
+// ---- 方向一：挑出來的每一組按日期排開，虛線是課表要求的目標 -------------
+(function () {
+  const pts = {{ log_points|safe }};
+  const canvas = document.getElementById('tlPerfChart');
+  if (!canvas || !pts.length) { return; }
+  new Chart(canvas, {
+    data: {
+      labels: pts.map(p => p.label),
+      datasets: [
+        { type: 'line', label: '{% translate "完成數值（秒）" %}',
+          data: pts.map(p => p.value), borderColor: ACC, backgroundColor: ACC + '33',
+          fill: true, tension: .2, pointRadius: 4,
+          pointBackgroundColor: pts.map(p => p.completed ? ACC : '#e5484d') },
+        { type: 'line', label: '{% translate "目標數值（秒）" %}',
+          data: pts.map(p => p.target), borderColor: BLUE, borderDash: [5, 4],
+          pointRadius: 0, fill: false, tension: .2 }
+      ]
+    },
+    options: {
+      // 秒數越小越好，軸反過來畫，圖上「往上＝變好」永遠成立
+      scales: { y: { reverse: true, title: { display: true, text: '{% translate "秒（軸已反轉：越上面越好）" %}' } } },
+      plugins: { tooltip: { callbacks: {
+        afterBody: (items) => {
+          const p = pts[items[0].dataIndex];
+          return [
+            p.item + (p.distance ? ' · ' + p.distance + ' m' : ''),
+            [p.intensity, p.status, p.session].filter(Boolean).join(' · '),
+            p.completed ? '' : '{% translate "這一組沒有完成" %}'
+          ].filter(Boolean);
+        }
+      } } }
+    }
+  });
+})();
+{% endif %}
+
+{% if log_analysis.direction == 'period' %}
+// ---- 方向二：柱是那一段的訓練量，一條線一個距離的平均秒數 ---------------
+(function () {
+  const data = {{ log_period_json|safe }};
+  const canvas = document.getElementById('tlPeriodChart');
+  if (!canvas || !data.labels || !data.labels.length) { return; }
+  const lines = data.series.map((s, i) => ({
+    type: 'line', label: s.label + '{% translate "（平均秒）" %}', data: s.avg,
+    borderColor: SERIES[i % SERIES.length], backgroundColor: SERIES[i % SERIES.length],
+    yAxisID: 'y1', spanGaps: true, tension: .2, pointRadius: 3
+  }));
+  new Chart(canvas, {
+    data: {
+      labels: data.labels,
+      datasets: [
+        { type: 'bar', label: '{% translate "訓練量（m）" %}', data: data.volume,
+          backgroundColor: BLUE + '44', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' },
+        ...lines
+      ]
+    },
+    options: {
+      scales: {
+        y: { position: 'left', title: { display: true, text: '{% translate "訓練量（m）" %}' } },
+        y1: { position: 'right', reverse: true, grid: { drawOnChartArea: false },
+              title: { display: true, text: '{% translate "秒（軸已反轉：越上面越快）" %}' } }
+      }
+    }
+  });
+})();
+{% endif %}
+
+{% if log_analysis.direction == 'cross' %}
+// ---- 方向三：跑的、舉的、身體的，三件事同一張圖 -------------------------
+(function () {
+  const data = {{ log_cross_json|safe }};
+  const canvas = document.getElementById('tlCrossChart');
+  if (!canvas || !data.labels || !data.labels.length) { return; }
+  new Chart(canvas, {
+    data: {
+      labels: data.labels,
+      datasets: [
+        { type: 'bar', label: '{% translate "田徑訓練量（m）" %}', data: data.volume,
+          backgroundColor: BLUE + '44', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' },
+        { type: 'bar', label: '{% translate "重量訓練總噸位（kg）" %}', data: data.tonnage,
+          backgroundColor: GREEN + '44', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
+        { type: 'line', label: '{% translate "田徑平均（秒）" %}', data: data.avg,
+          borderColor: ACC, backgroundColor: ACC, yAxisID: 'y1', spanGaps: true, tension: .2 },
+        { type: 'line', label: '{% translate "體脂率（%）" %}', data: data.fat_pct,
+          borderColor: YELLOW, backgroundColor: YELLOW, yAxisID: 'y2', spanGaps: true, tension: .2, borderDash: [4, 3] },
+        { type: 'line', label: '{% translate "肌肉率（%）" %}', data: data.muscle_pct,
+          borderColor: '#b478ff', backgroundColor: '#b478ff', yAxisID: 'y2', spanGaps: true, tension: .2, borderDash: [4, 3] }
+      ]
+    },
+    options: {
+      scales: {
+        y: { position: 'left', title: { display: true, text: '{% translate "量 / 噸位" %}' } },
+        y1: { position: 'right', reverse: true, grid: { drawOnChartArea: false },
+              title: { display: true, text: '{% translate "秒（已反轉）" %}' } },
+        y2: { position: 'right', grid: { drawOnChartArea: false },
+              title: { display: true, text: '%' } }
+      }
+    }
+  });
+})();
+{% endif %}
+{% endif %}
 
 // ---- 情境表排序：點欄位標題就照那一欄排，再點一次反向 --------------------
 // 情境本來按「現況 → 減脂 → 增肌」排，但要比較的是「哪一條路換到的比值最多」，
