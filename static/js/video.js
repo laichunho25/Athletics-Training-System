@@ -206,6 +206,7 @@
     var clock = $('v-clock');
     var fpsSel = $('v-fps');
     var bar = $('vidbar');
+    var tools = $('tools');
 
     function fps() { return parseInt(fpsSel && fpsSel.value, 10) || 30; }
 
@@ -240,11 +241,316 @@
       player.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    document.addEventListener('click', function (ev) {
-      var btn = ev.target.closest ? ev.target.closest('[data-vid]') : null;
-      if (!btn) return;
-      var what = btn.getAttribute('data-vid');
+    function fmt(sec) {
+      return (Math.round(sec * 1000) / 1000).toFixed(2) + 's';
+    }
 
+    /* ========================================================== 分析工具
+     *
+     * 三個工具共用一個播放器，量出來的東西都可以「存成批註」——存進去之後
+     * 運動員自己打開就看得到教練量了什麼、劃了什麼，不用另外傳圖。
+     *
+     * 準確度受影片格率限制：30fps 一格 0.033 秒，量觸地時間這種等級的東西
+     * 要用手機的慢動作（120 或 240fps）拍，並在上面的「格率」選對。
+     */
+
+    var active = 'timing';          // 目前選的工具
+    var marks = { a: null, b: null };
+    var taps = [];                  // 數步：每一步落地的時間
+    var shapes = [];                // 劃線：已經完成的圖形
+    var shapeTool = '';             // 劃線：目前選的形狀，空字串＝不劃
+
+    var canvas = $('draw1');
+    var ctx = canvas ? canvas.getContext('2d') : null;
+
+    /* ---------------------------------------------------- 工具切換 */
+
+    function pickTool(name) {
+      active = name;
+      if (!tools) return;
+      Array.prototype.forEach.call(tools.querySelectorAll('[data-tool]'), function (b) {
+        b.classList.toggle('on', b.getAttribute('data-tool') === name);
+      });
+      Array.prototype.forEach.call(tools.querySelectorAll('[data-pane]'), function (pane) {
+        pane.hidden = pane.getAttribute('data-pane') !== name;
+      });
+      if (name !== 'draw') pickShape('');
+      document.body.classList.toggle('steps-armed', name === 'steps');
+    }
+
+    /* ---------------------------------------------------- 計時 */
+
+    function markAt(which) {
+      marks[which] = player.currentTime;
+      showTiming();
+    }
+
+    function showTiming() {
+      $('t-a').textContent = marks.a === null ? '—' : fmt(marks.a);
+      $('t-b').textContent = marks.b === null ? '—' : fmt(marks.b);
+      var d = elapsed();
+      $('t-delta').textContent = d === null ? '—' : fmt(d);
+      showSpeed();
+      var hint = $('t-hint');
+      if (d !== null) {
+        /* 一格有多久，決定了這個數字可信到哪一位小數 */
+        hint.textContent = '以 ' + fps() + 'fps 計，一格 '
+          + (1 / fps()).toFixed(3) + ' 秒，誤差約在正負一格之內。';
+      } else {
+        hint.textContent = '';
+      }
+    }
+
+    function elapsed() {
+      if (marks.a === null || marks.b === null) return null;
+      return Math.abs(marks.b - marks.a);
+    }
+
+    function showSpeed() {
+      var d = elapsed();
+      var dist = parseFloat($('t-dist').value);
+      var out = $('t-speed');
+      if (d && dist > 0) {
+        out.textContent = (dist / d).toFixed(2) + ' m/s（'
+          + (dist / d * 3.6).toFixed(1) + ' km/h）';
+      } else {
+        out.textContent = '—';
+      }
+    }
+
+    /* ---------------------------------------------------- 數步 */
+
+    function tapStep() {
+      taps.push(player.currentTime);
+      showSteps();
+    }
+
+    function showSteps() {
+      $('s-count').textContent = taps.length;
+      var span = taps.length > 1 ? taps[taps.length - 1] - taps[0] : 0;
+      /* n 步之間有 n-1 個間隔——用步數除以時間會把步頻算高一截 */
+      var gaps = taps.length - 1;
+      $('s-rate').textContent = gaps > 0 && span > 0
+        ? (gaps / span).toFixed(2) + ' 步/秒' : '—';
+      $('s-interval').textContent = gaps > 0 && span > 0
+        ? (span / gaps).toFixed(3) + ' 秒' : '—';
+      $('s-span').textContent = taps.length > 1
+        ? fmt(taps[0]) + ' → ' + fmt(taps[taps.length - 1]) : '—';
+      $('s-list').textContent = taps.map(function (t, i) {
+        return (i + 1) + ':' + t.toFixed(2);
+      }).join('  ');
+    }
+
+    /* ---------------------------------------------------- 劃線 */
+
+    /* 影片在元素裡是置中等比縮放的（object-fit: contain），上下或左右會有黑邊。
+     * 座標要對齊「畫面」而不是「元素」，否則換個螢幕比例線就跑掉。 */
+    function contentRect() {
+      var cw = canvas.clientWidth, ch = canvas.clientHeight;
+      var vw = player.videoWidth || 16, vh = player.videoHeight || 9;
+      var scale = Math.min(cw / vw, ch / vh);
+      var w = vw * scale, h = vh * scale;
+      return { x: (cw - w) / 2, y: (ch - h) / 2, w: w, h: h };
+    }
+
+    function resizeCanvas() {
+      if (!canvas) return;
+      var ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.round(canvas.clientWidth * ratio);
+      canvas.height = Math.round(canvas.clientHeight * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      redraw();
+    }
+
+    function toNorm(ev) {
+      var box = canvas.getBoundingClientRect();
+      var rect = contentRect();
+      var x = (ev.clientX - box.left - rect.x) / rect.w;
+      var y = (ev.clientY - box.top - rect.y) / rect.h;
+      return [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
+    }
+
+    function toPx(point) {
+      var rect = contentRect();
+      return [rect.x + point[0] * rect.w, rect.y + point[1] * rect.h];
+    }
+
+    function pickShape(name) {
+      shapeTool = shapeTool === name ? '' : name;   // 再按一次＝取消，才能用回播放控制
+      if (tools) {
+        Array.prototype.forEach.call(tools.querySelectorAll('[data-shape]'), function (b) {
+          b.classList.toggle('on', b.getAttribute('data-shape') === shapeTool);
+        });
+      }
+      if (canvas) canvas.classList.toggle('armed', !!shapeTool);
+      pending = null;
+      redraw();
+    }
+
+    var drawing = null;      // 拖曳中的圖形
+    var pending = null;      // 量角度時已經點下的點
+
+    function redraw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      shapes.forEach(function (sh) { paint(sh, '#ffd23f'); });
+      if (drawing) paint(drawing, '#4cc9f0');
+      if (pending) paint({ t: 'angle', p: pending }, '#4cc9f0');
+    }
+
+    function paint(shape, color) {
+      var pts = shape.p.map(toPx);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      /* 深色影片上黃線也看得見，靠這層黑描邊 */
+      ctx.shadowColor = 'rgba(0,0,0,.85)';
+      ctx.shadowBlur = 3;
+
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.stroke();
+
+      if (shape.t === 'angle' && pts.length >= 3) {
+        var deg = angleAt(pts[0], pts[1], pts[2]);
+        ctx.font = '600 15px ui-monospace, monospace';
+        ctx.fillText(deg.toFixed(1) + '°', pts[1][0] + 10, pts[1][1] - 10);
+      }
+      if (shape.t !== 'free') {
+        pts.forEach(function (pt) {
+          ctx.beginPath();
+          ctx.arc(pt[0], pt[1], 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+      ctx.restore();
+    }
+
+    function angleAt(a, vertex, b) {
+      var v1 = [a[0] - vertex[0], a[1] - vertex[1]];
+      var v2 = [b[0] - vertex[0], b[1] - vertex[1]];
+      var dot = v1[0] * v2[0] + v1[1] * v2[1];
+      var m1 = Math.hypot(v1[0], v1[1]), m2 = Math.hypot(v2[0], v2[1]);
+      if (!m1 || !m2) return 0;
+      return Math.acos(Math.min(Math.max(dot / (m1 * m2), -1), 1)) * 180 / Math.PI;
+    }
+
+    if (canvas) {
+      canvas.addEventListener('pointerdown', function (ev) {
+        if (!shapeTool) return;
+        ev.preventDefault();
+        var pt = toNorm(ev);
+
+        if (shapeTool === 'angle') {
+          pending = (pending || []).concat([pt]);
+          if (pending.length === 3) {
+            shapes.push({ t: 'angle', p: pending });
+            pending = null;
+          }
+          redraw();
+          return;
+        }
+        if (shapeTool === 'hline') { shapes.push({ t: 'hline', p: [[0, pt[1]], [1, pt[1]]] }); redraw(); return; }
+        if (shapeTool === 'vline') { shapes.push({ t: 'vline', p: [[pt[0], 0], [pt[0], 1]] }); redraw(); return; }
+
+        canvas.setPointerCapture(ev.pointerId);
+        drawing = { t: shapeTool, p: [pt, pt] };
+        redraw();
+      });
+
+      canvas.addEventListener('pointermove', function (ev) {
+        if (!drawing) return;
+        var pt = toNorm(ev);
+        if (drawing.t === 'free') {
+          drawing.p.push(pt);
+        } else {
+          drawing.p[1] = pt;
+        }
+        redraw();
+      });
+
+      canvas.addEventListener('pointerup', function () {
+        if (!drawing) return;
+        shapes.push(drawing);
+        drawing = null;
+        redraw();
+      });
+
+      window.addEventListener('resize', resizeCanvas);
+      player.addEventListener('loadedmetadata', resizeCanvas);
+      resizeCanvas();
+    }
+
+    /* ---------------------------------------------------- 存成批註 */
+
+    function saveToNote(kind) {
+      var at = player.currentTime, end = null, body = '', data = { kind: kind };
+
+      if (kind === 'timing') {
+        var d = elapsed();
+        if (d === null) { alert('先標 A 和 B 兩個點。'); return; }
+        at = Math.min(marks.a, marks.b);
+        end = Math.max(marks.a, marks.b);
+        body = 'A→B ' + fmt(d);
+        var dist = parseFloat($('t-dist').value);
+        if (dist > 0) {
+          data.distance_m = dist;
+          body += '，' + dist + 'm，平均 ' + (dist / d).toFixed(2) + ' m/s';
+        }
+      } else if (kind === 'steps') {
+        if (taps.length < 2) { alert('至少要記兩步才算得出步頻。'); return; }
+        at = taps[0];
+        end = taps[taps.length - 1];
+        var span = end - at, gaps = taps.length - 1;
+        data.taps = taps;
+        body = taps.length + ' 步，' + fmt(span) + '，步頻 '
+          + (gaps / span).toFixed(2) + ' 步/秒';
+      } else if (kind === 'draw') {
+        if (!shapes.length) { alert('畫面上還沒有線。'); return; }
+        body = '（畫面標示）';
+      }
+
+      if (shapes.length) data.shapes = shapes;
+
+      $('note-at').value = at.toFixed(2);
+      $('note-end').value = end === null ? '' : end.toFixed(2);
+      $('note-data').value = JSON.stringify(data);
+
+      var box = document.querySelector('#noteform textarea');
+      box.value = body + '：';
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    /* ---------------------------------------------------- 事件 */
+
+    var saved = {};
+    var el = document.getElementById('note-shapes');
+    if (el) { try { saved = JSON.parse(el.textContent) || {}; } catch (err) { saved = {}; } }
+
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest ? ev.target.closest('[data-vid],[data-tool],[data-act],[data-shape]') : null;
+      if (!btn) return;
+
+      if (btn.hasAttribute('data-tool')) { pickTool(btn.getAttribute('data-tool')); return; }
+      if (btn.hasAttribute('data-shape')) { pickShape(btn.getAttribute('data-shape')); return; }
+
+      var act = btn.getAttribute('data-act');
+      if (act === 'mark-a') { markAt('a'); return; }
+      if (act === 'mark-b') { markAt('b'); return; }
+      if (act === 'timing-clear') { marks = { a: null, b: null }; showTiming(); return; }
+      if (act === 'step-tap') { tapStep(); return; }
+      if (act === 'steps-clear') { taps = []; showSteps(); return; }
+      if (act === 'undo') { shapes.pop(); pending = null; redraw(); return; }
+      if (act === 'draw-clear') { shapes = []; pending = null; redraw(); return; }
+      if (act === 'save') { saveToNote(btn.getAttribute('data-kind')); return; }
+
+      var what = btn.getAttribute('data-vid');
       if (what === 'step') {
         step(parseInt(btn.getAttribute('data-dir'), 10) || 1);
       } else if (what === 'play') {
@@ -254,28 +560,50 @@
         setRate(parseFloat(btn.getAttribute('data-rate')) || 1);
       } else if (what === 'seek') {
         seek(parseFloat(btn.getAttribute('data-at')) || 0);
+      } else if (what === 'replay') {
+        /* 把存起來的線畫回影片上，順便跳到當時那一格 */
+        var shapesFor = saved[btn.getAttribute('data-note')];
+        if (shapesFor) {
+          shapes = JSON.parse(JSON.stringify(shapesFor));
+          seek(parseFloat(btn.getAttribute('data-at')) || 0);
+          pickTool('draw');
+          redraw();
+        }
       } else if (what === 'grab') {
         var field = $('note-at');
         if (field) field.value = player.currentTime.toFixed(2);
       } else if (what === 'sync' && second) {
-        /* 兩條片都拉回頭一起播，比對同一個動作的前後差別。 */
         player.pause(); second.pause();
         player.currentTime = 0; second.currentTime = 0;
         player.play(); second.play();
       }
     });
 
-    /* 鍵盤：左右鍵逐格、空白鍵播放暫停——看片時手不用離開鍵盤。 */
+    var distField = $('t-dist');
+    if (distField) distField.addEventListener('input', showSpeed);
+    if (fpsSel) fpsSel.addEventListener('change', showTiming);
+
+    /* 鍵盤：左右鍵逐格、A/B 標點；空白鍵在「數步」工具下是記一步，其餘是播放暫停。 */
     document.addEventListener('keydown', function (ev) {
       var tag = (ev.target.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+
       if (ev.key === 'ArrowLeft') { ev.preventDefault(); step(-1); }
       else if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
       else if (ev.key === ' ') {
         ev.preventDefault();
-        if (player.paused) player.play(); else player.pause();
+        if (active === 'steps' && tools) tapStep();
+        else if (player.paused) player.play();
+        else player.pause();
+      } else if (tools && (ev.key === 'a' || ev.key === 'A')) {
+        ev.preventDefault(); pickTool('timing'); markAt('a');
+      } else if (tools && (ev.key === 'b' || ev.key === 'B')) {
+        ev.preventDefault(); pickTool('timing'); markAt('b');
       }
     });
+
+    if (tools) { showTiming(); showSteps(); }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

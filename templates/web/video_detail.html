@@ -46,10 +46,12 @@
   <div>
     <div class="card pad0 mb">
       <div class="vidstage {% if other %}vidstage-two{% endif %}">
-        <div class="vidpane">
+        <div class="vidpane" id="stage1">
           <video id="player" class="vidplayer" controls playsinline preload="metadata"
                  {% if video.poster %}poster="{{ video.poster.url }}"{% endif %}
                  src="{{ video.playback_url }}"></video>
+          {% comment %}劃線疊在影片上；沒選工具時 pointer-events 關掉，才不會擋住播放控制{% endcomment %}
+          <canvas id="draw1" class="vidcanvas"></canvas>
           {% if other %}<div class="small c-dim mono vidlabel">{{ video.date|date:'m-d' }} · {{ video.display_title }}</div>{% endif %}
         </div>
         {% if other %}
@@ -88,6 +90,89 @@
         <span class="mono small" id="v-clock">0.00s</span>
       </div>
     </div>
+
+    <!-- ---------------------------------------------------- 分析工具 -->
+    {% if can_annotate %}
+    <div class="card pad0 mb" id="tools">
+      <div class="card-head">
+        <span>{% translate "分析工具" %}</span>
+        <div class="flex">
+          <button type="button" class="btn ghost sm on" data-tool="timing">{% translate "計時" %}</button>
+          <button type="button" class="btn ghost sm" data-tool="steps">{% translate "數步" %}</button>
+          <button type="button" class="btn ghost sm" data-tool="draw">{% translate "劃線" %}</button>
+        </div>
+      </div>
+
+      <!-- 計時：標 A 標 B，量中間那一段 -->
+      <div class="toolpane" data-pane="timing">
+        <div class="flex mb">
+          <button type="button" class="btn sm" data-act="mark-a">{% translate "標 A（起）" %}</button>
+          <button type="button" class="btn sm" data-act="mark-b">{% translate "標 B（終）" %}</button>
+          <button type="button" class="btn ghost sm" data-act="timing-clear">{% translate "清除" %}</button>
+          <span class="small c-dim">{% translate "或按 A / B 鍵" %}</span>
+        </div>
+        <div class="toolout">
+          <div><span class="small c-dim">A</span> <b class="mono" id="t-a">—</b></div>
+          <div><span class="small c-dim">B</span> <b class="mono" id="t-b">—</b></div>
+          <div><span class="small c-dim">{% translate "時間" %}</span>
+               <b class="mono c-blue big" id="t-delta">—</b></div>
+          <div class="flex">
+            <span class="small c-dim">{% translate "距離" %}</span>
+            <input type="text" class="editnum sm mono" id="t-dist" placeholder="30">
+            <span class="small c-dim">m</span>
+          </div>
+          <div><span class="small c-dim">{% translate "平均速度" %}</span>
+               <b class="mono" id="t-speed">—</b></div>
+        </div>
+        <div class="small c-dim mt" id="t-hint"></div>
+        <button type="button" class="btn sm mt" data-act="save" data-kind="timing">
+          {% translate "存成批註" %}</button>
+      </div>
+
+      <!-- 數步：腳落地就點一下 -->
+      <div class="toolpane" data-pane="steps" hidden>
+        <div class="flex mb">
+          <button type="button" class="btn sm" data-act="step-tap">{% translate "記一步" %}</button>
+          <button type="button" class="btn ghost sm" data-act="steps-clear">{% translate "重數" %}</button>
+          <span class="small c-dim">{% translate "在這個工具下，空白鍵＝記一步（不是播放暫停）" %}</span>
+        </div>
+        <div class="toolout">
+          <div><span class="small c-dim">{% translate "步數" %}</span>
+               <b class="mono c-blue big" id="s-count">0</b></div>
+          <div><span class="small c-dim">{% translate "步頻" %}</span>
+               <b class="mono" id="s-rate">—</b></div>
+          <div><span class="small c-dim">{% translate "每步平均" %}</span>
+               <b class="mono" id="s-interval">—</b></div>
+          <div><span class="small c-dim">{% translate "涵蓋" %}</span>
+               <b class="mono" id="s-span">—</b></div>
+        </div>
+        <div class="steplist mono small c-dim mt" id="s-list"></div>
+        <div class="small c-dim mt">
+          {% translate "邊播邊按最準：0.5 倍速播放，每次腳落地按一下。自動數步要靠姿態估計，那是第二期。" %}
+        </div>
+        <button type="button" class="btn sm mt" data-act="save" data-kind="steps">
+          {% translate "存成批註" %}</button>
+      </div>
+
+      <!-- 劃線：疊在影片上的一層畫布 -->
+      <div class="toolpane" data-pane="draw" hidden>
+        <div class="flex mb">
+          <button type="button" class="btn ghost sm" data-shape="line">{% translate "直線" %}</button>
+          <button type="button" class="btn ghost sm" data-shape="angle">{% translate "角度" %}</button>
+          <button type="button" class="btn ghost sm" data-shape="hline">{% translate "水平線" %}</button>
+          <button type="button" class="btn ghost sm" data-shape="vline">{% translate "垂直線" %}</button>
+          <button type="button" class="btn ghost sm" data-shape="free">{% translate "手繪" %}</button>
+          <button type="button" class="btn ghost sm" data-act="undo">{% translate "復原" %}</button>
+          <button type="button" class="btn ghost sm" data-act="draw-clear">{% translate "清除" %}</button>
+        </div>
+        <div class="small c-dim" id="d-hint">
+          {% translate "選一個工具，然後在影片上拖曳。角度要點三下：先點一邊的端點、再點關節、最後點另一邊。" %}
+        </div>
+        <button type="button" class="btn sm mt" data-act="save" data-kind="draw">
+          {% translate "存成批註" %}</button>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- ------------------------------------------------------ 並排比對 -->
     <div class="card pad0 mb">
@@ -130,6 +215,9 @@
         <form method="post" style="padding:14px 18px" id="noteform">
           {% csrf_token %}
           <input type="hidden" name="action" value="note_add">
+          {% comment %}量一段時間時的終點，以及分析工具的量測結果；由 video.js 按「存成批註」時填{% endcomment %}
+          <input type="hidden" name="end_sec" id="note-end">
+          <input type="hidden" name="data" id="note-data">
           <div class="flex mb">
             <span class="small c-dim">{% translate "釘在" %}</span>
             <input type="text" name="at_sec" id="note-at" class="editnum sm mono" value="0.00"
@@ -147,7 +235,7 @@
           <div class="note">
             <div class="between">
               <button type="button" class="linkbtn mono" data-vid="seek" data-at="{{ n.at_sec }}">
-                {{ n.at_display }}
+                {{ n.at_display }}{% if n.end_sec != None %} → {{ n.end_display }}{% endif %}
               </button>
               <span class="small c-dim">
                 {{ n.author.get_full_name|default:n.author.username|default:"—" }}
@@ -155,6 +243,11 @@
               </span>
             </div>
             <div>{{ n.body|linebreaksbr }}</div>
+            {% if n.has_drawing %}
+              <button type="button" class="btn ghost sm mt" data-vid="replay"
+                      data-at="{{ n.at_sec }}" data-note="{{ n.pk }}">
+                {% translate "在影片上重畫" %}</button>
+            {% endif %}
             <form method="post" style="margin-top:4px">
               {% csrf_token %}
               <input type="hidden" name="action" value="note_delete">
@@ -175,5 +268,6 @@
 {% endblock %}
 
 {% block scripts %}
+{{ note_shapes|json_script:"note-shapes" }}
 <script src="{% static 'js/video.js' %}"></script>
 {% endblock %}

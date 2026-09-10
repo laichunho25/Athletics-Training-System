@@ -199,7 +199,20 @@ def delete_video(user, video):
 # --------------------------------------------------------------- 批註
 
 
-def add_note(user, video, at_sec, body):
+#: 分析工具存進批註的東西。前端送什麼進來都要當作不可信，逐項洗過再存。
+TOOL_KINDS = ("timing", "steps", "draw")
+SHAPE_TYPES = ("line", "angle", "hline", "vline", "free")
+MAX_TAPS = 400          # 400 步夠記完一趟 400 米
+MAX_SHAPES = 60
+MAX_POINTS = 300        # 自由手繪一筆的點數上限
+
+
+def add_note(user, video, at_sec, body, end_sec=None, data=None):
+    """加一條批註。
+
+    `end_sec` 有值代表量的是一段時間（A→B）；`data` 是分析工具的量測結果，
+    格式見 `_clean_data`。兩個都留空就是單純釘在某一秒的文字批註。
+    """
     if not may_annotate(user, video):
         raise VideoError(_("你沒有權限在這條影片上批註。"))
     body = (body or "").strip()
@@ -208,7 +221,80 @@ def add_note(user, video, at_sec, body):
     at = _decimal(at_sec)
     if at is None or at < 0:
         at = Decimal("0.00")
-    return VideoNote.objects.create(video=video, at_sec=at, body=body, author=user)
+
+    end = _decimal(end_sec)
+    if end is not None and end < at:
+        at, end = end, at          # 使用者先標了 B 才標 A，換過來就好
+
+    return VideoNote.objects.create(
+        video=video, at_sec=at, end_sec=end, body=body,
+        data=_clean_data(data), author=user,
+    )
+
+
+def _clean_data(raw):
+    """把前端送來的量測資料洗乾淨。
+
+    座標一律存成 0～1 的比例而不是像素，這樣同一條線在手機與電腦上、
+    在不同解析度的影片上都畫在同一個位置。
+    """
+    if not isinstance(raw, dict):
+        return {}
+    kind = raw.get("kind")
+    if kind not in TOOL_KINDS:
+        return {}
+    out = {"kind": kind}
+
+    if kind == "steps":
+        taps = [t for t in (_float(v) for v in _as_list(raw.get("taps"))) if t is not None]
+        out["taps"] = [round(t, 3) for t in taps[:MAX_TAPS]]
+    elif kind == "timing":
+        distance = _float(raw.get("distance_m"))
+        if distance and 0 < distance <= 10000:
+            out["distance_m"] = round(distance, 2)
+
+    shapes = []
+    for shape in _as_list(raw.get("shapes"))[:MAX_SHAPES]:
+        cleaned = _clean_shape(shape)
+        if cleaned:
+            shapes.append(cleaned)
+    if shapes:
+        out["shapes"] = shapes
+    return out
+
+
+def _clean_shape(shape):
+    if not isinstance(shape, dict):
+        return None
+    kind = shape.get("t")
+    if kind not in SHAPE_TYPES:
+        return None
+    points = []
+    for point in _as_list(shape.get("p"))[:MAX_POINTS]:
+        pair = _as_list(point)
+        if len(pair) != 2:
+            continue
+        x, y = _float(pair[0]), _float(pair[1])
+        if x is None or y is None:
+            continue
+        # 夾在畫面內：超出範圍的點畫出去只會變成看不見的線
+        points.append([round(min(max(x, 0.0), 1.0), 4), round(min(max(y, 0.0), 1.0), 4)])
+    if not points:
+        return None
+    return {"t": kind, "p": points}
+
+
+def _as_list(value):
+    return value if isinstance(value, list) else []
+
+
+def _float(raw):
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    # NaN / inf 進了 JSONField 會讓之後讀出來的頁面直接壞掉
+    return value if value == value and abs(value) != float("inf") else None
 
 
 def delete_note(user, note):

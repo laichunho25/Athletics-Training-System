@@ -1359,3 +1359,23 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   .vidprev { flex-direction: column; }
   .vidprev video { width: 100%; max-width: none; }
 }
+
+/* 分析工具：計時、數步、劃線 -------------------------------------------- */
+
+/* 劃線那一層疊在影片正上方。沒選形狀時完全穿透，播放控制照樣按得到；
+   選了形狀才吃滑鼠事件，游標也換成十字。 */
+.vidcanvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; touch-action: none;
+}
+.vidcanvas.armed { pointer-events: auto; cursor: crosshair; }
+
+.toolpane { padding: 14px 18px; }
+.toolout {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+}
+.toolout > div { display: flex; align-items: center; gap: 6px; }
+.toolout .big { font-size: 20px; }
+
+/* 每一步的時間；記滿一趟 400 米也不會把版面撐開 */
+.steplist { max-height: 76px; overflow-y: auto; line-height: 1.7; word-break: break-all; }

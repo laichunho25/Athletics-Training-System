@@ -3706,6 +3706,16 @@ def video_list(request):
     )
 
 
+def _json_or_none(raw):
+    """表單欄位裡的 JSON 字串；壞掉就當作沒填，不要讓整頁 500。"""
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 @login_required
 def video_detail(request, pk):
     """單條影片：變速與逐格回放、時間點批註，另可並排比對另一條片。"""
@@ -3720,7 +3730,13 @@ def video_detail(request, pk):
         try:
             if action == "note_add":
                 vsvc.add_note(
-                    request.user, video, request.POST.get("at_sec"), request.POST.get("body")
+                    request.user,
+                    video,
+                    request.POST.get("at_sec"),
+                    request.POST.get("body"),
+                    end_sec=request.POST.get("end_sec") or None,
+                    # 分析工具（計時／數步／劃線）量出來的東西，由 video.js 序列化
+                    data=_json_or_none(request.POST.get("data")),
                 )
                 messages.success(request, _("已加上批註。"))
             elif action == "note_delete":
@@ -3757,6 +3773,7 @@ def video_detail(request, pk):
         .exclude(pk=video.pk)
         .order_by("-date", "-id")[:50]
     )
+    notes = list(video.notes.select_related("author"))
     return render(
         request,
         "web/video_detail.html",
@@ -3766,7 +3783,9 @@ def video_detail(request, pk):
             "video": video,
             "other": other,
             "others": same_athlete,
-            "notes": list(video.notes.select_related("author")),
+            "notes": notes,
+            # 有劃線的批註：{批註 id: 圖形}，交給 json_script 一次輸出給前端重畫
+            "note_shapes": {n.pk: n.data["shapes"] for n in notes if n.has_drawing},
             "can_delete": vsvc.may_delete(request.user, video),
             "can_annotate": vsvc.may_annotate(request.user, video),
         },

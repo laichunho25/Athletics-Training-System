@@ -185,7 +185,20 @@ class VideoNote(TimeStampedModel):
         decimal_places=2,
         validators=[MinValueValidator(0), MaxValueValidator(99999)],
     )
+    #: 量一段時間時的終點（A→B）。單純釘一個時間點的批註留空。
+    end_sec = models.DecimalField(
+        _("結束時間 (秒)"),
+        max_digits=7,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(99999)],
+    )
     body = models.TextField(_("批註"))
+    #: 分析工具量出來的東西：計時、數步的每一步、劃的線。
+    #: 用 JSON 而不是開一堆欄位，是因為工具還會加（第二期的關節角就直接放這裡），
+    #: 而且這些值只給前端畫回去，資料庫不需要對它們做查詢。
+    data = models.JSONField(_("量測資料"), default=dict, blank=True)
     author = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,
@@ -205,5 +218,29 @@ class VideoNote(TimeStampedModel):
 
     @property
     def at_display(self):
-        total = float(self.at_sec)
-        return f"{int(total) // 60}:{total % 60:05.2f}"
+        return _fmt_clock(self.at_sec)
+
+    @property
+    def end_display(self):
+        return _fmt_clock(self.end_sec) if self.end_sec is not None else ""
+
+    @property
+    def elapsed(self):
+        """A→B 的秒數；不是量一段時間的批註就回 None。"""
+        if self.end_sec is None:
+            return None
+        return float(self.end_sec) - float(self.at_sec)
+
+    @property
+    def tool(self):
+        """這條批註是哪個工具產生的：timing / steps / draw，或空字串＝純文字。"""
+        return (self.data or {}).get("kind", "")
+
+    @property
+    def has_drawing(self):
+        return bool((self.data or {}).get("shapes"))
+
+
+def _fmt_clock(value):
+    total = float(value)
+    return f"{int(total) // 60}:{total % 60:05.2f}"
