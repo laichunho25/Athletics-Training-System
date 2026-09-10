@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, timedelta
 
-from django.db.models import Avg, Sum
+from django.db.models import Avg, Max, Sum
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile
@@ -1005,6 +1005,14 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
         )
         used.update(keep_ids or [])
         items = items.filter(id__in=used)
+    # 清單依「最新登錄」排序，看的是這個項目最後一次登記錄是哪一天——
+    # 那一天可能在一年之外，所以不受下面的時間窗限制，另外算一次。
+    logged = dict(
+        MetricRecord.objects.filter(athlete=athlete, item__domain=domain)
+        .values("item_id")
+        .annotate(last=Max("date"))
+        .values_list("item_id", "last")
+    )
     since = date.today() - timedelta(days=days)
     rows = []
     for item in items:
@@ -1024,6 +1032,8 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
                 "count": len(pairs),
                 "latest": float(latest[0]) if latest else None,
                 "latest_date": latest[1] if latest else None,
+                # 最後一次登記錄的日期（沒填完成數值的那幾筆也算）
+                "last_date": logged.get(item.id),
                 "best": best,
             }
         )
@@ -1031,23 +1041,15 @@ def metric_overview(athlete, domain, days=365, used_only=False, keep_ids=None):
     return rows
 
 
-def overview_by_category(rows):
-    """項目清單依動作分類分組；空的分類不顯示。"""
-    from analytics.models import MetricCategory
-
-    labels = dict(MetricCategory.choices)
-    buckets = {}
-    for row in rows:
-        buckets.setdefault(row["item"].category, []).append(row)
-    groups = []
-    for value, label in MetricCategory.choices:
-        if buckets.get(value):
-            groups.append({"value": value, "label": label, "rows": buckets[value]})
-    # 資料庫裡若有不認得的分類，照樣列出來，不要讓項目憑空消失
-    for value, rows_ in buckets.items():
-        if value not in labels:
-            groups.append({"value": value, "label": _("其他"), "rows": rows_})
-    return groups
+def overview_by_recent(rows):
+    """項目清單依「最新登錄」排：剛記過的排最上面，沒登過的排最後。"""
+    return sorted(
+        rows,
+        key=lambda r: (
+            (0, -r["last_date"].toordinal()) if r["last_date"] else (1, 0),
+            r["item"].name,
+        ),
+    )
 
 
 # ------------------------------------------------- 分組比較（整體／年份／時期）

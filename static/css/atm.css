@@ -1222,17 +1222,6 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
 }
 .cmptable tr.bestrow > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
 
-/* 項目清單的分類標題 */
-.itemcat {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 14px; background: var(--surface-2);
-  border-bottom: 1px solid var(--border-strong);
-  font-size: 11.5px; font-weight: 700; color: var(--text-dim);
-  letter-spacing: .9px; font-family: var(--mono); text-transform: uppercase;
-  position: sticky; top: 0; z-index: 2;
-}
-.itemcat span { font-variant-numeric: tabular-nums; opacity: .8; }
-
 /* =================================================== 顯示欄收合／展開
    一頁裡的欄位很多，全部攤開來看很累。每一條標題列右邊加一顆 ▾：
    按一下把整欄收起來（只剩標題），再按一下展開；狀態記在瀏覽器，

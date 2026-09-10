@@ -2855,12 +2855,14 @@ def analytics_view(request):
         used_only=not is_competition,
         keep_ids=[item.id] if item else None,
     )
+    # 清單依「最新登錄」排，沒指定項目時就跟著清單，挑最近記過的那一個
+    overview_recent = [] if is_competition else an.overview_by_recent(overview)
     if item is None:
-        with_records = [r["item"] for r in overview if r["count"]]
+        ordered = overview_recent or overview
+        with_records = [r["item"] for r in ordered if r["count"]]
         item = with_records[0] if with_records else (
-            overview[0]["item"] if overview else None
+            ordered[0]["item"] if ordered else None
         )
-    overview_groups = [] if is_competition else an.overview_by_category(overview)
 
     # 比賽數據以「一場比賽」為單位分析；其餘範疇看的是最常做的動作
     meets = an.competition_report(athlete) if is_competition else []
@@ -3034,7 +3036,7 @@ def analytics_view(request):
             "domain": domain,
             "domain_label": dict(MetricDomain.choices)[domain],
             "overview": overview,
-            "overview_groups": overview_groups,
+            "overview_recent": overview_recent,
             "is_competition": is_competition,
             "meets": meets,
             "competitions": competitions,

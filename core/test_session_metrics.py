@@ -1,5 +1,5 @@
 """課表上的「訓練紀錄」：數字在課表登，數據分析那邊看到的是同一份。"""
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 from django.test import TestCase
@@ -125,7 +125,7 @@ class ComparisonTests(TestCase):
         self.assertContains(page, "未分期")
 
 class ItemListTests(TestCase):
-    """項目清單：只列挑出來／登過的，並依動作分類分組。"""
+    """項目清單：只列挑出來／登過的，最新登錄的排最上面。"""
 
     def setUp(self):
         ensure_builtin_items()
@@ -149,11 +149,21 @@ class ItemListTests(TestCase):
         self.assertIn("背蹲舉 1RM", body)
         self.assertNotIn("反向跳 CMJ", body)  # 沒挑也沒登過就不佔版面
 
-    def test_items_are_grouped_by_category(self):
+    def test_the_most_recently_logged_item_comes_first(self):
+        """後來才記的動作排在前面，行上顯示的是最後一次登錄的日子。"""
+        bench = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="臥推 1RM")
+        MetricRecord.objects.create(
+            athlete=self.athlete, item=bench, date=TODAY + timedelta(days=1),
+            value=80, weight_kg=80,
+        )
         body = self.page()
-        # 分類標題（不是「新增項目」表單裡那個下拉的選項）
-        self.assertIn('class="itemcat">下身動作（Lower Body Movement）', body)
-        self.assertNotIn('class="itemcat">核心肌群', body)  # 這一組還沒有項目
+        self.assertLess(body.index("臥推 1RM"), body.index("背蹲舉 1RM"))
+        self.assertIn((TODAY + timedelta(days=1)).strftime("%y/%m/%d"), body)
+
+    def test_the_list_drops_the_custom_badge_and_the_latest_value(self):
+        body = self.page()
+        self.assertNotIn('class="itemcat"', body)   # 不再依動作分類分組
+        self.assertNotIn("120.0 · 1筆", body)       # 也不再顯示最近數值
 
     def test_picking_from_the_activity_library_adds_an_item(self):
         definition = ActivityDefinition.objects.create(

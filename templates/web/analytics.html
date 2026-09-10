@@ -76,7 +76,7 @@
   <div class="card pad0 mb">
     <div class="card-head">
       <span>{{ domain_label }}</span>
-      <span class="small c-dim">{% blocktranslate with v0=overview|length %}{{ v0 }} 個項目{% endblocktranslate %}{% if not is_competition %} {% translate "· 依動作分類" %}{% endif %}</span>
+      <span class="small c-dim">{% blocktranslate with v0=overview|length %}{{ v0 }} 個項目{% endblocktranslate %}{% if not is_competition %} {% translate "· 最新登錄排前面" %}{% endif %}</span>
     </div>
     <div class="itemlist">
       {% if is_competition %}
@@ -93,19 +93,17 @@
           </a>
         {% endfor %}
       {% endif %}
-      {% for group in overview_groups %}
-        <div class="itemcat">{{ group.label }}<span>{{ group.rows|length }}</span></div>
-        {% for row in group.rows %}
-          <div class="itemrow">
+      {# 依「最新登錄」排的一張平清單：名稱、最後一次記錄的日子、共幾筆 #}
+      {% for row in overview_recent %}
+        <div class="itemrow">
           <a href="?athlete={{ athlete.id }}&domain={{ domain }}&item={{ row.item.id }}&compare={{ compare }}"
              class="{% if item and row.item.id == item.id %}active{% endif %}">
             <span class="name">
-              <span class="ellip" title="{{ row.item.display_name }}{% if row.item.unit %}（{{ row.item.unit }}）{% endif %}{% if not row.item.is_builtin %} · {% translate '自訂項目' %}{% endif %}">{{ row.item.name }}</span>
+              <span class="ellip" title="{{ row.item.display_name }}{% if row.item.unit %}（{{ row.item.unit }}）{% endif %}">{{ row.item.name }}</span>
               {% if row.item.unit %}<span class="meta">{{ row.item.unit }}</span>{% endif %}
-              {% if not row.item.is_builtin %}<span class="badge b-dim" title="{% translate '自訂項目' %}">{% translate "自訂" %}</span>{% endif %}
             </span>
-            <span class="meta" title="{% if row.count %}{% blocktranslate with v0=row.latest|default:'—' v1=row.item.unit v2=row.latest_date|default:'—' v3=row.count %}最近 {{ v0 }}{{ v1 }}（{{ v2 }}）· 共 {{ v3 }} 筆{% endblocktranslate %}{% else %}{% translate '還沒有紀錄' %}{% endif %}">
-              {% if row.count %}{% blocktranslate with v0=row.latest|default:"—" v1=row.count %}{{ v0 }} · {{ v1 }}筆{% endblocktranslate %}{% else %}—{% endif %}
+            <span class="meta" title="{% if row.last_date %}{% blocktranslate with v0=row.last_date v1=row.count %}最後一次登錄 {{ v0 }} · 近一年共 {{ v1 }} 筆{% endblocktranslate %}{% else %}{% translate '還沒有紀錄' %}{% endif %}">
+              {% if row.last_date %}{{ row.last_date|date:"y/m/d" }}{% if row.count %} · {% blocktranslate with v0=row.count %}{{ v0 }} 筆{% endblocktranslate %}{% endif %}{% else %}—{% endif %}
             </span>
           </a>
           <button class="itemedit" type="button" data-id="{{ row.item.id }}" data-name="{{ row.item.name }}"
@@ -113,8 +111,7 @@
           <button class="itemdel" type="submit" form="itemDel" name="item_id" value="{{ row.item.id }}"
                   data-name="{{ row.item.display_name }}" data-builtin="{{ row.item.is_builtin|yesno:"1," }}"
                   title="{% blocktranslate with v0=row.item.display_name %}把「{{ v0 }}」從清單刪掉{% endblocktranslate %}">×</button>
-          </div>
-        {% endfor %}
+        </div>
       {% empty %}
         {% if not is_competition %}
           <div class="empty">{% translate "還沒有項目。到課表的活動旁按「登記錄」，記過的動作就會出現在這裡。" %}</div>
