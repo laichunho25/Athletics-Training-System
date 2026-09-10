@@ -3788,7 +3788,7 @@ def video_sign(request):
     filename = request.POST.get("filename", "")
     try:
         vsvc.check_filename(filename)
-        vsvc.check_size(int(request.POST.get("size") or 0))
+        vsvc.check_size(int(request.POST.get("size_bytes") or 0))
     except vsvc.VideoError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
     except (TypeError, ValueError):

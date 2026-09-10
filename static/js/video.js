@@ -185,7 +185,12 @@
             reject(new Error('雲端儲存回了 ' + xhr.status));
           }
         };
-        xhr.onerror = function () { reject(new Error('連不上雲端儲存')); };
+        xhr.onerror = function () {
+          /* PUT 連送都送不出去，幾乎都是 R2 的 CORS 沒放行這個網域。
+           * 把當下的網址寫進訊息裡，對照 R2 的 AllowedOrigins 一眼就看得出來。 */
+          reject(new Error('連不上雲端儲存。請確認 R2 的 CORS 有放行 '
+            + window.location.origin + '（F12 Console 會有詳細原因）'));
+        };
         xhr.send(file);
       });
     }
