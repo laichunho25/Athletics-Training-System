@@ -35,8 +35,8 @@
 {% endif %}
 
 <div class="card pad0 mb">
-  <div class="card-head">
-    <span>{% blocktranslate with v0=today %}項目內運動員狀況 · {{ v0 }}{% endblocktranslate %}</span>
+  <div class="card-head" data-fold-key="roster">
+    <span>{% blocktranslate with v0=today %}隊內運動員狀況 · {{ v0 }}{% endblocktranslate %}</span>
     <span class="small c-dim">{% translate "點運動員可看完整狀態" %}</span>
   </div>
   <table>
@@ -75,9 +75,8 @@
 
 {% if can_assign and rows %}
 <div class="card pad0 mb">
-  <div class="card-head">
-    <span>{% translate "派同一個 program 給項目內運動員" %}</span>
-    <span class="small c-dim">{% translate "每人每天各建一堂獨立的課；課表內容排好一次，再用日曆上的 ⧉ 複製給同計劃的其他人" %}</span>
+  <div class="card-head" data-fold-key="teamplan">
+    <span>{% translate "設計團隊訓練計劃" %}</span>
   </div>
   <form method="post" style="padding:14px 18px">
     {% csrf_token %}
@@ -203,6 +202,8 @@
 {% endblock %}
 
 {% block scripts %}
+{# 每張卡的標題右邊多一顆 ▾：收起來只剩標題，收了哪幾張下次回來還記得 #}
+<script src="{% static 'js/fold.js' %}" data-page="plan_detail"></script>
 <script src="{% static 'js/liveedit.js' %}"></script>
 <script>
   ATM.mountForms();

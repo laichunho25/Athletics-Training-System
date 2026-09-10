@@ -11,7 +11,7 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import formats, timezone
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import AthleteProfile, Event
@@ -138,11 +138,13 @@ class Project(TimeStampedModel):
         """回傳 (可否報名, 原因)——原因會直接顯示給使用者。"""
         now = now or timezone.now()
         if self.status != ProjectStatus.OPEN:
-            return False, "此項目目前不接受報名"
+            return False, str(_("此項目目前不接受報名"))
         if self.opens_at and now < self.opens_at:
-            return False, f"報名將於 {timezone.localtime(self.opens_at):%Y 年 %m 月 %d 日} 開始"
+            # 日期照介面語言排版，英文介面才不會冒出「2026 年 09 月 10 日」
+            opens = formats.date_format(timezone.localtime(self.opens_at), "DATE_FORMAT")
+            return False, str(_("報名將於 %(v0)s 開始") % {"v0": opens})
         if self.closes_at and now > self.closes_at:
-            return False, "報名已經截止"
+            return False, str(_("報名已經截止"))
         return True, ""
 
     @property
@@ -316,9 +318,9 @@ class Application(TimeStampedModel):
         """後台一眼看出要不要跟進的紅旗。"""
         flags = []
         if self.has_current_injury:
-            flags.append("現有傷患")
+            flags.append(str(_("現有傷患")))
         if self.medical_conditions.strip():
-            flags.append("長期病患")
+            flags.append(str(_("長期病患")))
         if not self.doctor_clearance:
-            flags.append("未取得醫生許可")
+            flags.append(str(_("未取得醫生許可")))
         return flags

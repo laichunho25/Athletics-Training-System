@@ -635,17 +635,17 @@ class SessionActivity(TimeStampedModel):
         bits = [self.name]
         for value, suffix in (
             (self.distance, ""),
-            (self.reps, " 次"),
-            (self.sets, " 組"),
+            (self.reps, _(" 次")),
+            (self.sets, _(" 組")),
         ):
             if value:
-                bits.append(f"{value}{suffix}")
+                bits.append("%s%s" % (value, suffix))
         if self.weight:
             bits.append(f"@ {self.weight}")
         if self.intensity:
-            bits.append(f"強度 {self.intensity}")
+            bits.append(_("強度 %(v0)s") % {"v0": self.intensity})
         if self.rest:
-            bits.append(f"休 {self.rest}")
+            bits.append(_("休 %(v0)s") % {"v0": self.rest})
         return " ".join(bits)
 
     @property
@@ -723,7 +723,8 @@ class BlockProgram(TimeStampedModel):
         if not names:
             return ""
         more = self.item_count - len(names)
-        return "、".join(names) + (f"…（共 {self.item_count} 項）" if more > 0 else "")
+        tail = _("…（共 %(v0)s 項）") % {"v0": self.item_count} if more > 0 else ""
+        return "、".join(names) + tail
 
 
 class BlockProgramItem(models.Model):

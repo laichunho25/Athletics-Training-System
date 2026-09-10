@@ -12,7 +12,7 @@
 """
 
 import base64
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 import json
 import logging
 import os
@@ -182,10 +182,11 @@ def analyze_with_dictionary(text):
         row.update(food.nutrients_for(grams))
         items.append(row)
 
-    summary = "、".join(i["name"] for i in items) or "沒有比對到食物"
-    notes = ["以食物字典的常見份量估算，克數請自己改成實際的份量。"]
+    summary = "、".join(i["name"] for i in items) or _("沒有比對到食物")
+    notes = [_("以食物字典的常見份量估算，克數請自己改成實際的份量。")]
     if missed:
-        notes.append("字典裡沒有：" + "、".join(missed) + "（可以在後台的食物字典加進去）。")
+        notes.append(_("字典裡沒有 %(v0)s（可以在後台的食物字典加進去）。")
+                     % {"v0": "、".join(missed)})
     return items, summary, " ".join(notes)
 
 
@@ -200,9 +201,9 @@ def analyze_meal(image_bytes=None, filename="", description="", athlete=None):
     if image_bytes and api_available():
         media_type = media_type_for(filename)
         if media_type is None:
-            return _fallback(description, "相片格式不支援（要 jpg / png / webp / gif），改用文字估算。")
+            return _fallback(description, _("相片格式不支援（要 jpg / png / webp / gif），改用文字估算。"))
         if len(image_bytes) > MAX_PHOTO_BYTES:
-            return _fallback(description, "相片超過 5 MB，改用文字估算；請用手機拍照的壓縮檔。")
+            return _fallback(description, _("相片超過 5 MB，改用文字估算；請用手機拍照的壓縮檔。"))
         try:
             items, summary, assessment = analyze_with_claude(
                 image_bytes, media_type, hint=description, athlete=athlete
@@ -216,12 +217,15 @@ def analyze_meal(image_bytes=None, filename="", description="", athlete=None):
             }
         except Exception as exc:  # 網路、金鑰、額度、回傳格式——都不該讓使用者卡住
             logger.warning("餐點相片辨識失敗，改用食物字典：%s", exc)
-            return _fallback(description, f"相片辨識沒成功（{exc.__class__.__name__}），改用文字估算。")
+            return _fallback(
+                description,
+                _("相片辨識沒成功（%(v0)s），改用文字估算。") % {"v0": exc.__class__.__name__},
+            )
 
     if image_bytes and not api_available():
         return _fallback(
             description,
-            "這台伺服器沒有設定 ANTHROPIC_API_KEY，暫時看不了相片；相片會存起來，營養先用文字估算。",
+            _("這台伺服器沒有設定 ANTHROPIC_API_KEY，暫時看不了相片；相片會存起來，營養先用文字估算。"),
         )
     return _fallback(description, "")
 

@@ -281,7 +281,7 @@ class TrainingSession(TimeStampedModel):
     )
     date = models.DateField(_("日期"))
     time_slot = models.CharField(
-        _("時段"), max_length=2, choices=[("AM", "上午"), ("PM", "下午")], default="PM"
+        _("時段"), max_length=2, choices=[("AM", _("上午")), ("PM", _("下午"))], default="PM"
     )
     session_type = models.CharField(_("課別"), max_length=20, choices=SessionType.choices)
     title = models.CharField(_("課表名稱"), max_length=150)

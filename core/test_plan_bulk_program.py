@@ -1,4 +1,4 @@
-"""計劃頁的「派同一個 program」：一次過把同一堂課排進多名運動員的日曆。"""
+"""計劃頁的「設計團隊訓練計劃」：一次過把同一堂課排進多名運動員的日曆。"""
 
 from datetime import date
 
@@ -184,3 +184,12 @@ class PlanBulkProgramTests(TestCase):
         self.assertContains(page, 'name="repeat"')
         # 範本課表那一欄已經拿走了
         self.assertNotContains(page, 'name="source"')
+
+    def test_both_cards_can_be_folded_away(self):
+        self.client.force_login(self.coach.user)
+        page = self.client.get(self.url)
+        self.assertContains(page, 'data-fold-key="roster"')
+        self.assertContains(page, 'data-fold-key="teamplan"')
+        self.assertContains(page, 'js/fold.')  # collectstatic 會加雜湊，所以只看前綴
+        self.assertContains(page, "隊內運動員狀況")
+        self.assertContains(page, "設計團隊訓練計劃")

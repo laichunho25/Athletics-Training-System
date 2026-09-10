@@ -104,7 +104,7 @@ def library_groups(definitions):
         homes = definition_disciplines(d)
         if not homes:
             key = ("c", d.category)
-            label = labels.get(d.category, "其他")
+            label = labels.get(d.category, _("其他"))
             groups.setdefault(
                 key,
                 {"value": key[1], "label": label, "sort": (1, 0, "", 0, label), "rows": []},
@@ -230,7 +230,7 @@ def library_catalog(user, definitions=None):
         if not homes:
             # 還沒歸到運動項目的舊資料，用分類名稱擺在「其他」底下，免得挑不到
             bucket("other", _("其他"), 999, f"c{d.category}",
-                   labels.get(d.category, "其他"), 999)["activities"].append(entry)
+                   labels.get(d.category, _("其他")), 999)["activities"].append(entry)
             continue
         for disc in homes:
             bucket(disc.sport_id, disc.sport.name, disc.sport.order,
