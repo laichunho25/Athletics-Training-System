@@ -18,7 +18,8 @@ import calendar
 import statistics
 from datetime import date
 
-from django.db.models import Q
+from django.db.models import DecimalField, F, Q
+from django.db.models.functions import Cast, Coalesce
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _lazy
 
@@ -30,8 +31,8 @@ from analytics.models import (
     block_choices,
 )
 
-#: 清單一次最多列幾筆（再多就請人用年月或關鍵字縮小範圍）
-MAX_ROWS = 500
+#: 清單一頁列幾筆
+PAGE_SIZE = 15
 
 #: 一次最多挑幾筆來分析
 MAX_PICKS = 400
@@ -53,6 +54,42 @@ GROUPINGS = [
     ("year", _lazy("分年份")),
     ("phase", _lazy("分訓練時期")),
 ]
+
+#: 清單的欄位：key 給排序用，順序就是表頭的順序
+COLUMNS = [
+    {"key": "date", "label": _lazy("日期"), "num": False},
+    {"key": "set", "label": _lazy("組數"), "num": True},
+    {"key": "item", "label": _lazy("項目"), "num": False},
+    {"key": "dist", "label": _lazy("距離 (m)"), "num": True},
+    {"key": "target", "label": _lazy("目標數值（秒）"), "num": True},
+    {"key": "value", "label": _lazy("完成數值（秒）"), "num": True},
+    {"key": "intensity", "label": _lazy("強度要求"), "num": True},
+    {"key": "rest", "label": _lazy("休息（分）"), "num": True},
+    {"key": "done", "label": _lazy("完成與否"), "num": False},
+    {"key": "status", "label": _lazy("狀態"), "num": False},
+    {"key": "block", "label": _lazy("區塊"), "num": False},
+    {"key": "program", "label": _lazy("program"), "num": False},
+    {"key": "context", "label": _lazy("情境"), "num": False},
+]
+
+#: 每個欄位排序時真正比的資料庫欄位（距離要先把紀錄與項目上的距離合起來）
+SORT_FIELDS = {
+    "date": "date",
+    "set": "set_no",
+    "item": "item__name",
+    "dist": "sort_distance",
+    "target": "target_value",
+    "value": "value",
+    "intensity": "intensity",
+    "rest": "rest_sec",
+    "done": "completed",
+    "status": "status",
+    "block": "block",
+    "program": "session__title",
+    "context": "context",
+}
+
+DEFAULT_SORT, DEFAULT_DIR = "date", "desc"
 
 #: 強度欄寫「全力」這種字時，當成 100% 來算平均
 MAXIMAL_WORDS = {"全力", "全速", "最大", "max", "maximal", "all out", "all-out"}
@@ -119,23 +156,84 @@ def _term_filter(term):
     return where
 
 
-def search_records(athlete, year=None, month=None, query="", limit=MAX_ROWS):
-    """依年份／月份／關鍵字挑出田徑練習的紀錄。"""
-    rows = _base(athlete)
+def _order(rows, sort, direction):
+    """照挑的欄位排；沒填的那幾筆一律沉到最後，再用日期與組別收尾。"""
+    field = SORT_FIELDS.get(sort, SORT_FIELDS[DEFAULT_SORT])
+    expr = F(field)
+    primary = (
+        expr.desc(nulls_last=True)
+        if direction == "desc"
+        else expr.asc(nulls_last=True)
+    )
+    tail = ["-date", "set_no", "id"] if sort != "date" else ["set_no", "id"]
+    return rows.order_by(primary, *tail)
+
+
+def page_window(page, pages, span=2):
+    """分頁只列目前這一頁附近幾個號碼，頭尾一定看得到。"""
+    first, last = max(1, page - span), min(pages, page + span)
+    out = list(range(first, last + 1))
+    if first > 1:
+        out = [1] + (["…"] if first > 2 else []) + out
+    if last < pages:
+        out = out + (["…"] if last < pages - 1 else []) + [pages]
+    return out
+
+
+def search_records(
+    athlete,
+    year=None,
+    month=None,
+    query="",
+    sort=DEFAULT_SORT,
+    direction=DEFAULT_DIR,
+    page=1,
+    per_page=PAGE_SIZE,
+):
+    """依年份／月份／關鍵字挑出田徑練習的紀錄，排好序、切成一頁一頁。"""
+    rows = _base(athlete).annotate(
+        sort_distance=Coalesce(
+            "distance_m",
+            Cast(
+                "item__track_distance_m",
+                DecimalField(max_digits=8, decimal_places=1),
+            ),
+        )
+    )
     if year:
         rows = rows.filter(date__year=year)
     if month:
         rows = rows.filter(date__month=month)
     for term in (query or "").split():
         rows = rows.filter(_term_filter(term))
+    if sort not in SORT_FIELDS:
+        sort = DEFAULT_SORT
+    if direction not in ("asc", "desc"):
+        direction = DEFAULT_DIR
+    rows = _order(rows, sort, direction)
+
     total = rows.count()
-    shown = list(rows[:limit])
+    per_page = max(1, per_page)
+    pages = max(1, -(-total // per_page))
+    page = min(max(1, page), pages)
+    start = (page - 1) * per_page
+    shown = list(rows[start : start + per_page])
     return {
         "rows": shown,
         "total": total,
         "shown": len(shown),
-        "capped": total > len(shown),
-        "limit": limit,
+        "sort": sort,
+        "direction": direction,
+        "page": page,
+        "pages": pages,
+        "per_page": per_page,
+        "page_range": page_window(page, pages),
+        "start_index": start + 1 if shown else 0,
+        "end_index": start + len(shown),
+        "has_prev": page > 1,
+        "has_next": page < pages,
+        "prev_page": page - 1,
+        "next_page": page + 1,
     }
 
 

@@ -171,6 +171,43 @@ def _positive_int(raw):
     return int(raw) if raw.isdecimal() and int(raw) > 0 else None
 
 
+#: 紀錄明細一頁大約列幾筆
+DETAIL_PAGE_SIZE = 15
+
+
+def _paged_days(days, page, per_page=DETAIL_PAGE_SIZE):
+    """紀錄明細分頁：一頁大約 15 筆。
+
+    同一天的組別不拆到兩頁去（拆開就看不出當日的高低點），
+    所以是「湊滿 15 筆就翻頁」，一天本身超過 15 組時就自己占一頁。
+    """
+    chunks, bucket, size = [], [], 0
+    for day in days:
+        if bucket and size + day["count"] > per_page:
+            chunks.append(bucket)
+            bucket, size = [], 0
+        bucket.append(day)
+        size += day["count"]
+    if bucket:
+        chunks.append(bucket)
+    pages = max(1, len(chunks))
+    page = min(max(1, page), pages)
+    current = chunks[page - 1] if chunks else []
+    return {
+        "days": current,
+        "page": page,
+        "pages": pages,
+        "per_page": per_page,
+        "page_range": tlog.page_window(page, pages),
+        "count": sum(d["count"] for d in current),
+        "total": sum(d["count"] for d in days),
+        "has_prev": page > 1,
+        "has_next": page < pages,
+        "prev_page": page - 1,
+        "next_page": page + 1,
+    }
+
+
 def _int_list(values, limit=None):
     """一串網址參數（可能是 "1,2,3" 也可能重複出現）→ 去重後的正整數清單。"""
     out = []
@@ -2832,6 +2869,11 @@ def analytics_view(request):
     )
 
     analysis = an.metric_analysis(athlete, item) if item else None
+    # 紀錄明細分頁；換頁只換這一塊，網址上其他條件（田徑清單的篩選、勾選）照留
+    detail = _paged_days(analysis["days"] if analysis else [], _positive_int(request.GET.get("dp")) or 1)
+    detail_params = request.GET.copy()
+    detail_params.pop("dp", None)
+    detail_qs = detail_params.urlencode()
 
     # 給「這筆數據來自哪一堂 program」的下拉選單。
     # 只列得出對得上這個範疇的課別——重量紀錄不會掛到田徑場的課上去。
@@ -2923,6 +2965,7 @@ def analytics_view(request):
     log = log_options = log_analysis = None
     log_year = log_month = None
     log_query = ""
+    log_sort, log_sdir = tlog.DEFAULT_SORT, tlog.DEFAULT_DIR
     log_dir, log_gmode, log_picks = "perf", "month", []
     if is_track:
         log_year = _positive_int(request.GET.get("ty"))
@@ -2930,7 +2973,22 @@ def analytics_view(request):
         if log_month and not 1 <= log_month <= 12:
             log_month = None
         log_query = (request.GET.get("q") or "").strip()[:80]
-        log = tlog.search_records(athlete, log_year, log_month, log_query)
+        # 排序與分頁：表頭點一下換欄位／換方向，換條件時一律回到第一頁
+        log_sort = request.GET.get("sort", tlog.DEFAULT_SORT)
+        if log_sort not in tlog.SORT_FIELDS:
+            log_sort = tlog.DEFAULT_SORT
+        log_sdir = request.GET.get("sdir", tlog.DEFAULT_DIR)
+        if log_sdir not in ("asc", "desc"):
+            log_sdir = tlog.DEFAULT_DIR
+        log = tlog.search_records(
+            athlete,
+            log_year,
+            log_month,
+            log_query,
+            sort=log_sort,
+            direction=log_sdir,
+            page=_positive_int(request.GET.get("tp")) or 1,
+        )
         log_options = tlog.filter_options(athlete, log_year)
         # pick＝畫面上勾的那幾列，keep＝勾過但被目前篩選條件濾走的那幾筆，
         # 兩個加起來才是「使用者心裡挑的那一批」，換了年月也不會掉。
@@ -3001,6 +3059,8 @@ def analytics_view(request):
             # 田徑練習用「強度要求」取代重量欄；重量訓練維持原樣
             "is_track": is_track,
             "chart_points": jdump(analysis["points"] if analysis else []),
+            "detail": detail,
+            "detail_qs": detail_qs,
             "recent_sessions": recent_sessions,
             "linkable_type_labels": [
                 dict(SessionType.choices)[t] for t in linkable_types
@@ -3012,6 +3072,9 @@ def analytics_view(request):
             "log_year": log_year,
             "log_month": log_month,
             "log_query": log_query,
+            "log_columns": tlog.COLUMNS,
+            "log_sort": log_sort,
+            "log_sdir": log_sdir,
             "log_picks": log_picks,
             "log_pick_count": len(log_picks),
             # 勾過、但被目前的年月／關鍵字濾走的那幾筆：藏在表單裡帶著走，

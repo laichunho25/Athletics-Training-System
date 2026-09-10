@@ -1,25 +1,28 @@
 {% load i18n %}
-{# ================================================ 田徑練習訓練紀錄：清單 → 挑幾筆 → 分析
-   先用年份月份與關鍵字（打「150」就出所有 150m）把要看的紀錄挑出來，
-   勾幾列，再挑一個方向分析。勾過但被篩選濾走的那幾筆藏在 keep 裡帶著走。 #}
 <form method="get" id="trackLog" class="card pad0 mb">
   <input type="hidden" name="athlete" value="{{ athlete.id }}">
   <input type="hidden" name="domain" value="{{ domain }}">
   {% if item %}<input type="hidden" name="item" value="{{ item.id }}">{% endif %}
   <input type="hidden" name="compare" value="{{ compare }}">
   {% for pid in log_keep %}<input type="hidden" name="keep" value="{{ pid }}">{% endfor %}
+  {# 排序與頁碼放在表單裡：表頭與分頁鍵改完這三格就送出，勾好的紀錄才不會掉 #}
+  <input type="hidden" name="tp" value="{{ log.page }}">
+  <input type="hidden" name="sort" value="{{ log_sort }}">
+  <input type="hidden" name="sdir" value="{{ log_sdir }}">
 
   <div class="card-head" data-fold-key="track-log">
     <span>{% translate "田徑練習訓練紀錄" %}</span>
     <span class="small c-dim">
-      {% blocktranslate with v0=log.shown v1=log.total %}列出 {{ v0 }} / 共 {{ v1 }} 筆{% endblocktranslate %}
-      {% if log.capped %}· <span class="c-yellow">{% blocktranslate with v0=log.limit %}只列前 {{ v0 }} 筆，用年月或關鍵字縮小範圍{% endblocktranslate %}</span>{% endif %}
+      {% if log.total %}
+        {% blocktranslate with v0=log.start_index v1=log.end_index v2=log.total %}第 {{ v0 }}–{{ v1 }} 筆 / 共 {{ v2 }} 筆{% endblocktranslate %}
+        · {% blocktranslate with v0=log.page v1=log.pages %}第 {{ v0 }} / {{ v1 }} 頁{% endblocktranslate %}
+      {% else %}{% translate "共 0 筆" %}{% endif %}
     </span>
   </div>
 
   <div class="logbar">
     <label class="unitpick">{% translate "年份" %}
-      <select name="ty" onchange="this.form.tm.value='';this.form.submit()">
+      <select name="ty" onchange="this.form.tm.value='';this.form.tp.value='1';this.form.submit()">
         <option value="">{% translate "全部年份" %}</option>
         {% for y in log_options.years %}
           <option value="{{ y.value }}" {% if log_year == y.value %}selected{% endif %}>{{ y.value }}（{{ y.count }}）</option>
@@ -27,7 +30,7 @@
       </select>
     </label>
     <label class="unitpick">{% translate "月份" %}
-      <select name="tm" onchange="this.form.submit()">
+      <select name="tm" onchange="this.form.tp.value='1';this.form.submit()">
         <option value="">{% translate "全部月份" %}</option>
         {% for m in log_options.months %}
           <option value="{{ m.value }}" {% if log_month == m.value %}selected{% endif %}>{{ m.value }} 月（{{ m.count }}）</option>
@@ -38,7 +41,7 @@
       <input type="search" name="q" value="{{ log_query }}"
              placeholder="{% translate '打 150 就出所有 150m；也可以打反覆跑、90%、正課、傷害治療' %}">
     </label>
-    <button class="btn sm" type="submit">{% translate "篩選" %}</button>
+    <button class="btn sm" type="submit" onclick="this.form.tp.value='1'">{% translate "篩選" %}</button>
     <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}">{% translate "清除條件" %}</a>
   </div>
 
@@ -47,19 +50,14 @@
       <thead>
         <tr>
           <th class="pickcell"><input type="checkbox" id="pickAll" title="{% translate '全選這一頁' %}"></th>
-          <th>{% translate "日期" %}</th>
-          <th class="num">{% translate "組數" %}</th>
-          <th>{% translate "項目" %}</th>
-          <th class="num">{% translate "距離 (m)" %}</th>
-          <th class="num">{% translate "目標數值（秒）" %}</th>
-          <th class="num">{% translate "完成數值（秒）" %}</th>
-          <th class="num">{% translate "強度要求" %}</th>
-          <th class="num">{% translate "休息（分）" %}</th>
-          <th>{% translate "完成與否" %}</th>
-          <th>{% translate "狀態" %}</th>
-          <th>{% translate "區塊" %}</th>
-          <th>program</th>
-          <th>{% translate "情境" %}</th>
+          {# 表頭點一下就照那一欄排；再點一下換方向 #}
+          {% for c in log_columns %}
+            <th class="{% if c.num %}num {% endif %}sortcol{% if log_sort == c.key %} on{% endif %}"
+                data-sort="{{ c.key }}"
+                title="{% blocktranslate with v0=c.label %}照「{{ v0 }}」排序{% endblocktranslate %}">
+              {{ c.label }}<span class="sarr">{% if log_sort == c.key %}{% if log_sdir == 'desc' %}▼{% else %}▲{% endif %}{% endif %}</span>
+            </th>
+          {% endfor %}
         </tr>
       </thead>
       <tbody>
@@ -96,6 +94,21 @@
       </tbody>
     </table>
   </div>
+
+  {% if log.pages > 1 %}
+  <div class="logpages">
+    <button class="btn ghost sm" type="button" data-page="{{ log.prev_page }}"
+            {% if not log.has_prev %}disabled{% endif %}>{% translate "上一頁" %}</button>
+    {% for n in log.page_range %}
+      {% if n == '…' %}<span class="c-dim">…</span>
+      {% elif n == log.page %}<span class="pagenow">{{ n }}</span>
+      {% else %}<button class="linkbtn" type="button" data-page="{{ n }}">{{ n }}</button>{% endif %}
+    {% endfor %}
+    <button class="btn ghost sm" type="button" data-page="{{ log.next_page }}"
+            {% if not log.has_next %}disabled{% endif %}>{% translate "下一頁" %}</button>
+    <span class="small c-dim">{% blocktranslate with v0=log.per_page %}一頁 {{ v0 }} 筆；勾過的紀錄換頁也算數{% endblocktranslate %}</span>
+  </div>
+  {% endif %}
 
   <div class="logfoot">
     <span class="small">

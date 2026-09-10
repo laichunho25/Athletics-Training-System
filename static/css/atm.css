@@ -1019,6 +1019,21 @@ tr.failedrow > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
 .logtable .logdate { font-family: var(--mono); font-weight: 600; letter-spacing: .3px; }
 .logtable .pickcell { width: 34px; text-align: center; }
 .logtable tbody tr:hover > td { background: var(--surface-2); }
+/* 表頭點一下換排序欄位，再點一下換方向；▲▼ 留一格寬度免得標題跳動 */
+.logtable th.sortcol { cursor: pointer; user-select: none; }
+.logtable th.sortcol:hover { color: var(--accent); }
+.logtable th.sortcol.on { color: var(--accent); }
+.logtable th .sarr { display: inline-block; min-width: 12px; font-size: 10px; }
+/* 分頁 */
+.logpages {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px; border-top: 1px solid var(--border);
+}
+.logpages .linkbtn { font-family: var(--mono); padding: 2px 6px; }
+.logpages .pagenow {
+  font-family: var(--mono); font-weight: 700; color: var(--accent);
+  padding: 2px 8px; border-radius: 6px; background: var(--surface-2);
+}
 .logfoot {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface-2);

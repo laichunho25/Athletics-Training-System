@@ -418,7 +418,7 @@
         {% if analysis.avg_rest_min %} {% blocktranslate with v0=analysis.avg_rest_min %}· 平均休息 {{ v0 }} 分{% endblocktranslate %}{% endif %}
       </span>
     </div>
-    <div class="detailsplit">
+    <div class="detailsplit" id="day-list">
       <div class="detailtable">
         {% if domain == 'STRENGTH' %}
         <!-- 重量訓練預設用 kg；平板支撐、懸垂這種撐時間的動作換成秒才合理。
@@ -443,7 +443,7 @@
           {% translate "一天一列，先看當日的" %}{% if unit_is_weight %}{% translate "最重與最輕" %}{% else %}{% translate "最高與最低" %}{% endif %}{% translate "， 點日期展開看那天每一組。 這裡只看，不改——要新增或修改紀錄，回到那一天的課表，在活動旁按「登記錄」。" %}
         </div>
         <div class="daylist">
-        {% for d in analysis.days %}
+        {% for d in detail.days %}
           <details class="dayrow" id="day-{{ d.date|date:"Y-m-d" }}"
                    {% if forloop.first %}open{% endif %}>
             <summary>
@@ -518,6 +518,22 @@
           <div class="empty">{% translate "尚無紀錄。到那一天的課表，在活動旁按「登記錄」就可以開始記。" %}</div>
         {% endfor %}
         </div>
+        {% if detail.pages > 1 %}
+        <div class="logpages">
+          <a class="btn ghost sm{% if not detail.has_prev %} disabled{% endif %}"
+             href="?{{ detail_qs }}&dp={{ detail.prev_page }}#day-list">{% translate "上一頁" %}</a>
+          {% for n in detail.page_range %}
+            {% if n == '…' %}<span class="c-dim">…</span>
+            {% elif n == detail.page %}<span class="pagenow">{{ n }}</span>
+            {% else %}<a class="linkbtn" href="?{{ detail_qs }}&dp={{ n }}#day-list">{{ n }}</a>{% endif %}
+          {% endfor %}
+          <a class="btn ghost sm{% if not detail.has_next %} disabled{% endif %}"
+             href="?{{ detail_qs }}&dp={{ detail.next_page }}#day-list">{% translate "下一頁" %}</a>
+          <span class="small c-dim">
+            {% blocktranslate with v0=detail.page v1=detail.pages v2=detail.count %}第 {{ v0 }} / {{ v1 }} 頁 · 這頁 {{ v2 }} 筆{% endblocktranslate %}
+          </span>
+        </div>
+        {% endif %}
       </div>
 
       <div class="detailchart">
@@ -1150,6 +1166,26 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
     });
   }
   refresh();
+
+  // ---- 排序與分頁：改表單裡的 tp / sort / sdir 再送出 ------------------
+  // 用送出表單（不是換網址）才帶得走這一頁勾好的紀錄。
+  function go(page) { form.tp.value = page; form.submit(); }
+  form.querySelectorAll('.logpages [data-page]').forEach(btn => {
+    btn.addEventListener('click', () => go(btn.dataset.page));
+  });
+  form.querySelectorAll('th.sortcol').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      // 同一欄再點一次就換方向；換一欄的話日期由新到舊、其他由小到大
+      if (form.sort.value === key) {
+        form.sdir.value = form.sdir.value === 'desc' ? 'asc' : 'desc';
+      } else {
+        form.sort.value = key;
+        form.sdir.value = key === 'date' ? 'desc' : 'asc';
+      }
+      go(1);
+    });
+  });
 })();
 
 {% if log_analysis.direction == 'perf' %}
