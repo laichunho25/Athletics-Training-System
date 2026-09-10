@@ -14,7 +14,6 @@ from analytics.models import (
     MetricRecord,
     TrainingStatus,
     block_choices,
-    domains_for_session_type,
 )
 
 
@@ -54,11 +53,27 @@ def _decimal(seq, i, label, problems):
         return None
 
 
+def _minutes_and_seconds(seconds, minutes, i, label, problems):
+    """「分」「秒」兩格合成一個數：2 分 05 秒 → 125。
+
+    跑的項目常常是 4:32 這種寫法，逼人自己換算成 272 秒只會算錯。
+    「分」留空就只看「秒」那一格，短距離照樣直接填 11.24。
+    """
+    value = _decimal(seconds, i, label, problems)
+    minute = _num(minutes, i, Decimal)
+    if minute is None:
+        return value
+    return minute * 60 + (value or Decimal(0))
+
+
 def session_allows(session, item):
-    """這堂課的課別，能不能登這個範疇的數據。"""
-    if session is None:
-        return True
-    return item.domain in domains_for_session_type(session.session_type)
+    """這堂課能不能登這個範疇的數據——能，課別不管這件事。
+
+    課別（田徑課／重量課／比賽）只是課表上的分類。田徑課臨時補一組深蹲、
+    比賽日的熱身跑，都是真的做過的東西，擋掉只會逼人改課別或不記。
+    按「登記錄」時挑哪一個範疇，就寫進哪一個範疇。
+    """
+    return True
 
 
 def create_records(*, athlete, item, session, post, on_date, competition=None):
@@ -90,11 +105,17 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
     intensities = post.getlist("intensity")
     # 距離：課表正課那一欄的重點，逐組可以不一樣（第 1 組 150m、第 2 組 120m）
     distances = post.getlist("distance_m")
+    # 秒數項目的「分」那一格（目標與完成各一欄），資料庫一律存秒
+    target_mins = post.getlist("target_min")
+    value_mins = post.getlist("value_min")
     dones = post.getlist("completed")
     # 休息時間可以用分鐘（預設）或秒填，資料庫一律存秒
     rest_factor = 1 if post.get("rest_unit") == "sec" else 60
+    # 距離可以用米（預設）或公里填，資料庫一律存米
+    distance_factor = Decimal(1000) if post.get("distance_unit") == "km" else Decimal(1)
 
-    columns = (targets, values, weights, intensities, distances, reps_list, rests)
+    columns = (targets, values, weights, intensities, distances, reps_list, rests,
+               target_mins, value_mins)
     row_count = max([len(c) for c in columns] + [1])
     # 數值不是必填——只要挑了項目就登得進來，所以「這一列有沒有填東西」
     # 決定它算不算一組；整張表都空白就當成一組空紀錄（之後再回來補值）。
@@ -107,12 +128,14 @@ def create_records(*, athlete, item, session, post, on_date, competition=None):
 
     created, problems = [], []
     for position, i in enumerate(rows):
-        target = _decimal(targets, i, _("目標數值"), problems)
-        value = _decimal(values, i, _("完成數值"), problems)
+        target = _minutes_and_seconds(targets, target_mins, i, _("目標數值"), problems)
+        value = _minutes_and_seconds(values, value_mins, i, _("完成數值"), problems)
         weight = _num(weights, i, Decimal)
         if weight is None and unit_is_weight:
             weight = value
         distance = _decimal(distances, i, _("距離"), problems)
+        if distance is not None:
+            distance *= distance_factor
         # 分鐘可以填 1.5 這種小數，換算成秒之後才取整數
         rest = _num(rests, i, float)
         created.append(

@@ -3,7 +3,6 @@
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
-from analytics.models import MetricDomain
 from core.admin import user_may_use_admin
 from core.athlete_context import ATHLETE_SCOPED_PAGES, athlete_switcher, current_athlete
 
@@ -15,8 +14,6 @@ def site_flags(request):
         # 後台網址可被 DJANGO_ADMIN_URL 換掉，樣板不可以再寫死 /admin/
         "ADMIN_URL": "/" + settings.ADMIN_URL,
         "CAN_USE_ADMIN": user_may_use_admin(getattr(request, "user", None)),
-        # 頂欄「登紀錄」按下去要挑的三個範疇（田徑練習／重量訓練／比賽數據）
-        "RECORD_DOMAINS": MetricDomain.choices,
     }
 
 
@@ -30,7 +27,6 @@ NAV_PAGES = {
     "session": (_("訓練管理"), _("課表明細")),
     "library": (_("訓練管理"), _("運動練習項目庫")),
     "video": (_("訓練管理"), _("影片庫")),
-    "record": (_("數據與健康"), _("登紀錄")),
     "analytics": (_("數據與健康"), _("數據分析")),
     "nutrition": (_("數據與健康"), _("營養與恢復")),
     "injuries": (_("數據與健康"), _("傷患管理")),

@@ -22,8 +22,6 @@ urlpatterns = [
     path("session/<int:pk>/live/", views.session_live, name="session_live"),
     path("calendar/live/", views.calendar_live, name="calendar_live"),
     path("library/", views.library_view, name="library"),
-    # 登紀錄：頂欄按一下，先挑範疇再挑項目（課表外也登得了數據）
-    path("record/", views.record_view, name="record"),
     path("analytics/", views.analytics_view, name="analytics"),
     path("nutrition/", views.nutrition_view, name="nutrition"),
     path("injuries/", views.injuries_view, name="injuries"),

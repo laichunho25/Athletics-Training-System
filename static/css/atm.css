@@ -705,17 +705,16 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 .domainopt {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
   background: var(--surface-2); color: var(--text); text-decoration: none;
   border: 1px solid var(--border-strong); border-left: 3px solid var(--accent);
   border-radius: var(--radius); padding: 12px 14px;
+  font: inherit; text-align: left; cursor: pointer;
 }
 .domainopt:hover {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
-.topacts .logrecbtn { display: inline-flex; align-items: center; gap: 6px; }
-.topacts .logrecbtn .ic { width: 14px; height: 14px; }
 
 /* 類別選擇：把 radio 做成一排可點的按鍵 */
 .typepick { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -957,6 +956,10 @@ td.dist input { border-color: color-mix(in srgb, var(--accent) 40%, var(--border
 .setgrid tbody tr:hover { background: transparent; }
 .setgrid tbody tr:hover td:first-child { box-shadow: none; }
 .setgrid input, .setgrid select { padding: 5px 7px; font-size: 13px; }
+/* 目標／完成是秒數時，「分」「秒」兩格併在同一格裡 */
+.setgrid .timecell { display: flex; gap: 4px; align-items: center; }
+.setgrid .timecell input { min-width: 0; }
+.setgrid .timecell .mincell { max-width: 58px; }
 .setgrid .setno {
   color: var(--text-dim); font-size: 11px; text-align: center; font-family: var(--mono);
 }

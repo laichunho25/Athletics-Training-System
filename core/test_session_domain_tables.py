@@ -108,10 +108,12 @@ class SessionDomainTableTests(TestCase):
         self.record.refresh_from_db()
         self.assertEqual(float(self.record.value), 16.9)
 
-    def test_the_page_says_which_domain_this_session_logs_into(self):
+    def test_the_page_offers_all_three_domains(self):
         page = self.client.get(self.url())
-        self.assertContains(page, "這一課登的數字歸到")
-        self.assertContains(page, "田徑練習訓練紀錄")
+        self.assertContains(page, "登哪一個範疇")
+        self.assertEqual(page.context["record_domains"][0][0], MetricDomain.TRACK)
+        for _value, label in MetricDomain.choices:
+            self.assertContains(page, label)
 
     def test_a_session_with_two_domains_still_offers_the_picker(self):
         session = make_session(self.athlete, TODAY, session_type=SessionType.REHAB)

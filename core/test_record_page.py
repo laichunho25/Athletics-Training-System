@@ -1,11 +1,11 @@
-"""日曆刪課表，以及頂欄「登紀錄」那一條路。
+"""日曆刪課表，以及課表頁那一行活動的「登記錄」。
 
-登紀錄不再只有課表那一條路：教練、運動員、管理員在任何一頁按頂欄的
-「登紀錄」，先挑範疇（田徑練習／重量訓練／比賽數據），再挑項目就登得進去。
-寫進去的跟課表那邊按「登記錄」是同一張 MetricRecord。
+登紀錄只有課表這一條路：日曆上開一堂課、加好活動，按那一行的「登記錄」
+先挑範疇（田徑練習訓練紀錄／重量訓練紀錄／比賽數據），再填每一組的數字。
 """
 
-from datetime import date, timedelta
+from datetime import date
+from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
@@ -96,150 +96,6 @@ class CalendarDeleteTests(TestCase):
         self.assertFalse(TrainingSession.objects.filter(pk=session.pk).exists())
 
 
-class RecordPageTests(TestCase):
-    """頂欄「登紀錄」→ 挑範疇 → 挑項目 → 填數字。"""
-
-    def setUp(self):
-        self.coach = make_coach()
-        self.athlete = make_athlete(coach=self.coach)
-        self.url = reverse("web:record")
-
-    def test_top_bar_button_is_there_for_every_role(self):
-        for user in (self.coach.user, self.athlete.user, make_admin()):
-            with self.subTest(user=user.username):
-                self.client.force_login(user)
-                page = self.client.get(
-                    f"{reverse('web:dashboard')}?athlete={self.athlete.id}"
-                )
-                self.assertContains(page, 'data-act="log-record"')
-                self.assertContains(page, "登紀錄")
-
-    def test_first_step_lists_the_three_domains(self):
-        self.client.force_login(self.coach.user)
-        page = self.client.get(f"{self.url}?athlete={self.athlete.id}")
-        self.assertEqual(page.status_code, 200)
-        for value, label in MetricDomain.choices:
-            self.assertContains(page, f"domain={value}")
-            self.assertContains(page, label)
-
-    def test_picking_a_domain_shows_the_item_picker(self):
-        self.client.force_login(self.coach.user)
-        page = self.client.get(f"{self.url}?athlete={self.athlete.id}&domain=STRENGTH")
-        self.assertContains(page, "登哪一個項目")
-        self.assertContains(page, "add_item")
-
-    def test_open_a_new_item_then_log_a_set(self):
-        self.client.force_login(self.coach.user)
-        self.client.post(
-            self.url,
-            {"action": "add_item", "domain": "STRENGTH", "name": "背蹲舉"},
-            follow=True,
-        )
-        item = MetricItem.objects.get(domain=MetricDomain.STRENGTH, name="背蹲舉")
-
-        self.client.post(
-            self.url,
-            {
-                "action": "add_record",
-                "domain": "STRENGTH",
-                "item_id": item.id,
-                "date": TODAY.isoformat(),
-                "value": ["120", "125"],
-                "reps": ["5", "3"],
-                "completed": ["1", "1"],
-            },
-            follow=True,
-        )
-        records = MetricRecord.objects.filter(athlete=self.athlete, item=item)
-        self.assertEqual(records.count(), 2)
-        self.assertEqual(sorted(int(r.value) for r in records), [120, 125])
-
-    def test_track_item_is_method_plus_distance(self):
-        self.client.force_login(self.coach.user)
-        self.client.post(
-            self.url,
-            {"action": "add_track_item", "domain": "TRACK", "method": "REPEAT",
-             "distance_m": "150"},
-            follow=True,
-        )
-        item = MetricItem.objects.filter(domain=MetricDomain.TRACK).order_by("-id").first()
-        self.assertIn("150", item.name)
-
-    def test_athlete_can_log_their_own(self):
-        self.client.force_login(self.athlete.user)
-        item = MetricItem.objects.create(domain=MetricDomain.TRACK, name="150m 反覆跑")
-        self.client.post(
-            self.url,
-            {
-                "action": "add_record",
-                "domain": "TRACK",
-                "item_id": item.id,
-                "date": TODAY.isoformat(),
-                "value": ["18.2"],
-                "intensity": ["90%"],
-            },
-            follow=True,
-        )
-        self.assertEqual(
-            MetricRecord.objects.filter(athlete=self.athlete, item=item).count(), 1
-        )
-
-    def test_record_can_hang_on_a_session_from_the_calendar(self):
-        session = _session(self.athlete, self.coach, self.coach.user)
-        item = MetricItem.objects.create(domain=MetricDomain.TRACK, name="150m 反覆跑")
-        self.client.force_login(self.coach.user)
-        self.client.post(
-            self.url,
-            {
-                "action": "add_record",
-                "domain": "TRACK",
-                "item_id": item.id,
-                "date": TODAY.isoformat(),
-                "session": session.id,
-                "value": ["18.2"],
-            },
-            follow=True,
-        )
-        self.assertEqual(session.metric_records.count(), 1)
-
-    def test_cannot_log_for_an_athlete_you_cannot_see(self):
-        other = make_athlete(username="ath-other", coach=make_coach("coach2"))
-        item = MetricItem.objects.create(domain=MetricDomain.TRACK, name="150m 反覆跑")
-        self.client.force_login(self.coach.user)
-        self.client.post(
-            self.url,
-            {
-                "action": "add_record",
-                "domain": "TRACK",
-                "item_id": item.id,
-                "date": TODAY.isoformat(),
-                "value": ["18.2"],
-            },
-            follow=True,
-        )
-        self.assertFalse(MetricRecord.objects.filter(athlete=other).exists())
-
-    def test_session_picker_only_lists_sessions_that_fit_the_domain(self):
-        _session(self.athlete, self.coach, self.coach.user, title="加速度課")
-        TrainingSession.objects.create(
-            athlete=self.athlete,
-            date=TODAY - timedelta(days=1),
-            time_slot="AM",
-            session_type="STRENGTH",
-            title="下肢最大力量",
-            assigned_by=self.coach,
-            created_by=self.coach.user,
-        )
-        self.client.force_login(self.coach.user)
-        page = self.client.get(f"{self.url}?athlete={self.athlete.id}&domain=TRACK")
-        item = MetricItem.objects.filter(domain=MetricDomain.TRACK).first()
-        page = self.client.get(
-            f"{self.url}?athlete={self.athlete.id}&domain=TRACK&item={item.id}"
-        )
-        self.assertContains(page, "加速度課")
-        self.assertNotContains(page, "下肢最大力量")
-
-
 class CoachLogsOnSessionPageTests(TestCase):
     """課表頁那一行活動旁的「登記錄」——教練替運動員補登。
 
@@ -300,3 +156,99 @@ class CoachLogsOnSessionPageTests(TestCase):
         )
         self.assertEqual(page.status_code, 404)
         self.assertFalse(self.session.metric_records.exists())
+
+
+class PickDomainOnSessionTests(TestCase):
+    """按活動那一行的「登記錄」，先挑三個範疇的其中一個。"""
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        self.session = _session(self.athlete, self.coach, self.coach.user)
+        self.activity = SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1, name="150m 反覆跑", sets=2
+        )
+        self.url = reverse("web:session_detail", args=[self.session.pk])
+        self.client.force_login(self.coach.user)
+
+    def test_all_three_domains_are_offered(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, 'data-act="pick-domain"')
+        for value, label in MetricDomain.choices:
+            self.assertContains(page, 'value="%s"' % value)
+            self.assertContains(page, label)
+
+    def test_the_session_type_domain_comes_first(self):
+        page = self.client.get(self.url)
+        self.assertEqual(page.context["record_domains"][0][0], MetricDomain.TRACK)
+
+    def test_can_log_strength_on_a_track_session(self):
+        """課別不再限制登什麼——田徑課臨時補一組深蹲也記得下來。"""
+        page = self.client.post(
+            self.url,
+            {"action": "log_activity", "id": self.activity.id, "rdomain": "STRENGTH"},
+            follow=True,
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertTrue(
+            MetricRecord.objects.filter(
+                session=self.session, item__domain=MetricDomain.STRENGTH
+            ).exists()
+        )
+
+
+class RecordFormUnitsTests(TestCase):
+    """新增一筆紀錄那張表：距離挑 m／km，秒數項目填「分＋秒」。"""
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        self.session = _session(self.athlete, self.coach, self.coach.user)
+        self.activity = SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1, name="1600m 節奏跑"
+        )
+        self.item = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="1600m 節奏跑", unit="秒"
+        )
+        self.url = reverse("web:session_detail", args=[self.session.pk])
+        self.client.force_login(self.coach.user)
+
+    def _log(self, **fields):
+        data = {
+            "action": "add_record",
+            "rdomain": "TRACK",
+            "item_id": self.item.id,
+            "log": self.activity.id,
+        }
+        data.update(fields)
+        self.client.post(self.url, data, follow=True)
+        return MetricRecord.objects.filter(item=self.item).order_by("id")
+
+    def test_kilometres_are_stored_as_metres(self):
+        record = self._log(distance_m=["1.6"], distance_unit="km", value=["330"]).first()
+        self.assertEqual(record.distance_m, 1600)
+
+    def test_metres_stay_metres(self):
+        record = self._log(distance_m=["150"], distance_unit="m", value=["18.2"]).first()
+        self.assertEqual(record.distance_m, 150)
+
+    def test_minutes_plus_seconds_become_seconds(self):
+        record = self._log(
+            value_min=["5"], value=["32.5"], target_min=["5"], target_value=["30"]
+        ).first()
+        self.assertEqual(record.value, Decimal("332.5"))
+        self.assertEqual(record.target_value, Decimal("330"))
+
+    def test_seconds_alone_still_work(self):
+        record = self._log(value_min=[""], value=["11.24"]).first()
+        self.assertEqual(record.value, Decimal("11.24"))
+
+    def test_minutes_alone_is_a_whole_number_of_minutes(self):
+        record = self._log(value_min=["2"], value=[""]).first()
+        self.assertEqual(record.value, 120)
+
+    def test_the_form_shows_the_unit_pickers(self):
+        page = self.client.get(f"{self.url}?rdomain=TRACK&log={self.activity.id}")
+        self.assertContains(page, 'name="distance_unit"')
+        self.assertContains(page, 'name="value_min"')
+        self.assertContains(page, "目標數值（分＋秒）")

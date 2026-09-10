@@ -206,7 +206,8 @@ class AnalyticsBlockTests(TestCase):
         rec.refresh_from_db()
         self.assertIsNone(rec.session_id)
 
-    def test_program_of_a_wrong_session_type_is_refused(self):
+    def test_program_of_another_session_type_is_allowed(self):
+        """課別不再限制範疇：田徑課那天補的一組深蹲，也掛得回那一堂課。"""
         url = reverse("web:analytics")
         self.client.post(url, {
             "action": "add_record",
@@ -225,7 +226,7 @@ class AnalyticsBlockTests(TestCase):
             f"session_{rec.id}": track.id,
         })
         rec.refresh_from_db()
-        self.assertIsNone(rec.session_id)
+        self.assertEqual(rec.session_id, track.id)
 
     def test_another_athletes_program_cannot_be_attached(self):
         url = reverse("web:analytics")
