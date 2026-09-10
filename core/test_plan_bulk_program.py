@@ -10,7 +10,6 @@ from core.test_factories import make_admin, make_athlete, make_coach
 from planning.models import ProjectAssignment, TrainingSession
 from programs.models import Application
 from programs.tests import make_project
-from training.models import BlockType, SessionActivity
 
 DAY = date(2026, 9, 16)
 NEXT = date(2026, 9, 23)
@@ -83,64 +82,61 @@ class PlanBulkProgramTests(TestCase):
         self.client.post(self.url, self.payload())
         self.assertFalse(TrainingSession.objects.filter(athlete=self.a3).exists())
 
-    def test_extra_dates_build_one_session_per_athlete_per_day(self):
+    def test_custom_dates_build_one_session_per_athlete_per_day(self):
         self.client.force_login(make_admin())
-        self.client.post(self.url, self.payload(dates=NEXT.isoformat()))
+        self.client.post(
+            self.url, self.payload(repeat="CUSTOM", dates=NEXT.isoformat())
+        )
         self.assertEqual(TrainingSession.objects.count(), 4)
         self.assertEqual(
             set(TrainingSession.objects.filter(athlete=self.a1).values_list("date", flat=True)),
             {DAY, NEXT},
         )
 
-    def test_template_session_copies_its_activities_to_everyone(self):
-        source = TrainingSession.objects.create(
-            athlete=self.a3,
-            date=date(2026, 9, 1),
-            session_type=SessionType.TRACK,
-            title="範本課",
-            description="範本概要",
-            planned_duration_min=100,
-        )
-        SessionActivity.objects.create(
-            session=source, block=BlockType.WARMUP, order=1, name="動態熱身", reps="10"
-        )
-        SessionActivity.objects.create(
-            session=source, block=BlockType.MAIN, order=1, name="30m 加速", sets="3"
+    def test_one_off_ignores_whatever_is_left_in_the_dates_box(self):
+        self.client.force_login(make_admin())
+        self.client.post(self.url, self.payload(repeat="ONCE", dates=NEXT.isoformat()))
+        self.assertEqual(
+            set(TrainingSession.objects.values_list("date", flat=True)), {DAY}
         )
 
-        self.client.force_login(self.coach.user)
+    def test_weekly_repeat_follows_the_start_day_when_no_weekday_is_picked(self):
+        self.client.force_login(make_admin())
+        self.client.post(self.url, self.payload(repeat="WEEKLY", repeat_count="3"))
+        self.assertEqual(
+            sorted(TrainingSession.objects.filter(athlete=self.a1).values_list("date", flat=True)),
+            [DAY, NEXT, date(2026, 9, 30)],
+        )
+
+    def test_weekly_repeat_can_pick_several_weekdays(self):
+        self.client.force_login(make_admin())
+        # 開始日 9/16 是星期三：揀一（0）和五（4），同一星期的星期一已經過去了
         self.client.post(
             self.url,
-            self.payload(
-                source=source.id, copy_activities="1", title="", description="",
-                planned_duration_min="",
-            ),
+            self.payload(repeat="WEEKLY", repeat_count="2", weekdays=["0", "4"]),
         )
-
-        new = TrainingSession.objects.exclude(pk=source.pk)
-        self.assertEqual(new.count(), 2)
-        for session in new:
-            self.assertEqual(session.title, "範本課")
-            self.assertEqual(session.description, "範本概要")
-            self.assertEqual(session.planned_duration_min, 100)
-            self.assertEqual(
-                sorted(session.activities.values_list("name", flat=True)),
-                sorted(["動態熱身", "30m 加速"]),
-            )
-        # 練完才填的東西不會跟著抄過去
-        self.assertEqual(new.first().status, "PLANNED")
-
-    def test_template_without_the_checkbox_copies_only_the_heading(self):
-        source = TrainingSession.objects.create(
-            athlete=self.a3, date=DAY, session_type=SessionType.TRACK, title="範本課"
-        )
-        SessionActivity.objects.create(
-            session=source, block=BlockType.MAIN, order=1, name="30m 加速"
-        )
-        self.client.force_login(make_admin())
-        self.client.post(self.url, self.payload(source=source.id))
         self.assertEqual(
-            SessionActivity.objects.exclude(session=source).count(), 0
+            sorted(TrainingSession.objects.filter(athlete=self.a1).values_list("date", flat=True)),
+            [date(2026, 9, 18), date(2026, 9, 21), date(2026, 9, 25)],
+        )
+
+    def test_monthly_repeat_lands_on_the_same_day_each_month(self):
+        self.client.force_login(make_admin())
+        self.client.post(self.url, self.payload(repeat="MONTHLY", repeat_count="3"))
+        self.assertEqual(
+            sorted(TrainingSession.objects.filter(athlete=self.a1).values_list("date", flat=True)),
+            [DAY, date(2026, 10, 16), date(2026, 11, 16)],
+        )
+
+    def test_monthly_repeat_falls_back_to_the_last_day_of_a_short_month(self):
+        self.client.force_login(make_admin())
+        self.client.post(
+            self.url,
+            self.payload(date="2026-01-31", repeat="MONTHLY", repeat_count="2"),
+        )
+        self.assertEqual(
+            sorted(TrainingSession.objects.filter(athlete=self.a1).values_list("date", flat=True)),
+            [date(2026, 1, 31), date(2026, 2, 28)],
         )
 
     def test_picking_nobody_creates_nothing(self):
@@ -179,3 +175,12 @@ class PlanBulkProgramTests(TestCase):
         self.assertTrue(self.client.get(self.url).context["can_assign"])
         self.client.force_login(self.a1.user)
         self.assertFalse(self.client.get(self.url).context["can_assign"])
+
+    def test_the_form_hides_the_athlete_list_behind_a_button_and_offers_repeats(self):
+        self.client.force_login(self.coach.user)
+        page = self.client.get(self.url)
+        self.assertContains(page, 'data-toggle="ath-list"')
+        self.assertContains(page, 'id="ath-list" hidden')
+        self.assertContains(page, 'name="repeat"')
+        # 範本課表那一欄已經拿走了
+        self.assertNotContains(page, 'name="source"')

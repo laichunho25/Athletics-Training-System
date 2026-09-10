@@ -1197,8 +1197,10 @@ def plan_detail(request, pk):
             "can_assign": can_assign,
             "program_types": program_type_choices(),
             "today_iso": date.today().isoformat(),
-            "source_sessions": _plan_source_sessions(athletes) if can_assign else [],
             "max_dates": MAX_COPY_DATES,
+            "max_repeat": MAX_REPEAT_COUNT,
+            "repeat_choices": REPEAT_CHOICES,
+            "weekday_choices": WEEKDAY_CHOICES,
         },
     )
 
@@ -1213,16 +1215,6 @@ def _can_assign_program(user, project):
     return (
         project.assignments.filter(coach=coach, is_active=True).exists()
         or project.coaches.filter(pk=coach.pk).exists()
-    )
-
-
-def _plan_source_sessions(athletes):
-    """可以拿來當範本的課表：項目裡運動員近期排過的課，由新到舊。"""
-    return (
-        TrainingSession.objects.filter(athlete__in=[a.id for a in athletes])
-        .select_related("athlete__user")
-        .annotate(n_activities=Count("activities"))
-        .order_by("-date", "-id")[:PLAN_SOURCE_LIMIT]
     )
 
 
@@ -1267,19 +1259,17 @@ def _plan_detail_import(request, project):
     return redirect("web:plan_detail", pk=project.pk)
 
 
-#: 「以現有課表為範本」下拉選單最多列幾堂課
-PLAN_SOURCE_LIMIT = 50
-
 #: 一次派課最多建幾堂課（運動員數 × 日期數），免得手滑排出幾百堂
 MAX_BULK_SESSIONS = 200
 
 
 def _plan_bulk_program(request, project):
-    """把同一個 program（連同課表內容）一次派給項目裡指定的運動員。
+    """把同一個 program 一次派給項目裡指定的運動員。
 
     被分配到這個項目的教練和管理員都可以用；每一名選中的運動員、每一個選中的
     日期都會各自建一堂獨立的課，之後誰要改自己那一堂都不影響別人。
-    挑了範本課表的話，四區的活動也照抄一份過去（練完才填的東西一概不抄）。
+    課表內容（四區的活動）派完之後在日曆上排一次，再用課表右上角的 ⧉
+    複製給同計劃的其他運動員即可。
     """
     if not _can_assign_program(request.user, project):
         messages.error(request, _("只有管理員或這個項目的負責教練可以派課。"))
@@ -1308,48 +1298,23 @@ def _plan_bulk_program(request, project):
         )
         return redirect("web:plan_detail", pk=project.pk)
 
-    source = None
-    if request.POST.get("source"):
-        source = TrainingSession.objects.filter(
-            pk=request.POST["source"], athlete__in=[a.id for a in in_project]
-        ).first()
-        if source is None:
-            messages.warning(request, _("找不到那一堂範本課表，這次只用表格填的內容。"))
-
-    session_type = request.POST.get("session_type") or (
-        source.session_type if source else SessionType.TRACK
-    )
+    session_type = request.POST.get("session_type") or SessionType.TRACK
     if session_type not in DEFAULT_PROGRAM_TITLES:
         messages.error(request, _("不認得的 program 類別。"))
         return redirect("web:plan_detail", pk=project.pk)
 
-    title = request.POST.get("title", "").strip() or (
-        source.title if source else DEFAULT_PROGRAM_TITLES[session_type]
-    )
-    description = request.POST.get("description", "").strip() or (
-        source.description if source else ""
-    )
-    duration = _plan_int(
-        request.POST.get("planned_duration_min"),
-        10,
-        480,
-        source.planned_duration_min if source else 90,
-    )
+    title = request.POST.get("title", "").strip() or DEFAULT_PROGRAM_TITLES[session_type]
+    description = request.POST.get("description", "").strip()
+    duration = _plan_int(request.POST.get("planned_duration_min"), 10, 480, 90)
     time_slot = request.POST.get("time_slot")
     if time_slot not in ("AM", "PM"):
         time_slot = "PM"
-
-    rows = (
-        list(source.activities.select_related("definition").order_by("block", "order", "id"))
-        if source and request.POST.get("copy_activities")
-        else []
-    )
 
     coach = getattr(request.user, "coach_profile", None)
     created = 0
     for athlete in athletes:
         for on_date in dates:
-            session = TrainingSession.objects.create(
+            TrainingSession.objects.create(
                 athlete=athlete,
                 microcycle=_microcycle_for(athlete, on_date),
                 date=on_date,
@@ -1361,16 +1326,6 @@ def _plan_bulk_program(request, project):
                 created_by=request.user,
                 planned_duration_min=duration,
             )
-            for row in rows:
-                _spawn_activity(
-                    request,
-                    session,
-                    row.block,
-                    row.order,
-                    row.name,
-                    {key: getattr(row, key) for key in ACTIVITY_VALUE_FIELDS},
-                    definition=row.definition,
-                )
             created += 1
 
     msg = _("已把「%(v0)s」派給 %(v1)s 名運動員 × %(v2)s 天，共建立 %(v3)s 堂課。") % {
@@ -1379,8 +1334,6 @@ def _plan_bulk_program(request, project):
         "v2": len(dates),
         "v3": created,
     }
-    if rows:
-        msg += _("（每堂連同 %(v0)s 項活動）") % {"v0": len(rows)}
     messages.success(request, msg)
     if bad:
         messages.warning(request, _("看不懂這些日期，已跳過：%(v0)s") % {"v0": "、".join(bad)})
@@ -1469,6 +1422,11 @@ def calendar_view(request):
             "athlete": athlete,
             "athletes": _athlete_switcher(request),
             "program_types": program_type_choices(),
+            "peers": _plan_peers(request.user, athlete),
+            "max_dates": MAX_COPY_DATES,
+            "max_repeat": MAX_REPEAT_COUNT,
+            "repeat_choices": REPEAT_CHOICES,
+            "weekday_choices": WEEKDAY_CHOICES,
         }
     )
     return render(request, "web/calendar.html", ctx)
@@ -1477,12 +1435,38 @@ def calendar_view(request):
 #: 一次最多複製到幾天——手滑貼了一整年進去，不會就這樣建出 365 堂課
 MAX_COPY_DATES = 30
 
+#: 循環最多推幾期（幾個星期／幾個月）
+MAX_REPEAT_COUNT = 26
 
-def _copy_dates(request):
-    """把「日期」欄與「其他日期」欄裡的日子讀出來（重複的只算一次）。"""
-    raw = " ".join([request.POST.get("date", ""), request.POST.get("dates", "")])
+#: 排課是一次性，還是循環發生（每星期／每個月），或者自己指定日子
+REPEAT_ONCE = "ONCE"
+REPEAT_WEEKLY = "WEEKLY"
+REPEAT_MONTHLY = "MONTHLY"
+REPEAT_CUSTOM = "CUSTOM"
+
+REPEAT_CHOICES = (
+    (REPEAT_ONCE, _("一次性")),
+    (REPEAT_WEEKLY, _("每星期")),
+    (REPEAT_MONTHLY, _("每個月")),
+    (REPEAT_CUSTOM, _("指定日子")),
+)
+
+#: 星期一至日，配合 date.weekday()（0 = 星期一）
+WEEKDAY_CHOICES = (
+    (0, _("一")),
+    (1, _("二")),
+    (2, _("三")),
+    (3, _("四")),
+    (4, _("五")),
+    (5, _("六")),
+    (6, _("日")),
+)
+
+
+def _read_dates(raw):
+    """把一段文字裡的日子讀出來（一行一個或用逗號分開），順便回報看不懂的。"""
     dates, bad = [], []
-    for part in re.split(r"[\s,、]+", raw):
+    for part in re.split(r"[\s,、]+", raw or ""):
         if not part:
             continue
         try:
@@ -1495,8 +1479,79 @@ def _copy_dates(request):
     return dates, bad
 
 
+def _add_months(day, months):
+    """往後推幾個月；那個月沒有這一日（1/31 → 2 月）就用當月最後一天。"""
+    index = day.month - 1 + months
+    year, month = day.year + index // 12, index % 12 + 1
+    return date(year, month, min(day.day, pycalendar.monthrange(year, month)[1]))
+
+
+def _copy_dates(request):
+    """算出這次要建在哪幾天。
+
+    起點是「日期」欄，之後看「重複方式」：一次性就只有那一天；每星期／每個月
+    按「重複幾期」往後推（每星期還可以挑星期幾，不挑就跟起點同一天）；
+    指定日子則沿用手填的清單。沒有指明重複方式時當「指定日子」處理。
+    """
+    dates, bad = _read_dates(request.POST.get("date", ""))
+    repeat = request.POST.get("repeat")
+    if repeat not in (REPEAT_ONCE, REPEAT_WEEKLY, REPEAT_MONTHLY):
+        repeat = REPEAT_CUSTOM
+
+    if repeat == REPEAT_CUSTOM:
+        extra, extra_bad = _read_dates(request.POST.get("dates", ""))
+        return dates + [d for d in extra if d not in dates], bad + extra_bad
+    if repeat == REPEAT_ONCE or not dates:
+        return dates, bad
+
+    start = dates[0]
+    periods = _plan_int(request.POST.get("repeat_count"), 1, MAX_REPEAT_COUNT, 4)
+    if repeat == REPEAT_MONTHLY:
+        return [_add_months(start, i) for i in range(periods)], bad
+
+    weekdays = sorted(
+        {int(v) for v in request.POST.getlist("weekdays") if v.isdigit() and int(v) < 7}
+    ) or [start.weekday()]
+    monday = start - timedelta(days=start.weekday())
+    rolling = [
+        monday + timedelta(days=7 * week + weekday)
+        for week in range(periods)
+        for weekday in weekdays
+    ]
+    return [d for d in rolling if d >= start], bad
+
+
+def _plan_peers(user, athlete):
+    """跟這名運動員同一個計劃、而且這個使用者管得到的其他運動員。
+
+    只有教練和管理員拿得到——運動員自己不應該把課寫進別人的日曆。
+    每人身上掛一個 plan_title，畫面上好讓人知道是哪個計劃來的。
+    """
+    if not (_is_admin(user) or getattr(user, "coach_profile", None)):
+        return []
+    visible = set(athlete_ids_visible_to(user))
+    peers, seen = [], {athlete.id}
+    for project in projects_for(user).filter(applications__athlete=athlete).distinct():
+        for other in project_athletes(project):
+            if other.id not in visible or other.id in seen:
+                continue
+            seen.add(other.id)
+            other.plan_title = project.title
+            peers.append(other)
+    return peers
+
+
+def _picked_peers(request, athlete):
+    """複製課表對話框裡勾了的同計劃運動員（勾了看不到的人一律當沒勾）。"""
+    picked = set(request.POST.getlist("peer_ids"))
+    return [p for p in _plan_peers(request.user, athlete) if str(p.id) in picked]
+
+
 def _copy_session(request, athlete):
     """把日曆上一堂已建立的課複製到其他日子，回傳第一個目標日期。
+
+    勾了同計劃的其他運動員的話，同一堂課（連活動）也照抄一份到對方的日曆，
+    所以派完課之後只需要把內容排好一次，再複製過去就行。
 
     複製的是課表本身（名稱、課別、概要、時長、四區的活動），
     練完才填的東西（狀態、RPE、實際時長、反饋、評語）一律不抄——
@@ -1521,6 +1576,16 @@ def _copy_session(request, athlete):
         time_slot = source.time_slot
     with_activities = bool(request.POST.get("copy_activities"))
 
+    peers = _picked_peers(request, athlete)
+    targets = [athlete] + peers
+    if len(targets) * len(dates) > MAX_BULK_SESSIONS:
+        messages.error(
+            request,
+            _("一次最多複製 %(v0)s 堂課，現在是 %(v1)s 人 × %(v2)s 天；請分幾次複製。")
+            % {"v0": MAX_BULK_SESSIONS, "v1": len(targets), "v2": len(dates)},
+        )
+        return None
+
     rows = (
         list(source.activities.select_related("definition").order_by("block", "order", "id"))
         if with_activities
@@ -1528,10 +1593,10 @@ def _copy_session(request, athlete):
     )
 
     copied = 0
-    for on_date in dates:
+    for target, on_date in ((t, d) for t in targets for d in dates):
         new_session = TrainingSession.objects.create(
-            athlete=athlete,
-            microcycle=_microcycle_for(athlete, on_date),
+            athlete=target,
+            microcycle=_microcycle_for(target, on_date),
             date=on_date,
             time_slot=time_slot,
             session_type=source.session_type,
@@ -1555,11 +1620,16 @@ def _copy_session(request, athlete):
 
     msg = _("已把「%(v0)s」複製到 %(v1)s 天：%(v2)s。") % {
         "v0": source.title,
-        "v1": copied,
+        "v1": len(dates),
         "v2": "、".join(d.isoformat() for d in dates),
     }
     if rows:
         msg += _("（連同 %(v0)s 項活動）") % {"v0": len(rows)}
+    if peers:
+        msg += _("同計劃的 %(v0)s 位運動員也各拿到一份，共 %(v1)s 堂課。") % {
+            "v0": len(peers),
+            "v1": copied,
+        }
     messages.success(request, msg)
     if bad:
         messages.warning(request, _("看不懂這些日期，已跳過：%(v0)s") % {"v0": "、".join(bad)})

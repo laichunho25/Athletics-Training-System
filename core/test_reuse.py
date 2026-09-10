@@ -9,8 +9,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from core.models import SessionStatus, SessionType
-from core.test_factories import make_admin, make_athlete, make_session
-from planning.models import TrainingSession
+from core.test_factories import make_admin, make_athlete, make_coach, make_session
+from core.test_plan_bulk_program import enrol
+from planning.models import ProjectAssignment, TrainingSession
+from programs.tests import make_project
 from training.models import BlockProgram, BlockType, SessionActivity
 
 TODAY = date(2026, 6, 1)
@@ -251,3 +253,73 @@ class CopySessionTests(TestCase):
         page = self.client.get(f"{self.url}?athlete={self.athlete.id}&year=2026&month=6")
         self.assertContains(page, "copyev")
         self.assertContains(page, 'id="copyDlg"')
+
+
+class CopySessionToPlanPeersTests(TestCase):
+    """把一堂排好的課連活動一起複製給同計劃的其他運動員。
+
+    派課只派出空的課，內容在日曆上排一次，再從這裡複製過去。
+    """
+
+    def setUp(self):
+        self.project = make_project()
+        self.coach = make_coach()
+        self.athlete = make_athlete("ath_lead")
+        self.peer = make_athlete("ath_peer")
+        self.outsider = make_athlete("ath_outsider")
+        for index, athlete in enumerate((self.athlete, self.peer), start=1):
+            enrol(self.project, athlete, f"peer{index}@example.com")
+        ProjectAssignment.objects.create(project=self.project, coach=self.coach)
+
+        self.session = make_session(
+            self.athlete, TODAY, session_type=SessionType.TRACK, title="加速度課"
+        )
+        SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1, name="6 × 60m", sets="2 組"
+        )
+        self.url = reverse("web:calendar")
+        self.client.force_login(self.coach.user)
+
+    def copy(self, **extra):
+        data = {
+            "action": "copy_session",
+            "athlete": self.athlete.id,
+            "session": self.session.id,
+            "date": "2026-06-08",
+            "copy_activities": "1",
+        }
+        data.update(extra)
+        return self.client.post(f"{self.url}?athlete={self.athlete.id}", data)
+
+    def test_a_picked_peer_gets_the_same_session_with_its_activities(self):
+        self.copy(peer_ids=[self.peer.id])
+        made = TrainingSession.objects.get(athlete=self.peer)
+        self.assertEqual(made.date, date(2026, 6, 8))
+        self.assertEqual(made.title, "加速度課")
+        self.assertEqual(made.status, SessionStatus.PLANNED)
+        self.assertEqual(made.activities.get().sets, "2 組")
+
+    def test_every_picked_date_lands_in_the_peers_calendar_too(self):
+        self.copy(peer_ids=[self.peer.id], repeat="WEEKLY", repeat_count="2")
+        self.assertEqual(
+            sorted(TrainingSession.objects.filter(athlete=self.peer).values_list("date", flat=True)),
+            [date(2026, 6, 8), date(2026, 6, 15)],
+        )
+
+    def test_someone_outside_the_plan_is_ignored(self):
+        self.copy(peer_ids=[self.outsider.id])
+        self.assertFalse(TrainingSession.objects.filter(athlete=self.outsider).exists())
+
+    def test_an_athlete_cannot_push_a_session_into_a_peers_calendar(self):
+        self.client.force_login(self.athlete.user)
+        self.copy(peer_ids=[self.peer.id])
+        self.assertFalse(TrainingSession.objects.filter(athlete=self.peer).exists())
+
+    def test_the_dialog_lists_the_peers_for_a_coach_only(self):
+        page = self.client.get(f"{self.url}?athlete={self.athlete.id}&year=2026&month=6")
+        self.assertEqual([p.id for p in page.context["peers"]], [self.peer.id])
+        self.assertContains(page, "peer_ids")
+
+        self.client.force_login(self.athlete.user)
+        page = self.client.get(f"{self.url}?athlete={self.athlete.id}&year=2026&month=6")
+        self.assertEqual(list(page.context["peers"]), [])

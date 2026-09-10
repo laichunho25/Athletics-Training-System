@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load static %}
 {% block title %}{{ project.title }}{% endblock %}
 
 {% block content %}
@@ -76,30 +77,38 @@
 <div class="card pad0 mb">
   <div class="card-head">
     <span>{% translate "派同一個 program 給項目內運動員" %}</span>
-    <span class="small c-dim">{% translate "每人每天各建一堂獨立的課，之後各自改不影響別人" %}</span>
+    <span class="small c-dim">{% translate "每人每天各建一堂獨立的課；課表內容排好一次，再用日曆上的 ⧉ 複製給同計劃的其他人" %}</span>
   </div>
   <form method="post" style="padding:14px 18px">
     {% csrf_token %}
     <input type="hidden" name="action" value="bulk_program">
 
     <div class="field">
-      <label>{% translate "派給誰" %}
-        <button type="button" class="linkbtn" id="ath-all">{% translate "全選／全不選" %}</button>
-      </label>
+      <label>{% translate "派給誰" %}</label>
       <div class="flex" style="flex-wrap:wrap;gap:10px">
-        {% for r in rows %}
-          <label class="flex small" style="gap:4px">
-            <input type="checkbox" class="ath-pick" name="athlete_ids" value="{{ r.athlete.id }}" checked>
-            {{ r.athlete.user.get_full_name|default:r.athlete.user.username }}
-            {% if r.injuries %}<span class="badge b-red">{% translate "傷" %}</span>{% endif %}
-          </label>
-        {% endfor %}
+        <button type="button" class="btn ghost sm" data-toggle="ath-list"
+                data-open-label="{% translate '收起名單' %}"
+                data-shut-label="{% translate '選運動員' %}">{% translate "選運動員" %}</button>
+        <span class="small c-dim" data-pick-count="ath-list"
+              data-pick-label="{% translate '已選 {n} / {total} 名運動員' %}"></span>
+      </div>
+      <div class="pickbox mt" id="ath-list" hidden>
+        <button type="button" class="linkbtn" data-check-all="ath-list">{% translate "全選／全不選" %}</button>
+        <div class="flex mt" style="flex-wrap:wrap;gap:10px">
+          {% for r in rows %}
+            <label class="flex small" style="gap:4px">
+              <input type="checkbox" name="athlete_ids" value="{{ r.athlete.id }}" checked>
+              {{ r.athlete.user.get_full_name|default:r.athlete.user.username }}
+              {% if r.injuries %}<span class="badge b-red">{% translate "傷" %}</span>{% endif %}
+            </label>
+          {% endfor %}
+        </div>
       </div>
     </div>
 
     <div class="row">
       <div class="field">
-        <label>{% translate "日期" %}</label>
+        <label>{% translate "開始日期" %}</label>
         <input type="date" name="date" value="{{ today_iso }}" required>
       </div>
       <div class="field">
@@ -115,10 +124,7 @@
       </div>
     </div>
 
-    <div class="field">
-      <label>{% blocktranslate with v0=max_dates %}還要派到哪些日子（一行一個，或用逗號分開，最多 {{ v0 }} 天）{% endblocktranslate %}</label>
-      <textarea name="dates" rows="2" placeholder="2026-09-16&#10;2026-09-23"></textarea>
-    </div>
+    {% include "web/_repeat_fields.html" %}
 
     <div class="field">
       <label>{% translate "類別" %}</label>
@@ -133,41 +139,18 @@
     </div>
 
     <div class="field">
-      <label>{% translate "以現有課表為範本（可留空）" %}</label>
-      <select name="source">
-        <option value="">{% translate "— 不用範本，照下面填的來 —" %}</option>
-        {% for s in source_sessions %}
-          <option value="{{ s.id }}">
-            {{ s.date|date:"m/d" }} {{ s.title }} · {{ s.athlete.user.get_full_name|default:s.athlete.user.username }}（{% blocktranslate with v0=s.n_activities %}{{ v0 }} 項活動{% endblocktranslate %}）
-          </option>
-        {% endfor %}
-      </select>
-      <label class="flex small mt">
-        <input type="checkbox" name="copy_activities" value="1" checked>
-        {% translate "連同範本課表裡的活動一起派（狀態、RPE、反饋這些不會抄）" %}
-      </label>
-    </div>
-
-    <div class="field">
       <label>{% translate "名稱" %}</label>
-      <input type="text" name="title" placeholder="{% translate '留空會用範本的名稱，沒有範本就用類別名稱' %}">
+      <input type="text" name="title" placeholder="{% translate '留空會用類別名稱' %}">
     </div>
     <div class="field">
       <label>{% translate "概要" %}</label>
       <textarea name="description" rows="2"
-        placeholder="{% translate '留空會用範本的概要；派出去之後點進任何一堂課都可以再分區加活動' %}"></textarea>
+        placeholder="{% translate '派出去之後點進任何一堂課都可以再分區加活動' %}"></textarea>
     </div>
 
     <button class="btn" type="submit">{% translate "加入日曆並派發課表" %}</button>
   </form>
 </div>
-<script>
-  document.getElementById('ath-all').addEventListener('click', function () {
-    var boxes = document.querySelectorAll('.ath-pick');
-    var turnOn = Array.prototype.some.call(boxes, function (b) { return !b.checked; });
-    boxes.forEach(function (b) { b.checked = turnOn; });
-  });
-</script>
 {% endif %}
 
 {% if is_admin and not_imported %}
@@ -217,4 +200,11 @@
   });
 </script>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/liveedit.js' %}"></script>
+<script>
+  ATM.mountForms();
+</script>
 {% endblock %}

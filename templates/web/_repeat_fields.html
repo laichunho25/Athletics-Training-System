@@ -1,0 +1,50 @@
+{% load i18n %}
+{% comment %}
+派課／複製課表共用的「一次性或循環發生」欄位。
+外面要給 repeat_choices、weekday_choices、max_repeat、max_dates。
+選了哪一種，就只有那一組欄位會顯示——見 liveedit.js 的 syncRepeat。
+{% endcomment %}
+<div class="field repeat">
+  <label>{% translate "一次性或循環發生" %}</label>
+  <div class="typepick">
+    {% for value, label in repeat_choices %}
+      <label class="typeopt">
+        <input type="radio" name="repeat" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+        <span>{{ label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+
+  <div class="row mt" data-repeat="WEEKLY MONTHLY" hidden>
+    <div class="field">
+      <label>{% translate "一連幾期（連第一次）" %}</label>
+      <input type="number" name="repeat_count" min="1" max="{{ max_repeat }}" value="4">
+    </div>
+    <div class="field" data-repeat="WEEKLY" hidden>
+      <label>{% translate "星期幾（不選就跟開始日期同一天）" %}</label>
+      <div class="typepick">
+        {% for value, label in weekday_choices %}
+          <label class="typeopt">
+            <input type="checkbox" name="weekdays" value="{{ value }}">
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="field mt" data-repeat="CUSTOM" hidden>
+    <label>{% translate "指定日子（一行一個，或用逗號分開）" %}</label>
+    <textarea name="dates" rows="2" placeholder="2026-09-16&#10;2026-09-23"></textarea>
+  </div>
+
+  <div class="small c-dim" data-repeat="WEEKLY" hidden>
+    {% translate "由開始日期起計，一連幾個星期，每星期在選中的星期幾各排一堂。" %}
+  </div>
+  <div class="small c-dim" data-repeat="MONTHLY" hidden>
+    {% translate "之後每個月的同一日；那個月沒有這一日（例如 31 日）就排在月底。" %}
+  </div>
+  <div class="small c-dim" data-repeat="WEEKLY MONTHLY CUSTOM" hidden>
+    {% blocktranslate with v0=max_dates %}連開始日期在內，一次最多排 {{ v0 }} 天。{% endblocktranslate %}
+  </div>
+</div>

@@ -551,6 +551,14 @@ input:focus, select:focus, textarea:focus {
 }
 .field { margin-bottom: 14px; }
 .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 14px; }
+/* 收起的欄位是 .row / .flex 的話，display 會蓋過 hidden——這裡把它壓回去 */
+[hidden] { display: none !important; }
+
+/* 預設收起、按按鈕才展開的名單（派課、複製課表用） */
+.pickbox {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; background: var(--bg);
+}
 
 .btn {
   background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent);

@@ -360,6 +360,74 @@
   }
 
   // 日曆上按 ⧉：把那一堂課複製到別的日子（原來那一堂留在原位）
+  // 名單預設收起來，按了「選運動員」才展開；旁邊順便報已選幾個
+  function togglePanel(button) {
+    var panel = document.getElementById(button.dataset.toggle);
+    if (!panel) { return; }
+    panel.hidden = !panel.hidden;
+    var label = panel.hidden ? button.dataset.shutLabel : button.dataset.openLabel;
+    if (label) { button.textContent = label; }
+  }
+
+  function refreshCounts() {
+    document.querySelectorAll('[data-pick-count]').forEach(function (out) {
+      var panel = document.getElementById(out.dataset.pickCount);
+      if (!panel) { return; }
+      var boxes = panel.querySelectorAll('input[type="checkbox"]');
+      var picked = panel.querySelectorAll('input[type="checkbox"]:checked');
+      out.textContent = (out.dataset.pickLabel || '{n} / {total}')
+        .replace('{n}', picked.length)
+        .replace('{total}', boxes.length);
+    });
+  }
+
+  function checkAll(button) {
+    var panel = document.getElementById(button.dataset.checkAll);
+    if (!panel) { return; }
+    var boxes = panel.querySelectorAll('input[type="checkbox"]');
+    var turnOn = Array.prototype.some.call(boxes, function (b) { return !b.checked; });
+    boxes.forEach(function (b) { b.checked = turnOn; });
+    refreshCounts();
+  }
+
+  // 「一次性或循環發生」：選了哪一種，就只顯示那一組欄位
+  function syncRepeat(box) {
+    var picked = box.querySelector('input[name="repeat"]:checked');
+    var mode = picked ? picked.value : '';
+    box.querySelectorAll('[data-repeat]').forEach(function (part) {
+      part.hidden = part.dataset.repeat.split(' ').indexOf(mode) < 0;
+    });
+  }
+
+  function resetRepeat(box) {
+    if (!box) { return; }
+    var first = box.querySelector('input[name="repeat"]');
+    if (first) { first.checked = true; }
+    box.querySelectorAll('textarea[name="dates"]').forEach(function (t) { t.value = ''; });
+    box.querySelectorAll('input[name="weekdays"]').forEach(function (b) { b.checked = false; });
+    syncRepeat(box);
+  }
+
+  function mountForms() {
+    document.addEventListener('click', function (event) {
+      var toggle = event.target.closest('[data-toggle]');
+      if (toggle) { togglePanel(toggle); return; }
+      var all = event.target.closest('[data-check-all]');
+      if (all) { checkAll(all); }
+    });
+
+    document.addEventListener('change', function (event) {
+      if (event.target.name === 'repeat') {
+        var box = event.target.closest('.repeat');
+        if (box) { syncRepeat(box); }
+      }
+      if (event.target.type === 'checkbox') { refreshCounts(); }
+    });
+
+    document.querySelectorAll('.repeat').forEach(syncRepeat);
+    refreshCounts();
+  }
+
   function openCopyDialog(button) {
     var dlg = document.getElementById('copyDlg');
     if (!dlg) { return; }
@@ -374,27 +442,18 @@
     var next = new Date(button.dataset.date + 'T00:00:00');
     next.setDate(next.getDate() + 7);
     document.getElementById('copyDate').value = next.toISOString().slice(0, 10);
-    document.getElementById('copyDates').value = '';
+    // 上一次開對話框時揀的日子和運動員不要留到下一次
+    resetRepeat(dlg.querySelector('.repeat'));
+    dlg.querySelectorAll('input[name="peer_ids"]').forEach(function (b) { b.checked = false; });
+    refreshCounts();
     dlg.showModal();
-  }
-
-  // 「＋ 之後四週的同一天」：以上面選的日期為起點，往後每 7 天列一個
-  function fillWeekly() {
-    var start = document.getElementById('copyDate').value;
-    if (!start) { return; }
-    var box = document.getElementById('copyDates');
-    var lines = box.value ? box.value.split('\n') : [];
-    var cursor = new Date(start + 'T00:00:00');
-    for (var i = 0; i < 4; i += 1) {
-      cursor.setDate(cursor.getDate() + 7);
-      lines.push(cursor.toISOString().slice(0, 10));
-    }
-    box.value = lines.join('\n');
   }
 
   function mountCalendar() {
     var wrap = document.getElementById('calwrap');
     var dialog = document.getElementById('progDlg');
+
+    mountForms();
 
     document.addEventListener('click', function (event) {
       var add = event.target.closest('.addday');
@@ -409,7 +468,6 @@
         openCopyDialog(copy);
         return;
       }
-      if (event.target.id === 'copyWeekly') { fillWeekly(); }
     });
 
     if (!wrap) { return; }
@@ -478,5 +536,6 @@
   window.ATM.cellUrl = '/cell/';
   window.ATM.mountSession = mountSession;
   window.ATM.mountCalendar = mountCalendar;
+  window.ATM.mountForms = mountForms;
   window.ATM.toast = toast;
 })(window, document);

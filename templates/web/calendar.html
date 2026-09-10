@@ -68,7 +68,7 @@
   <span class="badge b-yellow">🎽 {% translate "熱身賽" %}</span>
   {# 拖動改日期是 HTML5 drag & drop，觸控螢幕不會觸發——手機上不要承諾做不到的事 #}
   <span>{% translate "· 點日期上的 ＋ 新增 program；點課表可分區排熱身／正課／補充／恢復" %}
-    <br>· <strong>{% translate "課表右上角的 ⧉ 就是把整堂課（連活動）複製到其他日子" %}</strong>
+    <br>· <strong>{% translate "課表右上角的 ⧉ 就是把整堂課（連活動）複製到其他日子，或複製給同計劃的其他運動員" %}</strong>
     <span class="no-touch"><br>· <strong>{% translate "把課表直接拖到另一天就是改日期" %}</strong></span>
     <span class="only-touch"><br>{% translate "· 要改日期，點進課表按抬頭的「日期」那一格" %}</span>
   </span>
@@ -152,7 +152,7 @@
 
     <div class="row">
       <div class="field">
-        <label>{% translate "複製到" %}</label>
+        <label>{% translate "複製到（開始日期）" %}</label>
         <input type="date" name="date" id="copyDate" required>
       </div>
       <div class="field">
@@ -164,14 +164,35 @@
       </div>
     </div>
 
+    {% include "web/_repeat_fields.html" %}
+
+    {% if peers %}
     <div class="field">
-      <label>{% translate "還要複製到哪些日子（一行一個，或用逗號分開）" %}</label>
-      <textarea name="dates" id="copyDates" rows="3" placeholder="2026-09-16&#10;2026-09-23"></textarea>
+      <label>{% translate "同時複製給同計劃的其他運動員" %}</label>
+      <div class="flex" style="flex-wrap:wrap;gap:10px">
+        <button type="button" class="btn ghost sm" data-toggle="peer-list"
+                data-open-label="{% translate '收起名單' %}"
+                data-shut-label="{% translate '選運動員' %}">{% translate "選運動員" %}</button>
+        <span class="small c-dim" data-pick-count="peer-list"
+              data-pick-label="{% translate '已選 {n} / {total} 名運動員' %}"></span>
+      </div>
+      <div class="pickbox mt" id="peer-list" hidden>
+        <button type="button" class="linkbtn" data-check-all="peer-list">{% translate "全選／全不選" %}</button>
+        <div class="flex mt" style="flex-wrap:wrap;gap:10px">
+          {% for p in peers %}
+            <label class="flex small" style="gap:4px">
+              <input type="checkbox" name="peer_ids" value="{{ p.id }}">
+              {{ p.user.get_full_name|default:p.user.username }}
+              <span class="c-dim">{{ p.plan_title }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
       <div class="small c-dim mt">
-        {% translate "同一課要排一整個星期／一整個月，就在這裡把日期列出來，一次過建好（最多 30 天）。" %}
-        <button type="button" class="linkbtn" id="copyWeekly">{% translate "＋ 之後四週的同一天" %}</button>
+        {% translate "對方的日曆會各自多一堂一模一樣的課，連所有活動一起抄；之後誰改自己那一堂都不影響別人。" %}
       </div>
     </div>
+    {% endif %}
 
     <label class="flex small">
       <input type="checkbox" name="copy_activities" value="1" checked>
