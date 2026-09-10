@@ -21,6 +21,13 @@ from video.models import TrainingVideo, VideoKind, VideoNote
 MEDIA = tempfile.mkdtemp(prefix="atm-video-test-")
 
 
+#: 1x1 的 png，模擬前端用 canvas 擷下來的封面
+PNG_DATA_URL = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
 def fake_upload(name="clip.mp4", size=1024):
     return SimpleUploadedFile(name, b"x" * size, content_type="video/mp4")
 
@@ -257,6 +264,22 @@ class VideoViewTests(VideoTestCase):
         self.assertEqual(self.client.get(url).status_code, 200)
         self.client.post(url, {"action": "note_add", "at_sec": "2.25", "body": "手臂"})
         self.assertEqual(video.notes.get().body, "手臂")
+
+    def test_direct_upload_posts_only_metadata(self):
+        """R2 開著時，檔案已經在雲端了，這一筆 POST 只帶 remote_key 與封面。"""
+        res = self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upload", "date": TODAY.isoformat(), "kind": VideoKind.SPRINT,
+             "title": "直傳", "remote_key": f"videos/{self.athlete.id}/deadbeef.mp4",
+             "size_bytes": "12345", "duration_sec": "4.83",
+             "width": "1920", "height": "1080", "poster": PNG_DATA_URL},
+        )
+        self.assertEqual(res.status_code, 302)
+        video = TrainingVideo.objects.get()
+        self.assertEqual(video.remote_key, f"videos/{self.athlete.id}/deadbeef.mp4")
+        self.assertFalse(video.file)
+        self.assertTrue(video.poster)
+        self.assertEqual(video.size_bytes, 12345)
 
     def test_sign_falls_back_to_plain_upload_without_r2(self):
         res = self.client.post(
