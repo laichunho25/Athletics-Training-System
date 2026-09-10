@@ -1331,8 +1331,9 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 .vidprog { display: flex; align-items: center; gap: 10px; }
 .vidprog .progress { flex: 1 1 auto; margin-top: 0; }
 
-/* 詳情頁：左邊播放器，右邊批註 */
-.vidsplit { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+/* 詳情頁：播放器在上，分析重點紀錄在下面整行——紀錄常常是一段字，
+   擠在右邊一條窄欄裡很難讀 */
+.vidstack { min-width: 0; }
 
 .vidstage { display: grid; grid-template-columns: 1fr; background: #000; }
 .vidstage.vidstage-two { grid-template-columns: 1fr 1fr; gap: 1px; }
@@ -1360,7 +1361,6 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 .vidbar .editsel { padding: 3px 6px; font-size: 12.5px; }
 
 @media (max-width: 900px) {
-  .vidsplit { grid-template-columns: 1fr; }
   .vidstage.vidstage-two { grid-template-columns: 1fr; gap: 2px; }
   .vidplayer { max-height: 50vh; }
   .vidprev { flex-direction: column; }

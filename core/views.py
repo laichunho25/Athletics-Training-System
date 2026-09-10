@@ -3718,7 +3718,7 @@ def _json_or_none(raw):
 
 @login_required
 def video_detail(request, pk):
-    """單條影片：變速與逐格回放、時間點批註，另可並排比對另一條片。"""
+    """單條影片：變速與逐格回放、放大、分析工具與重點紀錄，另可並排比對另一條片。"""
     try:
         video = vsvc.get_video(request.user, pk)
     except vsvc.VideoError as exc:
@@ -3738,11 +3738,11 @@ def video_detail(request, pk):
                     # 分析工具（計時／數步／劃線）量出來的東西，由 video.js 序列化
                     data=_json_or_none(request.POST.get("data")),
                 )
-                messages.success(request, _("已加上批註。"))
+                messages.success(request, _("已加入分析重點紀錄。"))
             elif action == "note_delete":
                 note = get_object_or_404(VideoNote, pk=request.POST["note_id"], video=video)
                 vsvc.delete_note(request.user, note)
-                messages.success(request, _("已刪除批註。"))
+                messages.success(request, _("已刪除這則紀錄。"))
             elif action == "keeper":
                 video.is_keeper = not video.is_keeper
                 video.save(update_fields=["is_keeper", "updated_at"])

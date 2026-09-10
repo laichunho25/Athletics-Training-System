@@ -40,7 +40,7 @@
 
 {% if video.note %}<div class="card mb">{{ video.note }}</div>{% endif %}
 
-<div class="vidsplit">
+<div class="vidstack">
 
   <!-- --------------------------------------------------------- 播放器 -->
   <div>
@@ -119,8 +119,8 @@
       <!-- 計時：標 A 標 B，量中間那一段 -->
       <div class="toolpane" data-pane="timing">
         <div class="flex mb">
-          <button type="button" class="btn sm" data-act="mark-a">{% translate "標 A（起）" %}</button>
-          <button type="button" class="btn sm" data-act="mark-b">{% translate "標 B（終）" %}</button>
+          <button type="button" class="btn sm" data-act="mark-a">{% translate "標 A（起跑）" %}</button>
+          <button type="button" class="btn sm" data-act="mark-b">{% translate "標 B（終點）" %}</button>
           <button type="button" class="btn ghost sm" data-act="timing-clear">{% translate "清除" %}</button>
           <span class="small c-dim">{% translate "或按 A / B 鍵" %}</span>
         </div>
@@ -139,7 +139,7 @@
         </div>
         <div class="small c-dim mt" id="t-hint"></div>
         <button type="button" class="btn sm mt" data-act="save" data-kind="timing">
-          {% translate "存成批註" %}</button>
+          {% translate "加入分析重點紀錄" %}</button>
       </div>
 
       <!-- 數步：腳落地就點一下 -->
@@ -164,7 +164,7 @@
           {% translate "邊播邊按最準：0.5 倍速播放，每次腳落地按一下。自動數步要靠姿態估計，那是第二期。" %}
         </div>
         <button type="button" class="btn sm mt" data-act="save" data-kind="steps">
-          {% translate "存成批註" %}</button>
+          {% translate "加入分析重點紀錄" %}</button>
       </div>
 
       <!-- 劃線：疊在影片上的一層畫布 -->
@@ -182,7 +182,7 @@
           {% translate "選一個工具，然後在影片上拖曳。角度要點三下：先點一邊的端點、再點關節、最後點另一邊。" %}
         </div>
         <button type="button" class="btn sm mt" data-act="save" data-kind="draw">
-          {% translate "存成批註" %}</button>
+          {% translate "加入分析重點紀錄" %}</button>
       </div>
     </div>
     {% endif %}
@@ -216,11 +216,11 @@
     </div>
   </div>
 
-  <!-- ----------------------------------------------------------- 批註 -->
+  <!-- ------------------------------------------------- 分析重點紀錄 -->
   <div>
     <div class="card pad0 mb">
       <div class="card-head">
-        <span>{% translate "批註" %}</span>
+        <span>{% translate "分析重點紀錄" %}</span>
         <span class="small c-dim">{% blocktranslate with v0=notes|length %}{{ v0 }} 條{% endblocktranslate %}</span>
       </div>
 
@@ -228,7 +228,7 @@
         <form method="post" style="padding:14px 18px" id="noteform">
           {% csrf_token %}
           <input type="hidden" name="action" value="note_add">
-          {% comment %}量一段時間時的終點，以及分析工具的量測結果；由 video.js 按「存成批註」時填{% endcomment %}
+          {% comment %}量一段時間時的終點，以及分析工具的量測結果；由 video.js 按「加入分析重點紀錄」時填{% endcomment %}
           <input type="hidden" name="end_sec" id="note-end">
           <input type="hidden" name="data" id="note-data">
           <div class="flex mb">
@@ -239,7 +239,7 @@
             <button type="button" class="btn ghost sm" data-vid="grab">{% translate "用目前時間" %}</button>
           </div>
           <textarea name="body" rows="3" placeholder="{% translate '例：起身時右膝往內倒，第二拍最明顯' %}" required></textarea>
-          <button class="btn sm mt" type="submit">{% translate "加上批註" %}</button>
+          <button class="btn sm mt" type="submit">{% translate "加入紀錄" %}</button>
         </form>
       {% endif %}
 
@@ -270,7 +270,7 @@
           </div>
         {% empty %}
           <div class="small c-dim">
-            {% translate "還沒有批註。播到看得出問題的那一格，按「用目前時間」就會釘在那一秒。" %}
+            {% translate "還沒有紀錄。播到看得出問題的那一格，按「用目前時間」就會釘在那一秒。" %}
           </div>
         {% endfor %}
       </div>

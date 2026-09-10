@@ -139,7 +139,7 @@
         <div class="small c-dim mono">
           {{ v.date|date:'Y-m-d' }}
           {% if v.size_display %} · {{ v.size_display }}{% endif %}
-          {% if v.note_count %} · {% blocktranslate with v0=v.note_count %}{{ v0 }} 條批註{% endblocktranslate %}{% endif %}
+          {% if v.note_count %} · {% blocktranslate with v0=v.note_count %}{{ v0 }} 條紀錄{% endblocktranslate %}{% endif %}
         </div>
         {% if v.linked_label %}
           <div class="small c-blue ellip">{{ v.linked_label }}</div>
