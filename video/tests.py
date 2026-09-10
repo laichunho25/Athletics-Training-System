@@ -349,6 +349,14 @@ class VideoViewTests(VideoTestCase):
         self.client.post(url, {"action": "note_add", "at_sec": "2.25", "body": "手臂"})
         self.assertEqual(video.notes.get().body, "手臂")
 
+    def test_player_ships_the_ids_the_script_hooks_onto(self):
+        """video.js 全靠這幾個 id 找元件，改模板時很容易不小心弄丟。"""
+        video = make_video(self.athlete, uploader=self.coach.user)
+        html = self.client.get(reverse("web:video_detail", args=[video.pk])).content.decode()
+        for marker in ('id="player"', 'id="zoom1"', 'id="draw1"',
+                       'id="v-zoom"', 'id="v-fps"', 'id="note-data"'):
+            self.assertIn(marker, html)
+
     def test_direct_upload_posts_only_metadata(self):
         """R2 開著時，檔案已經在雲端了，這一筆 POST 只帶 remote_key 與封面。"""
         res = self.client.post(

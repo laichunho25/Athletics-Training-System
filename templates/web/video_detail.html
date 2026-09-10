@@ -47,11 +47,14 @@
     <div class="card pad0 mb">
       <div class="vidstage {% if other %}vidstage-two{% endif %}">
         <div class="vidpane" id="stage1">
-          <video id="player" class="vidplayer" controls playsinline preload="metadata"
-                 {% if video.poster %}poster="{{ video.poster.url }}"{% endif %}
-                 src="{{ video.playback_url }}"></video>
-          {% comment %}劃線疊在影片上；沒選工具時 pointer-events 關掉，才不會擋住播放控制{% endcomment %}
-          <canvas id="draw1" class="vidcanvas"></canvas>
+          {% comment %}放大是整個 vidzoom 一起縮放，劃的線才會跟著影片一起大{% endcomment %}
+          <div class="vidzoom" id="zoom1">
+            <video id="player" class="vidplayer" controls playsinline preload="metadata"
+                   {% if video.poster %}poster="{{ video.poster.url }}"{% endif %}
+                   src="{{ video.playback_url }}"></video>
+            {% comment %}劃線疊在影片上；沒選工具時 pointer-events 關掉，才不會擋住播放控制{% endcomment %}
+            <canvas id="draw1" class="vidcanvas"></canvas>
+          </div>
           {% if other %}<div class="small c-dim mono vidlabel">{{ video.date|date:'m-d' }} · {{ video.display_title }}</div>{% endif %}
         </div>
         {% if other %}
@@ -86,6 +89,16 @@
             <option value="120">120 fps</option>
             <option value="240">240 fps</option>
           </select>
+        </div>
+        <div class="flex">
+          <span class="small c-dim">{% translate "放大" %}</span>
+          <button type="button" class="btn ghost sm" data-vid="zoom" data-z="out"
+                  title="{% translate '縮小（− 鍵）' %}">−</button>
+          <span class="mono small" id="v-zoom" style="min-width:32px;text-align:center">1.0×</span>
+          <button type="button" class="btn ghost sm" data-vid="zoom" data-z="in"
+                  title="{% translate '放大（＋ 鍵；按著 Ctrl 滾滾輪或觸控板捏合也可以）' %}">＋</button>
+          <button type="button" class="btn ghost sm" data-vid="zoom" data-z="reset"
+                  title="{% translate '回到原尺寸（0 鍵）' %}">{% translate "還原" %}</button>
         </div>
         <span class="mono small" id="v-clock">0.00s</span>
       </div>

@@ -245,6 +245,88 @@
       return (Math.round(sec * 1000) / 1000).toFixed(2) + 's';
     }
 
+    /* ========================================================== 放大
+
+     * 教練要看的常常是畫面裡很小的一塊——落地那一腳、握桿的手。
+     * 這裡用 CSS transform 放大整個 vidzoom（影片＋劃線那層一起），
+     * 所以放大之後劃的線還是貼在同一個位置，不會跟影片錯開。
+     * 不是重新編碼，放太大會糊，那是原始畫質的極限，不是這裡的問題。
+     */
+
+    var ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6];
+    var zoomBox = $('zoom1');
+    var zoom = 1, panX = 0, panY = 0;
+
+    function applyZoom() {
+      if (!zoomBox) return;
+      clampPan();
+      zoomBox.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+      zoomBox.classList.toggle('pannable', zoom > 1);
+      var out = $('v-zoom');
+      if (out) out.textContent = zoom.toFixed(1) + '×';
+    }
+
+    /* 拖到底就停：放大之後還能把畫面拖到剩黑邊的話很難拉回來。 */
+    function clampPan() {
+      var w = zoomBox.clientWidth, h = zoomBox.clientHeight;
+      panX = Math.min(0, Math.max(w - w * zoom, panX));
+      panY = Math.min(0, Math.max(h - h * zoom, panY));
+    }
+
+    /* 以畫面上的某一點為中心縮放：滾輪對著哪裡，那裡就留在原位。 */
+    function zoomTo(next, clientX, clientY) {
+      if (!zoomBox) return;
+      next = Math.min(Math.max(next, 1), ZOOM_STEPS[ZOOM_STEPS.length - 1]);
+      var box = zoomBox.getBoundingClientRect();
+      var fx = clientX === undefined ? box.width / 2 : clientX - box.left;
+      var fy = clientY === undefined ? box.height / 2 : clientY - box.top;
+      var ratio = next / zoom;
+      panX -= fx * (ratio - 1);
+      panY -= fy * (ratio - 1);
+      zoom = next;
+      if (zoom === 1) { panX = 0; panY = 0; }
+      applyZoom();
+    }
+
+    function stepZoom(dir, clientX, clientY) {
+      var i = 0;
+      while (i < ZOOM_STEPS.length - 1 && ZOOM_STEPS[i] < zoom - 0.001) i++;
+      zoomTo(ZOOM_STEPS[Math.min(Math.max(i + dir, 0), ZOOM_STEPS.length - 1)], clientX, clientY);
+    }
+
+    if (zoomBox) {
+      /* 滾輪：按著 Ctrl（觸控板兩指捏合就是這個）任何時候都能縮放；
+       * 已經放大了的話直接滾就行。沒放大又沒按 Ctrl 時不搶，讓頁面照常捲動。 */
+      zoomBox.addEventListener('wheel', function (ev) {
+        if (!ev.ctrlKey && !ev.metaKey && zoom === 1) return;
+        ev.preventDefault();
+        zoomTo(zoom * (ev.deltaY < 0 ? 1.15 : 1 / 1.15), ev.clientX, ev.clientY);
+      }, { passive: false });
+
+      /* 放大之後拖曳＝移動畫面。選了劃線工具時畫布會先吃掉事件，所以兩者不衝突。 */
+      var dragFrom = null;
+      zoomBox.addEventListener('pointerdown', function (ev) {
+        if (zoom === 1 || ev.target.closest('canvas')) return;
+        /* 影片自己的控制列在下緣，留給它 */
+        if (ev.clientY > zoomBox.getBoundingClientRect().bottom - 44) return;
+        dragFrom = { x: ev.clientX - panX, y: ev.clientY - panY };
+        zoomBox.classList.add('panning');
+        zoomBox.setPointerCapture(ev.pointerId);
+      });
+      zoomBox.addEventListener('pointermove', function (ev) {
+        if (!dragFrom) return;
+        ev.preventDefault();
+        panX = ev.clientX - dragFrom.x;
+        panY = ev.clientY - dragFrom.y;
+        applyZoom();
+      });
+      zoomBox.addEventListener('pointerup', function () {
+        dragFrom = null;
+        zoomBox.classList.remove('panning');
+      });
+      window.addEventListener('resize', applyZoom);
+    }
+
     /* ========================================================== 分析工具
      *
      * 三個工具共用一個播放器，量出來的東西都可以「存成批註」——存進去之後
@@ -364,9 +446,12 @@
 
     function toNorm(ev) {
       var box = canvas.getBoundingClientRect();
+      /* 放大是 CSS transform，getBoundingClientRect 量到的是放大後的尺寸，
+       * 但畫布本身還是原來那麼大——先除回去才對得上。 */
+      var k = (box.width / canvas.clientWidth) || 1;
       var rect = contentRect();
-      var x = (ev.clientX - box.left - rect.x) / rect.w;
-      var y = (ev.clientY - box.top - rect.y) / rect.h;
+      var x = ((ev.clientX - box.left) / k - rect.x) / rect.w;
+      var y = ((ev.clientY - box.top) / k - rect.y) / rect.h;
       return [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
     }
 
@@ -569,6 +654,10 @@
           pickTool('draw');
           redraw();
         }
+      } else if (what === 'zoom') {
+        var how = btn.getAttribute('data-z');
+        if (how === 'reset') zoomTo(1);
+        else stepZoom(how === 'in' ? 1 : -1);
       } else if (what === 'grab') {
         var field = $('note-at');
         if (field) field.value = player.currentTime.toFixed(2);
@@ -596,6 +685,12 @@
         if (active === 'steps' && tools) tapStep();
         else if (player.paused) player.play();
         else player.pause();
+      } else if (ev.key === '+' || ev.key === '=') {
+        ev.preventDefault(); stepZoom(1);
+      } else if (ev.key === '-' || ev.key === '_') {
+        ev.preventDefault(); stepZoom(-1);
+      } else if (ev.key === '0') {
+        ev.preventDefault(); zoomTo(1);
       } else if (tools && (ev.key === 'a' || ev.key === 'A')) {
         ev.preventDefault(); pickTool('timing'); markAt('a');
       } else if (tools && (ev.key === 'b' || ev.key === 'B')) {
@@ -603,6 +698,7 @@
       }
     });
 
+    applyZoom();
     if (tools) { showTiming(); showSteps(); }
   }
 
