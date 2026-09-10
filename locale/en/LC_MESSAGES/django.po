@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ATM\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-10 21:04+0800\n"
+"POT-Creation-Date: 2026-09-10 23:41+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3892,7 +3892,9 @@ msgstr "The session to delete could not be found."
 #: .\core\views.py:1662
 #, python-format
 msgid "「%(v0)s」是別人排的課，只有排課的人或管理員刪得掉。"
-msgstr "“%(v0)s” was planned by someone else; only whoever planned it (or an admin) can delete it."
+msgstr ""
+"“%(v0)s” was planned by someone else; only whoever planned it (or an admin) "
+"can delete it."
 
 #: .\core\views.py:1671
 #, python-format
@@ -3909,7 +3911,10 @@ msgstr " (with all %(v0)s activities)"
 msgid ""
 "這堂課登過的 %(v0)s 筆訓練紀錄留著沒有刪，在數據分析照樣看得到，只是不再對應"
 "這一堂課。"
-msgstr "The %(v0)s training records logged under this session were kept, not deleted. They still show up in Analytics — they just no longer point to this session."
+msgstr ""
+"The %(v0)s training records logged under this session were kept, not "
+"deleted. They still show up in Analytics — they just no longer point to this "
+"session."
 
 #: .\core\views.py:1698
 msgid "找不到要複製的課表。"
@@ -3968,8 +3973,8 @@ msgid "無權限存取此課表。"
 msgstr "You do not have access to this session."
 
 #: .\core\views.py:2136
-msgid "只有這名運動員本人（或管理員）能登這堂課的數據。"
-msgstr "Only the athlete (or an administrator) can log data for this session."
+msgid "只有這名運動員本人、他的教練或管理員能登這堂課的數據。"
+msgstr "Only the athlete, their coach or an administrator can log data for this session."
 
 #: .\core\views.py:2155
 #, python-format
@@ -3977,11 +3982,11 @@ msgid "已為「%(v0)s」開好 %(v1)s 組空白紀錄，把完成數值填進�
 msgstr ""
 "Opened %(v1)s blank sets for \"%(v0)s\"; just fill in what was actually done."
 
-#: .\core\views.py:2191 .\core\views.py:3017
+#: .\core\views.py:2191 .\core\views.py:3024
 msgid "無權限修改這筆紀錄。"
 msgstr "You do not have permission to change this record."
 
-#: .\core\views.py:2207 .\core\views.py:3068
+#: .\core\views.py:2207 .\core\views.py:3075
 msgid "已刪除一筆紀錄。"
 msgstr "Deleted one record."
 
@@ -3993,34 +3998,34 @@ msgstr "This set is already first."
 msgid "這一組已經在最後面了。"
 msgstr "This set is already last."
 
-#: .\core\views.py:2237 .\core\views.py:2409
+#: .\core\views.py:2244 .\core\views.py:2416
 msgid "不認得的課表區塊。"
 msgstr "Unrecognised session block."
 
-#: .\core\views.py:2254
+#: .\core\views.py:2261
 msgid "請挑一個活動，或自己打一個名稱。"
 msgstr "Pick an activity, or type your own name."
 
-#: .\core\views.py:2296
+#: .\core\views.py:2303
 #, python-format
 msgid "已加入 %(v0)s 到%(v1)s。"
 msgstr "Added %(v0)s to %(v1)s."
 
-#: .\core\views.py:2297
+#: .\core\views.py:2304
 msgid "（要記這一項的數據，按那一行的「登記錄」）"
 msgstr "(To log data for an item, press \"Log record\" on its row)"
 
-#: .\core\views.py:2313
+#: .\core\views.py:2320
 msgid "請填活動名稱。"
 msgstr "Please enter the activity name."
 
-#: .\core\views.py:2353
+#: .\core\views.py:2360
 #, python-format
 msgid "已新增訓練活動「%(v0)s」，以後可以直接挑。"
 msgstr ""
 "Added the training activity \"%(v0)s\"; you can pick it directly from now on."
 
-#: .\core\views.py:2357
+#: .\core\views.py:2364
 #, python-format
 msgid ""
 "已把「%(v0)s」送進運動練習項目庫，等管理員確認後所有人都挑得到；在那之前只有"
@@ -4029,19 +4034,19 @@ msgstr ""
 "\"%(v0)s\" has been sent to the exercise library; once an administrator "
 "approves it everyone can pick it. Until then only you can see it."
 
-#: .\core\views.py:2360
+#: .\core\views.py:2367
 #, python-format
 msgid "「%(v0)s」已經在活動清單裡了。"
 msgstr "\"%(v0)s\" is already in the activity list."
 
-#: .\core\views.py:2415
+#: .\core\views.py:2422
 #, python-format
 msgid "%(v0)s這一區還沒有活動，先加幾項再存成 program。"
 msgstr ""
 "There is nothing in %(v0)s yet - add a few activities before saving it as a "
 "program."
 
-#: .\core\views.py:2444
+#: .\core\views.py:2451
 #, python-format
 msgid ""
 "已把%(v0)s的 %(v1)s 項活動存成 program「%(v2)s」，下一課在同一區挑它就整組帶"
@@ -4050,138 +4055,138 @@ msgstr ""
 "Saved the %(v1)s activities in %(v0)s as the program \"%(v2)s\" - pick it in "
 "the same block next session and the whole set comes across."
 
-#: .\core\views.py:2450
+#: .\core\views.py:2457
 #, python-format
 msgid "已更新 program「%(v0)s」，現在是 %(v1)s 項活動。"
 msgstr "Updated the program \"%(v0)s\" - it now holds %(v1)s activities."
 
-#: .\core\views.py:2462
+#: .\core\views.py:2469
 msgid "找不到這個 program，重新整理看看。"
 msgstr "That program could not be found - try refreshing."
 
-#: .\core\views.py:2469
+#: .\core\views.py:2476
 #, python-format
 msgid "program「%(v0)s」裡沒有活動。"
 msgstr "The program \"%(v0)s\" has no activities in it."
 
-#: .\core\views.py:2497
+#: .\core\views.py:2504
 #, python-format
 msgid "已把 program「%(v0)s」的 %(v1)s 項活動加進%(v2)s。"
 msgstr "Added the %(v1)s activities from the program \"%(v0)s\" to %(v2)s."
 
-#: .\core\views.py:2500
+#: .\core\views.py:2507
 #, python-format
 msgid "（先清掉原有的 %(v0)s 項）"
 msgstr " (cleared the %(v0)s activities that were there)"
 
-#: .\core\views.py:2502
+#: .\core\views.py:2509
 #, python-format
 msgid "（有 %(v0)s 項是別人寫的，清不掉，留在原位）"
 msgstr ""
 " (%(v0)s activities were written by someone else, so they stayed where they "
 "were)"
 
-#: .\core\views.py:2509
+#: .\core\views.py:2516
 msgid "這個 program 已經不在了。"
 msgstr "That program is gone."
 
-#: .\core\views.py:2512
+#: .\core\views.py:2519
 msgid "只有建立者（或管理員）可以刪掉這個 program。"
 msgstr "Only whoever created this program (or an admin) can delete it."
 
-#: .\core\views.py:2516
+#: .\core\views.py:2523
 #, python-format
 msgid "已刪除 program「%(v0)s」。"
 msgstr "Deleted the program \"%(v0)s\"."
 
-#: .\core\views.py:2522
+#: .\core\views.py:2529
 msgid "記事不能是空的。"
 msgstr "A note cannot be empty."
 
-#: .\core\views.py:2531
+#: .\core\views.py:2538
 msgid "已寫入，同一版面的教練與運動員都看得到。"
 msgstr "Saved — the coach and the athlete both see it on this page."
 
-#: .\core\views.py:2537
+#: .\core\views.py:2544
 #, python-format
 msgid "這筆%(v0)s已經不在了。"
 msgstr "This %(v0)s is gone."
 
-#: .\core\views.py:2540
+#: .\core\views.py:2547
 #, python-format
 msgid "只能刪自己寫下的%(v0)s。"
 msgstr "You can only delete a %(v0)s you wrote yourself."
 
-#: .\core\views.py:2543
+#: .\core\views.py:2550
 #, python-format
 msgid "已刪除這筆%(v0)s。"
 msgstr "Deleted this %(v0)s."
 
-#: .\core\views.py:2560
+#: .\core\views.py:2567
 msgid "看不懂的請求格式。"
 msgstr "The request format was not understood."
 
-#: .\core\views.py:2564
+#: .\core\views.py:2571
 msgid "看不懂要改哪一格。"
 msgstr "It is not clear which field to change."
 
-#: .\core\views.py:2641 .\core\views.py:2859
+#: .\core\views.py:2648 .\core\views.py:2866
 msgid "請填項目名稱。"
 msgstr "Please enter the item name."
 
-#: .\core\views.py:2654
+#: .\core\views.py:2661
 #, python-format
 msgid "已把「%(v0)s」加進項目清單，可以開始登數據了。"
 msgstr "Added \"%(v0)s\" to the item list — you can start logging data now."
 
-#: .\core\views.py:2678
+#: .\core\views.py:2685
 msgid "請先挑一個範疇。"
 msgstr "Pick a domain first."
 
-#: .\core\views.py:2689 .\core\views.py:2908
+#: .\core\views.py:2696 .\core\views.py:2915
 msgid "請先挑一個練習方式（節奏跑／反覆跑／起跑…）。"
 msgstr "Pick a training method first (tempo run / repetition run / start…)."
 
-#: .\core\views.py:2697 .\core\views.py:2916
+#: .\core\views.py:2704 .\core\views.py:2923
 msgid "距離要填數字（公尺），或留空只記方式。"
 msgstr ""
 "The distance must be a number (metres), or leave it blank to record the "
 "method only."
 
-#: .\core\views.py:2702 .\core\views.py:2921
+#: .\core\views.py:2709 .\core\views.py:2928
 #, python-format
 msgid "已把「%(v0)s」加進要追蹤的項目清單，可以開始登數據了。"
 msgstr ""
 "\"%(v0)s\" has been added to the tracked item list; you can start entering "
 "data."
 
-#: .\core\views.py:2848 .\core\views.py:2873
+#: .\core\views.py:2855 .\core\views.py:2880
 #, python-format
 msgid "已把「%(v0)s」加進項目清單。"
 msgstr "Added \"%(v0)s\" to the item list."
 
-#: .\core\views.py:2861
+#: .\core\views.py:2868
 msgid "不認得的範疇。"
 msgstr "Unrecognised category."
 
-#: .\core\views.py:2897
+#: .\core\views.py:2904
 #, python-format
 msgid "已新增項目「%(v0)s」。"
 msgstr "Added the item \"%(v0)s\"."
 
-#: .\core\views.py:2899
+#: .\core\views.py:2906
 #, python-format
 msgid "「%(v0)s」已經在清單裡了。"
 msgstr "\"%(v0)s\" is already in the list."
 
-#: .\core\views.py:2934
+#: .\core\views.py:2941
 #, python-format
 msgid "「%(v0)s」底下還有 %(v1)s 筆紀錄，要先確認才刪得掉。"
 msgstr ""
 "\"%(v0)s\" still has %(v1)s records under it, so it needs confirming before "
 "it can be deleted."
 
-#: .\core\views.py:2943
+#: .\core\views.py:2950
 #, python-format
 msgid ""
 "已清掉「%(v0)s」的 %(v1)s 筆紀錄；這是系統內建項目，重新記錄就會再出現。"
@@ -4189,105 +4194,105 @@ msgstr ""
 "Cleared %(v1)s records for \"%(v0)s\"; this is a built-in item, so it will "
 "reappear once new data is recorded."
 
-#: .\core\views.py:2949
+#: .\core\views.py:2956
 #, python-format
 msgid "已刪除項目「%(v0)s」"
 msgstr "Deleted the item \"%(v0)s\""
 
-#: .\core\views.py:2950
+#: .\core\views.py:2957
 #, python-format
 msgid "，連同 %(v0)s 筆紀錄。"
 msgstr ", along with %(v0)s records."
 
-#: .\core\views.py:2971
+#: .\core\views.py:2978
 #, python-format
 msgid "「%(v0)s」的單位已改成 %(v1)s。"
 msgstr "The unit for \"%(v0)s\" is now %(v1)s."
 
-#: .\core\views.py:2973
+#: .\core\views.py:2980
 msgid "單位沒有變動。"
 msgstr "The unit is unchanged."
 
-#: .\core\views.py:3045
+#: .\core\views.py:3052
 msgid "無權限調整這筆紀錄。"
 msgstr "You do not have permission to reorder this record."
 
-#: .\core\views.py:3050
+#: .\core\views.py:3057
 #, python-format
 msgid "已把 %(date)s 的這一組往前挪。"
 msgstr "Moved this set for %(date)s up."
 
-#: .\core\views.py:3052
+#: .\core\views.py:3059
 #, python-format
 msgid "已把 %(date)s 的這一組往後挪。"
 msgstr "Moved this set for %(date)s down."
 
-#: .\core\views.py:3056
+#: .\core\views.py:3063
 msgid "這一組已經在最"
 msgstr "This set is already at the "
 
-#: .\core\views.py:3056
+#: .\core\views.py:3063
 msgid "前"
 msgstr "top"
 
-#: .\core\views.py:3056
+#: .\core\views.py:3063
 msgid "後"
 msgstr "bottom"
 
-#: .\core\views.py:3056
+#: .\core\views.py:3063
 msgid "面了。"
 msgstr "."
 
-#: .\core\views.py:3062
+#: .\core\views.py:3069
 msgid "無權限刪除這筆紀錄。"
 msgstr "You do not have permission to delete this record."
 
-#: .\core\views.py:3169
+#: .\core\views.py:3176
 msgid "這幾個項目一起分析時出了問題，已記錄下來；先分開看各自的趨勢。"
 msgstr ""
 "Something went wrong analysing these items together; it has been logged. "
 "Read each one's trend separately for now."
 
-#: .\core\views.py:3422
+#: .\core\views.py:3429
 msgid "已儲存今日晨間問卷。"
 msgstr "Today's morning questionnaire has been saved."
 
-#: .\core\views.py:3425
+#: .\core\views.py:3432
 msgid "已重新計算今日營養目標。"
 msgstr "Today's nutrition targets have been recalculated."
 
-#: .\core\views.py:3443
+#: .\core\views.py:3450
 msgid "已刪除該筆飲食紀錄。"
 msgstr "Deleted that food record."
 
-#: .\core\views.py:3493 .\nutrition\services.py:367
+#: .\core\views.py:3500 .\nutrition\services.py:367
 #: .\templates\web\nutrition.html:32 .\templates\web\nutrition.html:202
 #: .\templates\web\nutrition.html:259
 msgid "碳水"
 msgstr "Carbs"
 
-#: .\core\views.py:3493 .\nutrition\services.py:367
+#: .\core\views.py:3500 .\nutrition\services.py:367
 #: .\templates\web\dashboard.html:211 .\templates\web\nutrition.html:37
 #: .\templates\web\nutrition.html:364
 msgid "蛋白質"
 msgstr "Protein"
 
-#: .\core\views.py:3493 .\nutrition\services.py:367
+#: .\core\views.py:3500 .\nutrition\services.py:367
 #: .\templates\web\nutrition.html:202 .\templates\web\nutrition.html:259
 msgid "脂肪"
 msgstr "Fat"
 
-#: .\core\views.py:3509
+#: .\core\views.py:3516
 msgid "請上傳相片或至少寫下吃了什麼。"
 msgstr "Please upload a photo or at least write down what was eaten."
 
-#: .\core\views.py:3543
+#: .\core\views.py:3550
 #, python-format
 msgid "已記錄%(v0)s：%(v1)s kcal（碳水 %(v2)sg／蛋白 %(v3)sg／脂肪 %(v4)sg）。"
 msgstr ""
 "Logged %(v0)s: %(v1)s kcal (carbs %(v2)sg / protein %(v3)sg / fat %(v4)sg)."
 
-#: .\core\views.py:3548
+#: .\core\views.py:3555
 msgid ""
 "認不出食物，紀錄已建立但營養值是 0——可以在下面直接改份量，或用「白飯 200g、雞"
 "胸 150g」這種寫法再試一次。"
@@ -4296,85 +4301,85 @@ msgstr ""
 "values — change the portions below, or try again writing it like \"rice "
 "200g, chicken breast 150g\"."
 
-#: .\core\views.py:3576
+#: .\core\views.py:3583
 msgid "份量沒有變動。"
 msgstr "The portions are unchanged."
 
-#: .\core\views.py:3593
+#: .\core\views.py:3600
 #, python-format
 msgid "已更新 %(v0)s 個品項的份量，總熱量 %(v1)s kcal。"
 msgstr "Updated the portions for %(v0)s items; %(v1)s kcal in total."
 
-#: .\core\views.py:3650
+#: .\core\views.py:3657
 #, python-format
 msgid "%(v0)s 疼痛 %(v1)s/10 已超過門檻，今日課表已自動調整（%(v2)s 項變更）。"
 msgstr ""
 "%(v0)s pain of %(v1)s/10 is over the threshold, so today's session has been "
 "adjusted automatically (%(v2)s changes)."
 
-#: .\core\views.py:3653
+#: .\core\views.py:3660
 msgid "已記錄今日疼痛。"
 msgstr "Today's pain has been logged."
 
-#: .\core\views.py:3676
+#: .\core\views.py:3683
 #, python-format
 msgid "已建立傷患紀錄：%(v0)s"
 msgstr "Injury record created: %(v0)s"
 
-#: .\core\views.py:3691
+#: .\core\views.py:3698
 #, python-format
 msgid "已回報 %(v0)s 處傷患的今日狀況。"
 msgstr "Reported today's status for %(v0)s injuries."
 
-#: .\core\views.py:3693
+#: .\core\views.py:3700
 msgid "沒有填任何一處的今日疼痛。"
 msgstr "No pain score was entered for any of them today."
 
-#: .\core\views.py:3701
+#: .\core\views.py:3708
 #, python-format
 msgid "%(v0)s 今日處理方式：%(v1)s。"
 msgstr "%(v0)s treatment today: %(v1)s."
 
-#: .\core\views.py:3710
+#: .\core\views.py:3717
 msgid "RTP 條件全部達標，可與教練確認回歸完整訓練。"
 msgstr ""
 "All RTP criteria are met; check with the coach about returning to full "
 "training."
 
-#: .\core\views.py:3713
+#: .\core\views.py:3720
 #, python-format
 msgid "已更新 RTP 進度：%(v0)s/%(v1)s 項達標。"
 msgstr "RTP progress updated: %(v0)s/%(v1)s criteria met."
 
-#: .\core\views.py:3720
+#: .\core\views.py:3727
 #, python-format
 msgid "已更新狀態為 %(v0)s。"
 msgstr "Status updated to %(v0)s."
 
-#: .\core\views.py:3741
+#: .\core\views.py:3748
 #, python-format
 msgid "已更新治療方向：%(v0)s。"
 msgstr "Treatment direction updated: %(v0)s."
 
-#: .\core\views.py:3758
+#: .\core\views.py:3765
 #, python-format
 msgid "已記錄 %(v0)s 的%(v1)s（%(v2)s）。"
 msgstr "Logged %(v1)s for %(v0)s (%(v2)s)."
 
-#: .\core\views.py:3825 .\templates\web\library.html:26
+#: .\core\views.py:3832 .\templates\web\library.html:26
 #: .\templates\web\library.html:95 .\training\models.py:425
 #: .\training\models.py:428 .\training\models.py:429 .\training\models.py:437
 msgid "運動種類"
 msgstr "Sport"
 
-#: .\core\views.py:3826 .\templates\web\_session_body.html:1106
+#: .\core\views.py:3833 .\templates\web\_session_body.html:1106
 #: .\templates\web\library.html:29 .\templates\web\library.html:93
 #: .\templates\web\library.html:165 .\templates\web\library.html:267
 #: .\training\models.py:448 .\training\models.py:449 .\training\models.py:507
 msgid "運動項目"
 msgstr "Event"
 
-#: .\core\views.py:3827 .\templates\web\_session_body.html:1114
+#: .\core\views.py:3834 .\templates\web\_session_body.html:1114
 #: .\templates\web\library.html:32 .\templates\web\library.html:109
 #: .\templates\web\library.html:174 .\templates\web\library.html:277
 #: .\training\models.py:465 .\training\models.py:468 .\training\models.py:469
@@ -4382,184 +4387,184 @@ msgstr "Event"
 msgid "訓練動作種類"
 msgstr "Exercise Category"
 
-#: .\core\views.py:3828 .\templates\web\_session_body.html:901
+#: .\core\views.py:3835 .\templates\web\_session_body.html:901
 #: .\templates\web\analytics.html:768 .\templates\web\analytics.html:937
 #: .\templates\web\analytics.html:1086 .\templates\web\library.html:35
 msgid "動作"
 msgstr "Exercise"
 
-#: .\core\views.py:3864
+#: .\core\views.py:3871
 msgid "，等管理員確認後所有人都看得到"
 msgstr ", and once an administrator approves it everyone will see it"
 
-#: .\core\views.py:3868
+#: .\core\views.py:3875
 msgid "只有管理員可以確認項目庫的新增內容。"
 msgstr "Only an administrator can approve additions to the library."
 
-#: .\core\views.py:3872
+#: .\core\views.py:3879
 msgid "找不到要處理的項目。"
 msgstr "The item to act on could not be found."
 
-#: .\core\views.py:3876
+#: .\core\views.py:3883
 #, python-format
 msgid "已確認%(v0)s「%(v1)s」，現在所有人都看得到。"
 msgstr "Approved the %(v0)s \"%(v1)s\"; everyone can see it now."
 
-#: .\core\views.py:3880
+#: .\core\views.py:3887
 #, python-format
 msgid "已退回%(v0)s「%(v1)s」。"
 msgstr "Rejected the %(v0)s \"%(v1)s\"."
 
-#: .\core\views.py:3886
+#: .\core\views.py:3893
 msgid "請填運動種類的名稱。"
 msgstr "Please enter the name of the sport."
 
-#: .\core\views.py:3888 .\core\views.py:3934 .\core\views.py:3958
+#: .\core\views.py:3895 .\core\views.py:3941 .\core\views.py:3965
 #, python-format
 msgid "「%(v0)s」已經在項目庫裡了。"
 msgstr "\"%(v0)s\" is already in the library."
 
-#: .\core\views.py:3897
+#: .\core\views.py:3904
 #, python-format
 msgid "已加入運動種類「%(v0)s」%(v1)s。"
 msgstr "Added the sport \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3905
+#: .\core\views.py:3912
 msgid "請先挑一個運動種類。"
 msgstr "Pick a sport first."
 
-#: .\core\views.py:3907
+#: .\core\views.py:3914
 msgid "請填運動項目的名稱。"
 msgstr "Please enter the name of the event."
 
-#: .\core\views.py:3909
+#: .\core\views.py:3916
 #, python-format
 msgid "「%(v0)s · %(v1)s」已經在項目庫裡了。"
 msgstr "\"%(v0)s · %(v1)s\" is already in the library."
 
-#: .\core\views.py:3925
+#: .\core\views.py:3932
 #, python-format
 msgid "已加入運動項目「%(v0)s · %(v1)s」%(v2)s。"
 msgstr "Added the event \"%(v0)s · %(v1)s\"%(v2)s."
 
-#: .\core\views.py:3932
+#: .\core\views.py:3939
 msgid "請填訓練動作種類的名稱。"
 msgstr "Please enter the name of the exercise category."
 
-#: .\core\views.py:3943
+#: .\core\views.py:3950
 #, python-format
 msgid "已加入訓練動作種類「%(v0)s」%(v1)s。"
 msgstr "Added the exercise category \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3954 .\core\views.py:3993
+#: .\core\views.py:3961 .\core\views.py:4000
 msgid "請填動作名稱。"
 msgstr "Please enter the exercise name."
 
-#: .\core\views.py:3956
+#: .\core\views.py:3963
 msgid "請挑這個動作屬於哪個運動項目。"
 msgstr "Pick which event this exercise belongs to."
 
-#: .\core\views.py:3979
+#: .\core\views.py:3986
 #, python-format
 msgid "已加入動作「%(v0)s」%(v1)s。"
 msgstr "Added the exercise \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3989
+#: .\core\views.py:3996
 msgid "找不到要修改的動作。"
 msgstr "The exercise to edit could not be found."
 
-#: .\core\views.py:3991
+#: .\core\views.py:3998
 msgid "只有管理員或當初加這個動作的人可以修改它。"
 msgstr "Only an admin, or the person who added this movement, can edit it."
 
-#: .\core\views.py:3999 .\core\views.py:4043
+#: .\core\views.py:4006 .\core\views.py:4050
 #, python-format
 msgid "項目庫裡已經有另一個「%(v0)s」了。"
 msgstr "The item library already holds another \"%(v0)s\"."
 
-#: .\core\views.py:4022
+#: .\core\views.py:4029
 #, python-format
 msgid "已更新動作「%(v0)s」。"
 msgstr "Updated the exercise \"%(v0)s\"."
 
-#: .\core\views.py:4037
+#: .\core\views.py:4044
 msgid "找不到要修改的項目。"
 msgstr "The item to edit could not be found."
 
-#: .\core\views.py:4039
+#: .\core\views.py:4046
 msgid "只有管理員或當初加這一項的人可以修改它。"
 msgstr "Only an admin, or the person who added this entry, can edit it."
 
-#: .\core\views.py:4041
+#: .\core\views.py:4048
 msgid "請填名稱。"
 msgstr "Please enter a name."
 
-#: .\core\views.py:4054
+#: .\core\views.py:4061
 #, python-format
 msgid "已更新%(v0)s「%(v1)s」。"
 msgstr "Updated the %(v0)s \"%(v1)s\"."
 
-#: .\core\views.py:4065
+#: .\core\views.py:4072
 msgid "找不到要處理的動作或運動項目。"
 msgstr "The exercise or event to act on could not be found."
 
-#: .\core\views.py:4069
+#: .\core\views.py:4076
 #, python-format
 msgid "「%(v0)s」本來就在「%(v1)s」底下。"
 msgstr "\"%(v0)s\" is already under \"%(v1)s\"."
 
-#: .\core\views.py:4076
+#: .\core\views.py:4083
 #, python-format
 msgid "已把「%(v0)s」也加進「%(v1)s」，兩邊的清單都挑得到。"
 msgstr ""
 "\"%(v0)s\" has been added to \"%(v1)s\" as well; it can be picked from "
 "either list."
 
-#: .\core\views.py:4081
+#: .\core\views.py:4088
 #, python-format
 msgid "已把「%(v0)s」從「%(v1)s」移走。"
 msgstr "Removed \"%(v0)s\" from \"%(v1)s\"."
 
-#: .\core\views.py:4085 .\core\views.py:4149 .\core\views.py:4230
+#: .\core\views.py:4092 .\core\views.py:4156 .\core\views.py:4237
 msgid "不認得的操作。"
 msgstr "Unrecognised operation."
 
-#: .\core\views.py:4140
+#: .\core\views.py:4147
 #, python-format
 msgid "已上傳「%(v0)s」。"
 msgstr "Uploaded \"%(v0)s\"."
 
-#: .\core\views.py:4147
+#: .\core\views.py:4154
 #, python-format
 msgid "已刪除「%(v0)s」。"
 msgstr "Deleted \"%(v0)s\"."
 
-#: .\core\views.py:4211
+#: .\core\views.py:4218
 msgid "已加入分析重點紀錄。"
 msgstr "Added to the analysis notes."
 
-#: .\core\views.py:4215
+#: .\core\views.py:4222
 msgid "已刪除這則紀錄。"
 msgstr "Deleted this note."
 
-#: .\core\views.py:4221
+#: .\core\views.py:4228
 msgid "已標記為範本，保留期限不會清掉這條片。"
 msgstr ""
 "Marked as a reference clip: the retention limit will not remove this video."
 
-#: .\core\views.py:4223
+#: .\core\views.py:4230
 msgid "已取消範本標記。"
 msgstr "No longer marked as a reference clip."
 
-#: .\core\views.py:4227
+#: .\core\views.py:4234
 msgid "已刪除該影片。"
 msgstr "Deleted that video."
 
-#: .\core\views.py:4275
+#: .\core\views.py:4282
 msgid "先挑一位運動員。"
 msgstr "Pick an athlete first."
 
-#: .\core\views.py:4284
+#: .\core\views.py:4291
 msgid "檔案大小不正確。"
 msgstr "The file size is not valid."
 
@@ -8449,15 +8454,20 @@ msgstr "Close"
 #: .\templates\web\_logrecord.html:21
 #, python-format
 msgid "要登的是 %(v0)s 的數據。先挑一個範疇，下一步再挑項目、填每一組的數字。"
-msgstr "You are logging data for %(v0)s. Pick a domain first; next you pick the item and fill in the numbers for each set."
+msgstr ""
+"You are logging data for %(v0)s. Pick a domain first; next you pick the item "
+"and fill in the numbers for each set."
 
 #: .\templates\web\_logrecord.html:29 .\templates\web\record.html:27
 msgid "跑的：節奏跑、反覆跑、起跑…先挑方式再填距離"
-msgstr "Running: tempo runs, repeats, starts… pick the method first, then the distance"
+msgstr ""
+"Running: tempo runs, repeats, starts… pick the method first, then the "
+"distance"
 
 #: .\templates\web\_logrecord.html:30 .\templates\web\record.html:28
 msgid "舉的：深蹲、臥推、爆發上膊…一組一列填重量與次數"
-msgstr "Lifting: squat, bench press, power clean… one row per set for weight and reps"
+msgstr ""
+"Lifting: squat, bench press, power clean… one row per set for weight and reps"
 
 #: .\templates\web\_logrecord.html:31 .\templates\web\record.html:29
 msgid "比賽當天的成績，挑得到是哪一場比賽"
@@ -8467,7 +8477,9 @@ msgstr "Results from competition day; you can pick which meet it was"
 msgid ""
 "課表上排好的活動，也可以在那一天的課表按活動旁的「登記錄」——兩邊寫的是同一份"
 "數據。"
-msgstr "For activities already planned in a session, you can also hit “Log record” next to the activity in that day’s session — both write the same data."
+msgstr ""
+"For activities already planned in a session, you can also hit “Log record” "
+"next to the activity in that day’s session — both write the same data."
 
 #: .\templates\web\_repeat_fields.html:8
 msgid "一次性或循環發生"
@@ -8720,8 +8732,8 @@ msgstr ""
 "here."
 
 #: .\templates\web\_session_body.html:332
-msgid "訓練紀錄由這名運動員本人（或管理員）填寫。"
-msgstr "Training records are filled in by the athlete (or an administrator)."
+msgid "訓練紀錄由這名運動員本人、他的教練或管理員填寫。"
+msgstr "Training records are filled in by the athlete, their coach or an administrator."
 
 #: .\templates\web\_session_body.html:341 .\templates\web\analytics.html:174
 #, python-format
@@ -9078,8 +9090,8 @@ msgstr ""
 "follow immediately."
 
 #: .\templates\web\_session_body.html:853
-msgid "訓練紀錄由這名運動員本人（或管理員）修改。"
-msgstr "Training records are edited by the athlete (or an administrator)."
+msgid "訓練紀錄由這名運動員本人、他的教練或管理員修改。"
+msgstr "Training records are edited by the athlete, their coach or an administrator."
 
 #: .\templates\web\_session_body.html:864
 msgid "舊格式明細"
@@ -11119,7 +11131,9 @@ msgstr ""
 
 #: .\templates\web\calendar.html:72
 msgid "旁邊的 🗑 是把整堂課刪掉（只有排這堂課的人和管理員看得到）"
-msgstr "The 🗑 beside it deletes the whole session (only whoever planned it and admins see it)"
+msgstr ""
+"The 🗑 beside it deletes the whole session (only whoever planned it and "
+"admins see it)"
 
 #: .\templates\web\calendar.html:73
 msgid "把課表直接拖到另一天就是改日期"
@@ -11232,7 +11246,11 @@ msgstr "Session to delete"
 msgid ""
 "整堂課會從日曆上消失，連同熱身／正課／補充練習／恢復練習四區的活動與記事。 已"
 "經登進去的訓練紀錄不會刪，在數據分析照樣看得到，只是不再對應這一堂課。"
-msgstr "The whole session disappears from the calendar, along with the activities and notes in all four blocks (warm-up / main / supplementary / recovery). Training records already logged are not deleted — they still show up in Analytics, they just no longer point to this session."
+msgstr ""
+"The whole session disappears from the calendar, along with the activities "
+"and notes in all four blocks (warm-up / main / supplementary / recovery). "
+"Training records already logged are not deleted — they still show up in "
+"Analytics, they just no longer point to this session."
 
 #: .\templates\web\calendar.html:228
 #, python-brace-format
@@ -13306,7 +13324,9 @@ msgstr "New item"
 msgid ""
 "例：挑「反覆跑」＋ 填 150，就會開出「150m 反覆跑」這一項。距離留空就只記方"
 "式。"
-msgstr "e.g. pick “Repeats” and enter 150 to create the item “150m repeats”. Leave the distance blank to track the method only."
+msgstr ""
+"e.g. pick “Repeats” and enter 150 to create the item “150m repeats”. Leave "
+"the distance blank to track the method only."
 
 #: .\templates\web\record.html:129
 msgid "例：100m、跳遠"
@@ -13320,11 +13340,15 @@ msgstr "e.g. back squat, power clean"
 msgid ""
 "名稱打得中運動練習項目庫的話，英文名與分類會照著帶過來，不會開出第二個一樣的"
 "項目。"
-msgstr "If the name matches the exercise library, the English name and category come across with it, so you don’t end up with a second copy of the same item."
+msgstr ""
+"If the name matches the exercise library, the English name and category come "
+"across with it, so you don’t end up with a second copy of the same item."
 
 #: .\templates\web\record.html:145
 msgid "先在左邊挑一個項目（或開一個新的），這裡就會出現填數字的格子。"
-msgstr "Pick an item on the left (or create a new one) and the entry grid shows up here."
+msgstr ""
+"Pick an item on the left (or create a new one) and the entry grid shows up "
+"here."
 
 #: .\templates\web\record.html:170
 msgid "對應 program（可留空）"
@@ -13336,7 +13360,9 @@ msgstr "(not linked to a session)"
 
 #: .\templates\web\record.html:177
 msgid "挑了課表，這一組就掛在那一堂課底下；自己加練的留空就好"
-msgstr "Pick a session and this set hangs under it; leave it blank for training you did on your own"
+msgstr ""
+"Pick a session and this set hangs under it; leave it blank for training you "
+"did on your own"
 
 #: .\templates\web\record.html:182
 msgid "（不指定）"

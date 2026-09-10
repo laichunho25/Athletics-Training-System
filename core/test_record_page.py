@@ -238,3 +238,65 @@ class RecordPageTests(TestCase):
         )
         self.assertContains(page, "加速度課")
         self.assertNotContains(page, "下肢最大力量")
+
+
+class CoachLogsOnSessionPageTests(TestCase):
+    """課表頁那一行活動旁的「登記錄」——教練替運動員補登。
+
+    以前這道門只開給運動員本人和管理員，教練按下去只會看到「只有本人能登」，
+    可是練完口頭報數字、運動員沒帶手機是常態，教練得補得了。
+    """
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        self.session = _session(self.athlete, self.coach, self.coach.user)
+        self.activity = SessionActivity.objects.create(
+            session=self.session, block=BlockType.MAIN, order=1, name="150m 反覆跑", sets=2
+        )
+        self.url = reverse("web:session_detail", args=[self.session.pk])
+
+    def test_coach_sees_the_log_button(self):
+        self.client.force_login(self.coach.user)
+        page = self.client.get(self.url)
+        self.assertTrue(page.context["can_log"])
+        self.assertContains(page, "登記錄")
+
+    def test_coach_can_open_and_fill_a_record(self):
+        self.client.force_login(self.coach.user)
+        page = self.client.post(
+            self.url,
+            {"action": "log_activity", "id": self.activity.id, "rdomain": "TRACK"},
+            follow=True,
+        )
+        self.assertEqual(page.status_code, 200)
+        item = MetricItem.objects.get(name="150m 反覆跑")
+        self.assertTrue(self.session.metric_records.exists())
+
+        self.client.post(
+            self.url,
+            {
+                "action": "add_record",
+                "rdomain": "TRACK",
+                "item_id": item.id,
+                "log": self.activity.id,
+                "value": ["18.2"],
+            },
+            follow=True,
+        )
+        self.assertTrue(
+            MetricRecord.objects.filter(
+                athlete=self.athlete, item=item, value=18.2
+            ).exists()
+        )
+
+    def test_a_coach_who_cannot_see_the_athlete_still_cannot_log(self):
+        other = make_coach("coach2")
+        self.client.force_login(other.user)
+        page = self.client.post(
+            self.url,
+            {"action": "log_activity", "id": self.activity.id, "rdomain": "TRACK"},
+            follow=True,
+        )
+        self.assertEqual(page.status_code, 404)
+        self.assertFalse(self.session.metric_records.exists())

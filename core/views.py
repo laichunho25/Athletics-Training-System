@@ -2133,7 +2133,7 @@ def _session_record_post(request, session, action):
     anchor = raw_anchor if re.fullmatch(r"[\w-]{1,40}", raw_anchor) else "rec"
 
     if not _can_log_metrics(request, session):
-        messages.error(request, _("只有這名運動員本人（或管理員）能登這堂課的數據。"))
+        messages.error(request, _("只有這名運動員本人、他的教練或管理員能登這堂課的數據。"))
         return redirect(back)
 
     if action == "log_activity":
@@ -2219,9 +2219,16 @@ def _session_record_post(request, session, action):
 
 
 def _can_log_metrics(request, session):
-    """能不能動這堂課的數據——跟登記 RPE 同一個門檻（本人或管理員）。"""
-    return liveedit.can_edit(session, request.user, "session_rpe") or liveedit.is_admin(
-        request.user
+    """能不能動這堂課的數據——本人、管理員，或看得到這名運動員的教練。
+
+    教練替運動員補登是常態（練完口頭報數字、運動員沒帶手機），所以跟頂欄
+    「登紀錄」那一頁同一個門檻：看得到這名運動員，就登得了他的數據。
+    """
+    user = request.user
+    if liveedit.can_edit(session, user, "session_rpe") or liveedit.is_admin(user):
+        return True
+    return getattr(user, "role", None) == Role.COACH and session.athlete_id in set(
+        athlete_ids_visible_to(user)
     )
 
 

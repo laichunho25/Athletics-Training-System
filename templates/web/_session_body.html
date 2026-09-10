@@ -325,7 +325,7 @@
       {% translate "上面四區挑一行活動，按那一行的「登記錄」，就在這裡填每一組的目標／完成數值、重量、次數、休息。" %}
     </div>
   {% elif not can_log %}
-    <div class="pad c-dim small">{% translate "訓練紀錄由這名運動員本人（或管理員）填寫。" %}</div>
+    <div class="pad c-dim small">{% translate "訓練紀錄由這名運動員本人、他的教練或管理員填寫。" %}</div>
   {% else %}
 
   {% if log_related %}
@@ -845,7 +845,7 @@
       <button class="btn sm" type="submit" form="dtEdit{{ forloop.counter }}">{% translate "儲存全部更改" %}</button>
       <span class="small c-dim">{% translate "每一格都可以直接改：按該列的 ✓ 存單筆、按這裡一次過存整張表， × 刪掉那一組。改完數據分析立刻跟著變。" %}</span>
     {% else %}
-      <span class="small c-dim">{% translate "訓練紀錄由這名運動員本人（或管理員）修改。" %}</span>
+      <span class="small c-dim">{% translate "訓練紀錄由這名運動員本人、他的教練或管理員修改。" %}</span>
     {% endif %}
   </div>
 </div>
