@@ -19,6 +19,8 @@ class Command(BaseCommand):
     help = "檢查 Cloudflare R2 的連線、寫入權限與 CORS 設定"
 
     def handle(self, *args, **options):
+        self._warn_about_whitespace()
+
         conf = storage.r2_settings()
         if conf is None:
             self.stdout.write(
@@ -98,6 +100,29 @@ class Command(BaseCommand):
             "伺服器這一端沒問題。還是傳不上去的話，就是瀏覽器端的 CORS，"
             "看 F12 Console 那行紅字。"
         ))
+
+    def _warn_about_whitespace(self):
+        """環境變數頭尾有空白／換行的話，先在這裡吼一聲。
+
+        在 Render 的 Environment 貼金鑰時很容易多帶一個 Enter。金鑰是要算進
+        AWS4 簽章的，帶著換行會讓請求根本送不出去，而錯誤訊息是
+        「Invalid header value」——完全看不出是空白字元造成的，非常難查。
+        """
+        import os
+
+        dirty = []
+        for name in ("R2_BUCKET", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID",
+                     "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "R2_PUBLIC_BASE"):
+            raw = os.environ.get(name)
+            if raw and raw != raw.strip():
+                dirty.append(name)
+        if dirty:
+            self.stdout.write(self.style.ERROR(
+                f"[X] 這幾個環境變數的頭尾有多餘的空白或換行：{'、'.join(dirty)}"
+            ))
+            self.stdout.write("    請到 Render → Environment 把值重貼一次（不要多按 Enter）。")
+            self.stdout.write("    程式碼會 strip() 掉，所以現在還跑得動，但別的地方不一定。")
+            self.stdout.write("")
 
     def _show_which_are_missing(self):
         import os

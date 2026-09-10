@@ -215,17 +215,24 @@ MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 #
 # 影片動輒上百 MB，放容器裡每次部署就沒了，而且每次播放都是流量；
 # R2 不收 egress，這是選它而不是 Render Disk 的主因。詳見 docs/影片分析.md。
-if os.environ.get("R2_BUCKET"):
-    _R2_ACCOUNT = os.environ.get("R2_ACCOUNT_ID", "")
+# 一律 strip()：在 Render 的 Environment 貼金鑰時很容易多帶一個換行，
+# 而金鑰是要算進 AWS4 簽章的，帶著換行會讓 Python 的 http.client 直接拒發
+# 整個請求（Invalid header value），錯誤訊息又完全看不出是空白字元造成的。
+def _r2_env(name, default=""):
+    return os.environ.get(name, default).strip()
+
+
+if _r2_env("R2_BUCKET"):
+    _R2_ACCOUNT = _r2_env("R2_ACCOUNT_ID")
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
-            "bucket_name": os.environ["R2_BUCKET"],
-            "access_key": os.environ.get("R2_ACCESS_KEY_ID"),
-            "secret_key": os.environ.get("R2_SECRET_ACCESS_KEY"),
-            "endpoint_url": os.environ.get(
+            "bucket_name": _r2_env("R2_BUCKET"),
+            "access_key": _r2_env("R2_ACCESS_KEY_ID"),
+            "secret_key": _r2_env("R2_SECRET_ACCESS_KEY"),
+            "endpoint_url": _r2_env(
                 "R2_ENDPOINT", f"https://{_R2_ACCOUNT}.r2.cloudflarestorage.com"
-            ),
+            ) or f"https://{_R2_ACCOUNT}.r2.cloudflarestorage.com",
             "region_name": "auto",
             # 影片不設成公開讀取；播放網址由 video/storage.py 簽出來，有時效
             "default_acl": None,
