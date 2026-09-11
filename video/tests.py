@@ -414,3 +414,70 @@ class VideoViewTests(VideoTestCase):
         )
         self.assertEqual(res.status_code, 200)
         self.assertFalse(res.json()["direct"])
+
+
+class SearchTests(VideoTestCase):
+    """搜尋與熱搜詞：找得到片，而且熱搜詞是資料自己長出來的，不是寫死的字眼。"""
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        self.client.force_login(self.coach.user)
+        self.sprint = MetricItem.objects.create(
+            domain=MetricDomain.TRACK, name="100米", unit="s", higher_is_better=False
+        )
+        self.squat = MetricItem.objects.create(
+            domain=MetricDomain.STRENGTH, name="背蹲舉", unit="kg", higher_is_better=True
+        )
+
+    def with_record(self, item, **kwargs):
+        record = MetricRecord.objects.create(
+            athlete=self.athlete, item=item, date=TODAY, weight_kg=100
+        )
+        return make_video(self.athlete, record=record, **kwargs)
+
+    def search(self, **params):
+        params.setdefault("athlete", self.athlete.id)
+        res = self.client.get(reverse("web:video_list"), params)
+        return [v.pk for v in res.context["videos"]]
+
+    def test_matches_title_case_insensitively(self):
+        hit = make_video(self.athlete, title="Block Start")
+        make_video(self.athlete, title="深蹲")
+        self.assertEqual(self.search(q="block"), [hit.pk])
+
+    def test_matches_the_linked_item(self):
+        hit = self.with_record(self.sprint, title="無題")
+        self.with_record(self.squat, title="無題2")
+        self.assertEqual(self.search(q="100米"), [hit.pk])
+
+    def test_matches_a_partial_date(self):
+        hit = make_video(self.athlete, date=TODAY, title="今天")
+        make_video(self.athlete, date=TODAY - timedelta(days=400), title="去年")
+        self.assertEqual(self.search(q=TODAY.strftime("%Y-%m")), [hit.pk])
+
+    def test_search_and_kind_filter_stack(self):
+        hit = make_video(self.athlete, title="起跑", kind=VideoKind.SPRINT)
+        make_video(self.athlete, title="起跑姿勢筆記", kind=VideoKind.STRENGTH)
+        self.assertEqual(self.search(q="起跑", kind=VideoKind.SPRINT), [hit.pk])
+
+    def test_hot_terms_rank_by_how_often_they_are_filmed(self):
+        for _ in range(3):
+            self.with_record(self.sprint)
+        self.with_record(self.squat)
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertEqual(res.context["hot_terms"], ["100米", "背蹲舉"])
+
+    def test_hot_terms_ignore_the_current_filter(self):
+        """篩著跑步時熱搜詞還是全部的——否則按下去就換不回別的範疇。"""
+        self.with_record(self.squat)
+        res = self.client.get(
+            reverse("web:video_list"), {"athlete": self.athlete.id, "kind": VideoKind.SPRINT}
+        )
+        self.assertEqual(res.context["videos"], [])
+        self.assertEqual(res.context["hot_terms"], ["背蹲舉"])
+
+    def test_unlinked_videos_contribute_no_hot_terms(self):
+        make_video(self.athlete, title="隨手拍")
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertEqual(res.context["hot_terms"], [])

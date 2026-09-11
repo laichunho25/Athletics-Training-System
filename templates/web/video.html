@@ -6,31 +6,60 @@
 <div class="between mb">
   <div>
     <h1>{% translate "影片庫" %}</h1>
-    <div class="subtitle">
+    <div class="subtitle" style="margin-bottom:0">
       {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}{{ v0 }} 的訓練影片{% endblocktranslate %}
       · {% blocktranslate with v0=videos|length %}{{ v0 }} 條{% endblocktranslate %}
     </div>
   </div>
-  <div class="flex">
-    <a class="btn ghost sm {% if not picked_kind %}on{% endif %}"
-       href="?athlete={{ athlete.id }}">{% translate "全部" %}</a>
+</div>
+
+<!-- ------------------------------------------------------------- 搜尋列
+     整頁最上面是找片的地方：打字找、按範疇找，或直接按底下的熱搜詞。
+     熱搜詞是這位運動員的片實際綁到的項目，按次數排——常看的那幾項排前面。 -->
+<div class="vidsearch mb">
+  <form method="get" class="vidsearch-bar">
+    <input type="hidden" name="athlete" value="{{ athlete.id }}">
+    {% if picked_kind %}<input type="hidden" name="kind" value="{{ picked_kind }}">{% endif %}
+    <svg class="ic"><use href="#i-search"></use></svg>
+    <input type="search" name="q" value="{{ query }}" autocomplete="off"
+           placeholder="{% translate '找標題、說明、項目或日期（例：深蹲、2026-09）' %}">
+    <button class="btn sm" type="submit">{% translate "搜尋" %}</button>
+    {% if query %}
+      <a class="btn ghost sm" href="?athlete={{ athlete.id }}{% if picked_kind %}&kind={{ picked_kind }}{% endif %}">{% translate "清除" %}</a>
+    {% endif %}
+  </form>
+
+  <div class="vidchips">
+    <a class="chip {% if not picked_kind %}on{% endif %}"
+       href="?athlete={{ athlete.id }}{% if query %}&q={{ query|urlencode }}{% endif %}">{% translate "全部" %}</a>
     {% for value, label in kinds %}
-      <a class="btn ghost sm {% if picked_kind == value %}on{% endif %}"
-         href="?athlete={{ athlete.id }}&kind={{ value }}">{{ label }}</a>
+      <a class="chip {% if picked_kind == value %}on{% endif %}"
+         href="?athlete={{ athlete.id }}&kind={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}">{{ label }}</a>
     {% endfor %}
   </div>
+
+  {% if hot_terms %}
+    <div class="vidchips">
+      <span class="small c-dim">{% translate "熱搜" %}</span>
+      {% for term in hot_terms %}
+        <a class="chip hot {% if query == term %}on{% endif %}"
+           href="?athlete={{ athlete.id }}&q={{ term|urlencode }}">{{ term }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
 </div>
 
 <!-- ------------------------------------------------------------- 上傳 -->
-<div class="card pad0 mb">
-  <div class="card-head" data-fold-key="video-add">
-    <span>{% translate "上傳影片" %}</span>
+{% comment %}表單預設收起來——這一頁大部分時候是來找片看的，不是來傳片的。{% endcomment %}
+<details class="card pad0 mb vidup">
+  <summary class="card-head">
+    <span>＋ {% translate "上傳影片" %}</span>
     {% if direct_upload %}
       <span class="badge b-green">{% translate "直傳雲端儲存" %}</span>
     {% else %}
       <span class="badge b-dim">{% translate "本機儲存（未設定 R2）" %}</span>
     {% endif %}
-  </div>
+  </summary>
 
   <form method="post" enctype="multipart/form-data" style="padding:16px 18px"
         id="vidform"
@@ -117,44 +146,43 @@
       {% translate "橫著拍、整個人入鏡、背景乾淨一點，日後回看比較得出來。iPhone 請在「設定 → 相機 → 格式」選「最相容」，否則瀏覽器可能播不了。" %}
     </span>
   </form>
-</div>
+</details>
 
 <!-- ------------------------------------------------------------- 影片列表 -->
 {% if videos %}
-  <div class="grid grid-3">
+  {% comment %}卡片牆：一行三格，格子裡是縮圖、標題，再一行寫清楚日期、範疇與範本。{% endcomment %}
+  <div class="grid vidwall">
     {% for v in videos %}
-      <div class="card vidcard">
-        <a href="{% url 'web:video_detail' v.pk %}" class="vidthumb">
+      <a class="vidcard" href="{% url 'web:video_detail' v.pk %}">
+        <span class="vidthumb">
           {% if v.poster %}
             <img src="{{ v.poster.url }}" alt="{{ v.display_title }}" loading="lazy">
           {% else %}
             <span class="vidthumb-blank"><svg class="ic"><use href="#i-video"></use></svg></span>
           {% endif %}
           {% if v.duration_display %}<em class="vidlen mono">{{ v.duration_display }}</em>{% endif %}
-        </a>
-        <div class="between mt">
-          <strong class="ellip">{{ v.display_title }}</strong>
-          <span class="badge b-dim">{{ v.get_kind_display }}</span>
-        </div>
-        <div class="small c-dim mono">
-          {{ v.date|date:'Y-m-d' }}
+          {% if v.is_keeper %}<em class="vidflag">{% translate "範本" %}</em>{% endif %}
+        </span>
+        <strong class="vidtitle">{{ v.display_title }}</strong>
+        <span class="vidmeta small c-dim mono">
+          {{ v.date|date:'Y-m-d' }} · {{ v.get_kind_display }}
           {% if v.size_display %} · {{ v.size_display }}{% endif %}
           {% if v.note_count %} · {% blocktranslate with v0=v.note_count %}{{ v0 }} 條紀錄{% endblocktranslate %}{% endif %}
-        </div>
+        </span>
         {% if v.linked_label %}
-          <div class="small c-blue ellip">{{ v.linked_label }}</div>
+          <span class="vidmeta small c-blue">{{ v.linked_label }}</span>
         {% endif %}
-        {% if v.note %}<div class="small c-dim ellip">{{ v.note }}</div>{% endif %}
-        <div class="between mt">
-          <a class="btn ghost sm" href="{% url 'web:video_detail' v.pk %}">{% translate "看片" %}</a>
-          {% if v.is_keeper %}<span class="badge b-yellow">{% translate "範本" %}</span>{% endif %}
-        </div>
-      </div>
+        {% if v.note %}<span class="vidmeta small c-dim">{{ v.note }}</span>{% endif %}
+      </a>
     {% endfor %}
+  </div>
+{% elif query or picked_kind %}
+  <div class="card empty">
+    {% translate "這些條件下沒有片。換個關鍵字，或按上面的「全部」看回整個影片庫。" %}
   </div>
 {% else %}
   <div class="card empty">
-    {% translate "還沒有影片。用上面的表單傳第一條——拍一組深蹲或一趟加速跑都可以。" %}
+    {% translate "還沒有影片。用上面的「＋ 上傳影片」傳第一條——拍一組深蹲或一趟加速跑都可以。" %}
   </div>
 {% endif %}
 

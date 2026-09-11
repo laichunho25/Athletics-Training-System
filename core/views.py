@@ -3979,9 +3979,14 @@ def video_list(request):
         return redirect(f"{reverse('web:video_list')}?athlete={athlete.id}")
 
     videos = list(vsvc.visible_videos(request.user, athlete=athlete))
+    # 熱搜詞取自全部的片，不受目前的篩選影響——按一下才換得到別的範疇去。
+    hot_terms = vsvc.hot_terms(videos)
     kind = request.GET.get("kind")
     if kind in VideoKind.values:
         videos = [v for v in videos if v.kind == kind]
+    query = (request.GET.get("q") or "").strip()
+    if query:
+        videos = vsvc.search_videos(videos, query)
 
     today = date.today()
     return render(
@@ -3994,6 +3999,8 @@ def video_list(request):
             "videos": videos,
             "kinds": VideoKind.choices,
             "picked_kind": kind or "",
+            "query": query,
+            "hot_terms": hot_terms,
             "today": today,
             "links": vsvc.link_choices(athlete, today),
             "direct_upload": vstorage.r2_enabled(),

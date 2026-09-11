@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ATM\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-11 14:07+0800\n"
+"POT-Creation-Date: 2026-09-11 16:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -332,7 +332,7 @@ msgstr "English Name"
 #: .\accounts\models.py:54 .\core\liveedit.py:116 .\planning\models.py:429
 #: .\templates\web\_session_body.html:47 .\templates\web\_session_body.html:758
 #: .\templates\web\calendar.html:108 .\templates\web\plan_detail.html:129
-#: .\templates\web\video.html:64 .\video\models.py:60
+#: .\templates\web\video.html:94 .\video\models.py:60
 msgid "類別"
 msgstr "Category"
 
@@ -1516,7 +1516,9 @@ msgstr "The later %(v0)s improved by %(v1)s%%."
 #: .\analytics\record_log.py:658
 #, python-format
 msgid "後面這幾%(v0)s退了 %(v1)s%%，先看是不是累積疲勞。"
-msgstr "The later %(v0)s dropped off by %(v1)s%% — check for accumulated fatigue first."
+msgstr ""
+"The later %(v0)s dropped off by %(v1)s%% — check for accumulated fatigue "
+"first."
 
 #: .\analytics\record_log.py:663
 #, python-format
@@ -1531,7 +1533,9 @@ msgstr "Of the %(v0)s %(v2)s with a target, %(v1)s%% hit it."
 #: .\analytics\record_log.py:674
 #, python-format
 msgid "其中 %(v0)s %(v1)s沒有完成，分析成績之前先看那幾天的狀態欄。"
-msgstr "%(v0)s %(v1)s were not completed — read the status column on those days before reading the numbers."
+msgstr ""
+"%(v0)s %(v1)s were not completed — read the status column on those days "
+"before reading the numbers."
 
 #: .\analytics\record_log.py:709 .\analytics\services.py:858
 msgid "未註記狀態"
@@ -1567,7 +1571,9 @@ msgstr "; average intensity %(v0)s%% → %(v1)s%%"
 #: .\analytics\record_log.py:819
 #, python-format
 msgid "同一個%(v0)s要在兩個以上的時段都做過，才排得出變化。"
-msgstr "The same %(v0)s has to appear in at least two periods before a change can be laid out."
+msgstr ""
+"The same %(v0)s has to appear in at least two periods before a change can be "
+"laid out."
 
 #: .\analytics\record_log.py:987
 msgid "要有兩個以上的時段，才看得出「這幾公斤是練回來的、還是輕了才顯得快」。"
@@ -1577,13 +1583,19 @@ msgstr ""
 
 #: .\analytics\record_log.py:994
 #, python-format
-msgid "%(v0)s → %(v1)s：%(v6)s平均由 %(v2)s 變成 %(v3)s %(v7)s（%(v4)s%(v5)s）。"
-msgstr "%(v0)s → %(v1)s: %(v6)s averaged %(v2)s, now %(v3)s %(v7)s (%(v4)s%(v5)s)."
+msgid ""
+"%(v0)s → %(v1)s：%(v6)s平均由 %(v2)s 變成 %(v3)s %(v7)s（%(v4)s%(v5)s）。"
+msgstr ""
+"%(v0)s → %(v1)s: %(v6)s averaged %(v2)s, now %(v3)s %(v7)s (%(v4)s%(v5)s)."
 
 #: .\analytics\record_log.py:1008
 #, python-format
-msgid "同一段時間的田徑練習：平均由 %(v0)s 秒變成 %(v1)s 秒，總距離 %(v2)s → %(v3)s m。"
-msgstr "Track practice over the same span: average went from %(v0)s sec to %(v1)s sec, total distance %(v2)s → %(v3)s m."
+msgid ""
+"同一段時間的田徑練習：平均由 %(v0)s 秒變成 %(v1)s 秒，總距離 %(v2)s → %(v3)s "
+"m。"
+msgstr ""
+"Track practice over the same span: average went from %(v0)s sec to %(v1)s "
+"sec, total distance %(v2)s → %(v3)s m."
 
 #: .\analytics\record_log.py:1018
 #, python-format
@@ -1616,16 +1628,24 @@ msgid "、肌肉率 %(v0)s%% → %(v1)s%%"
 msgstr ", muscle %(v0)s%% → %(v1)s%%"
 
 #: .\analytics\record_log.py:1053
-msgid "數字變好、體重也降了——先確認掉的是脂肪不是肌肉，不是每一次變輕都算進步。"
-msgstr "The numbers improved and body weight dropped — make sure what came off was fat and not muscle; not every drop on the scale counts as progress."
+msgid ""
+"數字變好、體重也降了——先確認掉的是脂肪不是肌肉，不是每一次變輕都算進步。"
+msgstr ""
+"The numbers improved and body weight dropped — make sure what came off was "
+"fat and not muscle; not every drop on the scale counts as progress."
 
 #: .\analytics\record_log.py:1055
 msgid "重了但數字也變好，這個方向是對的：加上去的是用得上的重量。"
-msgstr "Heavier and the numbers still improved: this is the right direction — the weight that went on is weight that works."
+msgstr ""
+"Heavier and the numbers still improved: this is the right direction — the "
+"weight that went on is weight that works."
 
 #: .\analytics\record_log.py:1057
-msgid "這段時間的數字退了，對照上面的量與強度，看是疲勞、還是身體結構走了方向。"
-msgstr "The numbers slipped over this span; read them against the volume and intensity above to tell fatigue apart from a body-composition drift."
+msgid ""
+"這段時間的數字退了，對照上面的量與強度，看是疲勞、還是身體結構走了方向。"
+msgstr ""
+"The numbers slipped over this span; read them against the volume and "
+"intensity above to tell fatigue apart from a body-composition drift."
 
 #: .\analytics\record_log.py:1059
 msgid ""
@@ -1636,7 +1656,9 @@ msgstr ""
 
 #: .\analytics\record_log.py:1063
 msgid "這段時間沒有田徑練習的紀錄，拼不出「練得多不多」那一半。"
-msgstr "There are no track practice records over this span, so the \"how much training\" half cannot be filled in."
+msgstr ""
+"There are no track practice records over this span, so the \"how much "
+"training\" half cannot be filled in."
 
 #: .\analytics\record_log.py:1065
 msgid "這段時間沒有體組成量測；到運動員總覽登一次體測，這一欄才有東西比。"
@@ -4513,7 +4535,7 @@ msgstr ""
 msgid "已把「%(v0)s」從「%(v1)s」移走。"
 msgstr "Removed \"%(v0)s\" from \"%(v1)s\"."
 
-#: .\core\views.py:3912 .\core\views.py:3976 .\core\views.py:4057
+#: .\core\views.py:3912 .\core\views.py:3976 .\core\views.py:4064
 msgid "不認得的操作。"
 msgstr "Unrecognised operation."
 
@@ -4527,32 +4549,32 @@ msgstr "Uploaded \"%(v0)s\"."
 msgid "已刪除「%(v0)s」。"
 msgstr "Deleted \"%(v0)s\"."
 
-#: .\core\views.py:4038
+#: .\core\views.py:4045
 msgid "已加入分析重點紀錄。"
 msgstr "Added to the analysis notes."
 
-#: .\core\views.py:4042
+#: .\core\views.py:4049
 msgid "已刪除這則紀錄。"
 msgstr "Deleted this note."
 
-#: .\core\views.py:4048
+#: .\core\views.py:4055
 msgid "已標記為範本，保留期限不會清掉這條片。"
 msgstr ""
 "Marked as a reference clip: the retention limit will not remove this video."
 
-#: .\core\views.py:4050
+#: .\core\views.py:4057
 msgid "已取消範本標記。"
 msgstr "No longer marked as a reference clip."
 
-#: .\core\views.py:4054
+#: .\core\views.py:4061
 msgid "已刪除該影片。"
 msgstr "Deleted that video."
 
-#: .\core\views.py:4102
+#: .\core\views.py:4109
 msgid "先挑一位運動員。"
 msgstr "Pick an athlete first."
 
-#: .\core\views.py:4111
+#: .\core\views.py:4118
 msgid "檔案大小不正確。"
 msgstr "The file size is not valid."
 
@@ -5745,7 +5767,7 @@ msgid "建議時長 (分)"
 msgstr "Suggested Duration (min)"
 
 #: .\nutrition\models.py:197 .\templates\web\_library_edit_node.html:34
-#: .\templates\web\video.html:99 .\training\models.py:393
+#: .\templates\web\video.html:129 .\training\models.py:393
 #: .\training\models.py:500 .\training\models.py:691 .\video\models.py:63
 msgid "說明"
 msgstr "Description"
@@ -8177,7 +8199,7 @@ msgstr ""
 "pages."
 
 #: .\templates\site\landing.html:192 .\templates\web\_session_body.html:576
-#: .\templates\web\video.html:16
+#: .\templates\web\video.html:34
 msgid "全部"
 msgstr "All"
 
@@ -8458,6 +8480,7 @@ msgid "全部月份"
 msgstr "All months"
 
 #: .\templates\web\_record_log.html:41 .\templates\web\athlete_list.html:21
+#: .\templates\web\video.html:26
 msgid "搜尋"
 msgstr "Search"
 
@@ -9820,8 +9843,8 @@ msgid "一起分析"
 msgstr "Analyse together"
 
 #: .\templates\web\analytics.html:156 .\templates\web\analytics.html:894
-#: .\templates\web\athlete_list.html:65 .\templates\web\video_detail.html:126
-#: .\templates\web\video_detail.html:181
+#: .\templates\web\athlete_list.html:65 .\templates\web\video.html:28
+#: .\templates\web\video_detail.html:126 .\templates\web\video_detail.html:181
 msgid "清除"
 msgstr "Clear"
 
@@ -13236,60 +13259,69 @@ msgstr "%(v0)s's training videos"
 msgid "%(v0)s 條"
 msgstr "%(v0)s clips"
 
-#: .\templates\web\video.html:27
+#: .\templates\web\video.html:25
+msgid "找標題、說明、項目或日期（例：深蹲、2026-09）"
+msgstr "Search titles, notes, items or dates (e.g. Back Squat, 2026-09)"
+
+#: .\templates\web\video.html:43
+#| msgid "熱敷"
+msgid "熱搜"
+msgstr "Popular"
+
+#: .\templates\web\video.html:57
 msgid "上傳影片"
 msgstr "Upload a video"
 
-#: .\templates\web\video.html:29
+#: .\templates\web\video.html:59
 msgid "直傳雲端儲存"
 msgstr "Straight to cloud storage"
 
-#: .\templates\web\video.html:31
+#: .\templates\web\video.html:61
 msgid "本機儲存（未設定 R2）"
 msgstr "Local storage (R2 not configured)"
 
-#: .\templates\web\video.html:53 .\video\models.py:85
+#: .\templates\web\video.html:83 .\video\models.py:85
 msgid "影片檔"
 msgstr "Video file"
 
-#: .\templates\web\video.html:56
+#: .\templates\web\video.html:86
 #, python-format
 msgid "%(v0)s，單檔上限 %(v1)s MB"
 msgstr "%(v0)s, %(v1)s MB per file"
 
-#: .\templates\web\video.html:60 .\video\models.py:58
+#: .\templates\web\video.html:90 .\video\models.py:58
 msgid "拍攝日期"
 msgstr "Date filmed"
 
-#: .\templates\web\video.html:75 .\video\models.py:62
+#: .\templates\web\video.html:105 .\video\models.py:62
 msgid "標題"
 msgstr "Title"
 
-#: .\templates\web\video.html:76
+#: .\templates\web\video.html:106
 msgid "例：深蹲 100kg 第 3 組"
 msgstr "e.g. Squat 100 kg, set 3"
 
-#: .\templates\web\video.html:79
+#: .\templates\web\video.html:109
 msgid "對應數據紀錄（可留空）"
 msgstr "Linked metric record (optional)"
 
-#: .\templates\web\video.html:81 .\templates\web\video.html:90
+#: .\templates\web\video.html:111 .\templates\web\video.html:120
 msgid "— 不綁 —"
 msgstr "— none —"
 
-#: .\templates\web\video.html:88
+#: .\templates\web\video.html:118
 msgid "對應課表活動（可留空）"
 msgstr "Linked session activity (optional)"
 
-#: .\templates\web\video.html:100
+#: .\templates\web\video.html:130
 msgid "例：今日最後一組，覺得右膝有點內扣"
 msgstr "e.g. Last set of the day, right knee caving in a little"
 
-#: .\templates\web\video.html:116
+#: .\templates\web\video.html:146
 msgid "上傳"
 msgstr "Upload"
 
-#: .\templates\web\video.html:118
+#: .\templates\web\video.html:148
 msgid ""
 "橫著拍、整個人入鏡、背景乾淨一點，日後回看比較得出來。iPhone 請在「設定 → 相"
 "機 → 格式」選「最相容」，否則瀏覽器可能播不了。"
@@ -13298,24 +13330,28 @@ msgstr ""
 "comparisons will actually work. On iPhone pick Settings → Camera → Formats → "
 "\"Most Compatible\", or the browser may not play it."
 
-#: .\templates\web\video.html:143
+#: .\templates\web\video.html:167
+msgid "範本"
+msgstr "Reference"
+
+#: .\templates\web\video.html:173
 #, python-format
 msgid "%(v0)s 條紀錄"
 msgstr "%(v0)s notes"
 
-#: .\templates\web\video.html:150
-msgid "看片"
-msgstr "Watch"
-
-#: .\templates\web\video.html:151
-msgid "範本"
-msgstr "Reference"
-
-#: .\templates\web\video.html:158
-msgid "還沒有影片。用上面的表單傳第一條——拍一組深蹲或一趟加速跑都可以。"
+#: .\templates\web\video.html:184
+msgid "這些條件下沒有片。換個關鍵字，或按上面的「全部」看回整個影片庫。"
 msgstr ""
-"No videos yet. Use the form above to upload the first one — a set of squats "
-"or a single acceleration run will do."
+"No videos match these filters. Try another keyword, or tap “All” above "
+"to see the whole library."
+
+#: .\templates\web\video.html:188
+#| msgid "還沒有影片。用上面的表單傳第一條——拍一組深蹲或一趟加速跑都可以。"
+msgid ""
+"還沒有影片。用上面的「＋ 上傳影片」傳第一條——拍一組深蹲或一趟加速跑都可以。"
+msgstr ""
+"No videos yet. Use “+ Upload video” above to add the first one — a set "
+"of squats or one acceleration run both work."
 
 #: .\templates\web\video_detail.html:13
 #, python-format
@@ -14048,39 +14084,39 @@ msgstr "Noted by"
 msgid "影片批註"
 msgstr "Video note"
 
-#: .\video\services.py:58
+#: .\video\services.py:59
 msgid "找不到這條影片，或你沒有權限看。"
 msgstr "That video does not exist, or you do not have permission to see it."
 
-#: .\video\services.py:81
+#: .\video\services.py:129
 #, python-format
 msgid "只收 %(v0)s 這幾種格式（你傳的是 .%(v1)s）。"
 msgstr "Only %(v0)s are accepted (you uploaded .%(v1)s)."
 
-#: .\video\services.py:90
+#: .\video\services.py:138
 #, python-format
 msgid "影片太大了（%(v0)s MB），單檔上限 %(v1)s MB。請剪短一點或降低畫質再傳。"
 msgstr ""
 "The video is too big (%(v0)s MB); the limit is %(v1)s MB per file. Trim it "
 "or drop the quality and upload again."
 
-#: .\video\services.py:138
+#: .\video\services.py:186
 msgid "沒有收到影片檔，請重新選一次。"
 msgstr "No video file came through. Please pick it again."
 
-#: .\video\services.py:194
+#: .\video\services.py:242
 msgid "這條影片不是你上傳的，只有上傳者或教練刪得掉。"
 msgstr ""
 "You did not upload this video; only the uploader or a coach can delete it."
 
-#: .\video\services.py:217
+#: .\video\services.py:265
 msgid "你沒有權限在這條影片上批註。"
 msgstr "You do not have permission to add notes to this video."
 
-#: .\video\services.py:220
+#: .\video\services.py:268
 msgid "批註不能是空的。"
 msgstr "A note cannot be empty."
 
-#: .\video\services.py:307
+#: .\video\services.py:355
 msgid "這條批註不是你寫的。"
 msgstr "This note is not yours."

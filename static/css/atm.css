@@ -1379,17 +1379,68 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 
 
 /* ================================================================ 影片庫
-   卡片牆用固定 16:9 的縮圖框，片長蓋在右下角——一整頁掃過去，
-   高矮一致才看得快。 */
-.vidcard { display: flex; flex-direction: column; gap: 4px; }
-.vidcard .between { gap: 8px; }
+   版面照著看片的習慣排：上面一條搜尋列，下面一面卡片牆，一行三格。
+   縮圖固定 16:9、片長蓋在右下角——一整頁掃過去，高矮一致才看得快。 */
+
+/* ---- 搜尋列：打字找、按範疇找，或按熱搜詞 ---- */
+.vidsearch { display: flex; flex-direction: column; gap: 9px; }
+.vidsearch-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 999px; padding: 5px 6px 5px 14px;
+}
+.vidsearch-bar:focus-within { border-color: var(--accent); }
+.vidsearch-bar .ic { width: 15px; height: 15px; color: var(--text-dim); flex: none; }
+.vidsearch-bar input[type="search"] {
+  flex: 1 1 auto; min-width: 0; border: none; background: none; padding: 4px 0;
+  color: var(--text); font-size: 13px;
+}
+.vidsearch-bar input[type="search"]:focus { outline: none; box-shadow: none; }
+.vidsearch-bar .btn { flex: none; border-radius: 999px; }
+
+/* 範疇與熱搜詞共用同一顆藥丸；熱搜的是資料長出來的字，用 mono 跟範疇分得開 */
+.vidchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chip {
+  display: inline-block; padding: 3px 11px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-dim); font-size: 12px; line-height: 1.6; white-space: nowrap;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.on {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.chip.hot { font-family: var(--mono); }
+
+/* 上傳表單預設收起來，只留標題列當一顆按鈕 */
+.vidup > summary { cursor: pointer; list-style: none; }
+.vidup > summary::-webkit-details-marker { display: none; }
+.vidup > summary:hover { color: var(--accent); }
+.vidup:not([open]) > summary { border-bottom: none; }
+
+/* ---- 卡片牆 ---- */
+.vidwall { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 16px; }
+.vidcard {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  color: inherit;
+}
+.vidcard:hover .vidtitle { color: var(--accent); }
+.vidtitle {
+  font-size: 13px; line-height: 1.4; margin-top: 7px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vidmeta {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .vidthumb {
   position: relative; display: block; aspect-ratio: 16 / 9;
   background: var(--surface-3); border-radius: var(--radius-sm);
   overflow: hidden; border: 1px solid var(--border);
 }
 .vidthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.vidthumb:hover { border-color: var(--accent); }
+.vidcard:hover .vidthumb, .vidthumb:hover { border-color: var(--accent); }
 .vidthumb-blank {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%; color: var(--text-dim); opacity: .45;
@@ -1400,6 +1451,15 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   padding: 1px 5px; border-radius: 2px; font-size: 11px;
   background: rgba(0, 0, 0, .68); color: #fff;
 }
+.vidflag {
+  position: absolute; left: 5px; top: 5px; font-style: normal;
+  padding: 1px 6px; border-radius: 2px; font-size: 11px;
+  background: color-mix(in srgb, var(--yellow) 88%, #000); color: #1a1a1a;
+}
+
+/* 窄一點先收成兩行，手機上一行一格——縮圖太小就看不出動作 */
+@media (max-width: 1000px) { .vidwall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .vidwall { grid-template-columns: 1fr; } }
 
 /* 上傳前的預覽：左邊一小格畫面，右邊是讀出來的長度尺寸與警告 */
 .vidprev { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; }

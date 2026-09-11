@@ -8,6 +8,7 @@ import base64
 import binascii
 import logging
 import os
+from collections import Counter
 from datetime import date as date_cls
 from decimal import Decimal, InvalidOperation
 
@@ -69,6 +70,53 @@ def may_delete(user, video):
 def may_annotate(user, video):
     """看得到就批註得了——運動員也常自己標「這裡卡住」給教練看。"""
     return video.athlete_id in set(athlete_ids_visible_to(user))
+
+
+# --------------------------------------------------------------- 搜尋
+
+#: 搜尋欄下面最多列幾個熱搜詞。再多就佔掉一整行，掃過去反而找不到。
+HOT_TERM_LIMIT = 8
+
+
+def search_videos(videos, query):
+    """在已經取出來的清單上比對關鍵字。
+
+    一個運動員的片通常幾十條，整批都在手上了，再回資料庫做 icontains 不划算。
+    比對標題、說明、類別名稱、綁到的項目，還有日期——打「2026-09」就篩得出九月。
+    """
+    needle = (query or "").strip().casefold()
+    if not needle:
+        return list(videos)
+    return [v for v in videos if needle in _haystack(v)]
+
+
+def _haystack(video):
+    bits = [
+        video.title,
+        video.note,
+        str(video.get_kind_display()),
+        video.linked_label,
+        video.date.isoformat(),
+    ]
+    return " ".join(b for b in bits if b).casefold()
+
+
+def hot_terms(videos, limit=HOT_TERM_LIMIT):
+    """熱搜詞：這批片綁到的項目名稱，出現次數多的排前面。
+
+    不寫死「100 米」這類字眼——每隊練的東西不一樣，讓資料自己長出來；
+    練跳遠的隊伍看到的就會是跳遠的項目。
+    """
+    counts = Counter()
+    for video in videos:
+        name = ""
+        if video.record_id:
+            name = video.record.item.name
+        elif video.activity_id:
+            name = video.activity.name
+        if name:
+            counts[name.strip()] += 1
+    return [name for name, _n in counts.most_common(limit)]
 
 
 # --------------------------------------------------------------- 上傳
