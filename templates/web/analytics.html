@@ -27,7 +27,7 @@
   <span class="small c-dim">{% translate "每一欄標題右邊的 ▾ 也可以單獨收起，收起哪幾欄會記住。" %}</span>
 </div>
 
-{% if is_track %}{% include "web/_track_log.html" %}{% endif %}
+{% include "web/_record_log.html" %}
 
 <div class="grid anagrid mb">
  <div>
@@ -1128,8 +1128,7 @@
 const ACC = '#ff6b35', BLUE = '#4da3ff', GREEN = '#35d07f', YELLOW = '#f2c744';
 const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
 
-{% if is_track %}
-// ---- 田徑練習訓練紀錄：勾選 -------------------------------------------
+// ---- 訓練紀錄清單：勾選 ----------------------------------------------
 // 勾過但被目前篩選濾走的那幾筆藏在 keep 裡，所以「已選 N 筆」要把它們算進去。
 (function () {
   const form = document.getElementById('trackLog');
@@ -1195,25 +1194,26 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
     data: {
       labels: pts.map(p => p.label),
       datasets: [
-        { type: 'line', label: '{% translate "完成數值（秒）" %}',
+        { type: 'line', label: '{{ log_spec.value_label }}',
           data: pts.map(p => p.value), borderColor: ACC, backgroundColor: ACC + '33',
           fill: true, tension: .2, pointRadius: 4,
           pointBackgroundColor: pts.map(p => p.completed ? ACC : '#e5484d') },
-        { type: 'line', label: '{% translate "目標數值（秒）" %}',
+        { type: 'line', label: '{{ log_spec.target_label }}',
           data: pts.map(p => p.target), borderColor: BLUE, borderDash: [5, 4],
           pointRadius: 0, fill: false, tension: .2 }
       ]
     },
     options: {
-      // 秒數越小越好，軸反過來畫，圖上「往上＝變好」永遠成立
-      scales: { y: { reverse: true, title: { display: true, text: '{% translate "秒（軸已反轉：越上面越好）" %}' } } },
+      // 秒數越小越好的範疇把軸反過來畫，圖上「往上＝變好」永遠成立
+      scales: { y: { reverse: {{ log_lower_better|yesno:"true,false" }},
+                     title: { display: true, text: {% if log_lower_better %}'{% translate "秒（軸已反轉：越上面越好）" %}'{% else %}'{{ log_spec.unit_word }}'{% endif %} } } },
       plugins: { tooltip: { callbacks: {
         afterBody: (items) => {
           const p = pts[items[0].dataIndex];
           return [
-            p.item + (p.distance ? ' · ' + p.distance + ' m' : ''),
+            p.item + (p.distance ? ' · ' + p.distance + ' m' : '') + (p.reps ? ' · ' + p.reps + '{% translate " 次" %}' : ''),
             [p.intensity, p.status, p.session].filter(Boolean).join(' · '),
-            p.completed ? '' : '{% translate "這一組沒有完成" %}'
+            p.completed ? '' : '{% translate "這一筆沒有完成" %}'
           ].filter(Boolean);
         }
       } } }
@@ -1223,13 +1223,13 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
 {% endif %}
 
 {% if log_analysis.direction == 'period' %}
-// ---- 方向二：柱是那一段的訓練量，一條線一個距離的平均秒數 ---------------
+// ---- 方向二：柱是那一段的量，一條線一堆（距離／動作／項目）的平均 -------
 (function () {
   const data = {{ log_period_json|safe }};
   const canvas = document.getElementById('tlPeriodChart');
   if (!canvas || !data.labels || !data.labels.length) { return; }
   const lines = data.series.map((s, i) => ({
-    type: 'line', label: s.label + '{% translate "（平均秒）" %}', data: s.avg,
+    type: 'line', label: s.label + '（{{ log_spec.unit_word }}）', data: s.avg,
     borderColor: SERIES[i % SERIES.length], backgroundColor: SERIES[i % SERIES.length],
     yAxisID: 'y1', spanGaps: true, tension: .2, pointRadius: 3
   }));
@@ -1237,16 +1237,16 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
     data: {
       labels: data.labels,
       datasets: [
-        { type: 'bar', label: '{% translate "訓練量（m）" %}', data: data.volume,
+        { type: 'bar', label: '{{ log_spec.volume_label }}（{{ log_spec.volume_unit }}）', data: data.volume,
           backgroundColor: BLUE + '44', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' },
         ...lines
       ]
     },
     options: {
       scales: {
-        y: { position: 'left', title: { display: true, text: '{% translate "訓練量（m）" %}' } },
-        y1: { position: 'right', reverse: true, grid: { drawOnChartArea: false },
-              title: { display: true, text: '{% translate "秒（軸已反轉：越上面越快）" %}' } }
+        y: { position: 'left', title: { display: true, text: '{{ log_spec.volume_label }}（{{ log_spec.volume_unit }}）' } },
+        y1: { position: 'right', reverse: {{ log_lower_better|yesno:"true,false" }}, grid: { drawOnChartArea: false },
+              title: { display: true, text: {% if log_lower_better %}'{% translate "秒（軸已反轉：越上面越快）" %}'{% else %}'{{ log_spec.unit_word }}'{% endif %} } }
       }
     }
   });
@@ -1263,12 +1263,15 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
     data: {
       labels: data.labels,
       datasets: [
-        { type: 'bar', label: '{% translate "田徑訓練量（m）" %}', data: data.volume,
+        { type: 'bar', label: '{{ log_spec.volume_label }}（{{ log_spec.volume_unit }}）', data: data.volume,
           backgroundColor: BLUE + '44', borderColor: BLUE, borderWidth: 1, yAxisID: 'y' },
-        { type: 'bar', label: '{% translate "重量訓練總噸位（kg）" %}', data: data.tonnage,
+{% if log_analysis.cross.show_strength %}        { type: 'bar', label: '{% translate "重量訓練總噸位（kg）" %}', data: data.tonnage,
           backgroundColor: GREEN + '44', borderColor: GREEN, borderWidth: 1, yAxisID: 'y' },
-        { type: 'line', label: '{% translate "田徑平均（秒）" %}', data: data.avg,
+{% endif %}        { type: 'line', label: '{{ log_spec.title }}{% translate "平均" %}', data: data.avg,
           borderColor: ACC, backgroundColor: ACC, yAxisID: 'y1', spanGaps: true, tension: .2 },
+{% if log_analysis.cross.show_track %}        { type: 'line', label: '{% translate "田徑平均（秒）" %}', data: data.track_avg,
+          borderColor: '#ff8fb1', backgroundColor: '#ff8fb1', yAxisID: 'y1', spanGaps: true, tension: .2 },
+{% endif %}
         { type: 'line', label: '{% translate "體脂率（%）" %}', data: data.fat_pct,
           borderColor: YELLOW, backgroundColor: YELLOW, yAxisID: 'y2', spanGaps: true, tension: .2, borderDash: [4, 3] },
         { type: 'line', label: '{% translate "肌肉率（%）" %}', data: data.muscle_pct,
@@ -1278,15 +1281,14 @@ const SERIES = [ACC, BLUE, GREEN, YELLOW, '#b478ff', '#ff8fb1'];
     options: {
       scales: {
         y: { position: 'left', title: { display: true, text: '{% translate "量 / 噸位" %}' } },
-        y1: { position: 'right', reverse: true, grid: { drawOnChartArea: false },
-              title: { display: true, text: '{% translate "秒（已反轉）" %}' } },
+        y1: { position: 'right', reverse: {{ log_lower_better|yesno:"true,false" }}, grid: { drawOnChartArea: false },
+              title: { display: true, text: {% if log_lower_better %}'{% translate "秒（已反轉）" %}'{% else %}'{{ log_spec.unit_word }}'{% endif %} } },
         y2: { position: 'right', grid: { drawOnChartArea: false },
               title: { display: true, text: '%' } }
       }
     }
   });
 })();
-{% endif %}
 {% endif %}
 
 // ---- 情境表排序：點欄位標題就照那一欄排，再點一次反向 --------------------

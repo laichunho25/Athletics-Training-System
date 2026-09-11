@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ATM\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-11 00:08+0800\n"
+"POT-Creation-Date: 2026-09-11 14:07+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\accounts\admin.py:34 .\core\views.py:748 .\programs\admin.py:235
+#: .\accounts\admin.py:34 .\core\views.py:750 .\programs\admin.py:235
 #: .\templates\web\plan_detail.html:167
 msgid "姓名"
 msgstr "Name"
@@ -192,7 +192,7 @@ msgstr "Skeletal Muscle Mass (kg)"
 msgid "體脂肪量 (kg)"
 msgstr "Body Fat Mass (kg)"
 
-#: .\accounts\body_brands.py:111 .\accounts\models.py:227 .\core\views.py:455
+#: .\accounts\body_brands.py:111 .\accounts\models.py:227 .\core\views.py:457
 msgid "體脂肪率 (%)"
 msgstr "Body Fat (%)"
 
@@ -209,7 +209,7 @@ msgstr "Body Water (L)"
 msgid "礦物質 (kg)"
 msgstr "Minerals (kg)"
 
-#: .\accounts\body_brands.py:116 .\accounts\models.py:236 .\core\views.py:464
+#: .\accounts\body_brands.py:116 .\accounts\models.py:236 .\core\views.py:466
 #: .\templates\web\dashboard.html:204 .\templates\web\dashboard.html:400
 msgid "內臟脂肪等級"
 msgstr "Visceral Fat Level"
@@ -388,13 +388,13 @@ msgstr "Sex"
 msgid "身高 (cm)"
 msgstr "Height (cm)"
 
-#: .\accounts\models.py:104 .\accounts\models.py:225 .\core\views.py:453
-#: .\programs\models.py:214 .\templates\web\analytics.html:1824
+#: .\accounts\models.py:104 .\accounts\models.py:225 .\core\views.py:455
+#: .\programs\models.py:214 .\templates\web\analytics.html:1826
 #: .\templates\web\dashboard.html:267
 msgid "體重 (kg)"
 msgstr "Weight (kg)"
 
-#: .\accounts\models.py:106 .\core\views.py:751 .\programs\admin.py:333
+#: .\accounts\models.py:106 .\core\views.py:753 .\programs\admin.py:333
 #: .\programs\models.py:196 .\templates\web\athlete_list.html:35
 #: .\templates\web\athlete_list.html:81 .\templates\web\coach_dashboard.html:33
 #: .\templates\web\dashboard.html:171 .\templates\web\plan_detail.html:45
@@ -499,7 +499,7 @@ msgstr ""
 msgid "量測機型"
 msgstr "Device Model"
 
-#: .\accounts\models.py:230 .\core\views.py:454
+#: .\accounts\models.py:230 .\core\views.py:456
 #: .\templates\web\dashboard.html:229 .\templates\web\dashboard.html:268
 #: .\templates\web\dashboard.html:370
 msgid "肌肉量 (kg)"
@@ -518,7 +518,7 @@ msgstr "Muscle Quality Index"
 msgid "推定骨量 (kg)"
 msgstr "Estimated Bone Mass (kg)"
 
-#: .\accounts\models.py:242 .\core\views.py:456
+#: .\accounts\models.py:242 .\core\views.py:458
 msgid "體水分率 (%)"
 msgstr "Body Water (%)"
 
@@ -814,8 +814,8 @@ msgstr "By training period"
 msgid "分年份"
 msgstr "By year"
 
-#: .\analytics\dimensions.py:84 .\analytics\services.py:1208
-#: .\analytics\track_log.py:488
+#: .\analytics\dimensions.py:84 .\analytics\record_log.py:724
+#: .\analytics\services.py:1208
 #, python-format
 msgid "%(v0)s 年"
 msgstr "%(v0)s"
@@ -979,7 +979,7 @@ msgstr "Daily Load"
 msgid "週一日期"
 msgstr "Week Starting"
 
-#: .\analytics\models.py:48 .\templates\web\analytics.html:1780
+#: .\analytics\models.py:48 .\templates\web\analytics.html:1782
 #: .\templates\web\dashboard.html:712
 msgid "週總負荷 (AU)"
 msgstr "Weekly Load (AU)"
@@ -1012,7 +1012,7 @@ msgstr "Risk Flag"
 msgid "週彙總"
 msgstr "Weekly Summary"
 
-#: .\analytics\models.py:81 .\templates\web\_track_log.html:14
+#: .\analytics\models.py:81
 msgid "田徑練習訓練紀錄"
 msgstr "Track Session Record"
 
@@ -1326,14 +1326,13 @@ msgstr ""
 #: .\analytics\models.py:428 .\core\liveedit.py:178
 #: .\templates\web\_session_body.html:420
 #: .\templates\web\_session_body.html:651
-#: .\templates\web\_session_body.html:855 .\templates\web\analytics.html:1481
+#: .\templates\web\_session_body.html:855 .\templates\web\analytics.html:1483
 #: .\training\models.py:214
 msgid "重量 (kg)"
 msgstr "Weight (kg)"
 
 #: .\analytics\models.py:433 .\templates\web\_session_body.html:419
-#: .\templates\web\_session_body.html:564 .\templates\web\_track_log.html:197
-#: .\templates\web\analytics.html:476
+#: .\templates\web\_session_body.html:564 .\templates\web\analytics.html:476
 msgid "強度要求"
 msgstr "Required Intensity"
 
@@ -1347,7 +1346,7 @@ msgstr "The intensity asked for in this track set, e.g. 90%, 95%, all-out"
 #: .\templates\web\_session_body.html:591
 #: .\templates\web\_session_body.html:811
 #: .\templates\web\_session_body.html:1111 .\templates\web\analytics.html:478
-#: .\templates\web\analytics.html:1487 .\training\models.py:213
+#: .\templates\web\analytics.html:1489 .\training\models.py:213
 #: .\training\models.py:600 .\training\models.py:747
 msgid "次數"
 msgstr "Reps"
@@ -1372,9 +1371,9 @@ msgstr "Whether this set was completed as planned (untick if it was not)"
 
 #: .\analytics\models.py:446 .\core\liveedit.py:130 .\injury\models.py:144
 #: .\planning\models.py:301 .\programs\admin.py:321 .\programs\models.py:94
-#: .\templates\web\_session_body.html:60 .\templates\web\_session_body.html:569
-#: .\templates\web\_track_log.html:214 .\templates\web\analytics.html:480
-#: .\templates\web\analytics.html:1337 .\templates\web\coach_dashboard.html:33
+#: .\templates\web\_record_log.html:235 .\templates\web\_session_body.html:60
+#: .\templates\web\_session_body.html:569 .\templates\web\analytics.html:480
+#: .\templates\web\analytics.html:1339 .\templates\web\coach_dashboard.html:33
 #: .\templates\web\dashboard.html:93 .\templates\web\dashboard.html:120
 #: .\templates\web\injuries.html:571 .\templates\web\plan_detail.html:45
 #: .\templates\web\plan_detail.html:65 .\templates\web\plan_detail.html:167
@@ -1464,6 +1463,187 @@ msgstr "Pinned by"
 msgid "必看項目"
 msgstr "Key item"
 
+#: .\analytics\record_log.py:459
+#, python-format
+msgid "%(v0)s m"
+msgstr "%(v0)s m"
+
+#: .\analytics\record_log.py:459
+msgid "未填距離"
+msgstr "No distance"
+
+#: .\analytics\record_log.py:472
+#, python-format
+msgid "%(v0)s 次"
+msgstr "%(v0)s reps"
+
+#: .\analytics\record_log.py:472
+msgid "未填次數"
+msgstr "Reps not filled in"
+
+#: .\analytics\record_log.py:474
+msgid "未指定賽事"
+msgstr "No meet specified"
+
+#: .\analytics\record_log.py:475 .\analytics\services.py:1216
+#: .\templates\web\analytics.html:1552
+msgid "未填強度"
+msgstr "No intensity given"
+
+#: .\analytics\record_log.py:596
+msgid "這名運動員"
+msgstr "This athlete"
+
+#: .\analytics\record_log.py:630
+#, python-format
+msgid "挑出來的 %(v0)s %(v1)s分佈在 %(v2)s 天，%(v3)s %(v4)s %(v5)s。"
+msgstr "The %(v0)s %(v1)s picked span %(v2)s days; %(v3)s %(v4)s %(v5)s."
+
+#: .\analytics\record_log.py:642
+#, python-format
+msgid "最佳 %(v0)s %(v2)s、平均 %(v1)s %(v2)s。"
+msgstr "Best %(v0)s %(v2)s, average %(v1)s %(v2)s."
+
+#: .\analytics\record_log.py:654
+msgid "前後沒有分別。"
+msgstr "No difference between the two halves."
+
+#: .\analytics\record_log.py:656
+#, python-format
+msgid "後面這幾%(v0)s進步了 %(v1)s%%。"
+msgstr "The later %(v0)s improved by %(v1)s%%."
+
+#: .\analytics\record_log.py:658
+#, python-format
+msgid "後面這幾%(v0)s退了 %(v1)s%%，先看是不是累積疲勞。"
+msgstr "The later %(v0)s dropped off by %(v1)s%% — check for accumulated fatigue first."
+
+#: .\analytics\record_log.py:663
+#, python-format
+msgid "前半段平均 %(v0)s %(v2)s、後半段 %(v1)s %(v2)s——"
+msgstr "First half averaged %(v0)s %(v2)s, second half %(v1)s %(v2)s — "
+
+#: .\analytics\record_log.py:669
+#, python-format
+msgid "有目標數值的 %(v0)s %(v2)s裡，做到目標的佔 %(v1)s%%。"
+msgstr "Of the %(v0)s %(v2)s with a target, %(v1)s%% hit it."
+
+#: .\analytics\record_log.py:674
+#, python-format
+msgid "其中 %(v0)s %(v1)s沒有完成，分析成績之前先看那幾天的狀態欄。"
+msgstr "%(v0)s %(v1)s were not completed — read the status column on those days before reading the numbers."
+
+#: .\analytics\record_log.py:709 .\analytics\services.py:858
+msgid "未註記狀態"
+msgstr "No status noted"
+
+#: .\analytics\record_log.py:778
+msgid ""
+"挑出來的紀錄只落在一個時段裡，換一個切法（分月份／分年份）才比得出變化。"
+msgstr ""
+"The picked records all fall inside one period; switch the time split (by "
+"month / by year) to see a change."
+
+#: .\analytics\record_log.py:786
+#, python-format
+msgid "%(v0)s：%(v1)s → %(v2)s，"
+msgstr "%(v0)s: %(v1)s → %(v2)s, "
+
+#: .\analytics\record_log.py:792
+#, python-format
+msgid "平均由 %(v0)s 變成 %(v1)s %(v4)s（%(v2)s%(v3)s）"
+msgstr "average went from %(v0)s to %(v1)s %(v4)s (%(v2)s%(v3)s)"
+
+#: .\analytics\record_log.py:804
+#, python-format
+msgid "；%(v2)s %(v0)s%(v1)s%%"
+msgstr "; %(v2)s %(v0)s%(v1)s%%"
+
+#: .\analytics\record_log.py:813
+#, python-format
+msgid "；平均強度 %(v0)s%% → %(v1)s%%"
+msgstr "; average intensity %(v0)s%% → %(v1)s%%"
+
+#: .\analytics\record_log.py:819
+#, python-format
+msgid "同一個%(v0)s要在兩個以上的時段都做過，才排得出變化。"
+msgstr "The same %(v0)s has to appear in at least two periods before a change can be laid out."
+
+#: .\analytics\record_log.py:987
+msgid "要有兩個以上的時段，才看得出「這幾公斤是練回來的、還是輕了才顯得快」。"
+msgstr ""
+"At least two periods are needed to tell whether those kilograms were trained "
+"back on, or whether the times only look fast because the athlete got lighter."
+
+#: .\analytics\record_log.py:994
+#, python-format
+msgid "%(v0)s → %(v1)s：%(v6)s平均由 %(v2)s 變成 %(v3)s %(v7)s（%(v4)s%(v5)s）。"
+msgstr "%(v0)s → %(v1)s: %(v6)s averaged %(v2)s, now %(v3)s %(v7)s (%(v4)s%(v5)s)."
+
+#: .\analytics\record_log.py:1008
+#, python-format
+msgid "同一段時間的田徑練習：平均由 %(v0)s 秒變成 %(v1)s 秒，總距離 %(v2)s → %(v3)s m。"
+msgstr "Track practice over the same span: average went from %(v0)s sec to %(v1)s sec, total distance %(v2)s → %(v3)s m."
+
+#: .\analytics\record_log.py:1018
+#, python-format
+msgid "同一段時間的重量訓練：總噸位 %(v0)s → %(v1)s kg"
+msgstr "Weight training over the same span: total tonnage %(v0)s → %(v1)s kg"
+
+#: .\analytics\record_log.py:1023
+#, python-format
+msgid "（%(v0)s%(v1)s%%）"
+msgstr "(%(v0)s%(v1)s%%)"
+
+#: .\analytics\record_log.py:1028
+#, python-format
+msgid "，每公斤體重舉得起 %(v0)s → %(v1)s 倍"
+msgstr ", lifting %(v0)s → %(v1)s times body weight"
+
+#: .\analytics\record_log.py:1034
+#, python-format
+msgid "身體結構：體重 %(v0)s → %(v1)s kg"
+msgstr "Body composition: weight %(v0)s → %(v1)s kg"
+
+#: .\analytics\record_log.py:1039
+#, python-format
+msgid "、體脂 %(v0)s%% → %(v1)s%%"
+msgstr ", body fat %(v0)s%% → %(v1)s%%"
+
+#: .\analytics\record_log.py:1044
+#, python-format
+msgid "、肌肉率 %(v0)s%% → %(v1)s%%"
+msgstr ", muscle %(v0)s%% → %(v1)s%%"
+
+#: .\analytics\record_log.py:1053
+msgid "數字變好、體重也降了——先確認掉的是脂肪不是肌肉，不是每一次變輕都算進步。"
+msgstr "The numbers improved and body weight dropped — make sure what came off was fat and not muscle; not every drop on the scale counts as progress."
+
+#: .\analytics\record_log.py:1055
+msgid "重了但數字也變好，這個方向是對的：加上去的是用得上的重量。"
+msgstr "Heavier and the numbers still improved: this is the right direction — the weight that went on is weight that works."
+
+#: .\analytics\record_log.py:1057
+msgid "這段時間的數字退了，對照上面的量與強度，看是疲勞、還是身體結構走了方向。"
+msgstr "The numbers slipped over this span; read them against the volume and intensity above to tell fatigue apart from a body-composition drift."
+
+#: .\analytics\record_log.py:1059
+msgid ""
+"這段時間沒有可以算的重量訓練紀錄（要填重量、單位是 kg、而且標了已完成）。"
+msgstr ""
+"No usable weight-training records over this span (they need a weight, the "
+"unit kg, and a completed mark)."
+
+#: .\analytics\record_log.py:1063
+msgid "這段時間沒有田徑練習的紀錄，拼不出「練得多不多」那一半。"
+msgstr "There are no track practice records over this span, so the \"how much training\" half cannot be filled in."
+
+#: .\analytics\record_log.py:1065
+msgid "這段時間沒有體組成量測；到運動員總覽登一次體測，這一欄才有東西比。"
+msgstr ""
+"No body-composition measurement over this span; log one on the athlete "
+"overview and this column will have something to compare."
+
 #: .\analytics\recording.py:52
 #, python-format
 msgid "第 %(v0)s 組的%(v1)s不是有效數字。"
@@ -1475,12 +1655,12 @@ msgid "「%(v0)s」的課表不能登%(v1)s。"
 msgstr "A \"%(v0)s\" session cannot record %(v1)s."
 
 #: .\analytics\recording.py:131 .\analytics\recording.py:460
-#: .\templates\web\analytics.html:1474
+#: .\templates\web\analytics.html:1476
 msgid "目標數值"
 msgstr "Target Value"
 
 #: .\analytics\recording.py:132 .\analytics\recording.py:461
-#: .\templates\web\analytics.html:1468
+#: .\templates\web\analytics.html:1470
 msgid "完成數值"
 msgstr "Result"
 
@@ -1491,9 +1671,9 @@ msgstr "Result"
 #: .\templates\web\_session_body.html:578
 #: .\templates\web\_session_body.html:808
 #: .\templates\web\_session_body.html:925
-#: .\templates\web\_session_body.html:1113 .\templates\web\_track_log.html:180
-#: .\templates\web\_track_log.html:274 .\templates\web\video_detail.html:135
-#: .\training\models.py:601 .\training\models.py:748
+#: .\templates\web\_session_body.html:1113
+#: .\templates\web\video_detail.html:135 .\training\models.py:601
+#: .\training\models.py:748
 msgid "距離"
 msgstr "Distance"
 
@@ -1760,10 +1940,6 @@ msgstr "Unphased"
 msgid "%(v0)s 第%(v1)s組"
 msgstr "%(v0)s set %(v1)s"
 
-#: .\analytics\services.py:858 .\analytics\track_log.py:474
-msgid "未註記狀態"
-msgstr "No status noted"
-
 #: .\analytics\services.py:904
 msgid "尚無完成數值。到訓練日曆完成一堂 program 後，回來這裡把數據登進去。"
 msgstr ""
@@ -1907,11 +2083,6 @@ msgstr "By status"
 msgid "分強度"
 msgstr "By intensity"
 
-#: .\analytics\services.py:1216 .\analytics\track_log.py:472
-#: .\templates\web\analytics.html:1550
-msgid "未填強度"
-msgstr "No intensity given"
-
 #: .\analytics\services.py:1216 .\training\models.py:646
 #: .\training\models.py:669
 #, python-format
@@ -1997,171 +2168,6 @@ msgstr ""
 "This is the first meet on record for these events; from here on there is "
 "something to compare against."
 
-#: .\analytics\track_log.py:382
-msgid "這名運動員"
-msgstr "This athlete"
-
-#: .\analytics\track_log.py:411
-#, python-format
-msgid "挑出來的 %(v0)s 組分佈在 %(v1)s 天，總距離 %(v2)s m。"
-msgstr "The %(v0)s picked sets span %(v1)s days, %(v2)s m in total."
-
-#: .\analytics\track_log.py:416
-#, python-format
-msgid "最佳 %(v0)s 秒、平均 %(v1)s 秒。"
-msgstr "Best %(v0)s sec, average %(v1)s sec."
-
-#: .\analytics\track_log.py:427
-#, python-format
-msgid "後面這幾組快了 %(v0)s%%。"
-msgstr "The later sets were %(v0)s%% faster."
-
-#: .\analytics\track_log.py:429
-#, python-format
-msgid "後面這幾組慢了 %(v0)s%%，先看是不是累積疲勞。"
-msgstr ""
-"The later sets were %(v0)s%% slower — check for accumulated fatigue first."
-
-#: .\analytics\track_log.py:431
-msgid "前後沒有分別。"
-msgstr "No difference between the two halves."
-
-#: .\analytics\track_log.py:433
-#, python-format
-msgid "前半段平均 %(v0)s 秒、後半段 %(v1)s 秒——"
-msgstr "First half averaged %(v0)s sec, second half %(v1)s sec — "
-
-#: .\analytics\track_log.py:438
-#, python-format
-msgid "有目標數值的 %(v0)s 組裡，做到目標的佔 %(v1)s%%。"
-msgstr "Of the %(v0)s sets with a target, %(v1)s%% hit it."
-
-#: .\analytics\track_log.py:443
-#, python-format
-msgid "其中 %(v0)s 組沒有完成，分析成績之前先看那幾天的狀態欄。"
-msgstr ""
-"%(v0)s of them were not completed — read the status column on those days "
-"before reading the times."
-
-#: .\analytics\track_log.py:538
-#, python-format
-msgid "%(v0)s m"
-msgstr "%(v0)s m"
-
-#: .\analytics\track_log.py:538
-msgid "未填距離"
-msgstr "No distance"
-
-#: .\analytics\track_log.py:545
-msgid ""
-"挑出來的紀錄只落在一個時段裡，換一個切法（分月份／分年份）才比得出變化。"
-msgstr ""
-"The picked records all fall inside one period; switch the time split (by "
-"month / by year) to see a change."
-
-#: .\analytics\track_log.py:553
-#, python-format
-msgid "%(v0)s：%(v1)s → %(v2)s，"
-msgstr "%(v0)s: %(v1)s → %(v2)s, "
-
-#: .\analytics\track_log.py:559
-#, python-format
-msgid "平均由 %(v0)s 秒變成 %(v1)s 秒（%(v2)s%(v3)s 秒）"
-msgstr "average went from %(v0)s sec to %(v1)s sec (%(v2)s%(v3)s sec)"
-
-#: .\analytics\track_log.py:570
-#, python-format
-msgid "；訓練量 %(v0)s%(v1)s%%"
-msgstr "; volume %(v0)s%(v1)s%%"
-
-#: .\analytics\track_log.py:574
-#, python-format
-msgid "；平均強度 %(v0)s%% → %(v1)s%%"
-msgstr "; average intensity %(v0)s%% → %(v1)s%%"
-
-#: .\analytics\track_log.py:579
-msgid "同一個距離要在兩個以上的時段都練過，才排得出變化。"
-msgstr ""
-"A distance has to be trained in at least two periods before a change can be "
-"laid out."
-
-#: .\analytics\track_log.py:729
-msgid "要有兩個以上的時段，才看得出「這幾公斤是練回來的、還是輕了才顯得快」。"
-msgstr ""
-"At least two periods are needed to tell whether those kilograms were trained "
-"back on, or whether the times only look fast because the athlete got lighter."
-
-#: .\analytics\track_log.py:736
-#, python-format
-msgid ""
-"%(v0)s → %(v1)s：田徑練習平均由 %(v2)s 秒變成 %(v3)s 秒（%(v4)s%(v5)s 秒）。"
-msgstr ""
-"%(v0)s → %(v1)s: track practice averaged %(v2)s sec, now %(v3)s sec "
-"(%(v4)s%(v5)s sec)."
-
-#: .\analytics\track_log.py:748
-#, python-format
-msgid "同一段時間的重量訓練：總噸位 %(v0)s → %(v1)s kg"
-msgstr "Weight training over the same span: total tonnage %(v0)s → %(v1)s kg"
-
-#: .\analytics\track_log.py:753
-#, python-format
-msgid "（%(v0)s%(v1)s%%）"
-msgstr "(%(v0)s%(v1)s%%)"
-
-#: .\analytics\track_log.py:758
-#, python-format
-msgid "，每公斤體重舉得起 %(v0)s → %(v1)s 倍"
-msgstr ", lifting %(v0)s → %(v1)s times body weight"
-
-#: .\analytics\track_log.py:764
-#, python-format
-msgid "身體結構：體重 %(v0)s → %(v1)s kg"
-msgstr "Body composition: weight %(v0)s → %(v1)s kg"
-
-#: .\analytics\track_log.py:769
-#, python-format
-msgid "、體脂 %(v0)s%% → %(v1)s%%"
-msgstr ", body fat %(v0)s%% → %(v1)s%%"
-
-#: .\analytics\track_log.py:774
-#, python-format
-msgid "、肌肉率 %(v0)s%% → %(v1)s%%"
-msgstr ", muscle %(v0)s%% → %(v1)s%%"
-
-#: .\analytics\track_log.py:782
-msgid ""
-"跑得比較快、體重也降了——先確認掉的是脂肪不是肌肉，不是每一次變輕都算進步。"
-msgstr ""
-"Faster runs and a lower body weight — make sure what came off was fat and "
-"not muscle; not every drop on the scale counts as progress."
-
-#: .\analytics\track_log.py:784
-msgid "重了但也跑得比較快，這個方向是對的：加上去的是用得上的重量。"
-msgstr ""
-"Heavier and still faster: this is the right direction — the weight that went "
-"on is weight that works."
-
-#: .\analytics\track_log.py:786
-msgid ""
-"這段時間跑得比較慢，對照上面的量與強度，看是疲勞、還是身體結構走了方向。"
-msgstr ""
-"The runs were slower over this span; read it against the volume and "
-"intensity above to tell fatigue apart from a body-composition drift."
-
-#: .\analytics\track_log.py:788
-msgid ""
-"這段時間沒有可以算的重量訓練紀錄（要填重量、單位是 kg、而且標了已完成）。"
-msgstr ""
-"No usable weight-training records over this span (they need a weight, the "
-"unit kg, and a completed mark)."
-
-#: .\analytics\track_log.py:790
-msgid "這段時間沒有體組成量測；到運動員總覽登一次體測，這一欄才有東西比。"
-msgstr ""
-"No body-composition measurement over this span; log one on the athlete "
-"overview and this column will have something to compare."
-
 #: .\analytics\views.py:46 .\analytics\views.py:58 .\analytics\views.py:80
 #: .\analytics\views.py:97 .\analytics\views.py:111 .\analytics\views.py:122
 #: .\analytics\views.py:134 .\nutrition\views.py:51 .\nutrition\views.py:107
@@ -2235,7 +2241,7 @@ msgstr "Data Management"
 
 #: .\core\context_processors.py:22 .\core\context_processors.py:23
 #: .\core\context_processors.py:24 .\core\models.py:17 .\templates\base.html:40
-#: .\templates\web\_track_log.html:241 .\templates\web\athlete_list.html:79
+#: .\templates\web\_record_log.html:262 .\templates\web\athlete_list.html:79
 #: .\templates\web\coach_dashboard.html:33 .\templates\web\plan_detail.html:45
 #: .\video\models.py:56
 msgid "運動員"
@@ -2264,7 +2270,7 @@ msgstr "Athlete Overview"
 msgid "訓練管理"
 msgstr "Training"
 
-#: .\core\context_processors.py:25 .\core\views.py:750 .\templates\base.html:56
+#: .\core\context_processors.py:25 .\core\views.py:752 .\templates\base.html:56
 #: .\templates\base.html:58 .\templates\web\athlete_list.html:13
 #: .\templates\web\athlete_list.html:25 .\templates\web\athlete_list.html:80
 #: .\templates\web\plan.html:3 .\templates\web\plan.html:8
@@ -3082,7 +3088,7 @@ msgid "課表概要"
 msgstr "Session Summary"
 
 #: .\core\liveedit.py:113 .\planning\models.py:284
-#: .\templates\web\_session_body.html:41 .\templates\web\_track_log.html:339
+#: .\templates\web\_record_log.html:367 .\templates\web\_session_body.html:41
 #: .\templates\web\calendar.html:95 .\templates\web\calendar.html:160
 #: .\templates\web\dashboard.html:93 .\templates\web\plan_detail.html:114
 msgid "時段"
@@ -3136,17 +3142,18 @@ msgid "排序"
 msgstr "Order"
 
 #: .\core\liveedit.py:148 .\core\liveedit.py:165 .\injury\models.py:358
-#: .\templates\web\_session_body.html:1110 .\templates\web\_track_log.html:241
-#: .\templates\web\analytics.html:312 .\templates\web\analytics.html:372
-#: .\training\models.py:34 .\training\models.py:599 .\training\models.py:746
+#: .\templates\web\_session_body.html:1110 .\templates\web\analytics.html:312
+#: .\templates\web\analytics.html:372 .\training\models.py:34
+#: .\training\models.py:599 .\training\models.py:746
 msgid "組數"
 msgstr "Sets"
 
-#: .\core\liveedit.py:152 .\templates\web\_session_body.html:207
+#: .\core\liveedit.py:152 .\templates\web\_record_log.html:376
+#: .\templates\web\_session_body.html:207
 #: .\templates\web\_session_body.html:585
 #: .\templates\web\_session_body.html:810
-#: .\templates\web\_session_body.html:1122 .\templates\web\_track_log.html:343
-#: .\training\models.py:603 .\training\models.py:750
+#: .\templates\web\_session_body.html:1122 .\training\models.py:603
+#: .\training\models.py:750
 msgid "強度"
 msgstr "Intensity"
 
@@ -3411,23 +3418,23 @@ msgstr ""
 "Active recovery (swimming, cycling and other low-intensity non-specific "
 "work), repairing injuries, and preventing overtraining"
 
-#: .\core\models.py:101 .\core\views.py:1440
+#: .\core\models.py:101 .\core\views.py:1442
 msgid "田徑場訓練"
 msgstr "Track Session"
 
-#: .\core\models.py:102 .\core\views.py:1441 .\video\models.py:31
+#: .\core\models.py:102 .\core\views.py:1443 .\video\models.py:31
 msgid "重量訓練"
 msgstr "Strength Session"
 
-#: .\core\models.py:103 .\core\views.py:1442
+#: .\core\models.py:103 .\core\views.py:1444
 msgid "恢復訓練"
 msgstr "Recovery Session"
 
-#: .\core\models.py:104 .\core\views.py:1443
+#: .\core\models.py:104 .\core\views.py:1445
 msgid "治療康復"
 msgstr "Rehab"
 
-#: .\core\models.py:105 .\core\views.py:1444
+#: .\core\models.py:105 .\core\views.py:1446
 msgid "比賽"
 msgstr "Competition"
 
@@ -3493,7 +3500,7 @@ msgstr "You do not have permission to view this athlete's data."
 msgid "設計團隊訓練計劃"
 msgstr "Design a team training plan"
 
-#: .\core\views.py:461 .\nutrition\services.py:219 .\programs\admin.py:340
+#: .\core\views.py:463 .\nutrition\services.py:219 .\programs\admin.py:340
 #: .\programs\services.py:267 .\templates\web\analytics.html:744
 #: .\templates\web\analytics.html:821 .\templates\web\analytics.html:1038
 #: .\templates\web\dashboard.html:167 .\templates\web\dashboard.html:198
@@ -3501,34 +3508,34 @@ msgstr "Design a team training plan"
 msgid "體重"
 msgstr "Weight"
 
-#: .\core\views.py:462 .\templates\web\dashboard.html:199
+#: .\core\views.py:464 .\templates\web\dashboard.html:199
 msgid "體脂肪率"
 msgstr "Body Fat %"
 
-#: .\core\views.py:463 .\templates\web\dashboard.html:200
+#: .\core\views.py:465 .\templates\web\dashboard.html:200
 msgid "肌肉量"
 msgstr "Muscle Mass"
 
-#: .\core\views.py:541
+#: .\core\views.py:543
 #, python-format
 msgid "「%(v0)s」不是有效的數字。"
 msgstr "\"%(v0)s\" is not a valid number."
 
-#: .\core\views.py:560
+#: .\core\views.py:562
 msgid "體重是必填的。"
 msgstr "Weight is required."
 
-#: .\core\views.py:580
+#: .\core\views.py:582
 #, python-format
 msgid "已新增 %(date)s 的體組成紀錄。"
 msgstr "Added the body composition record for %(date)s."
 
-#: .\core\views.py:582
+#: .\core\views.py:584
 #, python-format
 msgid "已更新 %(date)s 的體組成紀錄。"
 msgstr "Updated the body composition record for %(date)s."
 
-#: .\core\views.py:590
+#: .\core\views.py:592
 #, python-format
 msgid ""
 "%(v0)s裡找不到可用的體組成資料（至少要有體重）。可以用磅的 App 匯出 CSV，或把"
@@ -3538,152 +3545,152 @@ msgstr ""
 "needed). Export a CSV from your scale app, or paste \"item value\" one per "
 "line."
 
-#: .\core\views.py:608
+#: .\core\views.py:610
 #, python-format
 msgid "新增 %(v0)s 筆"
 msgstr "%(v0)s added"
 
-#: .\core\views.py:610
+#: .\core\views.py:612
 #, python-format
 msgid "更新 %(v0)s 筆"
 msgstr "%(v0)s updated"
 
-#: .\core\views.py:611
+#: .\core\views.py:613
 #, python-format
 msgid "已從%(v0)s%(v1)s體組成紀錄。"
 msgstr "Body composition records from %(v0)s: %(v1)s."
 
-#: .\core\views.py:613
+#: .\core\views.py:615
 msgid "有幾個項目看不懂、已略過："
 msgstr "A few items were not understood and were skipped:"
 
-#: .\core\views.py:620
+#: .\core\views.py:622
 msgid "請先選一個檔案。"
 msgstr "Please choose a file first."
 
-#: .\core\views.py:622
+#: .\core\views.py:624
 msgid "檔案太大了（上限 2 MB）。"
 msgstr "The file is too large (2 MB limit)."
 
-#: .\core\views.py:632
+#: .\core\views.py:634
 msgid "讀不懂這個檔案的編碼，請另存成 UTF-8 的 CSV。"
 msgstr ""
 "The encoding of this file could not be read; save it again as a UTF-8 CSV."
 
-#: .\core\views.py:645
+#: .\core\views.py:647
 msgid "請先把磅上的文字貼進來。"
 msgstr "Please paste the text from the scale first."
 
-#: .\core\views.py:647
+#: .\core\views.py:649
 msgid "貼進來的文字太長了（上限 2 萬字）。"
 msgstr "The pasted text is too long (20,000 character limit)."
 
-#: .\core\views.py:651
+#: .\core\views.py:653
 msgid "貼上的文字"
 msgstr "Pasted text"
 
-#: .\core\views.py:660 .\core\views.py:1137
+#: .\core\views.py:662 .\core\views.py:1139
 msgid "看不到這名運動員。"
 msgstr "This athlete is not visible to you."
 
-#: .\core\views.py:664
+#: .\core\views.py:666
 msgid "只有這名運動員本人、他的教練或管理員可以改體組成紀錄。"
 msgstr ""
 "Only the athlete, their coach or an administrator can change body "
 "composition records."
 
-#: .\core\views.py:679
+#: .\core\views.py:681
 msgid "已刪除該筆體組成紀錄。"
 msgstr "Deleted that body composition record."
 
-#: .\core\views.py:679
+#: .\core\views.py:681
 msgid "找不到那筆紀錄。"
 msgstr "That record could not be found."
 
-#: .\core\views.py:681 .\core\views.py:1151
+#: .\core\views.py:683 .\core\views.py:1153
 msgid "不認得的動作。"
 msgstr "Unrecognised action."
 
-#: .\core\views.py:683 .\core\views.py:1153
+#: .\core\views.py:685 .\core\views.py:1155
 #, python-format
 msgid "沒有存起來：%(v0)s"
 msgstr "Not saved: %(v0)s"
 
-#: .\core\views.py:749 .\templates\web\athlete_list.html:44
+#: .\core\views.py:751 .\templates\web\athlete_list.html:44
 #: .\templates\web\athlete_list.html:84
 msgid "最後更新"
 msgstr "Last updated"
 
-#: .\core\views.py:752 .\templates\web\athlete_list.html:82
+#: .\core\views.py:754 .\templates\web\athlete_list.html:82
 msgid "年紀"
 msgstr "Age"
 
-#: .\core\views.py:753 .\templates\web\athlete_list.html:53
+#: .\core\views.py:755 .\templates\web\athlete_list.html:53
 #: .\templates\web\athlete_list.html:83 .\templates\web\injuries.html:53
 msgid "傷患狀態"
 msgstr "Injury status"
 
-#: .\core\views.py:758
+#: .\core\views.py:760
 msgid "7 天內有更新"
 msgstr "Updated within 7 days"
 
-#: .\core\views.py:759
+#: .\core\views.py:761
 msgid "30 天內有更新"
 msgstr "Updated within 30 days"
 
-#: .\core\views.py:760
+#: .\core\views.py:762
 msgid "超過 30 天沒更新"
 msgstr "No update for over 30 days"
 
-#: .\core\views.py:761
+#: .\core\views.py:763
 msgid "超過 90 天沒更新"
 msgstr "No update for over 90 days"
 
-#: .\core\views.py:765
+#: .\core\views.py:767
 msgid "有未結案傷患"
 msgstr "Has an open injury"
 
-#: .\core\views.py:786
+#: .\core\views.py:788
 msgid "管理員：看得到系統內所有運動員"
 msgstr "Administrator: sees every athlete in the system"
 
-#: .\core\views.py:788
+#: .\core\views.py:790
 msgid "教練：只看得到直屬與自己負責的計劃裡的運動員"
 msgstr "Coach: sees only their own athletes and those on plans they run"
 
-#: .\core\views.py:789
+#: .\core\views.py:791
 msgid "運動員：只看得到自己的狀態總覽"
 msgstr "Athlete: sees only their own overview"
 
-#: .\core\views.py:978
+#: .\core\views.py:980
 msgid "找不到要備戰的那一場重要比賽。"
 msgstr "Cannot find the key meet being prepared for."
 
-#: .\core\views.py:983
+#: .\core\views.py:985
 msgid "要填賽事名稱。"
 msgstr "Please enter the meet name."
 
-#: .\core\views.py:987
+#: .\core\views.py:989
 msgid "比賽日期格式要是 YYYY-MM-DD。"
 msgstr "The competition date must be in YYYY-MM-DD format."
 
-#: .\core\views.py:1011
+#: .\core\views.py:1013
 msgid "找不到這一場賽事。"
 msgstr "This competition could not be found."
 
-#: .\core\views.py:1025
+#: .\core\views.py:1027
 msgid "要選一個目標賽事。"
 msgstr "Please choose a target meet."
 
-#: .\core\views.py:1038
+#: .\core\views.py:1040
 msgid "開始日期格式要是 YYYY-MM-DD。"
 msgstr "The start date must be in YYYY-MM-DD format."
 
-#: .\core\views.py:1040
+#: .\core\views.py:1042
 msgid "備戰開始日期不能晚過比賽日期。"
 msgstr "The prep start date cannot be later than the competition date."
 
-#: .\core\views.py:1075
+#: .\core\views.py:1077
 #, python-format
 msgid ""
 "目標賽事已設為熱身賽「%(v0)s」（%(v1)s），週期以重要比賽「%(v2)s」（%(v3)s）"
@@ -3692,68 +3699,68 @@ msgstr ""
 "The target is now the warm-up meet \"%(v0)s\" (%(v1)s); the cycle is counted "
 "to the key meet \"%(v2)s\" (%(v3)s): %(v5)s weeks from %(v4)s."
 
-#: .\core\views.py:1080
+#: .\core\views.py:1082
 #, python-format
 msgid "目標賽事已設為「%(v0)s」（%(v1)s）：%(v2)s 起共 %(v3)s 週，%(v4)s。"
 msgstr ""
 "The target meet is now \"%(v0)s\" (%(v1)s): %(v3)s weeks from %(v2)s, %(v4)s."
 
-#: .\core\views.py:1088 .\templates\web\dashboard.html:637
+#: .\core\views.py:1090 .\templates\web\dashboard.html:637
 msgid "要先設定目標賽事，才有分期可以改。"
 msgstr "Set a target meet first — there is nothing to phase until then."
 
-#: .\core\views.py:1092
+#: .\core\views.py:1094
 msgid "已依預設模板重建整份分期與週計劃。"
 msgstr ""
 "Rebuilt the whole periodisation and weekly plan from the default template."
 
-#: .\core\views.py:1100
+#: .\core\views.py:1102
 msgid "不認得的期別。"
 msgstr "Unrecognised phase."
 
-#: .\core\views.py:1105
+#: .\core\views.py:1107
 msgid "結束週不能早於起始週。"
 msgstr "The end week cannot come before the start week."
 
-#: .\core\views.py:1123
+#: .\core\views.py:1125
 #, python-format
 msgid "分期已更新為「%(v0)s」（第 %(v1)s–%(v2)s 週，目標週負荷 %(v3)s AU）。"
 msgstr ""
 "The phase is now \"%(v0)s\" (weeks %(v1)s–%(v2)s, target weekly load %(v3)s "
 "AU)."
 
-#: .\core\views.py:1141
+#: .\core\views.py:1143
 msgid "只有這名運動員本人、他的教練或管理員可以改備戰計劃。"
 msgstr ""
 "Only the athlete, their coach or an administrator can change the season plan."
 
-#: .\core\views.py:1195
+#: .\core\views.py:1197
 msgid "只有管理員可以分配項目。"
 msgstr "Only an administrator can assign events."
 
-#: .\core\views.py:1216
+#: .\core\views.py:1218
 #, python-format
 msgid "已把「%(v0)s」分配給 %(v1)s 位教練（新增 %(v2)s 筆）。"
 msgstr "Assigned \"%(v0)s\" to %(v1)s coaches (%(v2)s new)."
 
-#: .\core\views.py:1222
+#: .\core\views.py:1224
 #, python-format
 msgid "已取消「%(v0)s」的一筆教練分配。"
 msgstr "Removed one coach assignment for \"%(v0)s\"."
 
-#: .\core\views.py:1259
+#: .\core\views.py:1261
 msgid "這個項目沒有分配給你。"
 msgstr "This event is not assigned to you."
 
-#: .\core\views.py:1313
+#: .\core\views.py:1315
 msgid "只有管理員可以匯入報名表。"
 msgstr "Only an administrator can import entry forms."
 
-#: .\core\views.py:1320
+#: .\core\views.py:1322
 msgid "沒有選取任何未匯入的報名表。"
 msgstr "No un-imported entry forms were selected."
 
-#: .\core\views.py:1339
+#: .\core\views.py:1341
 #, python-format
 msgid ""
 "已把 %(v0)s 份報名載入「%(v1)s」，帳號密碼為隨機值，請用後台的『重設密碼』給"
@@ -3762,7 +3769,7 @@ msgstr ""
 "Loaded %(v0)s entries into \"%(v1)s\". Passwords are random — use \"Reset "
 "password\" in the admin to give each athlete one."
 
-#: .\core\views.py:1344
+#: .\core\views.py:1346
 #, python-format
 msgid ""
 "其中 %(v0)s 位是已註冊運動員，已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有"
@@ -3772,7 +3779,7 @@ msgstr ""
 "their existing profile, keeping their old records, and no new account was "
 "created."
 
-#: .\core\views.py:1346
+#: .\core\views.py:1348
 #, python-format
 msgid ""
 "%(v0)s 位已註冊運動員已把「%(v1)s」加進原有檔案，沿用舊有紀錄，沒有另開帳號。"
@@ -3780,121 +3787,121 @@ msgstr ""
 "%(v0)s already registered athletes had \"%(v1)s\" added to their existing "
 "profile, keeping their old records, with no new account created."
 
-#: .\core\views.py:1364
+#: .\core\views.py:1366
 msgid "只有管理員或這個項目的負責教練可以派課。"
 msgstr ""
 "Only an administrator or a coach assigned to this plan can hand out sessions."
 
-#: .\core\views.py:1372
+#: .\core\views.py:1374
 msgid "請至少選一名運動員。"
 msgstr "Pick at least one athlete."
 
-#: .\core\views.py:1377 .\core\views.py:1702
+#: .\core\views.py:1379 .\core\views.py:1704
 msgid "請選至少一個日期。"
 msgstr "Pick at least one date."
 
-#: .\core\views.py:1385
+#: .\core\views.py:1387
 #, python-format
 msgid "一次最多派 %(v0)s 堂課，現在是 %(v1)s 人 × %(v2)s 天；請分幾次派。"
 msgstr ""
 "At most %(v0)s sessions can be handed out at once; this is %(v1)s athletes x "
 "%(v2)s days. Please do it in batches."
 
-#: .\core\views.py:1392 .\core\views.py:1473
+#: .\core\views.py:1394 .\core\views.py:1475
 msgid "不認得的 program 類別。"
 msgstr "Unrecognised program type."
 
-#: .\core\views.py:1420
+#: .\core\views.py:1422
 #, python-format
 msgid "已把「%(v0)s」派給 %(v1)s 名運動員 × %(v2)s 天，共建立 %(v3)s 堂課。"
 msgstr ""
 "Handed “%(v0)s” to %(v1)s athletes x %(v2)s days - %(v3)s sessions created."
 
-#: .\core\views.py:1428 .\core\views.py:1768
+#: .\core\views.py:1430 .\core\views.py:1770
 #, python-format
 msgid "看不懂這些日期，已跳過：%(v0)s"
 msgstr "These dates were not understood and were skipped: %(v0)s"
 
-#: .\core\views.py:1431 .\core\views.py:1771
+#: .\core\views.py:1433 .\core\views.py:1773
 #, python-format
 msgid "一次最多複製 %(v0)s 天，其餘的沒有建立。"
 msgstr "At most %(v0)s days can be copied at once; the rest were not created."
 
-#: .\core\views.py:1445
+#: .\core\views.py:1447
 msgid "其他安排"
 msgstr "Other Arrangements"
 
-#: .\core\views.py:1493
+#: .\core\views.py:1495
 #, python-format
 msgid "已在 %(v0)s 新增「%(v1)s」（%(v2)s）。"
 msgstr "Added \"%(v1)s\" (%(v2)s) on %(v0)s."
 
-#: .\core\views.py:1544
+#: .\core\views.py:1546
 msgid "一次性"
 msgstr "One-off"
 
-#: .\core\views.py:1545
+#: .\core\views.py:1547
 msgid "每星期"
 msgstr "Weekly"
 
-#: .\core\views.py:1546
+#: .\core\views.py:1548
 msgid "每個月"
 msgstr "Monthly"
 
-#: .\core\views.py:1547
+#: .\core\views.py:1549
 msgid "指定日子"
 msgstr "Chosen days"
 
-#: .\core\views.py:1552 .\templates\web\_calendar_grid.html:6
+#: .\core\views.py:1554 .\templates\web\_calendar_grid.html:6
 msgid "一"
 msgstr "Mon"
 
-#: .\core\views.py:1553 .\templates\web\_calendar_grid.html:6
+#: .\core\views.py:1555 .\templates\web\_calendar_grid.html:6
 msgid "二"
 msgstr "Tue"
 
-#: .\core\views.py:1554 .\templates\web\_calendar_grid.html:6
+#: .\core\views.py:1556 .\templates\web\_calendar_grid.html:6
 msgid "三"
 msgstr "Wed"
 
-#: .\core\views.py:1555 .\templates\web\_calendar_grid.html:7
+#: .\core\views.py:1557 .\templates\web\_calendar_grid.html:7
 msgid "四"
 msgstr "Thu"
 
-#: .\core\views.py:1556 .\templates\web\_calendar_grid.html:7
+#: .\core\views.py:1558 .\templates\web\_calendar_grid.html:7
 msgid "五"
 msgstr "Fri"
 
-#: .\core\views.py:1557 .\templates\web\_calendar_grid.html:7
+#: .\core\views.py:1559 .\templates\web\_calendar_grid.html:7
 msgid "六"
 msgstr "Sat"
 
-#: .\core\views.py:1558 .\templates\web\_calendar_grid.html:7
+#: .\core\views.py:1560 .\templates\web\_calendar_grid.html:7
 msgid "日"
 msgstr "Sun"
 
-#: .\core\views.py:1656
+#: .\core\views.py:1658
 msgid "找不到要刪除的課表。"
 msgstr "The session to delete could not be found."
 
-#: .\core\views.py:1661
+#: .\core\views.py:1663
 #, python-format
 msgid "「%(v0)s」是別人排的課，只有排課的人或管理員刪得掉。"
 msgstr ""
 "“%(v0)s” was planned by someone else; only whoever planned it (or an admin) "
 "can delete it."
 
-#: .\core\views.py:1670
+#: .\core\views.py:1672
 #, python-format
 msgid "已刪除 %(v0)s 的「%(v1)s」。"
 msgstr "Deleted \"%(v1)s\" on %(v0)s."
 
-#: .\core\views.py:1672 .\core\views.py:1760
+#: .\core\views.py:1674 .\core\views.py:1762
 #, python-format
 msgid "（連同 %(v0)s 項活動）"
 msgstr " (with all %(v0)s activities)"
 
-#: .\core\views.py:1677
+#: .\core\views.py:1679
 #, python-format
 msgid ""
 "這堂課登過的 %(v0)s 筆訓練紀錄留著沒有刪，在數據分析照樣看得到，只是不再對應"
@@ -3904,118 +3911,118 @@ msgstr ""
 "deleted. They still show up in Analytics — they just no longer point to this "
 "session."
 
-#: .\core\views.py:1697
+#: .\core\views.py:1699
 msgid "找不到要複製的課表。"
 msgstr "The session to copy could not be found."
 
-#: .\core\views.py:1717
+#: .\core\views.py:1719
 #, python-format
 msgid "一次最多複製 %(v0)s 堂課，現在是 %(v1)s 人 × %(v2)s 天；請分幾次複製。"
 msgstr ""
 "At most %(v0)s sessions can be copied at once, and this is %(v1)s athletes x "
 "%(v2)s days. Please do it in batches."
 
-#: .\core\views.py:1754
+#: .\core\views.py:1756
 #, python-format
 msgid "已把「%(v0)s」複製到 %(v1)s 天：%(v2)s。"
 msgstr "Copied \"%(v0)s\" to %(v1)s day(s): %(v2)s."
 
-#: .\core\views.py:1762
+#: .\core\views.py:1764
 #, python-format
 msgid "同計劃的 %(v0)s 位運動員也各拿到一份，共 %(v1)s 堂課。"
 msgstr ""
 "%(v0)s other athletes on the same plan each got a copy, %(v1)s sessions in "
 "all."
 
-#: .\core\views.py:1837
+#: .\core\views.py:1839
 #, python-format
 msgid "%(v0)s 年 %(v1)s 月"
 msgstr "%(v1)s/%(v0)s"
 
-#: .\core\views.py:1875
+#: .\core\views.py:1877
 #, python-format
 msgid "已送出訓練後檢討和反饋，本次負荷 %(v0)s AU。"
 msgstr ""
 "Post-session review and feedback submitted; load for this session is %(v0)s "
 "AU."
 
-#: .\core\views.py:1879
+#: .\core\views.py:1881
 msgid "已儲存教練評語。"
 msgstr "Coach comment saved."
 
-#: .\core\views.py:1882
+#: .\core\views.py:1884
 #, python-format
 msgid "已依傷患調整，共 %(v0)s 項變更。"
 msgstr "Adjusted for the injury, %(v0)s changes in all."
 
-#: .\core\views.py:1888 .\templates\web\_session_body.html:170
+#: .\core\views.py:1890 .\templates\web\_session_body.html:170
 msgid "活動"
 msgstr "Activity"
 
-#: .\core\views.py:1898
+#: .\core\views.py:1900
 msgid "記事"
 msgstr "Note"
 
-#: .\core\views.py:1916
+#: .\core\views.py:1918
 msgid "無權限存取此課表。"
 msgstr "You do not have access to this session."
 
-#: .\core\views.py:2146
+#: .\core\views.py:2148
 msgid "只有這名運動員本人、他的教練或管理員能登這堂課的數據。"
 msgstr ""
 "Only the athlete, their coach or an administrator can log data for this "
 "session."
 
-#: .\core\views.py:2165
+#: .\core\views.py:2167
 #, python-format
 msgid "已為「%(v0)s」開好 %(v1)s 組空白紀錄，把完成數值填進去就行。"
 msgstr ""
 "Opened %(v1)s blank sets for \"%(v0)s\"; just fill in what was actually done."
 
-#: .\core\views.py:2201 .\core\views.py:2841
+#: .\core\views.py:2203 .\core\views.py:2843
 msgid "無權限修改這筆紀錄。"
 msgstr "You do not have permission to change this record."
 
-#: .\core\views.py:2217 .\core\views.py:2892
+#: .\core\views.py:2219 .\core\views.py:2894
 msgid "已刪除一筆紀錄。"
 msgstr "Deleted one record."
 
-#: .\core\views.py:2226
+#: .\core\views.py:2228
 msgid "這一組已經在最前面了。"
 msgstr "This set is already first."
 
-#: .\core\views.py:2226
+#: .\core\views.py:2228
 msgid "這一組已經在最後面了。"
 msgstr "This set is already last."
 
-#: .\core\views.py:2254 .\core\views.py:2426
+#: .\core\views.py:2256 .\core\views.py:2428
 msgid "不認得的課表區塊。"
 msgstr "Unrecognised session block."
 
-#: .\core\views.py:2271
+#: .\core\views.py:2273
 msgid "請挑一個活動，或自己打一個名稱。"
 msgstr "Pick an activity, or type your own name."
 
-#: .\core\views.py:2313
+#: .\core\views.py:2315
 #, python-format
 msgid "已加入 %(v0)s 到%(v1)s。"
 msgstr "Added %(v0)s to %(v1)s."
 
-#: .\core\views.py:2314
+#: .\core\views.py:2316
 msgid "（要記這一項的數據，按那一行的「登記錄」）"
 msgstr "(To log data for an item, press \"Log record\" on its row)"
 
-#: .\core\views.py:2330
+#: .\core\views.py:2332
 msgid "請填活動名稱。"
 msgstr "Please enter the activity name."
 
-#: .\core\views.py:2370
+#: .\core\views.py:2372
 #, python-format
 msgid "已新增訓練活動「%(v0)s」，以後可以直接挑。"
 msgstr ""
 "Added the training activity \"%(v0)s\"; you can pick it directly from now on."
 
-#: .\core\views.py:2374
+#: .\core\views.py:2376
 #, python-format
 msgid ""
 "已把「%(v0)s」送進運動練習項目庫，等管理員確認後所有人都挑得到；在那之前只有"
@@ -4024,19 +4031,19 @@ msgstr ""
 "\"%(v0)s\" has been sent to the exercise library; once an administrator "
 "approves it everyone can pick it. Until then only you can see it."
 
-#: .\core\views.py:2377
+#: .\core\views.py:2379
 #, python-format
 msgid "「%(v0)s」已經在活動清單裡了。"
 msgstr "\"%(v0)s\" is already in the activity list."
 
-#: .\core\views.py:2432
+#: .\core\views.py:2434
 #, python-format
 msgid "%(v0)s這一區還沒有活動，先加幾項再存成 program。"
 msgstr ""
 "There is nothing in %(v0)s yet - add a few activities before saving it as a "
 "program."
 
-#: .\core\views.py:2461
+#: .\core\views.py:2463
 #, python-format
 msgid ""
 "已把%(v0)s的 %(v1)s 項活動存成 program「%(v2)s」，下一課在同一區挑它就整組帶"
@@ -4045,129 +4052,129 @@ msgstr ""
 "Saved the %(v1)s activities in %(v0)s as the program \"%(v2)s\" - pick it in "
 "the same block next session and the whole set comes across."
 
-#: .\core\views.py:2467
+#: .\core\views.py:2469
 #, python-format
 msgid "已更新 program「%(v0)s」，現在是 %(v1)s 項活動。"
 msgstr "Updated the program \"%(v0)s\" - it now holds %(v1)s activities."
 
-#: .\core\views.py:2479
+#: .\core\views.py:2481
 msgid "找不到這個 program，重新整理看看。"
 msgstr "That program could not be found - try refreshing."
 
-#: .\core\views.py:2486
+#: .\core\views.py:2488
 #, python-format
 msgid "program「%(v0)s」裡沒有活動。"
 msgstr "The program \"%(v0)s\" has no activities in it."
 
-#: .\core\views.py:2514
+#: .\core\views.py:2516
 #, python-format
 msgid "已把 program「%(v0)s」的 %(v1)s 項活動加進%(v2)s。"
 msgstr "Added the %(v1)s activities from the program \"%(v0)s\" to %(v2)s."
 
-#: .\core\views.py:2517
+#: .\core\views.py:2519
 #, python-format
 msgid "（先清掉原有的 %(v0)s 項）"
 msgstr " (cleared the %(v0)s activities that were there)"
 
-#: .\core\views.py:2519
+#: .\core\views.py:2521
 #, python-format
 msgid "（有 %(v0)s 項是別人寫的，清不掉，留在原位）"
 msgstr ""
 " (%(v0)s activities were written by someone else, so they stayed where they "
 "were)"
 
-#: .\core\views.py:2526
+#: .\core\views.py:2528
 msgid "這個 program 已經不在了。"
 msgstr "That program is gone."
 
-#: .\core\views.py:2529
+#: .\core\views.py:2531
 msgid "只有建立者（或管理員）可以刪掉這個 program。"
 msgstr "Only whoever created this program (or an admin) can delete it."
 
-#: .\core\views.py:2533
+#: .\core\views.py:2535
 #, python-format
 msgid "已刪除 program「%(v0)s」。"
 msgstr "Deleted the program \"%(v0)s\"."
 
-#: .\core\views.py:2539
+#: .\core\views.py:2541
 msgid "記事不能是空的。"
 msgstr "A note cannot be empty."
 
-#: .\core\views.py:2548
+#: .\core\views.py:2550
 msgid "已寫入，同一版面的教練與運動員都看得到。"
 msgstr "Saved — the coach and the athlete both see it on this page."
 
-#: .\core\views.py:2554
+#: .\core\views.py:2556
 #, python-format
 msgid "這筆%(v0)s已經不在了。"
 msgstr "This %(v0)s is gone."
 
-#: .\core\views.py:2557
+#: .\core\views.py:2559
 #, python-format
 msgid "只能刪自己寫下的%(v0)s。"
 msgstr "You can only delete a %(v0)s you wrote yourself."
 
-#: .\core\views.py:2560
+#: .\core\views.py:2562
 #, python-format
 msgid "已刪除這筆%(v0)s。"
 msgstr "Deleted this %(v0)s."
 
-#: .\core\views.py:2577
+#: .\core\views.py:2579
 msgid "看不懂的請求格式。"
 msgstr "The request format was not understood."
 
-#: .\core\views.py:2581
+#: .\core\views.py:2583
 msgid "看不懂要改哪一格。"
 msgstr "It is not clear which field to change."
 
-#: .\core\views.py:2672 .\core\views.py:2697
+#: .\core\views.py:2674 .\core\views.py:2699
 #, python-format
 msgid "已把「%(v0)s」加進項目清單。"
 msgstr "Added \"%(v0)s\" to the item list."
 
-#: .\core\views.py:2683
+#: .\core\views.py:2685
 msgid "請填項目名稱。"
 msgstr "Please enter the item name."
 
-#: .\core\views.py:2685
+#: .\core\views.py:2687
 msgid "不認得的範疇。"
 msgstr "Unrecognised category."
 
-#: .\core\views.py:2721
+#: .\core\views.py:2723
 #, python-format
 msgid "已新增項目「%(v0)s」。"
 msgstr "Added the item \"%(v0)s\"."
 
-#: .\core\views.py:2723
+#: .\core\views.py:2725
 #, python-format
 msgid "「%(v0)s」已經在清單裡了。"
 msgstr "\"%(v0)s\" is already in the list."
 
-#: .\core\views.py:2732
+#: .\core\views.py:2734
 msgid "請先挑一個練習方式（節奏跑／反覆跑／起跑…）。"
 msgstr "Pick a training method first (tempo run / repetition run / start…)."
 
-#: .\core\views.py:2740
+#: .\core\views.py:2742
 msgid "距離要填數字（公尺），或留空只記方式。"
 msgstr ""
 "The distance must be a number (metres), or leave it blank to record the "
 "method only."
 
-#: .\core\views.py:2745
+#: .\core\views.py:2747
 #, python-format
 msgid "已把「%(v0)s」加進要追蹤的項目清單，可以開始登數據了。"
 msgstr ""
 "\"%(v0)s\" has been added to the tracked item list; you can start entering "
 "data."
 
-#: .\core\views.py:2758
+#: .\core\views.py:2760
 #, python-format
 msgid "「%(v0)s」底下還有 %(v1)s 筆紀錄，要先確認才刪得掉。"
 msgstr ""
 "\"%(v0)s\" still has %(v1)s records under it, so it needs confirming before "
 "it can be deleted."
 
-#: .\core\views.py:2767
+#: .\core\views.py:2769
 #, python-format
 msgid ""
 "已清掉「%(v0)s」的 %(v1)s 筆紀錄；這是系統內建項目，重新記錄就會再出現。"
@@ -4175,105 +4182,105 @@ msgstr ""
 "Cleared %(v1)s records for \"%(v0)s\"; this is a built-in item, so it will "
 "reappear once new data is recorded."
 
-#: .\core\views.py:2773
+#: .\core\views.py:2775
 #, python-format
 msgid "已刪除項目「%(v0)s」"
 msgstr "Deleted the item \"%(v0)s\""
 
-#: .\core\views.py:2774
+#: .\core\views.py:2776
 #, python-format
 msgid "，連同 %(v0)s 筆紀錄。"
 msgstr ", along with %(v0)s records."
 
-#: .\core\views.py:2795
+#: .\core\views.py:2797
 #, python-format
 msgid "「%(v0)s」的單位已改成 %(v1)s。"
 msgstr "The unit for \"%(v0)s\" is now %(v1)s."
 
-#: .\core\views.py:2797
+#: .\core\views.py:2799
 msgid "單位沒有變動。"
 msgstr "The unit is unchanged."
 
-#: .\core\views.py:2869
+#: .\core\views.py:2871
 msgid "無權限調整這筆紀錄。"
 msgstr "You do not have permission to reorder this record."
 
-#: .\core\views.py:2874
+#: .\core\views.py:2876
 #, python-format
 msgid "已把 %(date)s 的這一組往前挪。"
 msgstr "Moved this set for %(date)s up."
 
-#: .\core\views.py:2876
+#: .\core\views.py:2878
 #, python-format
 msgid "已把 %(date)s 的這一組往後挪。"
 msgstr "Moved this set for %(date)s down."
 
-#: .\core\views.py:2880
+#: .\core\views.py:2882
 msgid "這一組已經在最"
 msgstr "This set is already at the "
 
-#: .\core\views.py:2880
+#: .\core\views.py:2882
 msgid "前"
 msgstr "top"
 
-#: .\core\views.py:2880
+#: .\core\views.py:2882
 msgid "後"
 msgstr "bottom"
 
-#: .\core\views.py:2880
+#: .\core\views.py:2882
 msgid "面了。"
 msgstr "."
 
-#: .\core\views.py:2886
+#: .\core\views.py:2888
 msgid "無權限刪除這筆紀錄。"
 msgstr "You do not have permission to delete this record."
 
-#: .\core\views.py:2993
+#: .\core\views.py:2995
 msgid "這幾個項目一起分析時出了問題，已記錄下來；先分開看各自的趨勢。"
 msgstr ""
 "Something went wrong analysing these items together; it has been logged. "
 "Read each one's trend separately for now."
 
-#: .\core\views.py:3246
+#: .\core\views.py:3249
 msgid "已儲存今日晨間問卷。"
 msgstr "Today's morning questionnaire has been saved."
 
-#: .\core\views.py:3249
+#: .\core\views.py:3252
 msgid "已重新計算今日營養目標。"
 msgstr "Today's nutrition targets have been recalculated."
 
-#: .\core\views.py:3267
+#: .\core\views.py:3270
 msgid "已刪除該筆飲食紀錄。"
 msgstr "Deleted that food record."
 
-#: .\core\views.py:3317 .\nutrition\services.py:367
+#: .\core\views.py:3320 .\nutrition\services.py:367
 #: .\templates\web\nutrition.html:32 .\templates\web\nutrition.html:202
 #: .\templates\web\nutrition.html:259
 msgid "碳水"
 msgstr "Carbs"
 
-#: .\core\views.py:3317 .\nutrition\services.py:367
+#: .\core\views.py:3320 .\nutrition\services.py:367
 #: .\templates\web\dashboard.html:211 .\templates\web\nutrition.html:37
 #: .\templates\web\nutrition.html:364
 msgid "蛋白質"
 msgstr "Protein"
 
-#: .\core\views.py:3317 .\nutrition\services.py:367
+#: .\core\views.py:3320 .\nutrition\services.py:367
 #: .\templates\web\nutrition.html:202 .\templates\web\nutrition.html:259
 msgid "脂肪"
 msgstr "Fat"
 
-#: .\core\views.py:3333
+#: .\core\views.py:3336
 msgid "請上傳相片或至少寫下吃了什麼。"
 msgstr "Please upload a photo or at least write down what was eaten."
 
-#: .\core\views.py:3367
+#: .\core\views.py:3370
 #, python-format
 msgid "已記錄%(v0)s：%(v1)s kcal（碳水 %(v2)sg／蛋白 %(v3)sg／脂肪 %(v4)sg）。"
 msgstr ""
 "Logged %(v0)s: %(v1)s kcal (carbs %(v2)sg / protein %(v3)sg / fat %(v4)sg)."
 
-#: .\core\views.py:3372
+#: .\core\views.py:3375
 msgid ""
 "認不出食物，紀錄已建立但營養值是 0——可以在下面直接改份量，或用「白飯 200g、雞"
 "胸 150g」這種寫法再試一次。"
@@ -4282,85 +4289,85 @@ msgstr ""
 "values — change the portions below, or try again writing it like \"rice "
 "200g, chicken breast 150g\"."
 
-#: .\core\views.py:3400
+#: .\core\views.py:3403
 msgid "份量沒有變動。"
 msgstr "The portions are unchanged."
 
-#: .\core\views.py:3417
+#: .\core\views.py:3420
 #, python-format
 msgid "已更新 %(v0)s 個品項的份量，總熱量 %(v1)s kcal。"
 msgstr "Updated the portions for %(v0)s items; %(v1)s kcal in total."
 
-#: .\core\views.py:3474
+#: .\core\views.py:3477
 #, python-format
 msgid "%(v0)s 疼痛 %(v1)s/10 已超過門檻，今日課表已自動調整（%(v2)s 項變更）。"
 msgstr ""
 "%(v0)s pain of %(v1)s/10 is over the threshold, so today's session has been "
 "adjusted automatically (%(v2)s changes)."
 
-#: .\core\views.py:3477
+#: .\core\views.py:3480
 msgid "已記錄今日疼痛。"
 msgstr "Today's pain has been logged."
 
-#: .\core\views.py:3500
+#: .\core\views.py:3503
 #, python-format
 msgid "已建立傷患紀錄：%(v0)s"
 msgstr "Injury record created: %(v0)s"
 
-#: .\core\views.py:3515
+#: .\core\views.py:3518
 #, python-format
 msgid "已回報 %(v0)s 處傷患的今日狀況。"
 msgstr "Reported today's status for %(v0)s injuries."
 
-#: .\core\views.py:3517
+#: .\core\views.py:3520
 msgid "沒有填任何一處的今日疼痛。"
 msgstr "No pain score was entered for any of them today."
 
-#: .\core\views.py:3525
+#: .\core\views.py:3528
 #, python-format
 msgid "%(v0)s 今日處理方式：%(v1)s。"
 msgstr "%(v0)s treatment today: %(v1)s."
 
-#: .\core\views.py:3534
+#: .\core\views.py:3537
 msgid "RTP 條件全部達標，可與教練確認回歸完整訓練。"
 msgstr ""
 "All RTP criteria are met; check with the coach about returning to full "
 "training."
 
-#: .\core\views.py:3537
+#: .\core\views.py:3540
 #, python-format
 msgid "已更新 RTP 進度：%(v0)s/%(v1)s 項達標。"
 msgstr "RTP progress updated: %(v0)s/%(v1)s criteria met."
 
-#: .\core\views.py:3544
+#: .\core\views.py:3547
 #, python-format
 msgid "已更新狀態為 %(v0)s。"
 msgstr "Status updated to %(v0)s."
 
-#: .\core\views.py:3565
+#: .\core\views.py:3568
 #, python-format
 msgid "已更新治療方向：%(v0)s。"
 msgstr "Treatment direction updated: %(v0)s."
 
-#: .\core\views.py:3582
+#: .\core\views.py:3585
 #, python-format
 msgid "已記錄 %(v0)s 的%(v1)s（%(v2)s）。"
 msgstr "Logged %(v1)s for %(v0)s (%(v2)s)."
 
-#: .\core\views.py:3649 .\templates\web\library.html:26
+#: .\core\views.py:3652 .\templates\web\library.html:26
 #: .\templates\web\library.html:95 .\training\models.py:425
 #: .\training\models.py:428 .\training\models.py:429 .\training\models.py:437
 msgid "運動種類"
 msgstr "Sport"
 
-#: .\core\views.py:3650 .\templates\web\_session_body.html:1158
+#: .\core\views.py:3653 .\templates\web\_session_body.html:1158
 #: .\templates\web\library.html:29 .\templates\web\library.html:93
 #: .\templates\web\library.html:165 .\templates\web\library.html:267
 #: .\training\models.py:448 .\training\models.py:449 .\training\models.py:507
 msgid "運動項目"
 msgstr "Event"
 
-#: .\core\views.py:3651 .\templates\web\_session_body.html:1166
+#: .\core\views.py:3654 .\templates\web\_session_body.html:1166
 #: .\templates\web\library.html:32 .\templates\web\library.html:109
 #: .\templates\web\library.html:174 .\templates\web\library.html:277
 #: .\training\models.py:465 .\training\models.py:468 .\training\models.py:469
@@ -4368,184 +4375,184 @@ msgstr "Event"
 msgid "訓練動作種類"
 msgstr "Exercise Category"
 
-#: .\core\views.py:3652 .\templates\web\_session_body.html:953
+#: .\core\views.py:3655 .\templates\web\_session_body.html:953
 #: .\templates\web\analytics.html:768 .\templates\web\analytics.html:937
 #: .\templates\web\analytics.html:1086 .\templates\web\library.html:35
 msgid "動作"
 msgstr "Exercise"
 
-#: .\core\views.py:3688
+#: .\core\views.py:3691
 msgid "，等管理員確認後所有人都看得到"
 msgstr ", and once an administrator approves it everyone will see it"
 
-#: .\core\views.py:3692
+#: .\core\views.py:3695
 msgid "只有管理員可以確認項目庫的新增內容。"
 msgstr "Only an administrator can approve additions to the library."
 
-#: .\core\views.py:3696
+#: .\core\views.py:3699
 msgid "找不到要處理的項目。"
 msgstr "The item to act on could not be found."
 
-#: .\core\views.py:3700
+#: .\core\views.py:3703
 #, python-format
 msgid "已確認%(v0)s「%(v1)s」，現在所有人都看得到。"
 msgstr "Approved the %(v0)s \"%(v1)s\"; everyone can see it now."
 
-#: .\core\views.py:3704
+#: .\core\views.py:3707
 #, python-format
 msgid "已退回%(v0)s「%(v1)s」。"
 msgstr "Rejected the %(v0)s \"%(v1)s\"."
 
-#: .\core\views.py:3710
+#: .\core\views.py:3713
 msgid "請填運動種類的名稱。"
 msgstr "Please enter the name of the sport."
 
-#: .\core\views.py:3712 .\core\views.py:3758 .\core\views.py:3782
+#: .\core\views.py:3715 .\core\views.py:3761 .\core\views.py:3785
 #, python-format
 msgid "「%(v0)s」已經在項目庫裡了。"
 msgstr "\"%(v0)s\" is already in the library."
 
-#: .\core\views.py:3721
+#: .\core\views.py:3724
 #, python-format
 msgid "已加入運動種類「%(v0)s」%(v1)s。"
 msgstr "Added the sport \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3729
+#: .\core\views.py:3732
 msgid "請先挑一個運動種類。"
 msgstr "Pick a sport first."
 
-#: .\core\views.py:3731
+#: .\core\views.py:3734
 msgid "請填運動項目的名稱。"
 msgstr "Please enter the name of the event."
 
-#: .\core\views.py:3733
+#: .\core\views.py:3736
 #, python-format
 msgid "「%(v0)s · %(v1)s」已經在項目庫裡了。"
 msgstr "\"%(v0)s · %(v1)s\" is already in the library."
 
-#: .\core\views.py:3749
+#: .\core\views.py:3752
 #, python-format
 msgid "已加入運動項目「%(v0)s · %(v1)s」%(v2)s。"
 msgstr "Added the event \"%(v0)s · %(v1)s\"%(v2)s."
 
-#: .\core\views.py:3756
+#: .\core\views.py:3759
 msgid "請填訓練動作種類的名稱。"
 msgstr "Please enter the name of the exercise category."
 
-#: .\core\views.py:3767
+#: .\core\views.py:3770
 #, python-format
 msgid "已加入訓練動作種類「%(v0)s」%(v1)s。"
 msgstr "Added the exercise category \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3778 .\core\views.py:3817
+#: .\core\views.py:3781 .\core\views.py:3820
 msgid "請填動作名稱。"
 msgstr "Please enter the exercise name."
 
-#: .\core\views.py:3780
+#: .\core\views.py:3783
 msgid "請挑這個動作屬於哪個運動項目。"
 msgstr "Pick which event this exercise belongs to."
 
-#: .\core\views.py:3803
+#: .\core\views.py:3806
 #, python-format
 msgid "已加入動作「%(v0)s」%(v1)s。"
 msgstr "Added the exercise \"%(v0)s\"%(v1)s."
 
-#: .\core\views.py:3813
+#: .\core\views.py:3816
 msgid "找不到要修改的動作。"
 msgstr "The exercise to edit could not be found."
 
-#: .\core\views.py:3815
+#: .\core\views.py:3818
 msgid "只有管理員或當初加這個動作的人可以修改它。"
 msgstr "Only an admin, or the person who added this movement, can edit it."
 
-#: .\core\views.py:3823 .\core\views.py:3867
+#: .\core\views.py:3826 .\core\views.py:3870
 #, python-format
 msgid "項目庫裡已經有另一個「%(v0)s」了。"
 msgstr "The item library already holds another \"%(v0)s\"."
 
-#: .\core\views.py:3846
+#: .\core\views.py:3849
 #, python-format
 msgid "已更新動作「%(v0)s」。"
 msgstr "Updated the exercise \"%(v0)s\"."
 
-#: .\core\views.py:3861
+#: .\core\views.py:3864
 msgid "找不到要修改的項目。"
 msgstr "The item to edit could not be found."
 
-#: .\core\views.py:3863
+#: .\core\views.py:3866
 msgid "只有管理員或當初加這一項的人可以修改它。"
 msgstr "Only an admin, or the person who added this entry, can edit it."
 
-#: .\core\views.py:3865
+#: .\core\views.py:3868
 msgid "請填名稱。"
 msgstr "Please enter a name."
 
-#: .\core\views.py:3878
+#: .\core\views.py:3881
 #, python-format
 msgid "已更新%(v0)s「%(v1)s」。"
 msgstr "Updated the %(v0)s \"%(v1)s\"."
 
-#: .\core\views.py:3889
+#: .\core\views.py:3892
 msgid "找不到要處理的動作或運動項目。"
 msgstr "The exercise or event to act on could not be found."
 
-#: .\core\views.py:3893
+#: .\core\views.py:3896
 #, python-format
 msgid "「%(v0)s」本來就在「%(v1)s」底下。"
 msgstr "\"%(v0)s\" is already under \"%(v1)s\"."
 
-#: .\core\views.py:3900
+#: .\core\views.py:3903
 #, python-format
 msgid "已把「%(v0)s」也加進「%(v1)s」，兩邊的清單都挑得到。"
 msgstr ""
 "\"%(v0)s\" has been added to \"%(v1)s\" as well; it can be picked from "
 "either list."
 
-#: .\core\views.py:3905
+#: .\core\views.py:3908
 #, python-format
 msgid "已把「%(v0)s」從「%(v1)s」移走。"
 msgstr "Removed \"%(v0)s\" from \"%(v1)s\"."
 
-#: .\core\views.py:3909 .\core\views.py:3973 .\core\views.py:4054
+#: .\core\views.py:3912 .\core\views.py:3976 .\core\views.py:4057
 msgid "不認得的操作。"
 msgstr "Unrecognised operation."
 
-#: .\core\views.py:3964
+#: .\core\views.py:3967
 #, python-format
 msgid "已上傳「%(v0)s」。"
 msgstr "Uploaded \"%(v0)s\"."
 
-#: .\core\views.py:3971
+#: .\core\views.py:3974
 #, python-format
 msgid "已刪除「%(v0)s」。"
 msgstr "Deleted \"%(v0)s\"."
 
-#: .\core\views.py:4035
+#: .\core\views.py:4038
 msgid "已加入分析重點紀錄。"
 msgstr "Added to the analysis notes."
 
-#: .\core\views.py:4039
+#: .\core\views.py:4042
 msgid "已刪除這則紀錄。"
 msgstr "Deleted this note."
 
-#: .\core\views.py:4045
+#: .\core\views.py:4048
 msgid "已標記為範本，保留期限不會清掉這條片。"
 msgstr ""
 "Marked as a reference clip: the retention limit will not remove this video."
 
-#: .\core\views.py:4047
+#: .\core\views.py:4050
 msgid "已取消範本標記。"
 msgstr "No longer marked as a reference clip."
 
-#: .\core\views.py:4051
+#: .\core\views.py:4054
 msgid "已刪除該影片。"
 msgstr "Deleted that video."
 
-#: .\core\views.py:4099
+#: .\core\views.py:4102
 msgid "先挑一位運動員。"
 msgstr "Pick an athlete first."
 
-#: .\core\views.py:4108
+#: .\core\views.py:4111
 msgid "檔案大小不正確。"
 msgstr "The file size is not valid."
 
@@ -8419,6 +8426,317 @@ msgstr "Reject"
 msgid "等管理員確認"
 msgstr "Awaiting approval"
 
+#: .\templates\web\_record_log.html:18
+#, python-format
+msgid "第 %(v0)s–%(v1)s 筆 / 共 %(v2)s 筆"
+msgstr "%(v0)s–%(v1)s of %(v2)s records"
+
+#: .\templates\web\_record_log.html:19
+#, python-format
+msgid "第 %(v0)s / %(v1)s 頁"
+msgstr "Page %(v0)s / %(v1)s"
+
+#: .\templates\web\_record_log.html:20
+msgid "共 0 筆"
+msgstr "0 records"
+
+#: .\templates\web\_record_log.html:25 .\templates\web\analytics.html:1034
+#: .\templates\web\analytics.html:1339
+msgid "年份"
+msgstr "Year"
+
+#: .\templates\web\_record_log.html:27
+msgid "全部年份"
+msgstr "All years"
+
+#: .\templates\web\_record_log.html:33 .\templates\web\analytics.html:1339
+msgid "月份"
+msgstr "Month"
+
+#: .\templates\web\_record_log.html:35
+msgid "全部月份"
+msgstr "All months"
+
+#: .\templates\web\_record_log.html:41 .\templates\web\athlete_list.html:21
+msgid "搜尋"
+msgstr "Search"
+
+#: .\templates\web\_record_log.html:44
+msgid "篩選"
+msgstr "Filter"
+
+#: .\templates\web\_record_log.html:45
+msgid "清除條件"
+msgstr "Clear filters"
+
+#: .\templates\web\_record_log.html:52
+msgid "全選這一頁"
+msgstr "Select every row on this page"
+
+#: .\templates\web\_record_log.html:57
+#, python-format
+msgid "照「%(v0)s」排序"
+msgstr "Sort by %(v0)s"
+
+#: .\templates\web\_record_log.html:97 .\templates\web\analytics.html:464
+#: .\templates\web\analytics.html:505
+#, python-format
+msgid "%(v0)s %(v1)s｜點一下回到那一堂課"
+msgstr "%(v0)s %(v1)s | click to go back to that session"
+
+#: .\templates\web\_record_log.html:105
+msgid "這個條件下沒有紀錄，換個年月或關鍵字。"
+msgstr "Nothing matches; try another month or another keyword."
+
+#: .\templates\web\_record_log.html:116 .\templates\web\analytics.html:521
+msgid "上一頁"
+msgstr "Previous"
+
+#: .\templates\web\_record_log.html:123 .\templates\web\analytics.html:528
+msgid "下一頁"
+msgstr "Next"
+
+#: .\templates\web\_record_log.html:124
+#, python-format
+msgid "一頁 %(v0)s 筆；勾過的紀錄換頁也算數"
+msgstr "%(v0)s per page; ticked records still count after you change page"
+
+#: .\templates\web\_record_log.html:130
+msgid "已選"
+msgstr "Selected"
+
+#: .\templates\web\_record_log.html:130
+msgid "筆"
+msgstr "records"
+
+#: .\templates\web\_record_log.html:131
+#, python-format
+msgid "（其中 %(v0)s 筆不在目前的篩選範圍內，仍然算數）"
+msgstr "(%(v0)s of them are outside the current filter and still count)"
+
+#: .\templates\web\_record_log.html:133
+msgid "分析方向"
+msgstr "Analysis direction"
+
+#: .\templates\web\_record_log.html:140
+msgid "時間切法"
+msgstr "Time split"
+
+#: .\templates\web\_record_log.html:147
+msgid "分析選取的紀錄"
+msgstr "Analyse selected records"
+
+#: .\templates\web\_record_log.html:148
+msgid "取消全部選取"
+msgstr "Clear selection"
+
+#: .\templates\web\_record_log.html:149
+#, python-format
+msgid "「時間切法」只影響後兩個方向（%(v0)s、%(v1)s）。"
+msgstr "Time split only affects the last two directions (%(v0)s, %(v1)s)."
+
+#: .\templates\web\_record_log.html:162
+#, python-format
+msgid "%(v0)s 天 · %(v1)s → %(v2)s"
+msgstr "%(v0)s days · %(v1)s → %(v2)s"
+
+#: .\templates\web\_record_log.html:167
+#, python-format
+msgid "平均 %(v0)s %(v1)s"
+msgstr "Average %(v0)s %(v1)s"
+
+#: .\templates\web\_record_log.html:174
+#, python-format
+msgid "共 %(v0)s 次 · 每組平均 %(v1)s 次"
+msgstr "%(v0)s reps total · %(v1)s reps per set"
+
+#: .\templates\web\_record_log.html:174
+msgid "次數欄還沒填"
+msgstr "Reps column is still empty"
+
+#: .\templates\web\_record_log.html:176
+#, python-format
+msgid "平均強度 %(v0)s%%"
+msgstr "Average intensity %(v0)s%%"
+
+#: .\templates\web\_record_log.html:176
+msgid "強度欄還沒填"
+msgstr "Intensity column is still empty"
+
+#: .\templates\web\_record_log.html:181 .\templates\web\_record_log.html:201
+#: .\templates\web\_record_log.html:218 .\templates\web\_record_log.html:235
+#: .\templates\web\analytics.html:315 .\templates\web\analytics.html:375
+msgid "完成率"
+msgstr "Completion"
+
+#: .\templates\web\_record_log.html:184
+#, python-format
+msgid "達標 %(v0)s%%"
+msgstr "%(v0)s%% on target"
+
+#: .\templates\web\_record_log.html:184
+msgid "沒有填目標數值"
+msgstr "No target values filled in"
+
+#: .\templates\web\_record_log.html:185
+#, python-format
+msgid "休息 %(v0)s 分"
+msgstr "Rest %(v0)s min"
+
+#: .\templates\web\_record_log.html:201 .\templates\web\_record_log.html:218
+#: .\templates\web\_record_log.html:235 .\templates\web\analytics.html:215
+#: .\templates\web\analytics.html:313 .\templates\web\analytics.html:373
+#: .\templates\web\analytics.html:383 .\templates\web\analytics.html:1359
+#: .\templates\web\analytics.html:1568 .\templates\web\analytics.html:1707
+msgid "最佳"
+msgstr "Best"
+
+#: .\templates\web\_record_log.html:201 .\templates\web\_record_log.html:218
+#: .\templates\web\_record_log.html:235 .\templates\web\analytics.html:234
+#: .\templates\web\analytics.html:313 .\templates\web\analytics.html:373
+#: .\templates\web\analytics.html:1270 .\templates\web\analytics.html:1362
+#: .\templates\web\analytics.html:1570 .\templates\web\analytics.html:1709
+msgid "平均"
+msgstr "Average"
+
+#: .\templates\web\_record_log.html:201
+#, python-format
+msgid "總量 (%(v0)s)"
+msgstr "Total (%(v0)s)"
+
+#: .\templates\web\_record_log.html:232
+msgid "照當天狀態分"
+msgstr "By status on the day"
+
+#: .\templates\web\_record_log.html:256
+msgid "跟隊上其他人比"
+msgstr "Against the rest of the squad"
+
+#: .\templates\web\_record_log.html:262
+#, python-format
+msgid "最佳（%(v0)s）"
+msgstr "Best (%(v0)s)"
+
+#: .\templates\web\_record_log.html:262
+#, python-format
+msgid "平均（%(v0)s）"
+msgstr "Average (%(v0)s)"
+
+#: .\templates\web\_record_log.html:288
+#, python-format
+msgid "切成 %(v0)s 段"
+msgstr "%(v0)s periods"
+
+#: .\templates\web\_record_log.html:288
+#, python-format
+msgid "%(v0)s 筆落在沒有分期的日子"
+msgstr "%(v0)s records fall on days with no phase"
+
+#: .\templates\web\_record_log.html:299 .\templates\web\analytics.html:1088
+msgid "頭尾變化"
+msgstr "Change end to end"
+
+#: .\templates\web\_record_log.html:305
+#, python-format
+msgid "%(v0)s %(v2)s · %(v1)s %(v3)s"
+msgstr "%(v0)s %(v2)s · %(v1)s %(v3)s"
+
+#: .\templates\web\_record_log.html:310
+#, python-format
+msgid "最佳 %(v0)s"
+msgstr "Best %(v0)s"
+
+#: .\templates\web\_record_log.html:311
+#, python-format
+msgid "%(v0)s %(v2)s / %(v1)s %(v3)s"
+msgstr "%(v0)s %(v2)s / %(v1)s %(v3)s"
+
+#: .\templates\web\_record_log.html:314
+#, python-format
+msgid "每組 %(v0)s 次"
+msgstr "%(v0)s reps per set"
+
+#: .\templates\web\_record_log.html:316
+#, python-format
+msgid "強度 %(v0)s%%"
+msgstr "Intensity %(v0)s%%"
+
+#: .\templates\web\_record_log.html:326
+#, python-format
+msgid "量 %(v0)s%%"
+msgstr "Volume %(v0)s%%"
+
+#: .\templates\web\_record_log.html:334
+msgid "全部加起來"
+msgstr "All together"
+
+#: .\templates\web\_record_log.html:338
+#, python-format
+msgid "%(v0)s %(v2)s / %(v1)s 天"
+msgstr "%(v0)s %(v2)s / %(v1)s days"
+
+#: .\templates\web\_record_log.html:339
+#, python-format
+msgid "完成率 %(v0)s%%"
+msgstr "%(v0)s%% completed"
+
+#: .\templates\web\_record_log.html:360
+msgid "同一段時間的幾件事擺在同一列上比"
+msgstr "Several things over the same span, lined up on one row"
+
+#: .\templates\web\_record_log.html:369
+#, python-format
+msgid "量 (%(v0)s)"
+msgstr "Volume (%(v0)s)"
+
+#: .\templates\web\_record_log.html:370
+#, python-format
+msgid "平均 / 最佳（%(v0)s）"
+msgstr "Average / best (%(v0)s)"
+
+#: .\templates\web\_record_log.html:372
+msgid "田徑：組 / 天"
+msgstr "Track: sets / days"
+
+#: .\templates\web\_record_log.html:373
+msgid "田徑量 (m)"
+msgstr "Track volume (m)"
+
+#: .\templates\web\_record_log.html:374 .\templates\web\analytics.html:1272
+msgid "田徑平均（秒）"
+msgstr "Track average (sec)"
+
+#: .\templates\web\_record_log.html:379
+msgid "重量：組 / 噸位"
+msgstr "Weights: sets / tonnage"
+
+#: .\templates\web\_record_log.html:380
+msgid "最重動作 (e1RM)"
+msgstr "Heaviest lift (e1RM)"
+
+#: .\templates\web\_record_log.html:381 .\templates\web\analytics.html:770
+#: .\templates\web\analytics.html:825 .\templates\web\analytics.html:940
+msgid "每公斤體重"
+msgstr "Per kg of body weight"
+
+#: .\templates\web\_record_log.html:383
+msgid "體重 / 體脂 / 肌肉率"
+msgstr "Weight / body fat / muscle"
+
+#: .\templates\web\_record_log.html:420
+msgid ""
+"e1RM 用 Epley 公式估算（重量 × (1 + (次數−1)/30)），只算單位是 kg、標了已完成"
+"的組。"
+msgstr ""
+"e1RM is estimated with the Epley formula (weight × (1 + (reps−1)/30)), "
+"counting only completed sets recorded in kg."
+
+#: .\templates\web\_record_log.html:428
+msgid "在上面的清單勾幾筆紀錄，挑一個方向，按「分析選取的紀錄」——"
+msgstr ""
+"Tick a few records in the list above, pick a direction, then press Analyse "
+"selected records — "
+
 #: .\templates\web\_repeat_fields.html:8
 msgid "一次性或循環發生"
 msgstr "One-off or recurring"
@@ -8480,7 +8798,7 @@ msgstr "Set by the athlete"
 
 #: .\templates\web\_session_body.html:57 .\templates\web\_session_body.html:80
 #: .\templates\web\_session_body.html:437
-#: .\templates\web\_session_body.html:443 .\templates\web\analytics.html:1654
+#: .\templates\web\_session_body.html:443 .\templates\web\analytics.html:1656
 msgid "分"
 msgstr "min"
 
@@ -8574,14 +8892,13 @@ msgstr ""
 #: .\templates\web\_session_body.html:409
 #: .\templates\web\_session_body.html:560
 #: .\templates\web\_session_body.html:807
-#: .\templates\web\_session_body.html:953 .\templates\web\_track_log.html:180
-#: .\templates\web\_track_log.html:197 .\templates\web\_track_log.html:214
-#: .\templates\web\analytics.html:176 .\templates\web\analytics.html:471
+#: .\templates\web\_session_body.html:953 .\templates\web\analytics.html:176
+#: .\templates\web\analytics.html:471
 msgid "組"
 msgstr "sets"
 
 #: .\templates\web\_session_body.html:201
-#: .\templates\web\_session_body.html:953 .\templates\web\analytics.html:1652
+#: .\templates\web\_session_body.html:953 .\templates\web\analytics.html:1654
 msgid "次"
 msgstr "reps"
 
@@ -8592,7 +8909,8 @@ msgstr "The distance to cover for this item (e.g. 30 m, 150 m)"
 #: .\templates\web\_session_body.html:230
 #, python-format
 msgid "挑一個範疇，在下面的「訓練紀錄」填「%(v0)s」這一項的每一組"
-msgstr "Pick a domain, then fill in every set of \"%(v0)s\" in Training Records below"
+msgstr ""
+"Pick a domain, then fill in every set of \"%(v0)s\" in Training Records below"
 
 #: .\templates\web\_session_body.html:230
 #: .\templates\web\_session_body.html:284
@@ -8646,7 +8964,9 @@ msgstr "Which domain do you want to log to?"
 
 #: .\templates\web\_session_body.html:297
 msgid "跑的：節奏跑、反覆跑、起跑…逐組記距離、秒數與強度要求"
-msgstr "Running: tempo runs, repeats, starts… distance, time and target intensity per set"
+msgstr ""
+"Running: tempo runs, repeats, starts… distance, time and target intensity "
+"per set"
 
 #: .\templates\web\_session_body.html:298
 msgid "舉的：深蹲、臥推、爆發上膊…逐組記重量與次數"
@@ -8657,8 +8977,11 @@ msgid "比賽當天的成績，可以挑是哪一場比賽"
 msgstr "Results from a competition day; you can pick which meet it was"
 
 #: .\templates\web\_session_body.html:304
-msgid "挑好之後在下面的「訓練紀錄」填每一組；挑錯了再按一次「登記錄」換一個就行。"
-msgstr "Once you have picked one, fill in every set in Training Records below; picked the wrong one? Press Log Record again and choose another."
+msgid ""
+"挑好之後在下面的「訓練紀錄」填每一組；挑錯了再按一次「登記錄」換一個就行。"
+msgstr ""
+"Once you have picked one, fill in every set in Training Records below; "
+"picked the wrong one? Press Log Record again and choose another."
 
 #: .\templates\web\_session_body.html:318
 #, python-format
@@ -8828,7 +9151,7 @@ msgstr "e.g. 90%%"
 msgid "✅ 完成"
 msgstr "✅ Completed"
 
-#: .\templates\web\_session_body.html:461 .\templates\web\analytics.html:1453
+#: .\templates\web\_session_body.html:461 .\templates\web\analytics.html:1455
 msgid "❌ 未完成"
 msgstr "❌ Not completed"
 
@@ -9391,381 +9714,6 @@ msgstr "Athlete being viewed"
 msgid "切換檢視中的運動員；換頁會跟著同一位"
 msgstr "Switch the athlete being viewed; the same one carries across pages"
 
-#: .\templates\web\_track_log.html:17
-#, python-format
-msgid "第 %(v0)s–%(v1)s 筆 / 共 %(v2)s 筆"
-msgstr "%(v0)s–%(v1)s of %(v2)s records"
-
-#: .\templates\web\_track_log.html:18
-#, python-format
-msgid "第 %(v0)s / %(v1)s 頁"
-msgstr "Page %(v0)s / %(v1)s"
-
-#: .\templates\web\_track_log.html:19
-msgid "共 0 筆"
-msgstr "0 records"
-
-#: .\templates\web\_track_log.html:24 .\templates\web\analytics.html:1034
-#: .\templates\web\analytics.html:1337
-msgid "年份"
-msgstr "Year"
-
-#: .\templates\web\_track_log.html:26
-msgid "全部年份"
-msgstr "All years"
-
-#: .\templates\web\_track_log.html:32 .\templates\web\analytics.html:1337
-msgid "月份"
-msgstr "Month"
-
-#: .\templates\web\_track_log.html:34
-msgid "全部月份"
-msgstr "All months"
-
-#: .\templates\web\_track_log.html:40 .\templates\web\athlete_list.html:21
-msgid "搜尋"
-msgstr "Search"
-
-#: .\templates\web\_track_log.html:42
-#, python-format
-msgid "打 150 就出所有 150m；也可以打反覆跑、90%%、正課、傷害治療"
-msgstr ""
-"Type 150 for every 150m set; repetition run, 90%%, main set or injury "
-"treatment work too"
-
-#: .\templates\web\_track_log.html:44
-msgid "篩選"
-msgstr "Filter"
-
-#: .\templates\web\_track_log.html:45
-msgid "清除條件"
-msgstr "Clear filters"
-
-#: .\templates\web\_track_log.html:52
-msgid "全選這一頁"
-msgstr "Select every row on this page"
-
-#: .\templates\web\_track_log.html:57
-#, python-format
-msgid "照「%(v0)s」排序"
-msgstr "Sort by %(v0)s"
-
-#: .\templates\web\_track_log.html:83 .\templates\web\analytics.html:464
-#: .\templates\web\analytics.html:505
-#, python-format
-msgid "%(v0)s %(v1)s｜點一下回到那一堂課"
-msgstr "%(v0)s %(v1)s | click to go back to that session"
-
-#: .\templates\web\_track_log.html:90
-msgid "這個條件下沒有紀錄，換個年月或關鍵字。"
-msgstr "Nothing matches; try another month or another keyword."
-
-#: .\templates\web\_track_log.html:91
-msgid "還沒有田徑練習的紀錄。到課表那一天的活動旁按「登記錄」就可以開始記。"
-msgstr ""
-"No track practice records yet. Press Log record next to an activity on that "
-"day of the plan to start."
-
-#: .\templates\web\_track_log.html:101 .\templates\web\analytics.html:521
-msgid "上一頁"
-msgstr "Previous"
-
-#: .\templates\web\_track_log.html:108 .\templates\web\analytics.html:528
-msgid "下一頁"
-msgstr "Next"
-
-#: .\templates\web\_track_log.html:109
-#, python-format
-msgid "一頁 %(v0)s 筆；勾過的紀錄換頁也算數"
-msgstr "%(v0)s per page; ticked records still count after you change page"
-
-#: .\templates\web\_track_log.html:115
-msgid "已選"
-msgstr "Selected"
-
-#: .\templates\web\_track_log.html:115
-msgid "筆"
-msgstr "records"
-
-#: .\templates\web\_track_log.html:116
-#, python-format
-msgid "（其中 %(v0)s 筆不在目前的篩選範圍內，仍然算數）"
-msgstr "(%(v0)s of them are outside the current filter and still count)"
-
-#: .\templates\web\_track_log.html:118
-msgid "分析方向"
-msgstr "Analysis direction"
-
-#: .\templates\web\_track_log.html:125
-msgid "時間切法"
-msgstr "Time split"
-
-#: .\templates\web\_track_log.html:132
-msgid "分析選取的紀錄"
-msgstr "Analyse selected records"
-
-#: .\templates\web\_track_log.html:133
-msgid "取消全部選取"
-msgstr "Clear selection"
-
-#: .\templates\web\_track_log.html:134
-msgid "「時間切法」只影響後兩個方向（同距離跨時段、拼入重量與身體結構）。"
-msgstr ""
-"Time split only affects the last two directions (same distance across "
-"periods, and folding in weight training and body composition)."
-
-#: .\templates\web\_track_log.html:145
-msgid "挑出來的組數"
-msgstr "Sets picked"
-
-#: .\templates\web\_track_log.html:147
-#, python-format
-msgid "%(v0)s 天 · %(v1)s → %(v2)s"
-msgstr "%(v0)s days · %(v1)s → %(v2)s"
-
-#: .\templates\web\_track_log.html:150
-msgid "最佳 / 平均（秒）"
-msgstr "Best / average (sec)"
-
-#: .\templates\web\_track_log.html:152
-#, python-format
-msgid "平均 %(v0)s 秒"
-msgstr "Average %(v0)s sec"
-
-#: .\templates\web\_track_log.html:155
-msgid "訓練量（總距離）"
-msgstr "Volume (total distance)"
-
-#: .\templates\web\_track_log.html:157
-#, python-format
-msgid "平均強度 %(v0)s%%"
-msgstr "Average intensity %(v0)s%%"
-
-#: .\templates\web\_track_log.html:157
-msgid "強度欄還沒填"
-msgstr "Intensity column is still empty"
-
-#: .\templates\web\_track_log.html:160 .\templates\web\_track_log.html:180
-#: .\templates\web\_track_log.html:197 .\templates\web\_track_log.html:214
-#: .\templates\web\analytics.html:315 .\templates\web\analytics.html:375
-msgid "完成率"
-msgstr "Completion"
-
-#: .\templates\web\_track_log.html:163
-#, python-format
-msgid "達標 %(v0)s%%"
-msgstr "%(v0)s%% on target"
-
-#: .\templates\web\_track_log.html:163
-msgid "沒有填目標數值"
-msgstr "No target values filled in"
-
-#: .\templates\web\_track_log.html:164
-#, python-format
-msgid "休息 %(v0)s 分"
-msgstr "Rest %(v0)s min"
-
-#: .\templates\web\_track_log.html:171 .\templates\web\_track_log.html:385
-msgid "表現與時間"
-msgstr "Performance over time"
-
-#: .\templates\web\_track_log.html:172
-msgid "挑出來的每一組按日期排開，虛線是課表要求的目標"
-msgstr ""
-"Every picked set laid out by date; the dashed line is the target from the "
-"plan"
-
-#: .\templates\web\_track_log.html:177
-msgid "照距離分"
-msgstr "By distance"
-
-#: .\templates\web\_track_log.html:180 .\templates\web\_track_log.html:197
-#: .\templates\web\_track_log.html:214 .\templates\web\analytics.html:215
-#: .\templates\web\analytics.html:313 .\templates\web\analytics.html:373
-#: .\templates\web\analytics.html:383 .\templates\web\analytics.html:1357
-#: .\templates\web\analytics.html:1566 .\templates\web\analytics.html:1705
-msgid "最佳"
-msgstr "Best"
-
-#: .\templates\web\_track_log.html:180 .\templates\web\_track_log.html:197
-#: .\templates\web\_track_log.html:214 .\templates\web\analytics.html:234
-#: .\templates\web\analytics.html:313 .\templates\web\analytics.html:373
-#: .\templates\web\analytics.html:1360 .\templates\web\analytics.html:1568
-#: .\templates\web\analytics.html:1707
-msgid "平均"
-msgstr "Average"
-
-#: .\templates\web\_track_log.html:180
-msgid "總量 (m)"
-msgstr "Total (m)"
-
-#: .\templates\web\_track_log.html:194
-msgid "照強度分"
-msgstr "By intensity"
-
-#: .\templates\web\_track_log.html:211
-msgid "照當天狀態分"
-msgstr "By status on the day"
-
-#: .\templates\web\_track_log.html:235
-msgid "跟隊上其他人比"
-msgstr "Against the rest of the squad"
-
-#: .\templates\web\_track_log.html:236
-msgid "同樣的距離、同一段日子，看的是水準不是排名"
-msgstr "Same distances, same span of days — this is about level, not ranking"
-
-#: .\templates\web\_track_log.html:241
-msgid "最佳（秒）"
-msgstr "Best (sec)"
-
-#: .\templates\web\_track_log.html:241
-msgid "平均（秒）"
-msgstr "Average (sec)"
-
-#: .\templates\web\_track_log.html:256
-msgid "沒有其他運動員在同一段日子練過同樣的距離，或這幾筆還沒填距離。"
-msgstr ""
-"No other athlete trained the same distances over the same days, or these "
-"records have no distance filled in."
-
-#: .\templates\web\_track_log.html:266
-msgid "同一個距離，在不同時段的變化"
-msgstr "One distance, how it changes across periods"
-
-#: .\templates\web\_track_log.html:267
-#, python-format
-msgid "切成 %(v0)s 段"
-msgstr "%(v0)s periods"
-
-#: .\templates\web\_track_log.html:267
-#, python-format
-msgid "%(v0)s 筆落在沒有分期的日子"
-msgstr "%(v0)s records fall on days with no phase"
-
-#: .\templates\web\_track_log.html:278 .\templates\web\analytics.html:1088
-msgid "頭尾變化"
-msgstr "Change end to end"
-
-#: .\templates\web\_track_log.html:284
-#, python-format
-msgid "%(v0)s 組 · %(v1)s m"
-msgstr "%(v0)s sets · %(v1)s m"
-
-#: .\templates\web\_track_log.html:289
-#, python-format
-msgid "最佳 %(v0)s"
-msgstr "Best %(v0)s"
-
-#: .\templates\web\_track_log.html:290
-#, python-format
-msgid "%(v0)s 組 / %(v1)s m"
-msgstr "%(v0)s sets / %(v1)s m"
-
-#: .\templates\web\_track_log.html:291
-#, python-format
-msgid "強度 %(v0)s%%"
-msgstr "Intensity %(v0)s%%"
-
-#: .\templates\web\_track_log.html:298
-#, python-format
-msgid "量 %(v0)s%%"
-msgstr "Volume %(v0)s%%"
-
-#: .\templates\web\_track_log.html:306
-msgid "全部加起來"
-msgstr "All together"
-
-#: .\templates\web\_track_log.html:310
-#, python-format
-msgid "%(v0)s 組 / %(v1)s 天"
-msgstr "%(v0)s sets / %(v1)s days"
-
-#: .\templates\web\_track_log.html:311
-#, python-format
-msgid "完成率 %(v0)s%%"
-msgstr "%(v0)s%% completed"
-
-#: .\templates\web\_track_log.html:321
-msgid "秒數越小越好：頭尾變化是負數，表示最後那一段比第一段快。"
-msgstr ""
-"Lower seconds are better: a negative change from the first period to the "
-"last means the last one was faster."
-
-#: .\templates\web\_track_log.html:331
-msgid "田徑練習 × 重量訓練 × 身體結構"
-msgstr "Track practice × weight training × body composition"
-
-#: .\templates\web\_track_log.html:332
-msgid "同一段時間的三件事擺在同一列上比"
-msgstr "The three of them on one row, over the same span"
-
-#: .\templates\web\_track_log.html:340
-msgid "田徑：組 / 天"
-msgstr "Track: sets / days"
-
-#: .\templates\web\_track_log.html:341
-msgid "訓練量 (m)"
-msgstr "Volume (m)"
-
-#: .\templates\web\_track_log.html:342
-msgid "平均 / 最佳（秒）"
-msgstr "Average / best (sec)"
-
-#: .\templates\web\_track_log.html:344
-msgid "重量：組 / 噸位"
-msgstr "Weights: sets / tonnage"
-
-#: .\templates\web\_track_log.html:345
-msgid "最重動作 (e1RM)"
-msgstr "Heaviest lift (e1RM)"
-
-#: .\templates\web\_track_log.html:346 .\templates\web\analytics.html:770
-#: .\templates\web\analytics.html:825 .\templates\web\analytics.html:940
-msgid "每公斤體重"
-msgstr "Per kg of body weight"
-
-#: .\templates\web\_track_log.html:347
-msgid "體重 / 體脂 / 肌肉率"
-msgstr "Weight / body fat / muscle"
-
-#: .\templates\web\_track_log.html:376
-msgid ""
-"e1RM 用 Epley 公式估算（重量 × (1 + (次數−1)/30)），只算單位是 kg、標了已完成"
-"的組。"
-msgstr ""
-"e1RM is estimated with the Epley formula (weight × (1 + (reps−1)/30)), "
-"counting only completed sets recorded in kg."
-
-#: .\templates\web\_track_log.html:384
-msgid "在上面的清單勾幾筆紀錄，挑一個方向，按「分析選取的紀錄」——"
-msgstr ""
-"Tick a few records in the list above, pick a direction, then press Analyse "
-"selected records — "
-
-#: .\templates\web\_track_log.html:385
-msgid "看這幾組本身練得怎樣、在隊裡是什麼水準；"
-msgstr "how those sets actually went, and where they sit within the squad;"
-
-#: .\templates\web\_track_log.html:386
-msgid "同距離跨時段"
-msgstr "Same distance across periods"
-
-#: .\templates\web\_track_log.html:386
-msgid "看同一個距離在不同年月／時期的量與強度變化；"
-msgstr ""
-"how volume and intensity on one distance change across years, months or "
-"phases;"
-
-#: .\templates\web\_track_log.html:387
-msgid "拼入重量與身體結構"
-msgstr "Folding in weight training and body composition"
-
-#: .\templates\web\_track_log.html:387
-msgid "把同一段時間的重量訓練與體組成擺在一起看。"
-msgstr ""
-"puts weight training and body composition over the same span side by side."
-
 #: .\templates\web\analytics.html:25 .\templates\web\injuries.html:20
 #: .\templates\web\nutrition.html:20
 msgid "全部收起"
@@ -10184,8 +10132,8 @@ msgstr "Last 10 days"
 msgid "全部日期"
 msgstr "All dates"
 
-#: .\templates\web\analytics.html:562 .\templates\web\analytics.html:1399
-#: .\templates\web\analytics.html:1636 .\training\models.py:278
+#: .\templates\web\analytics.html:562 .\templates\web\analytics.html:1401
+#: .\templates\web\analytics.html:1638 .\training\models.py:278
 msgid "數值"
 msgstr "Value"
 
@@ -10673,341 +10621,317 @@ msgstr ""
 "The estimated 1RM uses the Epley formula (weight x (1 + (reps - 1)/30)), "
 "counting only sets measured in kg and marked \"completed\"."
 
-#: .\templates\web\analytics.html:1198
-msgid "完成數值（秒）"
-msgstr "Result (sec)"
-
-#: .\templates\web\analytics.html:1202
-msgid "目標數值（秒）"
-msgstr "Target value (sec)"
-
 #: .\templates\web\analytics.html:1209
 msgid "秒（軸已反轉：越上面越好）"
 msgstr "Seconds (axis reversed: higher is better)"
 
+#: .\templates\web\analytics.html:1214 .\templates\web\analytics.html:1460
+#: .\training\models.py:638 .\training\models.py:661
+msgid " 次"
+msgstr " reps"
+
 #: .\templates\web\analytics.html:1216
-msgid "這一組沒有完成"
-msgstr "This set was not completed"
-
-#: .\templates\web\analytics.html:1232
-msgid "（平均秒）"
-msgstr "(average sec)"
-
-#: .\templates\web\analytics.html:1240 .\templates\web\analytics.html:1247
-msgid "訓練量（m）"
-msgstr "Volume (m)"
+msgid "這一筆沒有完成"
+msgstr "This one was not completed"
 
 #: .\templates\web\analytics.html:1249
 msgid "秒（軸已反轉：越上面越快）"
 msgstr "Seconds (axis reversed: higher is faster)"
 
-#: .\templates\web\analytics.html:1266
-msgid "田徑訓練量（m）"
-msgstr "Track volume (m)"
-
 #: .\templates\web\analytics.html:1268
 msgid "重量訓練總噸位（kg）"
 msgstr "Weight-training tonnage (kg)"
 
-#: .\templates\web\analytics.html:1270
-msgid "田徑平均（秒）"
-msgstr "Track average (sec)"
-
-#: .\templates\web\analytics.html:1272
+#: .\templates\web\analytics.html:1275
 #, python-format
 msgid "體脂率（%%）"
 msgstr "Body fat (%%)"
 
-#: .\templates\web\analytics.html:1274
+#: .\templates\web\analytics.html:1277
 #, python-format
 msgid "肌肉率（%%）"
 msgstr "Muscle (%%)"
 
-#: .\templates\web\analytics.html:1280
+#: .\templates\web\analytics.html:1283
 msgid "量 / 噸位"
 msgstr "Volume / tonnage"
 
-#: .\templates\web\analytics.html:1282
+#: .\templates\web\analytics.html:1285
 msgid "秒（已反轉）"
 msgstr "Seconds (reversed)"
 
-#: .\templates\web\analytics.html:1333 .\templates\web\analytics.html:1610
+#: .\templates\web\analytics.html:1335 .\templates\web\analytics.html:1612
 msgid "（軸已反轉：越上面越好）"
 msgstr "(axis reversed: higher up is better)"
 
-#: .\templates\web\analytics.html:1337
+#: .\templates\web\analytics.html:1339
 msgid "時期"
 msgstr "Phase"
 
-#: .\templates\web\analytics.html:1366 .\templates\web\analytics.html:1582
+#: .\templates\web\analytics.html:1368 .\templates\web\analytics.html:1584
 msgid " 組 / "
 msgstr " sets / "
 
-#: .\templates\web\analytics.html:1366 .\templates\web\analytics.html:1582
+#: .\templates\web\analytics.html:1368 .\templates\web\analytics.html:1584
 msgid " 天"
 msgstr " days"
 
-#: .\templates\web\analytics.html:1369 .\templates\web\analytics.html:1582
-#: .\templates\web\analytics.html:1718
+#: .\templates\web\analytics.html:1371 .\templates\web\analytics.html:1584
+#: .\templates\web\analytics.html:1720
 msgid "共 "
 msgstr "a total of "
 
-#: .\templates\web\analytics.html:1369
+#: .\templates\web\analytics.html:1371
 msgid " 個"
 msgstr " "
 
-#: .\templates\web\analytics.html:1369
+#: .\templates\web\analytics.html:1371
 msgid "；每一柱是該"
 msgstr "; each bar is the best and average for that "
 
-#: .\templates\web\analytics.html:1370
+#: .\templates\web\analytics.html:1372
 msgid "的最佳與平均（"
 msgstr " ("
 
-#: .\templates\web\analytics.html:1370
+#: .\templates\web\analytics.html:1372
 msgid "數字越小越好"
 msgstr "lower is better"
 
-#: .\templates\web\analytics.html:1370
+#: .\templates\web\analytics.html:1372
 msgid "數字越大越好"
 msgstr "higher is better"
 
-#: .\templates\web\analytics.html:1387
+#: .\templates\web\analytics.html:1389
 msgid "近一年 "
 msgstr "All "
 
-#: .\templates\web\analytics.html:1387
+#: .\templates\web\analytics.html:1389
 msgid " 筆紀錄按日期排開。"
 msgstr " records from the past year, laid out by date."
 
-#: .\templates\web\analytics.html:1448
+#: .\templates\web\analytics.html:1450
 msgid " 組）"
 msgstr " sets)"
 
-#: .\templates\web\analytics.html:1453
+#: .\templates\web\analytics.html:1455
 msgid "✅ 成功完成"
 msgstr "✅ Completed"
 
-#: .\templates\web\analytics.html:1454
+#: .\templates\web\analytics.html:1456
 msgid "距離 "
 msgstr "Distance "
 
-#: .\templates\web\analytics.html:1455
+#: .\templates\web\analytics.html:1457
 msgid "強度要求 "
 msgstr "required intensity "
 
-#: .\templates\web\analytics.html:1456
+#: .\templates\web\analytics.html:1458
 msgid "目標 "
 msgstr "target "
 
-#: .\templates\web\analytics.html:1457
+#: .\templates\web\analytics.html:1459
 msgid "重量 "
 msgstr "weight "
 
-#: .\templates\web\analytics.html:1458 .\training\models.py:638
-#: .\training\models.py:661
-msgid " 次"
-msgstr " reps"
-
-#: .\templates\web\analytics.html:1459
+#: .\templates\web\analytics.html:1461
 msgid "休息 "
 msgstr "rest "
 
-#: .\templates\web\analytics.html:1459
+#: .\templates\web\analytics.html:1461
 msgid " 分"
 msgstr " min"
 
-#: .\templates\web\analytics.html:1460
+#: .\templates\web\analytics.html:1462
 msgid "噸位 "
 msgstr "tonnage "
 
-#: .\templates\web\analytics.html:1489
+#: .\templates\web\analytics.html:1491
 msgid "休息 (分)"
 msgstr "Rest (min)"
 
-#: .\templates\web\analytics.html:1499 .\templates\web\analytics.html:1517
+#: .\templates\web\analytics.html:1501 .\templates\web\analytics.html:1519
 msgid "第 "
 msgstr "set "
 
-#: .\templates\web\analytics.html:1499 .\templates\web\analytics.html:1517
-#: .\templates\web\analytics.html:1583 .\templates\web\analytics.html:1718
+#: .\templates\web\analytics.html:1501 .\templates\web\analytics.html:1519
+#: .\templates\web\analytics.html:1585 .\templates\web\analytics.html:1720
 #: .\training\models.py:639 .\training\models.py:660
 msgid " 組"
 msgstr " "
 
-#: .\templates\web\analytics.html:1519
+#: .\templates\web\analytics.html:1521
 msgid " 這一天共 "
 msgstr " This day had"
 
-#: .\templates\web\analytics.html:1519
+#: .\templates\web\analytics.html:1521
 msgid " 組，完成 "
 msgstr " sets,"
 
-#: .\templates\web\analytics.html:1519
+#: .\templates\web\analytics.html:1521
 msgid " 組。"
 msgstr " completed."
 
-#: .\templates\web\analytics.html:1520
+#: .\templates\web\analytics.html:1522
 msgid "上圖：每一組的完成數值（未完成畫成紅色）"
 msgstr "Top: the completed value of each set (incomplete ones drawn in red)"
 
-#: .\templates\web\analytics.html:1521
+#: .\templates\web\analytics.html:1523
 msgid "與目標，強度要求在滑過去的提示裡"
 msgstr " and the target, with the required intensity in the hover tooltip"
 
-#: .\templates\web\analytics.html:1521
+#: .\templates\web\analytics.html:1523
 msgid "、目標與重量"
 msgstr ", the target and the weight"
 
-#: .\templates\web\analytics.html:1522
+#: .\templates\web\analytics.html:1524
 msgid "；下圖：次數與休息時間（分鐘）。"
 msgstr "; bottom: reps and rest time (minutes)."
 
-#: .\templates\web\analytics.html:1530
+#: .\templates\web\analytics.html:1532
 msgid " 休息"
 msgstr " rest"
 
-#: .\templates\web\analytics.html:1535
+#: .\templates\web\analytics.html:1537
 msgid "拿 "
 msgstr "Comparing "
 
-#: .\templates\web\analytics.html:1535
+#: .\templates\web\analytics.html:1537
 msgid " 天（"
 msgstr " days ("
 
-#: .\templates\web\analytics.html:1536
+#: .\templates\web\analytics.html:1538
 msgid "）的同一組別對照，線往"
 msgstr ") on the same set number; a line going "
 
-#: .\templates\web\analytics.html:1537
+#: .\templates\web\analytics.html:1539
 msgid "下"
 msgstr "down"
 
-#: .\templates\web\analytics.html:1537
+#: .\templates\web\analytics.html:1539
 msgid "上"
 msgstr "up"
 
-#: .\templates\web\analytics.html:1537
+#: .\templates\web\analytics.html:1539
 msgid "走就是這一組愈做愈好；下圖是各天的休息時間（分鐘）。"
 msgstr ""
 " means this set is coming on; the lower chart is the rest time (minutes) "
 "each day."
 
-#: .\templates\web\analytics.html:1543
+#: .\templates\web\analytics.html:1545
 msgid "近一年全部 "
 msgstr "All "
 
-#: .\templates\web\analytics.html:1543
+#: .\templates\web\analytics.html:1545
 msgid " 組紀錄按日期排開，看整段時間的起伏。"
 msgstr ""
 " sets from the past year laid out by date, showing the ups and downs across "
 "the whole period."
 
-#: .\templates\web\analytics.html:1572
+#: .\templates\web\analytics.html:1574
 msgid "平均次數"
 msgstr "Average reps"
 
-#: .\templates\web\analytics.html:1575
+#: .\templates\web\analytics.html:1577
 msgid "平均休息 (分)"
 msgstr "Average rest (min)"
 
-#: .\templates\web\analytics.html:1583
+#: .\templates\web\analytics.html:1585
 msgid "完成 "
 msgstr "completed "
 
-#: .\templates\web\analytics.html:1585
+#: .\templates\web\analytics.html:1587
 msgid "同一個項目照「強度要求」分開比：共 "
 msgstr "The same item split by required intensity: "
 
-#: .\templates\web\analytics.html:1585
+#: .\templates\web\analytics.html:1587
 msgid " 種強度，"
 msgstr " intensity levels, "
 
-#: .\templates\web\analytics.html:1586
+#: .\templates\web\analytics.html:1588
 msgid "看每一檔強度各跑得出什麼水準（"
 msgstr "showing the level reached at each ("
 
-#: .\templates\web\analytics.html:1587
+#: .\templates\web\analytics.html:1589
 msgid "數字愈小愈好"
 msgstr "lower is better"
 
-#: .\templates\web\analytics.html:1587
+#: .\templates\web\analytics.html:1589
 msgid "數字愈大愈好"
 msgstr "higher is better"
 
-#: .\templates\web\analytics.html:1604
+#: .\templates\web\analytics.html:1606
 msgid " Y 軸貼著數據範圍（不是從 0 起），看的是彼此之間的差別。"
 msgstr ""
 " The Y axis hugs the data range (it does not start at 0), so what shows is "
 "the difference between them."
 
-#: .\templates\web\analytics.html:1605
+#: .\templates\web\analytics.html:1607
 msgid " Y 軸在數據上下各留一點空間。"
 msgstr " The Y axis leaves a little space above and below the data."
 
-#: .\templates\web\analytics.html:1607
+#: .\templates\web\analytics.html:1609
 msgid " Y 軸從 0 起，差別會看起來比較小。"
 msgstr " The Y axis starts at 0, which makes the differences look smaller."
 
-#: .\templates\web\analytics.html:1691
+#: .\templates\web\analytics.html:1693
 msgid "各項目的當日最佳"
 msgstr "Best of the day for each item"
 
-#: .\templates\web\analytics.html:1714
+#: .\templates\web\analytics.html:1716
 msgid "（軸已反轉）"
 msgstr "(axis reversed)"
 
-#: .\templates\web\analytics.html:1732
+#: .\templates\web\analytics.html:1734
 msgid "把這個項目改成什麼名稱？"
 msgstr "What should this item be renamed to?"
 
-#: .\templates\web\analytics.html:1766
+#: .\templates\web\analytics.html:1768
 msgid "這個項目"
 msgstr "this item"
 
-#: .\templates\web\analytics.html:1768
+#: .\templates\web\analytics.html:1770
 msgid "」是系統內建項目，會清掉這名運動員在這個項目底下的所有紀錄"
 msgstr ""
 "\" is a built-in item, and this will clear every record this athlete has "
 "under it"
 
-#: .\templates\web\analytics.html:1769
+#: .\templates\web\analytics.html:1771
 msgid "（項目本身留著，重新記錄就會再出現）。確定嗎？"
 msgstr ""
 " (the item itself stays, and reappears once new data is recorded). Are you "
 "sure?"
 
-#: .\templates\web\analytics.html:1770
+#: .\templates\web\analytics.html:1772
 msgid "確定要刪除「"
 msgstr "Are you sure you want to delete \""
 
-#: .\templates\web\analytics.html:1770
+#: .\templates\web\analytics.html:1772
 msgid "」嗎？底下的紀錄會一起不見。"
 msgstr "\"? The records under it will go with it."
 
-#: .\templates\web\analytics.html:1818 .\templates\web\analytics.html:1849
+#: .\templates\web\analytics.html:1820 .\templates\web\analytics.html:1851
 msgid "相對力量 (× 體重)"
 msgstr "Relative strength (x body weight)"
 
-#: .\templates\web\analytics.html:1821 .\templates\web\analytics.html:1851
+#: .\templates\web\analytics.html:1823 .\templates\web\analytics.html:1853
 #, python-format
 msgid "體脂率 (%%)"
 msgstr "Body fat (%%)"
 
-#: .\templates\web\analytics.html:1831 .\templates\web\analytics.html:1861
+#: .\templates\web\analytics.html:1833 .\templates\web\analytics.html:1863
 msgid "× 體重"
 msgstr "x body weight"
 
-#: .\templates\web\analytics.html:1833
+#: .\templates\web\analytics.html:1835
 #, python-format
 msgid "%% / kg"
 msgstr "%% / kg"
 
-#: .\templates\web\analytics.html:1847
+#: .\templates\web\analytics.html:1849
 msgid "訓練時數 (h)"
 msgstr "Training hours (h)"
 
-#: .\templates\web\analytics.html:1854
+#: .\templates\web\analytics.html:1856
 #, python-format
 msgid "肌肉率 (%%)"
 msgstr "Muscle (%%)"

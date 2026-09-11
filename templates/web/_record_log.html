@@ -1,4 +1,5 @@
 {% load i18n %}
+{# 三個範疇共用的紀錄清單：欄位與字眼全部從 log_spec（analytics/record_log.py）來 #}
 <form method="get" id="trackLog" class="card pad0 mb">
   <input type="hidden" name="athlete" value="{{ athlete.id }}">
   <input type="hidden" name="domain" value="{{ domain }}">
@@ -10,8 +11,8 @@
   <input type="hidden" name="sort" value="{{ log_sort }}">
   <input type="hidden" name="sdir" value="{{ log_sdir }}">
 
-  <div class="card-head" data-fold-key="track-log">
-    <span>{% translate "田徑練習訓練紀錄" %}</span>
+  <div class="card-head" data-fold-key="{{ log_spec.fold_key }}">
+    <span>{{ log_spec.title }}</span>
     <span class="small c-dim">
       {% if log.total %}
         {% blocktranslate with v0=log.start_index v1=log.end_index v2=log.total %}第 {{ v0 }}–{{ v1 }} 筆 / 共 {{ v2 }} 筆{% endblocktranslate %}
@@ -38,8 +39,7 @@
       </select>
     </label>
     <label class="unitpick grow">{% translate "搜尋" %}
-      <input type="search" name="q" value="{{ log_query }}"
-             placeholder="{% translate '打 150 就出所有 150m；也可以打反覆跑、90%、正課、傷害治療' %}">
+      <input type="search" name="q" value="{{ log_query }}" placeholder="{{ log_spec.search_hint }}">
     </label>
     <button class="btn sm" type="submit" onclick="this.form.tp.value='1'">{% translate "篩選" %}</button>
     <a class="btn ghost sm" href="?athlete={{ athlete.id }}&domain={{ domain }}">{% translate "清除條件" %}</a>
@@ -67,28 +67,43 @@
             <input type="checkbox" name="pick" value="{{ r.id }}" {% if r.id in log_picks %}checked{% endif %}>
           </td>
           <td class="logdate" title="{{ r.date }}（{{ r.date|date:"l" }}）">{{ r.date|date:"Y/m/d" }}</td>
-          <td class="num">{{ r.set_no|default_if_none:"—" }}</td>
-          <td class="ellip" title="{{ r.item.display_name }}">{{ r.item.name }}</td>
-          <td class="num">{{ r.distance_display|default:"—" }}</td>
-          <td class="num">{{ r.target_value|default_if_none:"—" }}</td>
-          <td class="num"><strong>{{ r.value|default_if_none:"—" }}</strong></td>
-          <td class="num">{{ r.intensity|default:"—" }}</td>
-          <td class="num" title="{% if r.rest_sec %}{{ r.rest_display }}{% endif %}">{{ r.rest_min|default_if_none:"—" }}</td>
-          <td>{% if r.completed %}✅{% else %}❌{% endif %}</td>
-          <td>{{ r.status_label|default:"—" }}</td>
-          <td>{{ r.block_label|default:"—" }}</td>
-          <td style="white-space:nowrap">
-            {% if r.session %}
-              <a class="ellip inline" href="{% url 'web:session_detail' r.session.id %}"
-                 title="{% blocktranslate with v0=r.session.date v1=r.session.title %}{{ v0 }} {{ v1 }}｜點一下回到那一堂課{% endblocktranslate %}">{{ r.session.title }}</a>
-            {% else %}—{% endif %}
-          </td>
-          <td class="ellip" title="{{ r.context }}">{{ r.context|default:"—" }}</td>
+          {% if log_domain == 'COMPETITION' %}
+            <td class="ellip" title="{{ r.item.display_name }}">{{ r.item.name }}</td>
+            <td class="ellip" title="{{ r.competition.name }}">{{ r.competition.name|default:"—" }}</td>
+            <td class="num">{{ r.distance_display|default:"—" }}</td>
+            <td class="num">{{ r.target_value|default_if_none:"—" }}</td>
+            <td class="num"><strong>{{ r.value|default_if_none:"—" }}</strong></td>
+            <td>{% if r.completed %}✅{% else %}❌{% endif %}</td>
+            <td>{{ r.status_label|default:"—" }}</td>
+            <td class="ellip" title="{{ r.context }}">{{ r.context|default:"—" }}</td>
+          {% else %}
+            <td class="num">{{ r.set_no|default_if_none:"—" }}</td>
+            <td class="ellip" title="{{ r.item.display_name }}">{{ r.item.name }}</td>
+            {% if log_domain == 'TRACK' %}<td class="num">{{ r.distance_display|default:"—" }}</td>{% endif %}
+            <td class="num">{{ r.target_value|default_if_none:"—" }}</td>
+            <td class="num"><strong>{{ r.value|default_if_none:"—" }}</strong></td>
+            {% if log_domain == 'TRACK' %}
+              <td class="num">{{ r.intensity|default:"—" }}</td>
+            {% else %}
+              <td class="num">{{ r.reps|default_if_none:"—" }}</td>
+            {% endif %}
+            <td class="num" title="{% if r.rest_sec %}{{ r.rest_display }}{% endif %}">{{ r.rest_min|default_if_none:"—" }}</td>
+            <td>{% if r.completed %}✅{% else %}❌{% endif %}</td>
+            <td>{{ r.status_label|default:"—" }}</td>
+            <td>{{ r.block_label|default:"—" }}</td>
+            <td style="white-space:nowrap">
+              {% if r.session %}
+                <a class="ellip inline" href="{% url 'web:session_detail' r.session.id %}"
+                   title="{% blocktranslate with v0=r.session.date v1=r.session.title %}{{ v0 }} {{ v1 }}｜點一下回到那一堂課{% endblocktranslate %}">{{ r.session.title }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="ellip" title="{{ r.context }}">{{ r.context|default:"—" }}</td>
+          {% endif %}
         </tr>
       {% empty %}
-        <tr><td colspan="14" class="empty">
+        <tr><td colspan="{{ log_columns|length|add:1 }}" class="empty">
           {% if log.total %}{% translate "這個條件下沒有紀錄，換個年月或關鍵字。" %}
-          {% else %}{% translate "還沒有田徑練習的紀錄。到課表那一天的活動旁按「登記錄」就可以開始記。" %}{% endif %}
+          {% else %}{{ log_spec.empty }}{% endif %}
         </td></tr>
       {% endfor %}
       </tbody>
@@ -131,7 +146,7 @@
     </label>
     <button class="btn sm" type="submit">{% translate "分析選取的紀錄" %}</button>
     <button class="btn ghost sm" type="button" id="pickNone">{% translate "取消全部選取" %}</button>
-    <span class="small c-dim">{% translate "「時間切法」只影響後兩個方向（同距離跨時段、拼入重量與身體結構）。" %}</span>
+    <span class="small c-dim">{% blocktranslate with v0=log_spec.directions.1.1 v1=log_spec.directions.2.1 %}「時間切法」只影響後兩個方向（{{ v0 }}、{{ v1 }}）。{% endblocktranslate %}</span>
   </div>
 </form>
 
@@ -142,19 +157,25 @@
 {% with p=log_analysis.perf %}
 <div class="grid grid-4 mb">
   <div class="card stat">
-    <div class="label">{% translate "挑出來的組數" %}</div>
+    <div class="label">{{ log_spec.picked_label }}</div>
     <div class="value">{{ p.summary.count }}</div>
     <div class="hint">{% blocktranslate with v0=p.summary.days v1=p.summary.first_date v2=p.summary.last_date %}{{ v0 }} 天 · {{ v1 }} → {{ v2 }}{% endblocktranslate %}</div>
   </div>
   <div class="card stat">
-    <div class="label">{% translate "最佳 / 平均（秒）" %}</div>
+    <div class="label">{{ log_spec.best_label }}</div>
     <div class="value c-accent">{{ p.summary.best|default:"—" }}</div>
-    <div class="hint">{% blocktranslate with v0=p.summary.average|default:"—" %}平均 {{ v0 }} 秒{% endblocktranslate %}</div>
+    <div class="hint">{% blocktranslate with v0=p.summary.average|default:"—" v1=log_spec.unit_word %}平均 {{ v0 }} {{ v1 }}{% endblocktranslate %}</div>
   </div>
   <div class="card stat">
-    <div class="label">{% translate "訓練量（總距離）" %}</div>
-    <div class="value">{{ p.summary.volume_m }}<em class="small"> m</em></div>
-    <div class="hint">{% if p.summary.avg_intensity %}{% blocktranslate with v0=p.summary.avg_intensity %}平均強度 {{ v0 }}%{% endblocktranslate %}{% else %}{% translate "強度欄還沒填" %}{% endif %}</div>
+    <div class="label">{{ log_spec.volume_label }}</div>
+    <div class="value">{{ p.summary.volume }}<em class="small"> {{ log_spec.volume_unit }}</em></div>
+    <div class="hint">
+      {% if log_domain == 'STRENGTH' %}
+        {% if p.summary.reps_total %}{% blocktranslate with v0=p.summary.reps_total v1=p.summary.avg_reps|default:"—" %}共 {{ v0 }} 次 · 每組平均 {{ v1 }} 次{% endblocktranslate %}{% else %}{% translate "次數欄還沒填" %}{% endif %}
+      {% else %}
+        {% if p.summary.avg_intensity %}{% blocktranslate with v0=p.summary.avg_intensity %}平均強度 {{ v0 }}%{% endblocktranslate %}{% else %}{% translate "強度欄還沒填" %}{% endif %}
+      {% endif %}
+    </div>
   </div>
   <div class="card stat">
     <div class="label">{% translate "完成率" %}</div>
@@ -168,22 +189,22 @@
 
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="tl-perf">
-    <span>{% translate "表現與時間" %}</span>
-    <span class="small c-dim">{% translate "挑出來的每一組按日期排開，虛線是課表要求的目標" %}</span>
+    <span>{{ log_spec.perf_title }}</span>
+    <span class="small c-dim">{{ log_spec.perf_hint }}</span>
   </div>
   <div class="chart-box tall"><canvas id="tlPerfChart"></canvas></div>
   <div class="logsplit">
     <div>
-      <div class="card-head sub"><span>{% translate "照距離分" %}</span></div>
+      <div class="card-head sub"><span>{{ log_spec.group_title }}</span></div>
       <div class="logwrap">
         <table class="logtable">
-          <thead><tr><th>{% translate "距離" %}</th><th class="num">{% translate "組" %}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% translate "總量 (m)" %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
+          <thead><tr><th>{{ log_spec.group_label }}</th><th class="num">{{ log_spec.row_word }}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% blocktranslate with v0=log_spec.volume_unit %}總量 ({{ v0 }}){% endblocktranslate %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
           <tbody>
-          {% for row in p.by_distance %}
+          {% for row in p.by_group %}
             <tr>
               <td>{{ row.label }}</td><td class="num">{{ row.count }}</td>
               <td class="num c-accent">{{ row.best|default:"—" }}</td><td class="num">{{ row.average|default:"—" }}</td>
-              <td class="num">{{ row.volume_m }}</td><td class="num">{{ row.completion_pct|default:"—" }}%</td>
+              <td class="num">{{ row.volume }}</td><td class="num">{{ row.completion_pct|default:"—" }}%</td>
             </tr>
           {% endfor %}
           </tbody>
@@ -191,12 +212,12 @@
       </div>
     </div>
     <div>
-      <div class="card-head sub"><span>{% translate "照強度分" %}</span></div>
+      <div class="card-head sub"><span>{{ log_spec.split_title }}</span></div>
       <div class="logwrap">
         <table class="logtable">
-          <thead><tr><th>{% translate "強度要求" %}</th><th class="num">{% translate "組" %}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
+          <thead><tr><th>{{ log_spec.split_label }}</th><th class="num">{{ log_spec.row_word }}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
           <tbody>
-          {% for row in p.by_intensity %}
+          {% for row in p.by_split %}
             <tr>
               <td>{{ row.label }}</td><td class="num">{{ row.count }}</td>
               <td class="num c-accent">{{ row.best|default:"—" }}</td><td class="num">{{ row.average|default:"—" }}</td>
@@ -211,7 +232,7 @@
       <div class="card-head sub"><span>{% translate "照當天狀態分" %}</span></div>
       <div class="logwrap">
         <table class="logtable">
-          <thead><tr><th>{% translate "狀態" %}</th><th class="num">{% translate "組" %}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
+          <thead><tr><th>{% translate "狀態" %}</th><th class="num">{{ log_spec.row_word }}</th><th class="num">{% translate "最佳" %}</th><th class="num">{% translate "平均" %}</th><th class="num">{% translate "完成率" %}</th></tr></thead>
           <tbody>
           {% for row in p.by_status %}
             <tr>
@@ -233,12 +254,12 @@
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="tl-peers">
     <span>{% translate "跟隊上其他人比" %}</span>
-    <span class="small c-dim">{% translate "同樣的距離、同一段日子，看的是水準不是排名" %}</span>
+    <span class="small c-dim">{{ log_spec.peer_hint }}</span>
   </div>
   {% if p.peers %}
   <div class="logwrap">
     <table class="logtable">
-      <thead><tr><th class="num">#</th><th>{% translate "運動員" %}</th><th class="num">{% translate "組數" %}</th><th class="num">{% translate "最佳（秒）" %}</th><th class="num">{% translate "平均（秒）" %}</th></tr></thead>
+      <thead><tr><th class="num">#</th><th>{% translate "運動員" %}</th><th class="num">{{ log_spec.picked_label }}</th><th class="num">{% blocktranslate with v0=log_spec.unit_word %}最佳（{{ v0 }}）{% endblocktranslate %}</th><th class="num">{% blocktranslate with v0=log_spec.unit_word %}平均（{{ v0 }}）{% endblocktranslate %}</th></tr></thead>
       <tbody>
       {% for row in p.peers %}
         <tr{% if row.is_self %} class="bestrow"{% endif %}>
@@ -253,7 +274,7 @@
     </table>
   </div>
   {% else %}
-    <div class="empty">{% translate "沒有其他運動員在同一段日子練過同樣的距離，或這幾筆還沒填距離。" %}</div>
+    <div class="empty">{{ log_spec.peer_empty }}</div>
   {% endif %}
 </div>
 {% endwith %}
@@ -263,7 +284,7 @@
 {% with pv=log_analysis.period %}
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="tl-period">
-    <span>{% translate "同一個距離，在不同時段的變化" %}</span>
+    <span>{{ log_spec.period_title }}</span>
     <span class="small c-dim">{% blocktranslate with v0=pv.periods|length %}切成 {{ v0 }} 段{% endblocktranslate %}{% if pv.missed %} · <span class="c-yellow">{% blocktranslate with v0=pv.missed %}{{ v0 }} 筆落在沒有分期的日子{% endblocktranslate %}</span>{% endif %}</span>
   </div>
   <div class="chart-box tall"><canvas id="tlPeriodChart"></canvas></div>
@@ -271,7 +292,7 @@
     <table class="logtable">
       <thead>
         <tr>
-          <th>{% translate "距離" %}</th>
+          <th>{{ log_spec.group_label }}</th>
           {% for period in pv.periods %}
             <th class="num" title="{{ period.sublabel }}">{{ period.label }}</th>
           {% endfor %}
@@ -281,20 +302,27 @@
       <tbody>
       {% for row in pv.rows %}
         <tr>
-          <td><strong>{{ row.label }}</strong><div class="small c-dim">{% blocktranslate with v0=row.count v1=row.volume_m %}{{ v0 }} 組 · {{ v1 }} m{% endblocktranslate %}</div></td>
+          <td><strong>{{ row.label }}</strong><div class="small c-dim">{% blocktranslate with v0=row.count v1=row.volume v2=log_spec.row_word v3=log_spec.volume_unit %}{{ v0 }} {{ v2 }} · {{ v1 }} {{ v3 }}{% endblocktranslate %}</div></td>
           {% for cell in row.cells %}
             <td class="num">
               {% if cell %}
                 <strong class="c-accent">{{ cell.average|default:"—" }}</strong>
                 <div class="small c-dim">{% blocktranslate with v0=cell.best|default:"—" %}最佳 {{ v0 }}{% endblocktranslate %}</div>
-                <div class="small c-dim">{% blocktranslate with v0=cell.count v1=cell.volume_m %}{{ v0 }} 組 / {{ v1 }} m{% endblocktranslate %}</div>
-                <div class="small c-dim">{% if cell.avg_intensity %}{% blocktranslate with v0=cell.avg_intensity %}強度 {{ v0 }}%{% endblocktranslate %}{% else %}—{% endif %}</div>
+                <div class="small c-dim">{% blocktranslate with v0=cell.count v1=cell.volume v2=log_spec.row_word v3=log_spec.volume_unit %}{{ v0 }} {{ v2 }} / {{ v1 }} {{ v3 }}{% endblocktranslate %}</div>
+                <div class="small c-dim">
+                  {% if log_domain == 'STRENGTH' %}
+                    {% if cell.avg_reps %}{% blocktranslate with v0=cell.avg_reps %}每組 {{ v0 }} 次{% endblocktranslate %}{% else %}—{% endif %}
+                  {% else %}
+                    {% if cell.avg_intensity %}{% blocktranslate with v0=cell.avg_intensity %}強度 {{ v0 }}%{% endblocktranslate %}{% else %}—{% endif %}
+                  {% endif %}
+                </div>
               {% else %}<span class="c-dim">—</span>{% endif %}
             </td>
           {% endfor %}
           <td class="num">
             {% if row.change_pct != None %}
-              <span class="{% if row.change_pct < 0 %}c-green{% else %}c-red{% endif %}">{% if row.change_pct > 0 %}+{% endif %}{{ row.change_pct }}%</span>
+              {# 進步的方向跟著範疇走：秒數往下是好事，公斤往上才是 #}
+              <span class="{% if pv.lower_better %}{% if row.change_pct < 0 %}c-green{% else %}c-red{% endif %}{% else %}{% if row.change_pct > 0 %}c-green{% else %}c-red{% endif %}{% endif %}">{% if row.change_pct > 0 %}+{% endif %}{{ row.change_pct }}%</span>
               <div class="small c-dim">{% blocktranslate with v0=row.volume_change_pct|default:"—" %}量 {{ v0 }}%{% endblocktranslate %}</div>
             {% else %}<span class="c-dim">—</span>{% endif %}
           </td>
@@ -306,8 +334,8 @@
           <td><strong>{% translate "全部加起來" %}</strong></td>
           {% for total in pv.totals %}
             <td class="num">
-              <strong>{{ total.volume_m }}</strong><em class="small"> m</em>
-              <div class="small c-dim">{% blocktranslate with v0=total.count v1=total.days %}{{ v0 }} 組 / {{ v1 }} 天{% endblocktranslate %}</div>
+              <strong>{{ total.volume }}</strong><em class="small"> {{ log_spec.volume_unit }}</em>
+              <div class="small c-dim">{% blocktranslate with v0=total.count v1=total.days v2=log_spec.row_word %}{{ v0 }} {{ v2 }} / {{ v1 }} 天{% endblocktranslate %}</div>
               <div class="small c-dim">{% blocktranslate with v0=total.completion_pct|default:"—" %}完成率 {{ v0 }}%{% endblocktranslate %}</div>
             </td>
           {% endfor %}
@@ -318,7 +346,7 @@
   </div>
   <div class="logsay">
     {% for line in pv.insights %}<div>{{ line }}</div>{% endfor %}
-    <div class="c-dim">{% translate "秒數越小越好：頭尾變化是負數，表示最後那一段比第一段快。" %}</div>
+    <div class="c-dim">{{ log_spec.change_note }}</div>
   </div>
 </div>
 {% endwith %}
@@ -328,8 +356,8 @@
 {% with cv=log_analysis.cross %}
 <div class="card pad0 mb">
   <div class="card-head" data-fold-key="tl-cross">
-    <span>{% translate "田徑練習 × 重量訓練 × 身體結構" %}</span>
-    <span class="small c-dim">{% translate "同一段時間的三件事擺在同一列上比" %}</span>
+    <span>{{ log_spec.cross_title }}</span>
+    <span class="small c-dim">{% translate "同一段時間的幾件事擺在同一列上比" %}</span>
   </div>
   <div class="chart-box tall"><canvas id="tlCrossChart"></canvas></div>
   <div class="logwrap">
@@ -337,13 +365,21 @@
       <thead>
         <tr>
           <th>{% translate "時段" %}</th>
-          <th class="num">{% translate "田徑：組 / 天" %}</th>
-          <th class="num">{% translate "訓練量 (m)" %}</th>
-          <th class="num">{% translate "平均 / 最佳（秒）" %}</th>
-          <th class="num">{% translate "強度" %}</th>
-          <th class="num">{% translate "重量：組 / 噸位" %}</th>
-          <th class="num">{% translate "最重動作 (e1RM)" %}</th>
-          <th class="num">{% translate "每公斤體重" %}</th>
+          <th class="num">{{ log_spec.main_label }}</th>
+          <th class="num">{% blocktranslate with v0=log_spec.volume_unit %}量 ({{ v0 }}){% endblocktranslate %}</th>
+          <th class="num">{% blocktranslate with v0=log_spec.unit_word %}平均 / 最佳（{{ v0 }}）{% endblocktranslate %}</th>
+          {% if cv.show_track %}
+            <th class="num">{% translate "田徑：組 / 天" %}</th>
+            <th class="num">{% translate "田徑量 (m)" %}</th>
+            <th class="num">{% translate "田徑平均（秒）" %}</th>
+          {% else %}
+            <th class="num">{% translate "強度" %}</th>
+          {% endif %}
+          {% if cv.show_strength %}
+            <th class="num">{% translate "重量：組 / 噸位" %}</th>
+            <th class="num">{% translate "最重動作 (e1RM)" %}</th>
+            <th class="num">{% translate "每公斤體重" %}</th>
+          {% endif %}
           <th class="num">{% translate "體重 / 體脂 / 肌肉率" %}</th>
         </tr>
       </thead>
@@ -351,15 +387,23 @@
       {% for row in cv.rows %}
         <tr>
           <td><strong>{{ row.label }}</strong>{% if row.sublabel %}<div class="small c-dim">{{ row.sublabel }}</div>{% endif %}</td>
-          <td class="num">{{ row.track.count }} / {{ row.track.days }}</td>
-          <td class="num">{{ row.track.volume_m }}</td>
-          <td class="num"><strong class="c-accent">{{ row.track.average|default:"—" }}</strong> / {{ row.track.best|default:"—" }}</td>
-          <td class="num">{% if row.track.avg_intensity %}{{ row.track.avg_intensity }}%{% else %}—{% endif %}</td>
-          <td class="num">{% if row.strength %}{{ row.strength.sets }} / {{ row.strength.tonnage }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
-          <td class="num">
-            {% if row.strength.best %}{{ row.strength.best.name }}<div class="small c-dim">{{ row.strength.best.e1rm }} kg</div>{% else %}<span class="c-dim">—</span>{% endif %}
-          </td>
-          <td class="num">{% if row.strength.avg_per_bw %}{{ row.strength.avg_per_bw }}×{% else %}<span class="c-dim">—</span>{% endif %}</td>
+          <td class="num">{{ row.main.count }} / {{ row.main.days }}</td>
+          <td class="num">{{ row.main.volume }}</td>
+          <td class="num"><strong class="c-accent">{{ row.main.average|default:"—" }}</strong> / {{ row.main.best|default:"—" }}</td>
+          {% if cv.show_track %}
+            <td class="num">{% if row.track.count %}{{ row.track.count }} / {{ row.track.days }}{% else %}<span class="c-dim">—</span>{% endif %}</td>
+            <td class="num">{{ row.track.volume|default:"—" }}</td>
+            <td class="num">{{ row.track.average|default:"—" }}</td>
+          {% else %}
+            <td class="num">{% if row.main.avg_intensity %}{{ row.main.avg_intensity }}%{% else %}—{% endif %}</td>
+          {% endif %}
+          {% if cv.show_strength %}
+            <td class="num">{% if row.strength %}{{ row.strength.sets }} / {{ row.strength.tonnage }} kg{% else %}<span class="c-dim">—</span>{% endif %}</td>
+            <td class="num">
+              {% if row.strength.best %}{{ row.strength.best.name }}<div class="small c-dim">{{ row.strength.best.e1rm }} kg</div>{% else %}<span class="c-dim">—</span>{% endif %}
+            </td>
+            <td class="num">{% if row.strength.avg_per_bw %}{{ row.strength.avg_per_bw }}×{% else %}<span class="c-dim">—</span>{% endif %}</td>
+          {% endif %}
           <td class="num">
             {% if row.body %}
               {{ row.body.weight }} kg
@@ -382,8 +426,6 @@
 {% elif log_pick_count == 0 %}
 <div class="alert blue mb">
   {% translate "在上面的清單勾幾筆紀錄，挑一個方向，按「分析選取的紀錄」——" %}
-  <strong>{% translate "表現與時間" %}</strong>{% translate "看這幾組本身練得怎樣、在隊裡是什麼水準；" %}
-  <strong>{% translate "同距離跨時段" %}</strong>{% translate "看同一個距離在不同年月／時期的量與強度變化；" %}
-  <strong>{% translate "拼入重量與身體結構" %}</strong>{% translate "把同一段時間的重量訓練與體組成擺在一起看。" %}
+  {% for name, text in log_spec.hints %}<strong>{{ name }}</strong>{{ text }}{% endfor %}
 </div>
 {% endif %}

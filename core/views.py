@@ -28,8 +28,8 @@ from accounts.body_import import parse_body_composition
 from accounts.models import AthleteProfile, BodyMetricLog, CoachProfile, Event, User
 from analytics import body_strength as bs
 from analytics import dimensions as dim
+from analytics import record_log as rlog
 from analytics import services as an
-from analytics import track_log as tlog
 from analytics.models import (
     STRENGTH_UNITS,
     MetricCategory,
@@ -197,7 +197,7 @@ def _paged_days(days, page, per_page=DETAIL_PAGE_SIZE):
         "page": page,
         "pages": pages,
         "per_page": per_page,
-        "page_range": tlog.page_window(page, pages),
+        "page_range": rlog.page_window(page, pages),
         "count": sum(d["count"] for d in current),
         "total": sum(d["count"] for d in days),
         "has_prev": page > 1,
@@ -219,11 +219,11 @@ def _int_list(values, limit=None):
 
 
 def _period_chart(report):
-    """同距離跨時段：一條線一個距離（平均秒數），柱是那一段的訓練量。"""
+    """同一組跨時段：一條線一堆（平均數值），柱是那一段的量。"""
     labels = [p["label"] for p in report["periods"]]
     return {
         "labels": labels,
-        "volume": [t["volume_m"] for t in report["totals"]],
+        "volume": [t["volume"] for t in report["totals"]],
         "series": [
             {
                 "label": row["label"],
@@ -236,12 +236,14 @@ def _period_chart(report):
 
 
 def _cross_chart(report):
-    """田徑 × 重量 × 身體：一段時間一格，三件事同一張圖。"""
+    """主角 × 另一種訓練 × 身體：一段時間一格，幾件事同一張圖。"""
     rows = report["rows"]
     return {
         "labels": [r["label"] for r in rows],
-        "avg": [r["track"]["average"] for r in rows],
-        "volume": [r["track"]["volume_m"] for r in rows],
+        "avg": [r["main"]["average"] for r in rows],
+        "volume": [r["main"]["volume"] for r in rows],
+        "track_avg": [r["track"]["average"] if r["track"] else None for r in rows],
+        "track_volume": [r["track"]["volume"] if r["track"] else None for r in rows],
         "tonnage": [r["strength"]["tonnage"] if r["strength"] else None for r in rows],
         "per_bw": [r["strength"]["avg_per_bw"] if r["strength"] else None for r in rows],
         "weight": [r["body"]["weight"] if r["body"] else None for r in rows],
@@ -3023,55 +3025,53 @@ def analytics_view(request):
         athlete, request.GET.get("dmode", "phase")
     ) if is_strength else None
 
-    # ---- 田徑練習訓練紀錄：一張清單 → 挑幾筆 → 三個方向分析 ----
-    # 先用年份月份與關鍵字（打「150」就出所有 150m）把要看的那幾筆挑出來，
-    # 再挑方向：這幾筆本身練得怎樣／同一距離跨時段怎麼變／拼上重量與體組成。
+    # ---- 訓練紀錄清單：一張清單 → 挑幾筆 → 三個方向分析 ----
+    # 三個範疇（田徑練習／重量訓練／比賽數據）共用同一套版面，欄位與字眼
+    # 由 record_log.SPECS 決定。先用年份月份與關鍵字把要看的那幾筆挑出來，
+    # 再挑方向：這幾筆本身做得怎樣／同一組跨時段怎麼變／拼上另一種訓練與體組成。
     is_track = domain == MetricDomain.TRACK
-    log = log_options = log_analysis = None
-    log_year = log_month = None
-    log_query = ""
-    log_sort, log_sdir = tlog.DEFAULT_SORT, tlog.DEFAULT_DIR
-    log_dir, log_gmode, log_picks = "perf", "month", []
-    if is_track:
-        log_year = _positive_int(request.GET.get("ty"))
-        log_month = _positive_int(request.GET.get("tm"))
-        if log_month and not 1 <= log_month <= 12:
-            log_month = None
-        log_query = (request.GET.get("q") or "").strip()[:80]
-        # 排序與分頁：表頭點一下換欄位／換方向，換條件時一律回到第一頁
-        log_sort = request.GET.get("sort", tlog.DEFAULT_SORT)
-        if log_sort not in tlog.SORT_FIELDS:
-            log_sort = tlog.DEFAULT_SORT
-        log_sdir = request.GET.get("sdir", tlog.DEFAULT_DIR)
-        if log_sdir not in ("asc", "desc"):
-            log_sdir = tlog.DEFAULT_DIR
-        log = tlog.search_records(
-            athlete,
-            log_year,
-            log_month,
-            log_query,
-            sort=log_sort,
-            direction=log_sdir,
-            page=_positive_int(request.GET.get("tp")) or 1,
-        )
-        log_options = tlog.filter_options(athlete, log_year)
-        # pick＝畫面上勾的那幾列，keep＝勾過但被目前篩選條件濾走的那幾筆，
-        # 兩個加起來才是「使用者心裡挑的那一批」，換了年月也不會掉。
-        log_picks = _int_list(
-            request.GET.getlist("pick") + request.GET.getlist("keep"),
-            limit=tlog.MAX_PICKS,
-        )
-        picked = tlog.picked_records(athlete, log_picks)
-        log_picks = [r.id for r in picked]
-        log_dir = request.GET.get("dir", "perf")
-        if log_dir not in {d for d, _unused in tlog.DIRECTIONS}:
-            log_dir = "perf"
-        log_gmode = request.GET.get("gmode", "month")
-        if log_gmode not in {g for g, _unused in tlog.GROUPINGS}:
-            log_gmode = "month"
-        log_analysis = tlog.analyse(
-            athlete, picked, log_dir, log_gmode, viewer=request.user
-        )
+    log_spec = rlog.spec(domain)
+    log_year = _positive_int(request.GET.get("ty"))
+    log_month = _positive_int(request.GET.get("tm"))
+    if log_month and not 1 <= log_month <= 12:
+        log_month = None
+    log_query = (request.GET.get("q") or "").strip()[:80]
+    # 排序與分頁：表頭點一下換欄位／換方向，換條件時一律回到第一頁
+    log_sort = request.GET.get("sort", rlog.DEFAULT_SORT)
+    if log_sort not in rlog.sort_keys(domain):
+        log_sort = rlog.DEFAULT_SORT
+    log_sdir = request.GET.get("sdir", rlog.DEFAULT_DIR)
+    if log_sdir not in ("asc", "desc"):
+        log_sdir = rlog.DEFAULT_DIR
+    log = rlog.search_records(
+        athlete,
+        log_year,
+        log_month,
+        log_query,
+        sort=log_sort,
+        direction=log_sdir,
+        page=_positive_int(request.GET.get("tp")) or 1,
+        domain=domain,
+    )
+    log_options = rlog.filter_options(athlete, log_year, domain=domain)
+    # pick＝畫面上勾的那幾列，keep＝勾過但被目前篩選條件濾走的那幾筆，
+    # 兩個加起來才是「使用者心裡挑的那一批」，換了年月也不會掉。
+    log_picks = _int_list(
+        request.GET.getlist("pick") + request.GET.getlist("keep"),
+        limit=rlog.MAX_PICKS,
+    )
+    picked = rlog.picked_records(athlete, log_picks, domain=domain)
+    log_picks = [r.id for r in picked]
+    log_directions = rlog.directions_for(domain)
+    log_dir = request.GET.get("dir", "perf")
+    if log_dir not in {d for d, _unused in log_directions}:
+        log_dir = "perf"
+    log_gmode = request.GET.get("gmode", "month")
+    if log_gmode not in {g for g, _unused in rlog.GROUPINGS}:
+        log_gmode = "month"
+    log_analysis = rlog.analyse(
+        athlete, picked, log_dir, log_gmode, viewer=request.user, domain=domain
+    )
 
     return render(
         request,
@@ -3131,13 +3131,16 @@ def analytics_view(request):
                 dict(SessionType.choices)[t] for t in linkable_types
             ],
             "today_iso": date.today().isoformat(),
-            # 田徑練習訓練紀錄：清單 + 篩選 + 挑幾筆分析
+            # 訓練紀錄清單：清單 + 篩選 + 挑幾筆分析（三個範疇共用）
             "log": log,
+            "log_spec": log_spec,
+            "log_domain": domain,
+            "log_lower_better": log_spec["lower_better"],
             "log_options": log_options,
             "log_year": log_year,
             "log_month": log_month,
             "log_query": log_query,
-            "log_columns": tlog.COLUMNS,
+            "log_columns": rlog.columns_for(domain),
             "log_sort": log_sort,
             "log_sdir": log_sdir,
             "log_picks": log_picks,
@@ -3152,8 +3155,8 @@ def analytics_view(request):
             "log_csv": ",".join(str(i) for i in log_picks),
             "log_dir": log_dir,
             "log_gmode": log_gmode,
-            "log_directions": tlog.DIRECTIONS,
-            "log_groupings": tlog.GROUPINGS,
+            "log_directions": log_directions,
+            "log_groupings": rlog.GROUPINGS,
             "log_analysis": log_analysis,
             "log_points": jdump(
                 log_analysis["perf"]["points"]
