@@ -5,7 +5,7 @@
    2. 所有數字用等寬字（tabular-nums），上下列對得齊，掃一眼就比得出大細。
    3. 面板 = 儀器盤：直角、細框、標題列做成儀器標籤（左邊一條訊號色條）。
    4. 狀態一律用 LED 小圓點 + 顏色，綠＝正常、黃＝注意、紅＝異常。
-   5. 間距 8px 步長；表格間距分緊湊／標準／寬鬆三檔（data-density）。
+   5. 間距 8px 步長；表格與卡片的內距全站一套，不給使用者調。
    ========================================================================= */
 
 /* ------------------------------------------------------------ 顏色與變數 */
@@ -52,7 +52,7 @@
   --sb-w-min: 60px;   /* 側欄收合寬度（只留圖示） */
   --top-h: 52px;
 
-  /* 表格間距：由 data-density 覆寫 */
+  /* 表格與卡片內距 */
   --cell-y: 9px;
   --cell-x: 13px;
   --card-pad: 16px;
@@ -90,9 +90,6 @@
   --shadow-1: 0 1px 2px rgba(15, 23, 42, .05);
   --shadow-2: 0 10px 28px rgba(15, 23, 42, .14);
 }
-
-:root[data-density="compact"] { --cell-y: 5px;  --cell-x: 11px; --card-pad: 12px; }
-:root[data-density="loose"]   { --cell-y: 13px; --cell-x: 17px; --card-pad: 20px; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1247,8 +1244,8 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 .foldbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 
 /* ======================================================= 段落導航列（長頁面）
-   貼在頂欄下面的一條目錄：捲到哪一段就亮哪一顆，按一下跳過去。
-   貼頂高度由 secnav.js 量頂欄實際高度後寫進 style.top（手機頂欄會換行變高）。 */
+   貼在頂欄下面的一條書籤列：一顆對一段，按一下就揭到那一段（見 .anabook）。
+   沒有資料的段落由 secnav.js 自己拿掉，導航上不留空殼。 */
 .secnav {
   position: sticky; top: var(--top-h); z-index: 40;
   display: flex; align-items: center; gap: 4px;
@@ -1291,6 +1288,39 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   .secnav a::before { display: none; }
   .secnav .secnav-acts { border-left: none; padding-left: 4px; }
 }
+
+/* ==================================================== 揭書式版面（.anabook）
+   一次只顯示一段（.anapanel.on），其餘藏起來；上面的段落導航列就是書籤。
+   沒有 JS 的時候不加 .book，六段照樣整頁攤開讀得到。 */
+.anabook.book > .anapanel { display: none; }
+.anabook.book > .anapanel.on { display: block; }
+
+/* 揭頁：新的一頁從右邊翻進來，往回翻就從左邊 */
+.anapanel.turning { animation: anaturn .22s ease-out both; }
+.anapanel.turning.back { animation-name: anaturn-back; }
+@keyframes anaturn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes anaturn-back {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anapanel.turning { animation: none; }
+}
+
+/* 書底下的揭頁列：上一部份 ／ 這是第幾部份 ／ 下一部份 */
+.anaturn[hidden] { display: none; }   /* display:flex 會蓋掉 [hidden]，要寫回來 */
+.anaturn {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+.anaturn .anaturn-now {
+  font-size: 12.5px; color: var(--text-dim); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.anaturn button[disabled] { opacity: .35; pointer-events: none; }
 
 /* ============================================== 動作庫：目錄 ＋ 動作 */
 .libgrid { grid-template-columns: minmax(220px, 1fr) 2.4fr; align-items: start; }

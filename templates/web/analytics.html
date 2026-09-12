@@ -20,8 +20,9 @@
   {% endfor %}
 </div>
 
-<!-- 段落導航：這一頁有六段，先給目錄再給內容。捲動時自動標示目前這一段，
-     按一下會先展開（如果收著）再跳過去。沒有資料的段落由 secnav.js 自己拿掉。 -->
+<!-- 段落導航：這一頁有六段，一次只揭一段（揭書式），導航列就是書籤。
+     按一顆就揭到那一段，底下另有上一部份／下一部份可以逐頁翻。
+     沒有資料的段落由 secnav.js 自己拿掉；沒有 JS 就整頁攤開。 -->
 <nav class="secnav" id="secnav" aria-label="{% translate '段落導航' %}">
   <a href="#sec-log">{% translate "紀錄" %}</a>
   <a href="#sec-item">{% translate "項目分析" %}</a>
@@ -36,9 +37,12 @@
   </span>
 </nav>
 
-<div id="sec-log">{% include "web/_record_log.html" %}</div>
+<div class="anabook" id="anabook" data-domain="{{ domain }}">
 
-<div class="grid anagrid mb" id="sec-item">
+<section class="anapanel" id="sec-log" data-sec="{{ log_spec.title }}">{% include "web/_record_log.html" %}</section>
+
+<section class="anapanel" id="sec-item" data-sec="{% translate "項目分析" %}">
+<div class="grid anagrid mb">
  <div>
   <!-- 左邊清單上的每一個 × 都是這張表單的送出鍵，各帶自己的 item_id。 -->
   <form method="post" id="itemDel" hidden>
@@ -597,10 +601,12 @@
   </div>
  </div>
 </div>
+</section>
 
 {% if is_competition %}
+<section class="anapanel" id="sec-meet" data-sec="{% translate "比賽分析" %}">
 <!-- ==================================================== 比賽分析（逐場） -->
-<h2 id="sec-meet">{% translate "比賽分析" %}</h2>
+<h2>{% translate "比賽分析" %}</h2>
 <div class="small c-dim mb">
   {% translate "一場比賽一張表：當場成績、比上一場進步多少、離個人最佳還差多少。" %}
 </div>
@@ -659,10 +665,12 @@
     {% translate "還沒有比賽數據。在上面挑一個比賽項目，選好是哪一場比賽，把成績登進來就會出現分析。" %}
   </div>
 {% endfor %}
+</section>
 {% endif %}
 
+<section class="anapanel" id="sec-load" data-sec="{% translate "訓練負荷監控" %}">
 <!-- ==================================================== 二、訓練負荷監控 -->
-<h2 id="sec-load">{% translate "訓練負荷監控" %}</h2>
+<h2>{% translate "訓練負荷監控" %}</h2>
 
 <div class="grid grid-4 mb">
   <div class="card stat">
@@ -731,10 +739,12 @@
     </table>
   </div>
 </div>
+</section>
 
 {% if is_strength %}
+<section class="anapanel" id="bodystrength" data-sec="{% translate "體組成 × 重量訓練" %}">
 <!-- =============================================== 三、體組成 × 重量訓練 -->
-<h2 id="bodystrength">{% translate "體組成 × 重量訓練" %}</h2>
+<h2>{% translate "體組成 × 重量訓練" %}</h2>
 <div class="subtitle" style="margin:-6px 0 14px">
   {% translate "同一個 100kg 深蹲，70kg 的人與 85kg 的人不是同一件事。田徑場上起作用的是「每公斤體重舉得起多少」——這一段把脂肪比例、肌肉比例、體重跟重訓的數字放在一起算。" %}
 </div>
@@ -997,10 +1007,12 @@
   </div>
 </div>
 {% endif %}
+</section>
 
 <!-- ====================================== 四、多面向分析（重量×體組成×時間） -->
 {% if dims %}
-<h2 id="dims">{% translate "多面向分析：動作重量 × 肌肉脂肪比例 × 訓練時間" %}</h2>
+<section class="anapanel" id="dims" data-sec="{% translate "多面向分析" %}">
+<h2>{% translate "多面向分析：動作重量 × 肌肉脂肪比例 × 訓練時間" %}</h2>
 <div class="subtitle" style="margin:-6px 0 14px">
   {% translate "同一段時間裡「舉了多重、身體是什麼成分、花了多少小時」三件事擺在同一列上比。可以按訓練時期看（一般準備期／專項準備期／賽前期…），也可以按年份看。" %}
 </div>
@@ -1125,9 +1137,17 @@
   </div>
 </div>
 {% endif %}
+</section>
 {% endif %}
 
 {% endif %}
+<div class="anaturn" id="anaturn" hidden>
+  <button type="button" class="btn ghost sm" data-turn="-1">&larr; {% translate "上一部份" %}</button>
+  <span class="anaturn-now"></span>
+  <button type="button" class="btn ghost sm" data-turn="1">{% translate "下一部份" %} &rarr;</button>
+</div>
+
+</div><!-- /.anabook -->
 
 {% endblock %}
 
