@@ -14,10 +14,11 @@
 
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from core.models import VideoPlan
+from video import storage
 from video.models import TrainingVideo, VideoQuotaConfig
 
 
@@ -35,11 +36,28 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # 跑在最前面，並且在「沒有片可清」那個 early return 之前。
+        # 這條指令平常跑在 cron 裡，而 Render 的 Cron Job 是沒有 Shell 可以進去試的——
+        # 這一行 log 就是唐一確認它那四把 R2 金鑰有沒有補對的方法。
+        r2_ok, r2_note = storage.check_access()
+        self.stdout.write(f"R2：{r2_note}")
+
         stale = self._stale(options["days"])
 
         if not stale:
             self.stdout.write("沒有超過保留期限的影片可清。")
             return
+
+        # 有片放在 R2（remote_key）但連不上 R2：寧可一條都不刪。
+        # 硬跑下去的話資料庫那幾行會消失、R2 上的物件却留下來變孤兒：
+        # 帳單照計，而且再也沒有任何一行紀錄指得到它。
+        if options["apply"] and not r2_ok and any(v.remote_key for v in stale):
+            raise CommandError(
+                f"有影片存在 R2，但 R2 {r2_note}。"
+                "刪下去只會製造孤兒物件，所以一條都不刪。"
+                "請先補齊這個服務的 R2_BUCKET / R2_ACCOUNT_ID / "
+                "R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY。"
+            )
 
         freed = sum(v.size_bytes for v in stale)
         for video in stale:
@@ -54,14 +72,27 @@ class Command(BaseCommand):
             )
             return
 
+        failed = []
         for video in stale:
-            video.drop_file()
+            if not video.drop_file():
+                # 刪不到雲端那個檔就不要刪資料庫這一行——留著下星期再試，
+                # 總好過把它變成一個沒人指得到的物件。
+                failed.append(video)
+                continue
             video.delete()
+
+        gone = len(stale) - len(failed)
+        freed -= sum(v.size_bytes for v in failed)
         self.stdout.write(
             self.style.SUCCESS(
-                f"已刪除 {len(stale)} 條影片，釋出約 {freed / 1024 / 1024:.0f} MB。"
+                f"已刪除 {gone} 條影片，釋出約 {freed / 1024 / 1024:.0f} MB。"
             )
         )
+        if failed:
+            raise CommandError(
+                f"有 {len(failed)} 條的 R2 檔刪不掉，這幾條的紀錄保留了。"
+                "看上面的錯誤訊息，修好之後再跑一次。"
+            )
 
     def _stale(self, override_days):
         """過期的片。

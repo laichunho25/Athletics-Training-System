@@ -350,13 +350,19 @@ class TrainingVideo(TimeStampedModel):
         return ""
 
     def drop_file(self):
-        """刪掉實體檔案（R2 物件或本機檔），資料庫那一行由呼叫端負責。"""
+        """刪掉實體檔案（R2 物件或本機檔）；回傳有沒有刪成功。
+
+        資料庫那一行由呼叫端負責。回 False 的時候呼叫端應該把那一行
+        **留著**——行刪了、檔則還在，那個檔就永遠沒有人指得到了。
+        """
         if self.remote_key:
-            vstorage.delete_object(self.remote_key)
+            if not vstorage.delete_object(self.remote_key):
+                return False
         elif self.file:
             self.file.delete(save=False)
         if self.poster:
             self.poster.delete(save=False)
+        return True
 
 
 class VideoNote(TimeStampedModel):

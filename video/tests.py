@@ -7,6 +7,7 @@ import json
 import shutil
 import tempfile
 from datetime import timedelta
+from contextlib import contextmanager
 from io import StringIO
 from unittest import mock
 
@@ -303,6 +304,18 @@ class AnalysisToolTests(VideoTestCase):
         self.assertEqual(self.note(data=None).data, {})
 
 
+@contextmanager
+def fake_r2(ok=True, deletes=True):
+    """裝作 R2 接得通、刪得到。
+
+    make_video 預設就帶 remote_key，而 purge --apply 現在會先檢查 R2——
+    測試環境沒有金鑰，不頙的話每一個 purge 測試都會撞上那道閘。
+    """
+    note = "已連上 bucket「b」" if ok else "沒有設定"
+    with mock.patch.object(storage, "check_access", return_value=(ok, note)),             mock.patch.object(storage, "delete_object", return_value=deletes):
+        yield
+
+
 class PurgeCommandTests(VideoTestCase):
     def setUp(self):
         # 保留期限是拿「真的今天」去算的，所以這裡不能用固定的 TODAY。
@@ -319,7 +332,8 @@ class PurgeCommandTests(VideoTestCase):
         self.assertEqual(TrainingVideo.objects.count(), 3)
 
     def test_apply_removes_only_stale_non_keepers(self):
-        call_command("purge_videos", days=90, apply=True)
+        with fake_r2():
+            call_command("purge_videos", days=90, apply=True)
         self.assertCountEqual(
             list(TrainingVideo.objects.all()), [self.keeper, self.fresh]
         )
@@ -621,14 +635,16 @@ class PlanRetentionTests(VideoTestCase):
         self.pro = make_video(pro, date=old)
 
     def test_only_the_free_athletes_clip_is_purged(self):
-        call_command("purge_videos", apply=True)
+        with fake_r2():
+            call_command("purge_videos", apply=True)
         self.assertCountEqual(list(TrainingVideo.objects.all()), [self.pro])
 
     def test_zero_days_turns_purging_off(self):
         config = VideoQuotaConfig.load()
         config.free_retain_days = 0
         config.save()
-        call_command("purge_videos", apply=True)
+        with fake_r2():
+            call_command("purge_videos", apply=True)
         self.assertEqual(TrainingVideo.objects.count(), 2)
 
 
@@ -708,6 +724,57 @@ class RetentionHintTests(VideoTestCase):
         self.client.force_login(self.athlete.user)
         res = self.client.get(reverse("web:video_detail", args=[video.pk]))
         self.assertContains(res, "不會被保留期限清掉")
+
+
+class PurgeR2GuardTests(VideoTestCase):
+    """Cron 沒有 Shell 可以進去試，所以 purge 本身要講得出 R2 通不通。
+
+    更要緊的是：連不上 R2 的時候寧可一條都不刪。以前會把資料庫那幾行
+    刪掉、雲端的物件却留下來，而且 log 還寫「已刪除」——騙人騙得很彻底。
+    """
+
+    def setUp(self):
+        config = VideoQuotaConfig.load()
+        config.free_retain_days = 90
+        config.save()
+        self.athlete = make_athlete()
+        self.video = make_video(
+            self.athlete,
+            date=TODAY - timedelta(days=200),
+            remote_key="videos/1/old.mp4",
+        )
+
+    def _run(self, **options):
+        out, err = StringIO(), StringIO()
+        call_command("purge_videos", stdout=out, stderr=err, **options)
+        return out.getvalue()
+
+    def test_it_reports_r2_status_even_with_nothing_to_clean(self):
+        """這行就是 cron 里唐一驗得到金鑰的方法，所以要無條件印。"""
+        self.video.delete()
+        with fake_r2():
+            out = self._run()
+        self.assertIn("R2：已連上 bucket", out)
+        self.assertIn("沒有超過保留期限", out)
+
+    def test_it_refuses_to_delete_when_r2_is_unreachable(self):
+        with fake_r2(ok=False):
+            with self.assertRaises(CommandError):
+                self._run(apply=True)
+        self.assertEqual(TrainingVideo.objects.count(), 1)
+
+    def test_a_row_survives_when_its_object_cannot_be_deleted(self):
+        """行刪了、檔還在，那個檔就永遠沒人指得到。寧可下星期再試。"""
+        with fake_r2(deletes=False):
+            with self.assertRaises(CommandError):
+                self._run(apply=True)
+        self.assertEqual(TrainingVideo.objects.count(), 1)
+
+    def test_a_normal_run_still_deletes(self):
+        with fake_r2():
+            out = self._run(apply=True)
+        self.assertIn("已刪除 1 條", out)
+        self.assertEqual(TrainingVideo.objects.count(), 0)
 
 
 class _FakeR2:

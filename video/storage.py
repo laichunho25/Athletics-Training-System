@@ -102,6 +102,26 @@ def playback_url(key):
     )
 
 
+def check_access():
+    """真的打一次 API，確認金鑰用得著。回 (ok, 說明)。
+
+    「環境變數填了」跟「金鑰是對的」是兩回事：複製貼上多了一個空格、
+    貼錯了別個 bucket，_client() 照樣造得出來，要發一次請求才知道。
+    head_bucket 是最便宜那一次（Class B 操作，不傳任何資料）。
+    """
+    made = _client()
+    if made is None:
+        if r2_settings() is None:
+            return False, "沒有設定（四個 R2_* 環境變數要齊）"
+        return False, "設了 R2_BUCKET 但沒裝 boto3"
+    client, conf = made
+    try:
+        client.head_bucket(Bucket=conf["bucket"])
+    except Exception as exc:
+        return False, f"連不上 bucket「{conf['bucket']}」：{exc}"
+    return True, f"已連上 bucket「{conf['bucket']}」"
+
+
 def delete_object(key):
     """刪片時把 R2 上的檔案一起收掉，不然只會刪掉資料庫那一行。"""
     made = _client()
