@@ -7,9 +7,12 @@ import json
 import shutil
 import tempfile
 from datetime import timedelta
+from io import StringIO
+from unittest import mock
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -17,6 +20,7 @@ from django.utils import timezone
 from analytics.models import MetricDomain, MetricItem, MetricRecord
 from core.test_factories import TODAY, make_admin, make_athlete, make_coach
 from video import services as vsvc
+from video import storage
 from core.models import VideoPlan
 from video.models import (
     PlanUpgradeRequest,
@@ -704,6 +708,94 @@ class RetentionHintTests(VideoTestCase):
         self.client.force_login(self.athlete.user)
         res = self.client.get(reverse("web:video_detail", args=[video.pk]))
         self.assertContains(res, "不會被保留期限清掉")
+
+
+class _FakeR2:
+    """只懂 list 跟 delete 的假 bucket。
+
+    實打 R2 的話，這幾個測試就要金鑰、要網絡，而且會真的刪東西。
+    我們要驗的是「哪些 key 被當成孤兒」這個判斷，不是 boto3 會不會動。
+    """
+
+    def __init__(self, objects):
+        self.objects = list(objects)
+        self.deleted = []
+
+    def get_paginator(self, _name):
+        return self
+
+    def paginate(self, **_kwargs):
+        return [{"Contents": self.objects}]
+
+    def drop(self, key):
+        """頓 storage.delete_object 的，所以要像它一樣回 True。"""
+        self.deleted.append(key)
+        return True
+
+
+def _obj(key, hours_old=48, size=1024):
+    return {
+        "Key": key,
+        "Size": size,
+        "LastModified": timezone.now() - timedelta(hours=hours_old),
+    }
+
+
+class FindOrphansTests(VideoTestCase):
+    """直傳是兩步的，所以 R2 上會累積沒人指得到的物件。
+
+    purge_videos 從資料庫那一頭數起，永遠碰不到孤兒；這個指令補另一半。
+    """
+
+    def setUp(self):
+        self.athlete = make_athlete()
+        self.video = make_video(self.athlete, remote_key="videos/1/keep.mp4")
+
+    def _run(self, objects, **options):
+        fake = _FakeR2(objects)
+        out = StringIO()
+        with mock.patch.object(
+            storage, "_client", return_value=(fake, {"bucket": "b"})
+        ), mock.patch.object(storage, "delete_object", side_effect=fake.drop):
+            call_command("find_orphans", stdout=out, **options)
+        return fake, out.getvalue()
+
+    def test_a_key_with_a_row_is_left_alone(self):
+        _, out = self._run([_obj("videos/1/keep.mp4")])
+        self.assertIn("沒有孤兒物件", out)
+
+    def test_a_key_with_no_row_is_reported(self):
+        _, out = self._run([_obj("videos/1/keep.mp4"), _obj("videos/1/lost.mp4")])
+        self.assertIn("videos/1/lost.mp4", out)
+        self.assertNotIn("videos/1/keep.mp4", out)
+
+    def test_nothing_is_deleted_without_apply(self):
+        fake, _ = self._run([_obj("videos/1/lost.mp4")])
+        self.assertEqual(fake.deleted, [])
+
+    def test_apply_deletes_only_the_orphan(self):
+        fake, out = self._run(
+            [_obj("videos/1/keep.mp4"), _obj("videos/1/lost.mp4")], apply=True
+        )
+        self.assertEqual(fake.deleted, ["videos/1/lost.mp4"])
+        self.assertIn("已刪除 1 個", out)
+
+    def test_a_fresh_upload_is_not_an_orphan_yet(self):
+        """剛傳完檔、表單還未 submit 的，刪下去就是刪一個進行中的上傳。"""
+        fake, out = self._run([_obj("videos/1/inflight.mp4", hours_old=1)], apply=True)
+        self.assertEqual(fake.deleted, [])
+        self.assertIn("沒有孤兒物件", out)
+
+    def test_posters_are_not_orphans(self):
+        """縮圖在 poster 欄不在 remote_key，只比對 remote_key 會把它們整批刪掉。"""
+        self.video.poster.save("p.jpg", SimpleUploadedFile("p.jpg", b"x"), save=True)
+        fake, _ = self._run([_obj(self.video.poster.name)], apply=True)
+        self.assertEqual(fake.deleted, [])
+
+    def test_it_refuses_to_run_without_r2(self):
+        with mock.patch.object(storage, "_client", return_value=None):
+            with self.assertRaises(CommandError):
+                call_command("find_orphans")
 
 
 class UpgradeRequestTests(VideoTestCase):
