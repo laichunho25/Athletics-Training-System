@@ -3966,6 +3966,23 @@ def video_list(request):
                 messages.success(
                     request, _("已上傳「%(v0)s」。") % {"v0": video.display_title}
                 )
+                # 保留期限一定要即刻講：片係按**拍攝日期**計，唔係上傳時間，
+                # 所以補傳一條舊片有機會一傳上嚟就已經過咗期。想留住就設為範本。
+                purge_on = video.purge_date
+                if purge_on and purge_on < timezone.localdate():
+                    messages.info(
+                        request,
+                        _("這條片的拍攝日期已經過咗 %(v0)s 天保留期，下次清理時會被自動刪除；"
+                          "想留住就撳「設為範本」。")
+                        % {"v0": video.retention_days},
+                    )
+                elif purge_on:
+                    messages.info(
+                        request,
+                        _("這條片保留到 %(v0)s（拍攝日期起 %(v1)s 天），之後會自動刪除；"
+                          "想長期留住就撳「設為範本」。")
+                        % {"v0": purge_on.strftime("%Y-%m-%d"), "v1": video.retention_days},
+                    )
                 return redirect("web:video_detail", pk=video.pk)
             if action == "delete":
                 video = vsvc.get_video(request.user, request.POST.get("video_id"))
@@ -4017,6 +4034,8 @@ def video_list(request):
             "direct_upload": vstorage.r2_enabled(),
             "quota": vsvc.quota_for(athlete),
             "upgrade_pending": vsvc.open_upgrade_request(athlete),
+            # 0 代表唔會自動清；模板用 {% if %} 擋住就唔會顯示保留期。
+            "retain_days": vsvc.retention_days(athlete),
             "pro": vsvc.pro_limits(),
             "max_mb": int(MAX_UPLOAD_BYTES / 1024 / 1024),
             "allowed_ext": ", ".join(f".{e}" for e in ALLOWED_EXTENSIONS),

@@ -323,6 +323,20 @@ def check_size(size):
         )
 
 
+def _date(raw):
+    """表單那條 "YYYY-MM-DD"；空的或者形式不對就當今天。
+
+    不直接把字串塞進 model 是因為實例在 save() 之後那個欄位
+    仍然是字串，跟著拿去算保留期限就會爆。
+    """
+    if isinstance(raw, date_cls):
+        return raw
+    try:
+        return date_cls.fromisoformat((raw or "").strip())
+    except ValueError:
+        return date_cls.today()
+
+
 def _decimal(raw, places="0.01"):
     if raw in (None, ""):
         return None
@@ -387,7 +401,7 @@ def save_video(user, athlete, data, upload=None):
 
     video = TrainingVideo(
         athlete=athlete,
-        date=data.get("date") or date_cls.today(),
+        date=_date(data.get("date")),
         kind=kind,
         title=(data.get("title") or "").strip()[:120],
         note=(data.get("note") or "").strip(),

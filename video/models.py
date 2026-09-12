@@ -10,6 +10,7 @@
 
 import os
 import uuid
+from datetime import timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -310,6 +311,31 @@ class TrainingVideo(TimeStampedModel):
             return ""
         mb = self.size_bytes / (1024 * 1024)
         return f"{mb:.0f} MB" if mb >= 10 else f"{mb:.1f} MB"
+
+    @property
+    def retention_days(self):
+        """按方案，這條片能留幾多日；回 None 代表不會被自動清走。
+
+        範本（is_keeper）永遠不清，方案設定填 0 也代表不清。
+        """
+        if self.is_keeper:
+            return None
+        days = VideoQuotaConfig.load().limits_for(
+            self.athlete.video_plan or VideoPlan.FREE
+        )[2]
+        return days or None
+
+    @property
+    def purge_date(self):
+        """保留到邊日；不會被清就回 None。
+
+        由**拍攝日期**起計，不是上傳時間——purge_videos 篩的就是 date 那一欄。
+        補傳一條舊片可能一傳上嚟就已經過咗期，寧願畫面照直講。
+        """
+        days = self.retention_days
+        if days is None:
+            return None
+        return self.date + timedelta(days=days)
 
     @property
     def linked_label(self):

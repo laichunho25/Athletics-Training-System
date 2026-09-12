@@ -15,6 +15,15 @@
     {% if video.linked_label %}
       <div class="small c-blue">{% translate "對應" %}：{{ video.linked_label }}</div>
     {% endif %}
+    {# 保留期限擺喺標題底下，唔止上傳嗰下先見到——過期係由拍攝日期起計。 #}
+    {% if video.is_keeper %}
+      <div class="small c-green">{% translate "已設為範本，不會被保留期限清掉" %}</div>
+    {% elif video.purge_date %}
+      <div class="small c-orange">
+        {% blocktranslate with v0=video.purge_date|date:'Y-m-d' v1=video.retention_days %}保留到 {{ v0 }}（拍攝日期起 {{ v1 }} 天），之後會自動刪除{% endblocktranslate %}
+        · {% translate "想留住就撳「設為範本」" %}
+      </div>
+    {% endif %}
   </div>
   <div class="flex">
     <a class="btn ghost sm" href="{% url 'web:video_list' %}?athlete={{ athlete.id }}">

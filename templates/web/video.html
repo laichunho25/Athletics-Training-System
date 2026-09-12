@@ -152,6 +152,9 @@
           {% if quota.left_videos is not None %}
             · {% blocktranslate with v0=quota.left_videos %}還可以傳 {{ v0 }} 條{% endblocktranslate %}
           {% endif %}
+          {% if retain_days %}
+            · {% blocktranslate with v0=retain_days %}傳完的片會在拍攝日期起 {{ v0 }} 天後自動刪除，設為範本就會留低{% endblocktranslate %}
+          {% endif %}
         </span>
       </div>
       <div class="field">

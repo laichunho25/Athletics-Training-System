@@ -244,6 +244,74 @@ curl -I http://www.hohosports.com/                     # 應回 301 → https
 
 ---
 
+## 步驟 5／開啟影片清理排程（Cron Job）
+
+`render.yaml` 裡的 `atm-purge-videos` 每週一香港時間 04:00 執行
+`python manage.py purge_videos --apply`，把過了保留期限（免費 90 天、
+進階會員 365 天）而又沒被教練標成「範本」的影片刪掉，R2 上的檔案一併收走。
+
+**為什麼要做**：私隱政策向學校承諾過「90 天自動刪除」。要人手去跑的承諾不算承諾。
+（儲存成本那一半已經由上傳額度封了頂，不靠這條 cron。）
+
+### 1. 建立服務
+
+Render Dashboard → **Blueprints** → 選這個 repo → **Apply**。
+
+Blueprint 改動**不會**自動建服務，一定要按這一下。完成後服務列表會多一個
+`atm-purge-videos`（type: Cron Job），約 US$1／月。
+
+### 2. 補環境變數（**關鍵，不要跳過**）
+
+`render.yaml` 裡標了 `sync: false` 的變數不會從 repo 帶過去，要手動填。
+進 `atm-purge-videos` → **Environment** → 加這五個，
+值**直接從 `atm-athletics` 那邊複製**（Environment 頁面可以逐個複製）：
+
+| 變數 | 從哪裡拿 |
+|---|---|
+| `R2_BUCKET` | `atm-athletics` 的同名變數 |
+| `R2_ACCOUNT_ID` | 同上 |
+| `R2_ACCESS_KEY_ID` | 同上 |
+| `R2_SECRET_ACCESS_KEY` | 同上 |
+| `DJANGO_SECRET_KEY` | 同上（Django 啟動不了就跑不了任何指令） |
+
+`DATABASE_URL` 由藍圖自動注入，不用填。
+
+> **四把 R2 金鑰一把都不能少。** 少了的話 `video/storage.py` 會靜靜地退回
+> 本機檔案系統——資料庫那行刪掉了，R2 上的物件卻留下來變孤兒：帳單照計，
+> 而且沒有任何地方看得見。它不會報錯，所以一定要用下一步驗證。
+
+### 3. 先試跑，不要等到星期一
+
+進 `atm-purge-videos` → **Manual Run**（或 Trigger Run）→ 看 Logs。
+
+正常輸出是其中一種：
+
+```
+沒有超過保留期限的影片可清。
+```
+
+或列出片名之後：
+
+```
+已刪除 3 條影片，釋出約 142 MB。
+```
+
+**先在本機用 dry-run 看會刪什麼**（不加 `--apply` 就不會真的刪）：
+
+```
+python manage.py purge_videos
+```
+
+### 4. 確認排程
+
+Cron Job 頁面會顯示 `Next run`。`"0 20 * * 0"` 是 UTC，
+對應香港時間**逢星期一 04:00**。五個欄位由左到右是「分 時 日 月 星期」。
+
+要改時間直接改 `render.yaml` 再推一次，或在 Dashboard 上改（但下次 Apply
+藍圖會蓋回去，所以建議改 repo 裡那份）。
+
+---
+
 ## 日後要更新網站：一句指令
 
 改完東西之後，Windows 直接雙擊 **`ship.bat`**，或在專案資料夾裡跑：
@@ -301,9 +369,10 @@ py ship.py 加了運動員列表
 
 ## 已知限制
 
-- **上傳檔案（頭像 / 餐點照片）**：Render 的磁碟是暫時性的，重新部署會清空。
-  要保留請加 Persistent Disk 掛在 `/var/data`，並設 `DJANGO_MEDIA_ROOT=/var/data/media`；
-  或改用 S3 / Cloudflare R2。目前系統沒有這兩個功能的頁面，暫時不影響。
+- **上傳檔案（影片 / 頭像 / 餐點照片）**：已經全部走 Cloudflare R2，
+  設了 `R2_BUCKET` 等四個環境變數就會自動切換（見 `docs/影片分析.md`）。
+  本機開發沒設那些變數時才落 `MEDIA_ROOT`——所以本機與正式站的行為不一樣，
+  查問題時要先確認自己在看哪一邊。
 - **每日負荷重算**：目前靠 signal 即時更新。要排程請加 Render Cron Job：
   `python manage.py rebuild_analytics --days 90`（建議每日 00:30）。
 - **時區**：已設 `Asia/Hong_Kong`。

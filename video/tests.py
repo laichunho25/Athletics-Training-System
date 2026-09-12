@@ -628,6 +628,84 @@ class PlanRetentionTests(VideoTestCase):
         self.assertEqual(TrainingVideo.objects.count(), 2)
 
 
+class RetentionHintTests(VideoTestCase):
+    """保留期限要講得出口：傳完即刻講一次，片的頁面也一直摂到。
+
+    畫面上的日子要跟 purge_videos 實際篩的同一條條件走——拍攝日期，
+    不是上傳時間。兩邊對不上的話，學生會看到一個永遠不會到的日期。
+    """
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        config = VideoQuotaConfig.load()
+        config.free_retain_days = 90
+        config.save()
+
+    def test_purge_date_counts_from_the_shoot_date(self):
+        video = make_video(self.athlete, date=TODAY - timedelta(days=10))
+        self.assertEqual(video.retention_days, 90)
+        self.assertEqual(video.purge_date, TODAY + timedelta(days=80))
+
+    def test_keeper_has_no_purge_date(self):
+        video = make_video(self.athlete, is_keeper=True)
+        self.assertIsNone(video.retention_days)
+        self.assertIsNone(video.purge_date)
+
+    def test_zero_days_has_no_purge_date(self):
+        config = VideoQuotaConfig.load()
+        config.free_retain_days = 0
+        config.save()
+        self.assertIsNone(make_video(self.athlete).purge_date)
+
+    def test_pro_members_get_the_longer_date(self):
+        self.athlete.video_plan = VideoPlan.PRO
+        self.athlete.save()
+        config = VideoQuotaConfig.load()
+        config.pro_retain_days = 365
+        config.save()
+        self.assertEqual(make_video(self.athlete).retention_days, 365)
+
+    def test_the_page_warns_before_you_even_pick_a_file(self):
+        self.client.force_login(self.athlete.user)
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertContains(res, "天後自動刪除")
+
+    def test_uploading_says_when_the_clip_goes_away(self):
+        self.client.force_login(self.athlete.user)
+        res = self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upload", "date": TODAY.isoformat(), "file": fake_upload()},
+            follow=True,
+        )
+        video = TrainingVideo.objects.get()
+        self.assertContains(res, video.purge_date.strftime("%Y-%m-%d"))
+        self.assertContains(res, "設為範本")
+
+    def test_an_old_clip_is_told_it_is_already_past_due(self):
+        """補傳一條半年前的片，下一次清理就會輪到它。"""
+        self.client.force_login(self.athlete.user)
+        old = (TODAY - timedelta(days=200)).isoformat()
+        res = self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upload", "date": old, "file": fake_upload()},
+            follow=True,
+        )
+        self.assertContains(res, "下次清理時會被自動刪除")
+
+    def test_detail_page_keeps_showing_the_date(self):
+        video = make_video(self.athlete)
+        self.client.force_login(self.athlete.user)
+        res = self.client.get(reverse("web:video_detail", args=[video.pk]))
+        self.assertContains(res, video.purge_date.strftime("%Y-%m-%d"))
+
+    def test_detail_page_says_a_keeper_is_safe(self):
+        video = make_video(self.athlete, is_keeper=True)
+        self.client.force_login(self.athlete.user)
+        res = self.client.get(reverse("web:video_detail", args=[video.pk]))
+        self.assertContains(res, "不會被保留期限清掉")
+
+
 class UpgradeRequestTests(VideoTestCase):
     """升級只是排隊——不收錢、不即時開通，教練聯絡完才在後台按開通。"""
 
