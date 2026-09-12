@@ -3972,6 +3972,17 @@ def video_list(request):
                 title = video.display_title
                 vsvc.delete_video(request.user, video)
                 messages.success(request, _("已刪除「%(v0)s」。") % {"v0": title})
+            elif action == "upgrade":
+                # 只排隊，不收錢——教練看到之後照舊 WhatsApp 聯絡（見 programs 的做法）
+                vsvc.request_upgrade(
+                    request.user,
+                    athlete,
+                    note=request.POST.get("note", ""),
+                    contact=request.POST.get("contact", ""),
+                )
+                messages.success(
+                    request, _("已收到申請。教練會以電話或 WhatsApp 與你確認詳情與費用。")
+                )
             else:
                 messages.error(request, _("不認得的操作。"))
         except vsvc.VideoError as exc:
@@ -4004,6 +4015,9 @@ def video_list(request):
             "today": today,
             "links": vsvc.link_choices(athlete, today),
             "direct_upload": vstorage.r2_enabled(),
+            "quota": vsvc.quota_for(athlete),
+            "upgrade_pending": vsvc.open_upgrade_request(athlete),
+            "pro": vsvc.pro_limits(),
             "max_mb": int(MAX_UPLOAD_BYTES / 1024 / 1024),
             "allowed_ext": ", ".join(f".{e}" for e in ALLOWED_EXTENSIONS),
         },
@@ -4109,9 +4123,13 @@ def video_sign(request):
         return JsonResponse({"error": str(_("先挑一位運動員。"))}, status=400)
 
     filename = request.POST.get("filename", "")
+    size = int(request.POST.get("size_bytes") or 0)
     try:
         vsvc.check_filename(filename)
-        vsvc.check_size(int(request.POST.get("size_bytes") or 0))
+        vsvc.check_size(size)
+        # 額度要在這裡擋。發了 presigned 網址就等於答應收這條片，
+        # 等瀏覽器傳完 150MB 才說滿了，那個檔案會留在 R2 上沒人指得到。
+        vsvc.check_quota(athlete, size)
     except vsvc.VideoError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
     except (TypeError, ValueError):

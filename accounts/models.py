@@ -13,6 +13,7 @@ from core.models import (
     Role,
     Sex,
     TimeStampedModel,
+    VideoPlan,
     format_mark,
 )
 
@@ -117,6 +118,19 @@ class AthleteProfile(TimeStampedModel):
     )
     school_or_club = models.CharField(_("學校/會所"), max_length=100, blank=True)
     notes = models.TextField(_("備註"), blank=True)
+
+    # ---- 影片庫額度：方案決定預設值，下面兩欄是逐人開的特例 ----
+    video_plan = models.CharField(
+        _("影片方案"), max_length=6, choices=VideoPlan.choices, default=VideoPlan.FREE
+    )
+    video_max_videos = models.PositiveSmallIntegerField(
+        _("影片條數上限"), null=True, blank=True,
+        help_text=_("留空＝跟方案的預設值；0 ＝ 不限"),
+    )
+    video_max_mb = models.PositiveIntegerField(
+        _("影片容量上限 (MB)"), null=True, blank=True,
+        help_text=_("留空＝跟方案的預設值；0 ＝ 不限"),
+    )
 
     class Meta:
         verbose_name = _("運動員檔案")

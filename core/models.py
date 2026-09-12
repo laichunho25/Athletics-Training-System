@@ -29,6 +29,18 @@ class AthleteStatus(models.TextChoices):
     INJURED = "INJURED", _("傷患中")
 
 
+class VideoPlan(models.TextChoices):
+    """影片庫的方案。
+
+    免費額度的存在不是為了省那幾塊錢——R2 一個月的帳單就算全隊塞爆也只是零頭——
+    而是為了讓儲存量**可預測**：沒有上限的話，一條 500MB 的廢片乘以一百個人
+    就是一筆沒人看得見的帳。進階會員買的是空間、保留期，以及更深的分析。
+    """
+
+    FREE = "FREE", _("免費")
+    PRO = "PRO", _("進階會員")
+
+
 class EventCategory(models.TextChoices):
     SPRINT = "SPRINT", _("短跑")
     HURDLES = "HURDLES", _("跨欄")

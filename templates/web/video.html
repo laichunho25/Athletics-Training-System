@@ -11,6 +11,27 @@
       · {% blocktranslate with v0=videos|length %}{{ v0 }} 條{% endblocktranslate %}
     </div>
   </div>
+
+  {% comment %}用量放在標題旁邊，不是藏在上傳表單裡——在按下「上傳影片」之前
+  就該知道還剩幾格，不然拍完一條回來才發現傳不上去。{% endcomment %}
+  {% if not quota.unlimited %}
+    <div class="vidquota">
+      <div class="between" style="gap:10px">
+        <span class="small c-dim">{% translate "已用額度" %}</span>
+        {% if quota.is_pro %}
+          <span class="badge b-blue">{{ quota.plan_label }}</span>
+        {% elif quota.is_full %}
+          <span class="badge b-red">{% translate "已滿" %}</span>
+        {% elif quota.is_tight %}
+          <span class="badge b-yellow">{% translate "快滿了" %}</span>
+        {% else %}
+          <span class="badge b-dim">{{ quota.plan_label }}</span>
+        {% endif %}
+      </div>
+      <div class="num">{{ quota.usage_display }}</div>
+      <div class="progress"><div style="width:{{ quota.percent }}%"></div></div>
+    </div>
+  {% endif %}
 </div>
 
 <!-- ------------------------------------------------------------- 搜尋列
@@ -61,6 +82,52 @@
     {% endif %}
   </summary>
 
+  {% comment %}滿了要給兩條出路：刪片（即時、免費）與升級（要人手跟進）。
+  只寫「升級」會變成把人推去付費，只寫「刪片」又當作沒有進階方案這回事。{% endcomment %}
+  {% if quota.is_full %}
+    <div class="alert red" style="margin:14px 18px">
+      {% blocktranslate with v0=quota.usage_display %}額度已滿（{{ v0 }}）。在下面的片牆刪掉幾條舊片就能繼續傳，或申請升級進階會員把上限拉高。{% endblocktranslate %}
+    </div>
+  {% elif quota.is_tight %}
+    <div class="alert yellow" style="margin:14px 18px">
+      {% blocktranslate with v0=quota.usage_display %}額度快滿了（{{ v0 }}）。傳不下的時候刪掉幾條舊片就好——刪一條即刻還一格。{% endblocktranslate %}
+    </div>
+  {% endif %}
+
+  {% comment %}升級沒有線上付款：按了只是排一次隊，教練會聯絡——
+  跟報名班的做法一樣（見 programs/done.html）。{% endcomment %}
+  {% if not quota.is_pro and quota.is_tight %}
+    {% if upgrade_pending %}
+      <div class="alert blue" style="margin:0 18px 14px">
+        {% translate "升級申請已經收到，教練會以電話或 WhatsApp 與你確認詳情與費用。在等的時候，刪掉幾條舊片一樣可以繼續傳。" %}
+      </div>
+    {% else %}
+      <details class="vidupgrade">
+        <summary>{% translate "申請升級進階會員" %}</summary>
+        <form method="post" class="vidupgrade-body">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="upgrade">
+          <p class="small c-dim">
+            {% blocktranslate with v0=pro.videos v1=pro.mb v2=pro.days %}進階會員：{{ v0 }} 條 · {{ v1 }} MB · 影片保留 {{ v2 }} 天。送出後教練會與你確認費用與開通時間，這裡不會即時扣款。{% endblocktranslate %}
+          </p>
+          <div class="row">
+            <div class="field">
+              <label>{% translate "聯絡電話 / WhatsApp" %}</label>
+              <input type="text" name="contact" value="{{ request.user.phone }}"
+                     placeholder="{% translate '留空就用帳號上的電話' %}">
+            </div>
+            <div class="field">
+              <label>{% translate "想做什麼（選填）" %}</label>
+              <input type="text" name="note"
+                     placeholder="{% translate '例：整季的起跑技術分析，想留住每次測驗的片' %}">
+            </div>
+          </div>
+          <button class="btn sm mt" type="submit">{% translate "送出申請" %}</button>
+        </form>
+      </details>
+    {% endif %}
+  {% endif %}
+
   <form method="post" enctype="multipart/form-data" style="padding:16px 18px"
         id="vidform"
         data-sign-url="{% url 'web:video_sign' %}"
@@ -82,6 +149,9 @@
         <input type="file" name="file" id="v-file" accept="video/*" required>
         <span class="small c-dim">
           {% blocktranslate with v0=allowed_ext v1=max_mb %}{{ v0 }}，單檔上限 {{ v1 }} MB{% endblocktranslate %}
+          {% if quota.left_videos is not None %}
+            · {% blocktranslate with v0=quota.left_videos %}還可以傳 {{ v0 }} 條{% endblocktranslate %}
+          {% endif %}
         </span>
       </div>
       <div class="field">
@@ -141,7 +211,8 @@
       <span class="small c-dim mono" id="v-progtext">0%</span>
     </div>
 
-    <button class="btn mt" type="submit" id="v-submit">{% translate "上傳" %}</button>
+    <button class="btn mt" type="submit" id="v-submit"
+            {% if quota.is_full %}disabled{% endif %}>{% translate "上傳" %}</button>
     <span class="small c-dim" style="margin-left:8px">
       {% translate "橫著拍、整個人入鏡、背景乾淨一點，日後回看比較得出來。iPhone 請在「設定 → 相機 → 格式」選「最相容」，否則瀏覽器可能播不了。" %}
     </span>

@@ -13,17 +13,21 @@ from datetime import date as date_cls
 from decimal import Decimal, InvalidOperation
 
 from django.core.files.base import ContentFile
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.utils.translation import gettext_lazy as _
 
 from core.models import Role
 from core.permissions import athlete_ids_visible_to
+from core.models import VideoPlan
 from video.models import (
     ALLOWED_EXTENSIONS,
     MAX_UPLOAD_BYTES,
+    PlanUpgradeRequest,
     TrainingVideo,
+    UpgradeStatus,
     VideoKind,
     VideoNote,
+    VideoQuotaConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,6 +123,185 @@ def hot_terms(videos, limit=HOT_TERM_LIMIT):
     return [name for name, _n in counts.most_common(limit)]
 
 
+# --------------------------------------------------------------- 上傳額度
+
+
+class Quota:
+    """一位運動員現在用了多少、還剩多少。
+
+    額度算的是「現在存著的片」而不是「總共傳過幾條」——刪一條就即刻還一格，
+    `purge_videos` 到期清片也會自動還。這樣「刪片騰空間」對運動員才是成立的，
+    也不用另外記一本累計帳。
+
+    上限 0 代表那一道閘不限（管理員可以逐人解鎖）。
+    """
+
+    def __init__(self, plan, max_videos, max_bytes, used_videos, used_bytes):
+        self.plan = plan
+        self.max_videos = max_videos
+        self.max_bytes = max_bytes
+        self.used_videos = used_videos
+        self.used_bytes = used_bytes
+
+    @property
+    def plan_label(self):
+        return VideoPlan(self.plan).label
+
+    @property
+    def is_pro(self):
+        return self.plan == VideoPlan.PRO
+
+    @property
+    def unlimited(self):
+        return not self.max_videos and not self.max_bytes
+
+    @property
+    def left_videos(self):
+        return None if not self.max_videos else max(self.max_videos - self.used_videos, 0)
+
+    @property
+    def left_bytes(self):
+        return None if not self.max_bytes else max(self.max_bytes - self.used_bytes, 0)
+
+    @property
+    def percent(self):
+        """兩道閘取用得比較兇的那一個——進度條該反映最快撞到的那面牆。"""
+        parts = []
+        if self.max_videos:
+            parts.append(self.used_videos / self.max_videos * 100)
+        if self.max_bytes:
+            parts.append(self.used_bytes / self.max_bytes * 100)
+        return min(round(max(parts)), 100) if parts else 0
+
+    @property
+    def is_full(self):
+        return not self.unlimited and (self.left_videos == 0 or self.left_bytes == 0)
+
+    @property
+    def is_tight(self):
+        """剩不到兩成就先提醒，不要等傳到一半才說滿了。"""
+        return not self.unlimited and self.percent >= 80
+
+    @property
+    def used_mb(self):
+        return self.used_bytes / (1024 * 1024)
+
+    @property
+    def max_mb(self):
+        return self.max_bytes / (1024 * 1024) if self.max_bytes else 0
+
+    @property
+    def usage_display(self):
+        bits = []
+        if self.max_videos:
+            bits.append(f"{self.used_videos}/{self.max_videos} 條")
+        else:
+            bits.append(f"{self.used_videos} 條")
+        if self.max_bytes:
+            bits.append(f"{self.used_mb:.0f}/{self.max_mb:.0f} MB")
+        else:
+            bits.append(f"{self.used_mb:.0f} MB")
+        return " · ".join(bits)
+
+
+def quota_for(athlete):
+    """這位運動員的額度現況。
+
+    上限的來源有兩層：方案（後台那張 `VideoQuotaConfig`）是預設值，
+    `AthleteProfile` 上填了東西就蓋過去——隊裡有人要做整季的技術分析，
+    不用為了他一個人把全隊的額度調高。
+    """
+    config = VideoQuotaConfig.load()
+    plan = athlete.video_plan or VideoPlan.FREE
+    max_videos, max_bytes, _days = config.limits_for(plan)
+
+    if athlete.video_max_videos is not None:
+        max_videos = athlete.video_max_videos
+    if athlete.video_max_mb is not None:
+        max_bytes = athlete.video_max_mb * 1024 * 1024
+
+    used = TrainingVideo.objects.filter(athlete=athlete).aggregate(
+        n=Count("id"), b=Sum("size_bytes")
+    )
+    return Quota(plan, max_videos, max_bytes, used["n"] or 0, used["b"] or 0)
+
+
+def retention_days(athlete, config=None):
+    """這位運動員的片留多久；0 代表不清。進階會員留得比較久。"""
+    config = config or VideoQuotaConfig.load()
+    return config.limits_for(athlete.video_plan or VideoPlan.FREE)[2]
+
+
+def check_quota(athlete, incoming_bytes=0):
+    """還傳得下這一條嗎？傳不下就丟一個講得出下一步的錯誤。
+
+    R2 開著的時候這一關要在發 presigned 網址**之前**過——等瀏覽器把 150MB
+    傳完才說額度滿了，檔案已經躺在 R2 上變成沒人指得到的孤兒物件。
+    """
+    quota = quota_for(athlete)
+    if quota.unlimited:
+        return quota
+
+    if quota.max_videos and quota.used_videos >= quota.max_videos:
+        raise VideoError(
+            _("影片數量已滿（%(v0)s/%(v1)s 條）。刪掉幾條舊片騰出位置，"
+              "或升級進階會員把上限拉到 %(v2)s 條。")
+            % {
+                "v0": quota.used_videos,
+                "v1": quota.max_videos,
+                "v2": VideoQuotaConfig.load().pro_max_videos,
+            }
+        )
+
+    if quota.max_bytes and quota.used_bytes + (incoming_bytes or 0) > quota.max_bytes:
+        raise VideoError(
+            _("容量不夠了（已用 %(v0)s MB，上限 %(v1)s MB，這條片 %(v2)s MB）。"
+              "刪掉幾條舊片，或升級進階會員。")
+            % {
+                "v0": f"{quota.used_mb:.0f}",
+                "v1": f"{quota.max_mb:.0f}",
+                "v2": f"{(incoming_bytes or 0) / 1024 / 1024:.0f}",
+            }
+        )
+    return quota
+
+
+# --------------------------------------------------------------- 升級申請
+
+
+def open_upgrade_request(athlete):
+    """這位運動員有沒有一筆還在排隊的申請。沒有就回 None。"""
+    return athlete.upgrade_requests.filter(status=UpgradeStatus.NEW).first()
+
+
+def pro_limits():
+    """進階方案賣的是什麼——申請表上要照後台現在的設定寫，不能寫死。"""
+    config = VideoQuotaConfig.load()
+    return {
+        "videos": config.pro_max_videos,
+        "mb": config.pro_max_mb,
+        "days": config.pro_retain_days,
+    }
+
+
+def request_upgrade(user, athlete, note="", contact=""):
+    """排一次隊。錢不在這裡收——教練看到之後照舊 WhatsApp 聯絡。
+
+    教練也按得到（幫旗下運動員代申請），所以 `requested_by` 要記是誰按的。
+    """
+    if athlete.video_plan == VideoPlan.PRO:
+        raise VideoError(_("這位運動員已經是進階會員了。"))
+    if open_upgrade_request(athlete) is not None:
+        raise VideoError(_("已經有一筆申請在處理中，教練會聯絡你，不用重複提交。"))
+
+    return PlanUpgradeRequest.objects.create(
+        athlete=athlete,
+        requested_by=user,
+        contact=(contact or "").strip()[:60],
+        note=(note or "").strip(),
+    )
+
+
 # --------------------------------------------------------------- 上傳
 
 
@@ -193,6 +376,10 @@ def save_video(user, athlete, data, upload=None):
         check_filename(remote_key)
         size = _int(data.get("size_bytes")) or 0
         check_size(size)
+
+    # 額度這一關 video_sign 已經擋過一次了，這裡再擋是因為那是兩個請求：
+    # 中間隔了幾十秒，人可能在另一個分頁又傳了一條，或者直接 POST 過來。
+    check_quota(athlete, size)
 
     kind = data.get("kind")
     if kind not in VideoKind.values:

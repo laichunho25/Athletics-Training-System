@@ -17,7 +17,15 @@ from django.utils import timezone
 from analytics.models import MetricDomain, MetricItem, MetricRecord
 from core.test_factories import TODAY, make_admin, make_athlete, make_coach
 from video import services as vsvc
-from video.models import TrainingVideo, VideoKind, VideoNote
+from core.models import VideoPlan
+from video.models import (
+    PlanUpgradeRequest,
+    TrainingVideo,
+    UpgradeStatus,
+    VideoKind,
+    VideoNote,
+    VideoQuotaConfig,
+)
 
 MEDIA = tempfile.mkdtemp(prefix="atm-video-test-")
 
@@ -481,3 +489,264 @@ class SearchTests(VideoTestCase):
         make_video(self.athlete, title="隨手拍")
         res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
         self.assertEqual(res.context["hot_terms"], [])
+
+
+MB = 1024 * 1024
+
+
+class QuotaTests(VideoTestCase):
+    """上傳額度：條數與容量兩道閘，以及後台改得動這件事。"""
+
+    def setUp(self):
+        self.athlete = make_athlete()
+        self.config = VideoQuotaConfig.load()
+        self.config.free_max_videos = 3
+        self.config.free_max_mb = 100
+        self.config.save()
+
+    def test_defaults_come_from_the_config_row(self):
+        quota = vsvc.quota_for(self.athlete)
+        self.assertEqual(quota.max_videos, 3)
+        self.assertEqual(quota.max_bytes, 100 * MB)
+        self.assertEqual(quota.used_videos, 0)
+        self.assertFalse(quota.is_full)
+
+    def test_count_gate_blocks_the_fourth_clip(self):
+        for _n in range(3):
+            make_video(self.athlete, size_bytes=1 * MB)
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.check_quota(self.athlete, 1 * MB)
+
+    def test_size_gate_blocks_before_the_count_gate(self):
+        """兩條大片就吃光 100MB——條數還剩一格也要擋下來。
+
+        這是限條數而不限容量的漏洞：單檔上限乘以條數才是真正的佔用量。
+        """
+        make_video(self.athlete, size_bytes=60 * MB)
+        make_video(self.athlete, size_bytes=35 * MB)
+        quota = vsvc.quota_for(self.athlete)
+        self.assertEqual(quota.left_videos, 1)
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.check_quota(self.athlete, 20 * MB)
+
+    def test_deleting_a_clip_gives_the_slot_back(self):
+        videos = [make_video(self.athlete, size_bytes=1 * MB) for _n in range(3)]
+        self.assertTrue(vsvc.quota_for(self.athlete).is_full)
+        videos[0].delete()
+        self.assertFalse(vsvc.quota_for(self.athlete).is_full)
+
+    def test_pro_plan_gets_the_bigger_limits(self):
+        self.athlete.video_plan = VideoPlan.PRO
+        self.athlete.save()
+        quota = vsvc.quota_for(self.athlete)
+        self.assertEqual(quota.max_videos, self.config.pro_max_videos)
+        self.assertTrue(quota.is_pro)
+
+    def test_per_athlete_override_beats_the_plan(self):
+        self.athlete.video_max_videos = 50
+        self.athlete.save()
+        self.assertEqual(vsvc.quota_for(self.athlete).max_videos, 50)
+
+    def test_zero_means_unlimited(self):
+        self.athlete.video_max_videos = 0
+        self.athlete.video_max_mb = 0
+        self.athlete.save()
+        make_video(self.athlete, size_bytes=900 * MB)
+        quota = vsvc.quota_for(self.athlete)
+        self.assertTrue(quota.unlimited)
+        self.assertTrue(vsvc.check_quota(self.athlete, 500 * MB).unlimited)
+
+    def test_save_video_refuses_when_full(self):
+        for _n in range(3):
+            make_video(self.athlete, size_bytes=1 * MB)
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.save_video(None, self.athlete, {}, upload=fake_upload())
+        self.assertEqual(TrainingVideo.objects.count(), 3)
+
+    def test_config_row_is_a_singleton(self):
+        VideoQuotaConfig.objects.create(free_max_videos=99)
+        self.assertEqual(VideoQuotaConfig.objects.count(), 1)
+        self.assertEqual(VideoQuotaConfig.load().free_max_videos, 99)
+
+
+class QuotaViewTests(VideoTestCase):
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        self.client.force_login(self.coach.user)
+        config = VideoQuotaConfig.load()
+        config.free_max_videos = 1
+        config.save()
+
+    def test_sign_refuses_when_quota_is_full(self):
+        """R2 直傳的額度要在發網址之前擋——傳完才擋會在雲端留下孤兒檔。"""
+        make_video(self.athlete, size_bytes=1 * MB)
+        res = self.client.post(
+            reverse("web:video_sign"),
+            {"athlete": self.athlete.id, "filename": "clip.mp4", "size_bytes": 1 * MB},
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("error", res.json())
+
+    def test_form_upload_refuses_when_quota_is_full(self):
+        make_video(self.athlete, size_bytes=1 * MB)
+        self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upload", "date": TODAY.isoformat(), "file": fake_upload()},
+        )
+        self.assertEqual(TrainingVideo.objects.count(), 1)
+
+    def test_library_page_shows_the_usage_bar(self):
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertContains(res, "已用額度")
+
+
+class PlanRetentionTests(VideoTestCase):
+    """保留天數跟著方案走：進階會員的片留得久一點。"""
+
+    def setUp(self):
+        config = VideoQuotaConfig.load()
+        config.free_retain_days = 90
+        config.pro_retain_days = 365
+        config.save()
+        old = TODAY - timedelta(days=120)
+        self.free = make_video(make_athlete("ath_free"), date=old)
+        pro = make_athlete("ath_pro")
+        pro.video_plan = VideoPlan.PRO
+        pro.save()
+        self.pro = make_video(pro, date=old)
+
+    def test_only_the_free_athletes_clip_is_purged(self):
+        call_command("purge_videos", apply=True)
+        self.assertCountEqual(list(TrainingVideo.objects.all()), [self.pro])
+
+    def test_zero_days_turns_purging_off(self):
+        config = VideoQuotaConfig.load()
+        config.free_retain_days = 0
+        config.save()
+        call_command("purge_videos", apply=True)
+        self.assertEqual(TrainingVideo.objects.count(), 2)
+
+
+class UpgradeRequestTests(VideoTestCase):
+    """升級只是排隊——不收錢、不即時開通，教練聯絡完才在後台按開通。"""
+
+    def setUp(self):
+        self.athlete = make_athlete()
+        self.admin = make_admin()
+
+    def test_request_creates_a_pending_row(self):
+        req = vsvc.request_upgrade(self.athlete.user, self.athlete, note="想做整季分析")
+        self.assertTrue(req.is_open)
+        self.assertEqual(req.requested_by, self.athlete.user)
+        # 排隊不等於開通：方案要維持原樣，直到有人收到錢
+        self.athlete.refresh_from_db()
+        self.assertEqual(self.athlete.video_plan, VideoPlan.FREE)
+
+    def test_second_request_is_refused_while_one_is_open(self):
+        vsvc.request_upgrade(self.athlete.user, self.athlete)
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.request_upgrade(self.athlete.user, self.athlete)
+        self.assertEqual(PlanUpgradeRequest.objects.count(), 1)
+
+    def test_pro_members_cannot_request(self):
+        self.athlete.video_plan = VideoPlan.PRO
+        self.athlete.save()
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.request_upgrade(self.athlete.user, self.athlete)
+
+    def test_approve_flips_the_plan_and_closes_the_request(self):
+        req = vsvc.request_upgrade(self.athlete.user, self.athlete)
+        req.approve(self.admin)
+        self.athlete.refresh_from_db()
+        self.assertEqual(self.athlete.video_plan, VideoPlan.PRO)
+        self.assertEqual(req.status, UpgradeStatus.APPROVED)
+        self.assertEqual(req.handled_by, self.admin)
+        self.assertIsNotNone(req.handled_at)
+
+    def test_can_request_again_after_being_declined(self):
+        """婉拒之後隊伍要清空，否則那個人永遠再申請不了。"""
+        req = vsvc.request_upgrade(self.athlete.user, self.athlete)
+        req.decline(self.admin)
+        self.assertIsNone(vsvc.open_upgrade_request(self.athlete))
+        vsvc.request_upgrade(self.athlete.user, self.athlete)
+        self.assertEqual(PlanUpgradeRequest.objects.count(), 2)
+
+    def test_approved_athlete_gets_the_bigger_quota(self):
+        vsvc.request_upgrade(self.athlete.user, self.athlete).approve(self.admin)
+        self.athlete.refresh_from_db()
+        quota = vsvc.quota_for(self.athlete)
+        self.assertTrue(quota.is_pro)
+        self.assertEqual(quota.max_videos, VideoQuotaConfig.load().pro_max_videos)
+
+    def test_contact_falls_back_to_the_account_phone(self):
+        self.athlete.user.phone = "6531 2212"
+        self.athlete.user.save()
+        req = vsvc.request_upgrade(self.athlete.user, self.athlete)
+        self.assertEqual(req.contact_display, "6531 2212")
+
+
+class UpgradeViewTests(VideoTestCase):
+    def setUp(self):
+        self.coach = make_coach()
+        self.athlete = make_athlete(coach=self.coach)
+        config = VideoQuotaConfig.load()
+        config.free_max_videos = 1
+        config.save()
+
+    def test_athlete_can_file_a_request_from_the_library(self):
+        self.client.force_login(self.athlete.user)
+        self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upgrade", "contact": "9876 5432", "note": "起跑分析"},
+        )
+        req = PlanUpgradeRequest.objects.get()
+        self.assertEqual(req.athlete, self.athlete)
+        self.assertEqual(req.contact, "9876 5432")
+
+    def test_coach_can_file_on_an_athletes_behalf(self):
+        """「這個仔要做整季分析」——教練代按也算，申請人記的是教練。"""
+        self.client.force_login(self.coach.user)
+        self.client.post(
+            reverse("web:video_list") + f"?athlete={self.athlete.id}",
+            {"action": "upgrade"},
+        )
+        self.assertEqual(PlanUpgradeRequest.objects.get().requested_by, self.coach.user)
+
+    #: 找的是送出鈕，不是標題——「申請升級進階會員」這幾個字在額度滿的
+    #: 紅色提示裡也出現，拿它來比對會比對到提示、測不出表單在不在。
+    FORM_MARK = "送出申請"
+
+    def test_the_upgrade_form_only_shows_once_the_quota_is_tight(self):
+        self.client.force_login(self.athlete.user)
+        url = reverse("web:video_list")
+        self.assertNotContains(
+            self.client.get(url, {"athlete": self.athlete.id}), self.FORM_MARK
+        )
+        make_video(self.athlete, size_bytes=1024)
+        self.assertContains(
+            self.client.get(url, {"athlete": self.athlete.id}), self.FORM_MARK
+        )
+
+    def test_a_pending_request_replaces_the_form(self):
+        make_video(self.athlete, size_bytes=1024)
+        vsvc.request_upgrade(self.athlete.user, self.athlete)
+        self.client.force_login(self.athlete.user)
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertContains(res, "升級申請已經收到")
+        self.assertNotContains(res, self.FORM_MARK)
+
+    def test_pro_members_never_see_the_form(self):
+        self.athlete.video_plan = VideoPlan.PRO
+        self.athlete.save()
+        make_video(self.athlete, size_bytes=1024)
+        self.client.force_login(self.athlete.user)
+        res = self.client.get(reverse("web:video_list"), {"athlete": self.athlete.id})
+        self.assertNotContains(res, self.FORM_MARK)
+
+    def test_duplicate_request_is_reported_not_saved(self):
+        self.client.force_login(self.athlete.user)
+        url = reverse("web:video_list") + f"?athlete={self.athlete.id}"
+        self.client.post(url, {"action": "upgrade"})
+        self.client.post(url, {"action": "upgrade"})
+        self.assertEqual(PlanUpgradeRequest.objects.count(), 1)

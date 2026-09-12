@@ -1461,6 +1461,21 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 @media (max-width: 1000px) { .vidwall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .vidwall { grid-template-columns: 1fr; } }
 
+/* 額度條：貼在影片庫標題右邊，窄螢幕退到下一行佔滿寬度 */
+.vidquota { min-width: 200px; max-width: 260px; flex: 0 1 auto; }
+.vidquota .num { font-size: 13px; margin-top: 2px; }
+.vidquota .progress { margin-top: 6px; }
+@media (max-width: 620px) { .vidquota { max-width: none; width: 100%; margin-top: 10px; } }
+
+/* 申請升級：預設收起來。額度快滿的人才看得到，而且多數人會先去刪片 */
+.vidupgrade { margin: 0 18px 14px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+.vidupgrade > summary {
+  cursor: pointer; padding: 8px 12px; font-size: 12.5px; font-weight: 600; color: var(--text-dim);
+}
+.vidupgrade > summary:hover { color: var(--accent); }
+.vidupgrade[open] > summary { border-bottom: 1px solid var(--border); }
+.vidupgrade-body { padding: 12px; }
+
 /* 上傳前的預覽：左邊一小格畫面，右邊是讀出來的長度尺寸與警告 */
 .vidprev { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; }
 .vidprev video {

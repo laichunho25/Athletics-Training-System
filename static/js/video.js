@@ -38,7 +38,7 @@
     var progWrap = $('v-progwrap');
     var prog = $('v-prog');
     var progText = $('v-progtext');
-    var maxMb = parseInt(form.getAttribute('data-max-mb'), 10) || 500;
+    var maxMb = parseInt(form.getAttribute('data-max-mb'), 10) || 150;
     var direct = form.getAttribute('data-direct') === '1';
     var signUrl = form.getAttribute('data-sign-url');
     var objectUrl = null;
@@ -145,7 +145,8 @@
       fetch(signUrl, { method: 'POST', body: body, credentials: 'same-origin' })
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          if (data.error) throw new Error(data.error);
+          /* 伺服器的話已經是給人看的（格式不對、額度滿了），照原文顯示 */
+          if (data.error) { var e = new Error(data.error); e.fromServer = true; throw e; }
           if (!data.direct) { plainSubmit(); return; }   /* 伺服器說走一般路 */
           return putToStorage(file, data);
         })
@@ -154,7 +155,8 @@
           submit.disabled = false;
           submit.textContent = '上傳';
           progWrap.hidden = true;
-          say('上傳失敗：' + (err && err.message ? err.message : '請再試一次') + '。', true);
+          say(err && err.fromServer ? err.message
+              : '上傳失敗：' + (err && err.message ? err.message : '請再試一次') + '。', true);
         });
     });
 

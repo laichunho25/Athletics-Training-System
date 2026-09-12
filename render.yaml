@@ -40,6 +40,45 @@ services:
           name: atm-db
           property: connectionString
 
+  # 影片保留期限清理。天數跟著每位運動員的方案走（後台「影片額度設定」可改），
+  # 所以這裡不傳 --days。額度已經把儲存量封了頂，這條 cron 管的是另一半：
+  # 我們對學校承諾過「90 天自動刪除」，手動跑的承諾不算承諾。
+  #
+  # 每週一凌晨 4:00（UTC 20:00 週日 ＝ 香港時間週一 04:00）。
+  # 每天跑也可以，但保留期是 90 天，早一週晚一週沒有分別，週跑省下的
+  # 是「哪天誤刪了要查 log」的機會。
+  - type: cron
+    name: atm-purge-videos
+    runtime: python
+    plan: starter
+    region: singapore
+    branch: main
+    schedule: "0 20 * * 0"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py purge_videos --apply"
+    envVars:
+      # 清理要刪 R2 上的實體檔，所以四把 R2 金鑰一個都不能少；
+      # 少了的話 video.storage 會靜靜地退回本機檔案系統，資料庫那行刪了、
+      # R2 上的物件卻留下來變孤兒——帳單照計，而且沒人看得見。
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: atm-db
+          property: connectionString
+
 databases:
   - name: atm-db
     plan: basic-256mb      # free 方案 30 天後過期，正式站請用付費方案

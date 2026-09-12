@@ -15,15 +15,179 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TimeStampedModel
+from core.models import TimeStampedModel, VideoPlan
 from video import storage as vstorage
 
 #: 允許上傳的副檔名。mov 收下是因為 iPhone 預設就拍這個，
 #: 但裡面是 HEVC 的話瀏覽器播不了——上傳頁會先在前端試播並提醒。
 ALLOWED_EXTENSIONS = ("mp4", "mov", "m4v", "webm")
 
-#: 單檔上限 500MB。1080p 手機影片約每分鐘 100–130MB，等於容得下四五分鐘。
-MAX_UPLOAD_BYTES = 500 * 1024 * 1024
+#: 單檔上限 150MB。1080p 手機影片約每分鐘 100–130MB，等於一分半鐘左右——
+#: 拿來分析的片（一組深蹲、一趟加速跑）本來就只有十幾二十秒，這個數字已經闊落。
+#: 不放寬是因為每人的容量額度是用位元組算的：一條五分鐘的廢片會吃掉整個月的額度。
+MAX_UPLOAD_BYTES = 150 * 1024 * 1024
+
+
+class VideoQuotaConfig(models.Model):
+    """全站的影片額度預設值——只有一行，管理員在後台改。
+
+    為什麼是一張表而不是 settings 常數：調額度是營運決定（下學期多收二十個人、
+    或者 R2 的帳單開始有感），不應該要重新部署一次才改得動。
+    個別運動員要開特例，在 `AthleteProfile` 上覆寫，見 `video.services.quota_for`。
+
+    條數與容量兩個閘都要過。只卡條數的話，單檔 150MB 乘以額度就是真正的上限，
+    一個人可以合法佔掉別人十倍的空間；容量才是帳單看的東西，條數只是給人看的
+    友善單位。任一欄填 0 代表那一道閘不限。
+    """
+
+    free_max_videos = models.PositiveSmallIntegerField(
+        _("免費：條數上限"), default=12, help_text=_("0 ＝ 不限")
+    )
+    free_max_mb = models.PositiveIntegerField(
+        _("免費：容量上限 (MB)"), default=600, help_text=_("0 ＝ 不限")
+    )
+    free_retain_days = models.PositiveSmallIntegerField(
+        _("免費：保留天數"), default=90,
+        help_text=_("purge_videos 會清掉超過這個天數、且未標為範本的片；0 ＝ 不清"),
+    )
+    pro_max_videos = models.PositiveSmallIntegerField(
+        _("進階：條數上限"), default=60, help_text=_("0 ＝ 不限")
+    )
+    pro_max_mb = models.PositiveIntegerField(
+        _("進階：容量上限 (MB)"), default=3072, help_text=_("0 ＝ 不限")
+    )
+    pro_retain_days = models.PositiveSmallIntegerField(
+        _("進階：保留天數"), default=365, help_text=_("0 ＝ 不清")
+    )
+
+    class Meta:
+        verbose_name = _("影片額度設定")
+        verbose_name_plural = _("影片額度設定")
+
+    def __str__(self):
+        return str(_("影片額度設定"))
+
+    def save(self, **kwargs):
+        # 單例：永遠寫在同一行，後台再怎麼按「新增」也不會多出第二套設定。
+        # `objects.create()` 會帶 force_insert=True 進來，但那一行通常已經在了，
+        # 硬 insert 會撞 primary key——一律改成「有就覆寫、沒有才建」。
+        self.pk = 1
+        kwargs["force_insert"] = False
+        super().save(**kwargs)
+
+    def delete(self, *args, **kwargs):
+        """不給刪——刪掉之後所有人的額度會突然回到程式碼裡的預設值。"""
+        return 0, {}
+
+    @classmethod
+    def load(cls):
+        return cls.objects.get_or_create(pk=1)[0]
+
+    def limits_for(self, plan):
+        """回 (條數上限, 位元組上限, 保留天數)；0 代表不限。"""
+        if plan == VideoPlan.PRO:
+            return self.pro_max_videos, self.pro_max_mb * 1024 * 1024, self.pro_retain_days
+        return self.free_max_videos, self.free_max_mb * 1024 * 1024, self.free_retain_days
+
+
+class UpgradeStatus(models.TextChoices):
+    NEW = "NEW", _("待聯絡")
+    APPROVED = "APPROVED", _("已開通")
+    DECLINED = "DECLINED", _("已婉拒")
+
+
+class PlanUpgradeRequest(TimeStampedModel):
+    """運動員申請升級進階會員。
+
+    這裡刻意**不接線上付款**。這個系統收錢的方式早就定了型——報名班也是
+    「教練會以電話或 WhatsApp 與你確認名額與付款」（見 programs 的範本）。
+    為了影片額度另開一套線上付款，等於為一件還沒人買過的東西引入 PCI、
+    退款、發票、對數四個新問題。所以這張表只做一件事：**把想升級的人排成
+    一條隊**，你照舊 WhatsApp 收錢，收完在後台按「開通」。
+
+    順帶一提，它也是最誠實的需求測量：有人按，才有市場。額度滿了卻沒人申請，
+    代表該調的是免費額度，不是該去做付費功能。
+    """
+
+    athlete = models.ForeignKey(
+        "accounts.AthleteProfile",
+        on_delete=models.CASCADE,
+        related_name="upgrade_requests",
+        verbose_name=_("運動員"),
+    )
+    requested_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="upgrade_requests_made",
+        verbose_name=_("申請人"),
+        help_text=_("運動員自己按的，或教練代按的"),
+    )
+    contact = models.CharField(
+        _("聯絡電話 / WhatsApp"), max_length=60, blank=True,
+        help_text=_("留空就用帳號上的電話"),
+    )
+    note = models.TextField(_("申請原因"), blank=True)
+
+    status = models.CharField(
+        _("狀態"), max_length=10, choices=UpgradeStatus.choices, default=UpgradeStatus.NEW
+    )
+    handled_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="upgrade_requests_handled",
+        verbose_name=_("處理人"),
+    )
+    handled_at = models.DateTimeField(_("處理時間"), null=True, blank=True)
+    admin_note = models.TextField(_("內部備註"), blank=True, help_text=_("收了多少、談了什麼；運動員看不到"))
+
+    class Meta:
+        verbose_name = _("進階會員申請")
+        verbose_name_plural = _("進階會員申請")
+        ordering = ["-created_at"]
+        constraints = [
+            # 一個人同時只排得了一次隊。少了這條，額度滿的人每按一次就多一筆，
+            # 後台會被同一個人洗版。
+            models.UniqueConstraint(
+                fields=["athlete"],
+                condition=models.Q(status="NEW"),
+                name="one_open_upgrade_request_per_athlete",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.athlete} — {self.get_status_display()}"
+
+    @property
+    def is_open(self):
+        return self.status == UpgradeStatus.NEW
+
+    @property
+    def contact_display(self):
+        """留空就退回帳號上的電話——申請表不該逼人再打一次自己的號碼。"""
+        return self.contact or (self.requested_by.phone if self.requested_by else "") or "—"
+
+    def approve(self, user=None):
+        """開通：翻方案、結案。收錢是在系統外面發生的，這裡只記結果。"""
+        from django.utils import timezone
+
+        self.athlete.video_plan = VideoPlan.PRO
+        self.athlete.save(update_fields=["video_plan", "updated_at"])
+        self.status = UpgradeStatus.APPROVED
+        self.handled_by = user
+        self.handled_at = timezone.now()
+        self.save(update_fields=["status", "handled_by", "handled_at", "updated_at"])
+
+    def decline(self, user=None):
+        from django.utils import timezone
+
+        self.status = UpgradeStatus.DECLINED
+        self.handled_by = user
+        self.handled_at = timezone.now()
+        self.save(update_fields=["status", "handled_by", "handled_at", "updated_at"])
 
 
 class VideoKind(models.TextChoices):

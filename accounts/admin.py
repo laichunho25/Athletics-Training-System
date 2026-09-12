@@ -99,8 +99,9 @@ class ProjectApplicationInline(admin.TabularInline):
 class AthleteProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user", "age", "sex", "primary_event", "coach", "status", "height_cm", "weight_kg",
+        "video_plan", "video_usage",
     )
-    list_filter = ("coach", "status", "sex", "primary_event")
+    list_filter = ("coach", "status", "sex", "primary_event", "video_plan")
     search_fields = ("user__username", "user__first_name", "user__last_name")
     autocomplete_fields = ["user", "primary_event"]
     filter_horizontal = ("secondary_events",)
@@ -110,4 +111,42 @@ class AthleteProfileAdmin(admin.ModelAdmin):
         (_("基本資料"), {"fields": (("birth_date", "sex"), ("height_cm", "weight_kg"), "school_or_club")}),
         (_("項目"), {"fields": ("primary_event", "secondary_events")}),
         (_("訓練背景"), {"fields": (("training_days_per_week", "strength_experience_years"), "notes")}),
+        (_("影片額度"), {
+            "fields": ("video_plan", ("video_max_videos", "video_max_mb")),
+            "description": _(
+                "兩個上限留空就跟方案走（方案的預設值在「影片額度設定」那一頁改）；"
+                "填了就是只給這位運動員的特例。條數與容量兩道閘都要過。"
+            ),
+        }),
     )
+
+    def get_queryset(self, request):
+        """用量在清單上是一欄，所以要一次 annotate 出來。
+
+        逐列呼叫 `quota_for` 的話，一百個運動員就是兩百次查詢——這一頁是後台
+        最常開的一張表，不值得為了一欄數字慢成那樣。
+        """
+        from django.db.models import Count, Sum
+
+        return super().get_queryset(request).annotate(
+            _video_n=Count("videos", distinct=True),
+            _video_b=Sum("videos__size_bytes"),
+        )
+
+    @admin.display(description=_("影片用量"), ordering="_video_b")
+    def video_usage(self, obj):
+        from video.models import VideoQuotaConfig
+
+        # 每一列都讀一次設定表沒意義，整張清單共用同一份
+        if not hasattr(self, "_quota_config"):
+            self._quota_config = VideoQuotaConfig.load()
+        max_videos, max_bytes, _days = self._quota_config.limits_for(obj.video_plan)
+        if obj.video_max_videos is not None:
+            max_videos = obj.video_max_videos
+        if obj.video_max_mb is not None:
+            max_bytes = obj.video_max_mb * 1024 * 1024
+
+        count = f"{obj._video_n}/{max_videos}" if max_videos else f"{obj._video_n}/∞"
+        used_mb = (obj._video_b or 0) / 1024 / 1024
+        size = f"{used_mb:.0f}/{max_bytes / 1024 / 1024:.0f} MB" if max_bytes else f"{used_mb:.0f} MB"
+        return f"{count} 條 · {size}"

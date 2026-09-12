@@ -49,6 +49,7 @@ APP_ORDER = [
     ("analytics", _("數據分析")),
     ("nutrition", _("營養與恢復")),
     ("injury", _("傷患管理")),
+    ("video", _("影片庫")),
     ("auth", _("權限群組")),
 ]
 
@@ -59,6 +60,9 @@ MODEL_ORDER = {
     "planning": ["projectassignment", "trainingsession", "competition", "macrocycle"],
     "analytics": ["metricitem", "metricrecord", "dailyload", "weeklysummary"],
     "injury": ["injury", "treatmentlog", "rehabprotocol", "exercisemodification"],
+    # 額度設定排最前面——這一頁是管理員會去改的，影片本身多半只是來查用量
+    # 申請排最前面——有人在等你回覆，比額度設定更需要被看見
+    "video": ["planupgraderequest", "videoquotaconfig", "trainingvideo", "videonote"],
 }
 
 
