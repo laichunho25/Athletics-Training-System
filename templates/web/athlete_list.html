@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "運動員列表" %}{% endblock %}
+{% block title %}{% translate "運動員名單" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>{% translate "運動員列表" %}</h1>
+    <h1>{% translate "運動員名單" %}</h1>
     <p class="subtitle" style="margin:0">{% blocktranslate with v0=today v1=total %}{{ v0 }} · 共 {{ v1 }} 名運動員{% endblocktranslate %}{% if has_filter %}{% translate "（已篩選）" %}{% endif %} · {{ scope_note }}</p>
   </div>
   <div class="flex">
-    <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">{% translate "全隊燈號總覽" %}</a>
+    <a class="btn ghost sm" href="{% url 'web:coach_dashboard' %}">{% translate "全隊總覽" %}</a>
     <a class="btn ghost sm" href="{% url 'web:plan' %}">{% translate "計劃" %}</a>
   </div>
 </div>

@@ -7,12 +7,11 @@
   <title>{% block title %}ATM{% endblock %} {% translate "· 田徑訓練管理系統" %}</title>
   <link rel="stylesheet" href="{% static 'css/atm.css' %}">
   <script>
-    // 先套用使用者上次選的外觀／密度／側欄狀態，避免載入時閃一下
+    // 先套用使用者上次選的外觀與側欄狀態，避免載入時閃一下
     (function () {
       try {
         var d = document.documentElement;
         d.dataset.theme = localStorage.getItem('atm-theme') || 'dark';
-        d.dataset.density = localStorage.getItem('atm-density') || 'default';
         if (localStorage.getItem('atm-sidebar') === 'collapsed') d.classList.add('sb-collapsed');
       } catch (e) {}
     })();
@@ -37,17 +36,17 @@
     <nav class="nav">
       <div class="nav-group">
         <div class="nav-title">{% translate "運動員" %}</div>
-        <a href="{% url 'web:athlete_list' %}" data-tip="{% translate '運動員列表' %}"
+        <a href="{% url 'web:athlete_list' %}" data-tip="{% translate '運動員名單' %}"
            class="nav-item {% if page == 'athletes' %}active{% endif %}">
-          <svg class="ic"><use href="#i-people"></use></svg><span>{% translate "運動員列表" %}</span></a>
+          <svg class="ic"><use href="#i-people"></use></svg><span>{% translate "運動員名單" %}</span></a>
         {% if nav_athletes %}
-        <a href="{% url 'web:coach_dashboard' %}" data-tip="{% translate '全隊燈號總覽' %}"
+        <a href="{% url 'web:coach_dashboard' %}" data-tip="{% translate '全隊總覽' %}"
            class="nav-item {% if page == 'team' %}active{% endif %}">
-          <svg class="ic"><use href="#i-shield"></use></svg><span>{% translate "全隊燈號總覽" %}</span></a>
+          <svg class="ic"><use href="#i-shield"></use></svg><span>{% translate "全隊總覽" %}</span></a>
         {% endif %}
-        <a href="{% url 'web:dashboard' %}{{ nav_athlete_qs }}" data-tip="{% translate '運動員狀態總覽' %}"
+        <a href="{% url 'web:dashboard' %}{{ nav_athlete_qs }}" data-tip="{% translate '狀態總覽' %}"
            class="nav-item {% if page == 'dashboard' %}active{% endif %}">
-          <svg class="ic"><use href="#i-gauge"></use></svg><span>{% translate "運動員狀態總覽" %}</span></a>
+          <svg class="ic"><use href="#i-gauge"></use></svg><span>{% translate "狀態總覽" %}</span></a>
       </div>
 
       <div class="nav-group">
@@ -58,9 +57,9 @@
         <a href="{% url 'web:calendar' %}{{ nav_athlete_qs }}" data-tip="{% translate '訓練日曆' %}"
            class="nav-item {% if page == 'calendar' or page == 'session' %}active{% endif %}">
           <svg class="ic"><use href="#i-calendar"></use></svg><span>{% translate "訓練日曆" %}</span></a>
-        <a href="{% url 'web:library' %}" data-tip="{% translate '運動練習項目庫' %}"
+        <a href="{% url 'web:library' %}" data-tip="{% translate '動作庫' %}"
            class="nav-item {% if page == 'library' %}active{% endif %}">
-          <svg class="ic"><use href="#i-rows"></use></svg><span>{% translate "運動練習項目庫" %}</span></a>
+          <svg class="ic"><use href="#i-rows"></use></svg><span>{% translate "動作庫" %}</span></a>
         <a href="{% url 'web:video_list' %}{{ nav_athlete_qs }}" data-tip="{% translate '影片庫' %}"
            class="nav-item {% if page == 'video' %}active{% endif %}">
           <svg class="ic"><use href="#i-video"></use></svg><span>{% translate "影片庫" %}</span></a>
@@ -105,17 +104,6 @@
       <div class="topacts">
         {% include "web/_switcher.html" %}
         {% include "_langpick.html" %}
-        <span class="syslive" title="{% translate '系統連線正常，時間為本機時間' %}">
-          <i class="led"></i>LIVE<span class="clock" id="sysClock">--:--</span>
-        </span>
-        <label class="densitypick" title="{% translate '表格間距' %}">
-          <svg class="ic"><use href="#i-rows"></use></svg>
-          <select data-act="density" aria-label="{% translate '表格間距' %}">
-            <option value="compact">{% translate "緊湊" %}</option>
-            <option value="default" selected>{% translate "標準" %}</option>
-            <option value="loose">{% translate "寬鬆" %}</option>
-          </select>
-        </label>
         <button type="button" class="iconbtn" data-act="theme" aria-label="{% translate '切換淺色／深色' %}">
           <svg class="ic light-only"><use href="#i-moon"></use></svg>
           <svg class="ic dark-only"><use href="#i-sun"></use></svg>
@@ -178,18 +166,6 @@
     Chart.defaults.interaction.mode = 'index';
     Chart.defaults.interaction.intersect = false;
   }
-
-  // 頂欄時鐘（本機時間，每 15 秒對一次）
-  (function () {
-    var el = document.getElementById('sysClock');
-    if (!el) return;
-    function tick() {
-      var d = new Date();
-      el.textContent = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
-    }
-    tick();
-    setInterval(tick, 15000);
-  })();
 </script>
 {% block scripts %}{% endblock %}
 </body>

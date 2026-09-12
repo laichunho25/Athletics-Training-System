@@ -124,11 +124,11 @@ class AdminLinkTests(TestCase):
         self.assertNotIn(">後台</a>", body)
 
     def test_nav_shows_the_renamed_and_new_entries(self):
-        """儀表板已改名為「運動員狀態總覽」，並多了「計劃」。"""
+        """儀表板已改名為「狀態總覽」，並多了「計劃」。"""
         self.client.force_login(make_coach(username="c4").user)
         body = self.client.get(reverse("web:coach_dashboard")).content.decode()
         nav = body.split('<nav class="nav">')[1].split("</nav>")[0]
-        self.assertIn("運動員狀態總覽", nav)
+        self.assertIn("狀態總覽", nav)
         self.assertIn("計劃", nav)
         self.assertNotIn("儀表板", nav)
 

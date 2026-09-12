@@ -1,12 +1,8 @@
-/* 後台外框的互動：側欄收合、淺色／深色、表格間距。設定存在瀏覽器本機。 */
+/* 後台外框的互動：側欄收合、淺色／深色。設定存在瀏覽器本機。 */
 (function () {
   var root = document.documentElement;
 
   function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-
-  // 同步初始狀態（外觀與密度在 <head> 已先套用，這裡只補上表單的選取值）
-  var densitySel = document.querySelector('[data-act="density"]');
-  if (densitySel) densitySel.value = root.dataset.density || 'default';
 
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
@@ -39,13 +35,6 @@
       repaintCharts();
     }
   });
-
-  if (densitySel) {
-    densitySel.addEventListener('change', function () {
-      root.dataset.density = densitySel.value;
-      save('atm-density', densitySel.value);
-    });
-  }
 
   // 換外觀之後，圖表的字色／格線色要跟著換
   function repaintCharts() {

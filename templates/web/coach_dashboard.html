@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "運動員狀態總覽" %}{% endblock %}
+{% block title %}{% translate "全隊總覽" %}{% endblock %}
 
 {% block content %}
 <div class="between mb">
   <div>
-    <h1>{% translate "運動員狀態總覽" %}</h1>
+    <h1>{% translate "全隊總覽" %}</h1>
     <p class="subtitle" style="margin:0">{% blocktranslate with v0=today v1=total %}{{ v0 }} · 共 {{ v1 }} 名運動員{% endblocktranslate %}</p>
   </div>
-  <a class="btn ghost sm" href="{% url 'web:athlete_list' %}">{% translate "← 回運動員列表" %}</a>
+  <a class="btn ghost sm" href="{% url 'web:athlete_list' %}">{% translate "← 回運動員名單" %}</a>
 </div>
 
 {% if high_risk %}
