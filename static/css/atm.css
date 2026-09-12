@@ -1588,3 +1588,74 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
 
 /* 每一步的時間；記滿一趟 400 米也不會把版面撐開 */
 .steplist { max-height: 76px; overflow-y: auto; line-height: 1.7; word-break: break-all; }
+
+/* ==================================== 手機：登錄時的輸入，與窄螢幕的看法
+   手機是運動員在場邊真正會用的裝置：一隻手拿著、一隻手打。這一段只解決
+   幾件會讓人乾脆不用手機登錄的事——打一格畫面跳一次、格子按不中、
+   橫向捲到第五欄已經忘了自己在改第幾組、揭頁鍵永遠在頁尾要捲到底。 */
+
+@media (max-width: 760px) {
+  /* iOS 只要輸入框小於 16px 就自動放大整頁。表格裡那些窄格
+     （.editnum／.editsel／新增那一列）以前沒蓋到，等於每打一格跳一次。 */
+  .editnum, .editsel,
+  .setgrid input, .setgrid select,
+  .setdetail input, .setdetail select,
+  .logtable input, .logtable select { font-size: 16px; }
+
+  /* 按得中：格子高度給到手指的大小，寬度容得下放大後的數字 */
+  .editnum { min-height: 36px; width: 88px; padding: 5px 8px; }
+  .editnum.sm { min-height: 36px; width: 66px; }
+  .editnum.wide { min-height: 36px; }
+  .editsel { min-height: 36px; padding: 4px 6px; }
+  .setgrid td { padding: 5px 6px; }
+  .setgrid input, .setgrid select { padding: 6px 8px; }
+  .setgrid .timecell .mincell { max-width: 66px; }
+
+  /* 格子變大，表格就變寬；本來就是橫向捲的，把最小寬度一起補上 */
+  .setdetail table { min-width: 880px; }
+  .setgridwrap .setgrid { min-width: 700px; }
+
+  /* 橫向捲的時候「第幾組」「哪一天」要一直看得到，
+     不然改到右邊第五欄，已經不知道自己在改哪一列。 */
+  .setdetail table tbody td:first-child,
+  .setdetail table thead th:first-child,
+  .setgrid tbody td:first-child,
+  .setgrid thead th:first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--surface); border-right: 1px solid var(--border);
+  }
+  .setdetail table thead th:first-child,
+  .setgrid thead th:first-child { z-index: 3; background: var(--surface-2); }
+  /* 沒做完的那一列本來是紅底，固定欄要自己把底色補成不透明的同一個紅 */
+  .setdetail tr.failedrow > td:first-child {
+    background: color-mix(in srgb, var(--red) 10%, var(--surface));
+  }
+
+  /* 表頭跟著捲進來：欄名一直在，數字才知道是什麼 */
+  .setdetail table thead th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); }
+
+  /* 揭頁鍵黏在畫面底：讀到哪裡都按得到，不用捲到頁尾才換下一部份 */
+  .anaturn {
+    position: sticky; bottom: 0; z-index: 30;
+    margin-top: 14px; padding: 10px 0;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  .anaturn .btn { min-height: 40px; }
+  .anaturn .anaturn-now { font-size: 12px; }
+}
+
+/* 觸控裝置（手機、平板）：會按的東西一律留到 40px，手指才按得中。
+   用 hover: none 而不是寬度——外接螢幕的平板一樣是用手指點。 */
+@media (hover: none) {
+  .btn, .secnav a, .tabs a {
+    min-height: 40px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .btn.sm { padding: 6px 12px; }
+  .foldbtn { min-width: 34px; min-height: 34px; }
+  .itemlist a { min-height: 44px; }
+  /* 段落書籤：一顆一顆停得住，不會捲到一半卡在兩顆中間 */
+  .secnav { scroll-snap-type: x proximity; }
+  .secnav a { scroll-snap-align: start; }
+}

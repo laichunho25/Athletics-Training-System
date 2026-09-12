@@ -430,8 +430,11 @@ def supplement_plan(athlete, on_date=None, target=None):
     picks = _pick_supplements(gaps)
 
     if sessions:
-        starts = [s.start_time for s in sessions if s.start_time]
-        when = _("（今日訓練 %(v0)s 開始）") % {"v0": min(starts).strftime('%H:%M')} if starts else ""
+        # 課表上只有上午／下午兩個時段，沒有實際鐘點；一天兩堂就以早的那一堂為準
+        slots = {s.time_slot for s in sessions}
+        slot = "AM" if "AM" in slots else ("PM" if "PM" in slots else "")
+        label = dict(TrainingSession.time_slot.field.choices).get(slot)
+        when = _("（今日訓練排在%(v0)s）") % {"v0": label} if label else ""
         timing = [
             _("訓練前 2-3 小時%(v0)s：以碳水為主、低脂低纖的一餐，避免腸胃不適。") % {"v0": when},
             _("訓練前 30-60 分鐘：一份好消化的碳水（香蕉、能量棒），不要試新東西。"),

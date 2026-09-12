@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import BodyMetricLog
-from core.models import Sex
-from core.test_factories import TODAY, make_athlete
+from core.models import SessionType, Sex
+from planning.models import TrainingSession
+from core.test_factories import TODAY, make_athlete, make_session
 from nutrition import services as nu
 from nutrition import vision
 from nutrition.models import AnalysisSource, MealLog, MealType, NutritionGoal
@@ -230,6 +231,27 @@ class SupplementPlanTests(TestCase):
         plan = nu.supplement_plan(self.athlete, TODAY)
         self.assertTrue(any("沒有排訓練" in line for line in plan["timing"]))
 
+    def test_training_day_timing_advice_names_the_time_slot(self):
+        """今天有課就給訓練日的時機建議，並講出是上午還是下午那一堂。
+
+        課表上只有 AM／PM 兩個時段，沒有鐘點；這裡曾經去讀不存在的
+        start_time，害得「只要今天排了課」營養頁就整頁 500。
+        """
+        make_session(self.athlete, TODAY)          # 預設下午
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        timing = "".join(str(line) for line in plan["timing"])
+        self.assertNotIn("沒有排訓練", timing)
+        self.assertIn("下午", timing)
+
+    def test_two_sessions_in_a_day_follow_the_earlier_one(self):
+        make_session(self.athlete, TODAY)
+        TrainingSession.objects.create(
+            athlete=self.athlete, date=TODAY, time_slot="AM",
+            session_type=SessionType.TRACK, title="早課",
+        )
+        plan = nu.supplement_plan(self.athlete, TODAY)
+        self.assertIn("上午", "".join(str(line) for line in plan["timing"]))
+
 
 class MealVisionFallbackTests(TestCase):
     """沒有 API 金鑰時，一律退回食物字典比對，不能整個壞掉。"""
@@ -287,6 +309,12 @@ class NutritionPageTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("plan", r.context)
         self.assertFalse(r.context["insight"]["has_data"])
+
+    def test_page_renders_when_today_has_a_session(self):
+        """排了課的日子最常見，卻是以前唯一會 500 的情況。"""
+        make_session(self.athlete, TODAY)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
 
     def test_meal_add_from_text_stores_items_and_totals(self):
         self.client.post(self.url, {

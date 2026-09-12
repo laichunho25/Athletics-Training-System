@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ATM\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-13 00:04+0800\n"
+"POT-Creation-Date: 2026-09-13 00:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6129,55 +6129,55 @@ msgstr "Half an avocado"
 msgid "單元不飽和脂肪，配沙拉或多士"
 msgstr "Monounsaturated fat; have it with salad or on toast"
 
-#: .\nutrition\services.py:434
+#: .\nutrition\services.py:437
 #, python-format
-msgid "（今日訓練 %(v0)s 開始）"
-msgstr " (today's session starts at %(v0)s)"
+msgid "（今日訓練排在%(v0)s）"
+msgstr " (today's session: %(v0)s)"
 
-#: .\nutrition\services.py:436
+#: .\nutrition\services.py:439
 #, python-format
 msgid "訓練前 2-3 小時%(v0)s：以碳水為主、低脂低纖的一餐，避免腸胃不適。"
 msgstr ""
 "2-3 hours before training%(v0)s: a mostly carbohydrate meal, low in fat and "
 "fibre, to avoid stomach trouble."
 
-#: .\nutrition\services.py:437
+#: .\nutrition\services.py:440
 msgid "訓練前 30-60 分鐘：一份好消化的碳水（香蕉、能量棒），不要試新東西。"
 msgstr ""
 "30-60 minutes before training: one easily digested carbohydrate (a banana, "
 "an energy bar) — nothing new on the day."
 
-#: .\nutrition\services.py:438
+#: .\nutrition\services.py:441
 msgid "訓練中超過 60 分鐘：每小時 30-60 g 碳水 ＋ 含電解質的水。"
 msgstr ""
 "Sessions over 60 minutes: 30-60 g of carbohydrate per hour plus water with "
 "electrolytes."
 
-#: .\nutrition\services.py:439
+#: .\nutrition\services.py:442
 msgid "訓練後 30-60 分鐘：碳水 1.0-1.2 g/kg ＋ 蛋白 0.3-0.4 g/kg，越早越好。"
 msgstr ""
 "30-60 minutes after training: 1.0-1.2 g/kg carbohydrate plus 0.3-0.4 g/kg "
 "protein, the sooner the better."
 
-#: .\nutrition\services.py:440
+#: .\nutrition\services.py:443
 msgid "睡前：20-40 g 慢消化蛋白（希臘乳酪、酪蛋白），支撐夜間修復。"
 msgstr ""
 "Before bed: 20-40 g of slow-digesting protein (Greek yoghurt, casein) to "
 "support overnight repair."
 
-#: .\nutrition\services.py:444
+#: .\nutrition\services.py:447
 msgid "今天沒有排訓練：熱量與碳水本來就該比訓練日低，別硬補到訓練日的量。"
 msgstr ""
 "No training today: calories and carbohydrate should be lower than on a "
 "training day anyway, so do not force them up to training-day levels."
 
-#: .\nutrition\services.py:445
+#: .\nutrition\services.py:448
 msgid "蛋白質不減：休息日才是肌肉真正修復的時候，維持每餐 0.3-0.4 g/kg。"
 msgstr ""
 "Protein stays the same: rest days are when muscle actually repairs, so keep "
 "0.3-0.4 g/kg at each meal."
 
-#: .\nutrition\services.py:471
+#: .\nutrition\services.py:474
 msgid ""
 "赤字只從脂肪與精緻碳水扣，訓練前後的碳水一律不動——那是拿來跑的，不是拿來胖"
 "的。"
@@ -6185,27 +6185,27 @@ msgstr ""
 "Take the deficit out of fat and refined carbs only. The carbs around "
 "training stay untouched: those are there to be run on."
 
-#: .\nutrition\services.py:472
+#: .\nutrition\services.py:475
 msgid ""
 "休息日把碳水降下來、訓練日照吃：一週的赤字靠休息日湊，高強度日不要餓著練。"
 msgstr ""
 "Lower carbs on rest days and eat normally on training days: build the week's "
 "deficit out of rest days, and never train hard hungry."
 
-#: .\nutrition\services.py:473
+#: .\nutrition\services.py:476
 msgid ""
 "每餐 0.4 g/kg 蛋白、分 4 餐，睡前再加一份慢消化蛋白，減脂期守肌肉靠這個。"
 msgstr ""
 "0.4 g/kg of protein per meal over 4 meals, plus a slow-digesting protein "
 "before bed. That is what holds muscle through a cut."
 
-#: .\nutrition\services.py:474
+#: .\nutrition\services.py:477
 msgid "重訓的重量不要降。減脂期減的是量不是強度，強度一降，掉的就會是肌肉。"
 msgstr ""
 "Do not drop the weights. A cut cuts volume, not intensity; the moment "
 "intensity drops, muscle is what goes."
 
-#: .\nutrition\services.py:475
+#: .\nutrition\services.py:478
 msgid ""
 "每週固定同一天、同一時間、同一狀態量體重與體脂，只看週平均，不看單日跳動。"
 msgstr ""
@@ -6213,49 +6213,49 @@ msgstr ""
 "state each week, and read the weekly average rather than a single day's "
 "swing."
 
-#: .\nutrition\services.py:478
+#: .\nutrition\services.py:481
 msgid "小赤字就好：一天少一份精緻碳水或一份油，不用改整個菜單。"
 msgstr ""
 "A small deficit is enough: one fewer serving of refined carbs or one fewer "
 "serving of fat a day, no need to rewrite the menu."
 
-#: .\nutrition\services.py:479
+#: .\nutrition\services.py:482
 msgid "賽前期或高強度週先暫停赤字，回到維持量，比賽完再修。"
 msgstr ""
 "Pause the deficit in a pre-competition or high-intensity week, go back to "
 "maintenance, and resume after the meet."
 
-#: .\nutrition\services.py:480
+#: .\nutrition\services.py:483
 msgid "蛋白與訓練前後的碳水維持原樣，只動訓練以外的時段。"
 msgstr ""
 "Keep protein and the carbs around training as they are; only adjust the "
 "hours away from training."
 
-#: .\nutrition\services.py:483
+#: .\nutrition\services.py:486
 msgid "盈餘放在訓練後：練完 30–60 分鐘那一餐加碳水加蛋白，增的才會進肌肉。"
 msgstr ""
 "Put the surplus after training: add carbs and protein to the meal 30-60 "
 "minutes post-session so the gain goes into muscle."
 
-#: .\nutrition\services.py:484
+#: .\nutrition\services.py:487
 msgid "每天多一餐加餐（果仁、乳酪、朱古力奶），不要靠正餐硬塞到脹。"
 msgstr ""
 "Add one extra snack a day (nuts, yoghurt, chocolate milk) instead of forcing "
 "bigger main meals."
 
-#: .\nutrition\services.py:485
+#: .\nutrition\services.py:488
 msgid "重訓要有漸進超負荷：熱量加了但重量沒加，加的就是脂肪。"
 msgstr ""
 "Strength work has to progress: if calories go up but the bar does not, what "
 "gets added is fat."
 
-#: .\nutrition\services.py:486
+#: .\nutrition\services.py:489
 msgid "每兩週檢查一次體脂率：體重升、體脂率也升得快，就把盈餘收一半。"
 msgstr ""
 "Check body fat every two weeks: if weight rises and body fat rises just as "
 "fast, cut the surplus in half."
 
-#: .\nutrition\services.py:489
+#: .\nutrition\services.py:492
 msgid ""
 "先把熱量吃回維持量以上，這不是增肌是止血——能量供應不足會拖垮荷爾蒙、骨質與睡"
 "眠。"
@@ -6264,25 +6264,25 @@ msgstr ""
 "stopping the bleeding: low energy availability drags down hormones, bone and "
 "sleep."
 
-#: .\nutrition\services.py:490
+#: .\nutrition\services.py:493
 msgid "碳水優先補回來：肝醣是速度與力量的燃料，低碳水撐不起高強度訓練。"
 msgstr ""
 "Carbs come back first: glycogen is the fuel for speed and strength, and low "
 "carbs cannot hold up high-intensity training."
 
-#: .\nutrition\services.py:491
+#: .\nutrition\services.py:494
 msgid "這一段先不要量體脂追數字，看的是晨脈、睡眠、月經（女生）與訓練感覺。"
 msgstr ""
 "Stop chasing body-fat numbers for this stretch; watch resting heart rate, "
 "sleep, the menstrual cycle (for female athletes) and how training feels."
 
-#: .\nutrition\services.py:492
+#: .\nutrition\services.py:495
 msgid "同時把這件事告訴教練與隊醫，RED-S 不是靠自己調飲食就能解決的。"
 msgstr ""
 "Tell the coach and the team doctor as well: RED-S is not something to fix by "
 "adjusting your own diet."
 
-#: .\nutrition\services.py:538
+#: .\nutrition\services.py:541
 #, python-format
 msgid ""
 "走完這 %(weeks)s 週，%(name)s 每公斤體重舉得起的會從 %(now)s 變成 %(then)s（+"
@@ -6292,7 +6292,7 @@ msgstr ""
 "goes from %(now)s to %(then)s (+%(gain).1f%%), and starts and jumps run on "
 "exactly this ratio."
 
-#: .\nutrition\services.py:550
+#: .\nutrition\services.py:553
 #, python-format
 msgid ""
 "減下來的 %(kg)s kg 是純負重：力量一分沒少，每一步、每一跳要抬的重量卻少了這麼"
@@ -6301,26 +6301,26 @@ msgstr ""
 "The %(kg)s kg that comes off is pure dead weight: not one bit of strength "
 "lost, and every step and every jump has that much less to lift."
 
-#: .\nutrition\services.py:555
+#: .\nutrition\services.py:558
 msgid ""
 "加的是去脂體重，絕對力量跟著上去；只要體脂率守住，相對力量就不會被體重吃掉。"
 msgstr ""
 "What gets added is lean mass, so absolute strength follows. Keep body fat in "
 "check and body weight will not eat the relative strength."
 
-#: .\nutrition\services.py:608
+#: .\nutrition\services.py:611
 msgid "建立節奏：同一天同一時間量體重與體脂，這一段先求穩定不求快。"
 msgstr ""
 "Build the rhythm: weigh in and measure body fat on the same day at the same "
 "time; this block is about being consistent, not fast."
 
-#: .\nutrition\services.py:610
+#: .\nutrition\services.py:613
 msgid "收尾：回到維持量，讓體重在目標上下 0.5 kg 站穩兩週再談下一步。"
 msgstr ""
 "Finish: back to maintenance, and hold within 0.5 kg of the target for two "
 "weeks before talking about the next step."
 
-#: .\nutrition\services.py:612
+#: .\nutrition\services.py:615
 msgid "檢查點：連續兩週沒動就把熱量再調 10%，有動就一個字都不要改。"
 msgstr ""
 "Checkpoint: if nothing has moved for two weeks straight, adjust calories by "
