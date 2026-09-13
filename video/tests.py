@@ -987,3 +987,217 @@ class UpgradeViewTests(VideoTestCase):
         self.client.post(url, {"action": "upgrade"})
         self.client.post(url, {"action": "upgrade"})
         self.assertEqual(PlanUpgradeRequest.objects.count(), 1)
+
+
+# --------------------------------------------------------------- 分享到團隊
+
+
+def make_project(slug="proj1", title="短跑班", coach=None, **kwargs):
+    from programs.models import Project, ProjectStatus
+
+    project = Project.objects.create(
+        slug=slug,
+        title=title,
+        description="測試用計劃",
+        status=kwargs.pop("status", ProjectStatus.OPEN),
+        **kwargs,
+    )
+    if coach is not None:
+        project.coaches.add(coach)
+    return project
+
+
+def enrol(project, athlete, status=None):
+    """把一位已經有 ATM 帳號的運動員放進計劃（＝一份已匯入的報名表）。"""
+    from core.models import Sex
+    from programs.models import Application, ApplicationStatus
+
+    return Application.objects.create(
+        project=project,
+        athlete=athlete,
+        name_en=athlete.user.username,
+        sex=Sex.MALE,
+        birth_date=athlete.birth_date,
+        phone="60000000",
+        email=f"{athlete.user.username}@example.com",
+        height_cm=175,
+        weight_kg=68,
+        emergency_contact_name="家長",
+        emergency_contact_phone="60000001",
+        status=status or ApplicationStatus.CONFIRMED,
+    )
+
+
+class ShareTests(VideoTestCase):
+    """教練把一條片派俾計劃入面揀咗嘅學生。"""
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.demo = make_athlete("ath_demo", coach=self.coach)   # 片本身喺佢名下
+        self.kid_a = make_athlete("ath_a", coach=self.coach)
+        self.kid_b = make_athlete("ath_b", coach=self.coach)
+        self.outsider_coach = make_coach("coach2", squad="別隊")
+        self.outsider = make_athlete("ath_out", coach=self.outsider_coach)
+
+        self.project = make_project(coach=self.coach)
+        for athlete in (self.demo, self.kid_a, self.kid_b):
+            enrol(self.project, athlete)
+
+        self.video = make_video(self.demo, uploader=self.coach.user)
+
+    # ---- 名單 ----
+
+    def test_targets_list_project_members_without_the_owner(self):
+        groups = vsvc.share_targets(self.coach.user, exclude_athlete=self.demo)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["project"], self.project)
+        self.assertEqual(
+            {a.id for a in groups[0]["athletes"]}, {self.kid_a.id, self.kid_b.id}
+        )
+
+    def test_targets_skip_applications_not_imported_or_cancelled(self):
+        from programs.models import Application, ApplicationStatus
+
+        ghost = make_project("proj2", "跨欄班", coach=self.coach)
+        Application.objects.create(
+            project=ghost, athlete=None, name_en="未匯入", sex="M",
+            birth_date=TODAY, phone="1", email="ghost@example.com",
+            height_cm=170, weight_kg=60,
+            emergency_contact_name="x", emergency_contact_phone="2",
+        )
+        enrol(ghost, self.outsider, status=ApplicationStatus.CANCELLED)
+
+        groups = vsvc.share_targets(self.coach.user, exclude_athlete=self.demo)
+        self.assertEqual([g["project"] for g in groups], [self.project])
+
+    def test_other_coach_sees_no_targets_here(self):
+        self.assertEqual(vsvc.share_targets(self.outsider_coach.user), [])
+
+    # ---- 派片 ----
+
+    def _pick(self, *athletes):
+        return [f"{self.project.id}:{a.id}" for a in athletes]
+
+    def test_share_makes_video_visible_to_picked_student(self):
+        added, dropped = vsvc.set_shares(
+            self.coach.user, self.video, self._pick(self.kid_a)
+        )
+        self.assertEqual((added, dropped), (1, 0))
+
+        self.assertEqual(list(vsvc.shared_to(self.kid_a.user)), [self.video])
+        # 未揀嘅人一條都唔應該見到
+        self.assertEqual(list(vsvc.shared_to(self.kid_b.user)), [])
+        # 亦唔會混入佢自己個櫃（額度計嘅係嗰一批）
+        self.assertEqual(list(vsvc.visible_videos(self.kid_a.user)), [])
+
+    def test_share_does_not_count_against_recipient_quota(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a))
+        self.assertEqual(vsvc.quota_for(self.kid_a).used_videos, 0)
+        self.assertEqual(vsvc.quota_for(self.demo).used_videos, 1)
+
+    def test_resubmitting_the_panel_replaces_the_list(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a, self.kid_b))
+        added, dropped = vsvc.set_shares(
+            self.coach.user, self.video, self._pick(self.kid_b)
+        )
+        self.assertEqual((added, dropped), (0, 1))
+        self.assertEqual(
+            [s.athlete_id for s in self.video.shares.all()], [self.kid_b.id]
+        )
+
+    def test_sharing_twice_does_not_duplicate(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a))
+        added, dropped = vsvc.set_shares(
+            self.coach.user, self.video, self._pick(self.kid_a)
+        )
+        self.assertEqual((added, dropped), (0, 0))
+        self.assertEqual(self.video.shares.count(), 1)
+
+    def test_cannot_share_to_someone_outside_your_projects(self):
+        vsvc.set_shares(
+            self.coach.user, self.video, [f"{self.project.id}:{self.outsider.id}"]
+        )
+        self.assertEqual(self.video.shares.count(), 0)
+
+    def test_athlete_cannot_share(self):
+        self.assertFalse(vsvc.may_share(self.demo.user, self.video))
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.set_shares(self.demo.user, self.video, self._pick(self.kid_a))
+
+    def test_recipient_cannot_reshare(self):
+        """收到片嘅一方（連佢教練）唔可以再轉發——原教練先至係決定俾邊個睇嘅人。"""
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a))
+        self.assertFalse(vsvc.may_share(self.outsider_coach.user, self.video))
+
+    # ---- 收到片之後做得到／做唔到咩 ----
+
+    def test_recipient_can_open_but_not_change(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a))
+        opened = vsvc.get_video(self.kid_a.user, self.video.pk)
+        self.assertEqual(opened, self.video)
+        self.assertFalse(vsvc.may_delete(self.kid_a.user, self.video))
+        self.assertFalse(vsvc.may_annotate(self.kid_a.user, self.video))
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.add_note(self.kid_a.user, self.video, 1, "唔應該寫得入")
+
+    def test_non_recipient_still_cannot_open(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a))
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.get_video(self.kid_b.user, self.video.pk)
+
+    def test_deleting_the_video_takes_the_shares_with_it(self):
+        vsvc.set_shares(self.coach.user, self.video, self._pick(self.kid_a, self.kid_b))
+        vsvc.delete_video(self.coach.user, self.video)
+        self.assertEqual(list(vsvc.shared_to(self.kid_a.user)), [])
+
+    def test_other_coach_cannot_delete_a_video_merely_shared_to_their_athlete(self):
+        """收片嗰邊嘅教練望得到，但條片係人哋嘅資產，唔應該由佢連檔刪埋。"""
+        enrol(self.project, self.outsider)
+        vsvc.set_shares(
+            self.coach.user, self.video, [f"{self.project.id}:{self.outsider.id}"]
+        )
+        self.assertFalse(vsvc.may_delete(self.outsider_coach.user, self.video))
+        with self.assertRaises(vsvc.VideoError):
+            vsvc.delete_video(self.outsider_coach.user, self.video)
+
+
+class SharePageTests(VideoTestCase):
+    """頁面上真係按得到：教練撳「分享到團隊」，學生喺自己影片庫見到。"""
+
+    def setUp(self):
+        self.coach = make_coach()
+        self.demo = make_athlete("ath_demo", coach=self.coach)
+        self.kid = make_athlete("ath_kid", coach=self.coach)
+        self.project = make_project(coach=self.coach)
+        enrol(self.project, self.demo)
+        enrol(self.project, self.kid)
+        self.video = make_video(self.demo, uploader=self.coach.user, title="示範起跑")
+
+    def test_coach_sees_the_share_panel_with_the_roster(self):
+        self.client.force_login(self.coach.user)
+        page = self.client.get(reverse("web:video_detail", args=[self.video.pk]))
+        self.assertContains(page, "分享到團隊")
+        self.assertContains(page, f'value="{self.project.id}:{self.kid.id}"')
+
+    def test_posting_the_panel_shares_and_the_student_sees_it(self):
+        self.client.force_login(self.coach.user)
+        self.client.post(
+            reverse("web:video_detail", args=[self.video.pk]),
+            {"action": "share", "share": [f"{self.project.id}:{self.kid.id}"]},
+        )
+        self.assertEqual(self.video.shares.count(), 1)
+
+        self.client.force_login(self.kid.user)
+        page = self.client.get(reverse("web:video_list"))
+        self.assertContains(page, "教練分享")
+        self.assertContains(page, "示範起跑")
+
+    def test_student_page_has_no_share_panel(self):
+        vsvc.set_shares(
+            self.coach.user, self.video, [f"{self.project.id}:{self.kid.id}"]
+        )
+        self.client.force_login(self.kid.user)
+        page = self.client.get(reverse("web:video_detail", args=[self.video.pk]))
+        self.assertEqual(page.status_code, 200)
+        self.assertNotContains(page, 'value="share"')
+        self.assertContains(page, "教練分享的影片")

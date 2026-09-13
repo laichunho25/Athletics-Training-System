@@ -440,3 +440,61 @@ class VideoNote(TimeStampedModel):
 def _fmt_clock(value):
     total = float(value)
     return f"{int(total) // 60}:{total % 60:05.2f}"
+
+
+class VideoShare(TimeStampedModel):
+    """把一條片分享給計劃裡的某一位運動員。
+
+    影片庫本身是「一個人一個櫃」——每條片只屬於一位運動員，額度也是按那一位算的。
+    但教練常常有一條片是想全組人睇的：一個示範動作、一段慢鏡的起跑、或者
+    隊員 A 做得特別靚的那一組深蹲。以前只能各自傳一次，同一條片佔了十個人的額度。
+
+    這張表只做一件事：**開一道單向的觀看窗**。片仍然放在原本那位運動員名下，
+    檔案只有一份，額度只計一次；收到分享的人睇得到、睇得晒分析工具，
+    但改不到、批註不到、刪不到（見 `video.services.may_annotate` 與 `may_delete`）。
+
+    `project` 記低係經邊個計劃分享出去——同一位運動員報兩個班的時候，
+    教練回頭想知「呢條片當時係派俾邊一組」先至答得出。計劃日後刪咗就留空，
+    分享本身唔應該因為一個行政紀錄消失而斷掉。
+    """
+
+    video = models.ForeignKey(
+        TrainingVideo, on_delete=models.CASCADE, related_name="shares", verbose_name=_("影片")
+    )
+    athlete = models.ForeignKey(
+        "accounts.AthleteProfile",
+        on_delete=models.CASCADE,
+        related_name="videos_shared_to_me",
+        verbose_name=_("分享給"),
+    )
+    project = models.ForeignKey(
+        "programs.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="video_shares",
+        verbose_name=_("經由計劃"),
+    )
+    shared_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="video_shares_made",
+        verbose_name=_("分享者"),
+    )
+
+    class Meta:
+        verbose_name = _("影片分享")
+        verbose_name_plural = _("影片分享")
+        ordering = ["athlete__user__username", "id"]
+        constraints = [
+            # 同一條片分享俾同一個人，一次就夠。少了這條，教練每按一次
+            # 「分享」就多一行，收片的人個櫃會出現幾條一模一樣的片。
+            models.UniqueConstraint(
+                fields=["video", "athlete"], name="one_share_per_video_athlete"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.video} → {self.athlete}"

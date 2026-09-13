@@ -222,6 +222,39 @@
   </form>
 </details>
 
+<!-- --------------------------------------------------- 教練分享過嚟嘅片
+     另開一格，唔混入下面自己嗰批：呢啲片唔計佢額度、佢亦刪唔到。
+     擺喺片牆上面係因為教練啱啱派落嚟嗰條，通常就係佢今日要睇嗰條。 -->
+{% if shared %}
+  <div class="between mb" style="align-items:baseline">
+    <h2 style="margin:0">{% translate "教練分享" %}</h2>
+    <span class="small c-dim">{% translate "不佔用你的影片額度；可以看與量度，不能修改或刪除" %}</span>
+  </div>
+  <div class="grid vidwall mb">
+    {% for v in shared %}
+      <a class="vidcard" href="{% url 'web:video_detail' v.pk %}">
+        <span class="vidthumb">
+          {% if v.poster %}
+            <img src="{{ v.poster.url }}" alt="{{ v.display_title }}" loading="lazy">
+          {% else %}
+            <span class="vidthumb-blank"><svg class="ic"><use href="#i-video"></use></svg></span>
+          {% endif %}
+          {% if v.duration_display %}<em class="vidlen mono">{{ v.duration_display }}</em>{% endif %}
+          <em class="vidflag share">{% translate "分享" %}</em>
+        </span>
+        <strong class="vidtitle">{{ v.display_title }}</strong>
+        <span class="vidmeta small c-dim mono">
+          {{ v.date|date:'Y-m-d' }} · {{ v.get_kind_display }}
+          {% if v.uploaded_by %} · {% blocktranslate with v0=v.uploaded_by.get_full_name|default:v.uploaded_by.username %}{{ v0 }} 分享{% endblocktranslate %}{% endif %}
+        </span>
+        {% if v.note %}<span class="vidmeta small c-dim">{{ v.note }}</span>{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+
+  <h2>{% translate "自己的影片" %}</h2>
+{% endif %}
+
 <!-- ------------------------------------------------------------- 影片列表 -->
 {% if videos %}
   {% comment %}卡片牆：一行三格，格子裡是縮圖、標題，再一行寫清楚日期、範疇與範本。{% endcomment %}

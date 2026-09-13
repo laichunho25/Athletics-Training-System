@@ -16,6 +16,16 @@
       <div class="small c-blue">{% translate "對應" %}：{{ video.linked_label }}</div>
     {% endif %}
     {# 保留期限擺喺標題底下，唔止上傳嗰下先見到——過期係由拍攝日期起計。 #}
+    {% if is_guest %}
+      <div class="small c-blue">
+        {% blocktranslate with v0=athlete.user.get_full_name|default:athlete.user.username %}教練分享的影片（{{ v0 }} 的片）——可以看、可以用分析工具量，但不能修改或刪除{% endblocktranslate %}
+      </div>
+    {% elif shares %}
+      <div class="small c-blue">
+        {% blocktranslate with v0=shares|length %}已分享給 {{ v0 }} 位學生{% endblocktranslate %}：
+        {% for s in shares %}{{ s.athlete.user.get_full_name|default:s.athlete.user.username }}{% if not forloop.last %}、{% endif %}{% endfor %}
+      </div>
+    {% endif %}
     {% if video.is_keeper %}
       <div class="small c-green">{% translate "已設為範本，不會被保留期限清掉" %}</div>
     {% elif video.purge_date %}
@@ -28,14 +38,24 @@
   <div class="flex">
     <a class="btn ghost sm" href="{% url 'web:video_list' %}?athlete={{ athlete.id }}">
       {% translate "回影片庫" %}</a>
-    <form method="post" style="display:inline">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="keeper">
-      <button class="btn ghost sm {% if video.is_keeper %}on{% endif %}" type="submit"
-              title="{% translate '標記為範本的影片不會被保留期限清掉' %}">
-        {% if video.is_keeper %}{% translate "已設為範本" %}{% else %}{% translate "設為範本" %}{% endif %}
+    {% if can_share %}
+      {# 面板本身喺下面；呢粒掣淨係郁個 <details>，唔另開一頁 #}
+      <button class="btn ghost sm {% if shares %}on{% endif %}" type="button"
+              onclick="var d=document.getElementById('sharebox');d.open=!d.open;if(d.open)d.scrollIntoView({block:'nearest'});">
+        {% if shares %}{% blocktranslate with v0=shares|length %}已分享 · {{ v0 }} 人{% endblocktranslate %}
+        {% else %}{% translate "分享到團隊" %}{% endif %}
       </button>
-    </form>
+    {% endif %}
+    {% if not is_guest %}
+      <form method="post" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="keeper">
+        <button class="btn ghost sm {% if video.is_keeper %}on{% endif %}" type="submit"
+                title="{% translate '標記為範本的影片不會被保留期限清掉' %}">
+          {% if video.is_keeper %}{% translate "已設為範本" %}{% else %}{% translate "設為範本" %}{% endif %}
+        </button>
+      </form>
+    {% endif %}
     {% if can_delete %}
       <form method="post" style="display:inline"
             onsubmit="return confirm('{% translate "刪掉這條影片？檔案會一併移除，無法復原。" %}')">
@@ -46,6 +66,52 @@
     {% endif %}
   </div>
 </div>
+
+{% if can_share %}
+  {% comment %}分享面板：一個計劃一組，剔咗嘅就係睇得到嘅人。
+  送出嗰陣係「以呢一版做準」——拎走個剔就等於收回分享，唔使再開多一粒掣。{% endcomment %}
+  <details class="card pad0 mb vidshare" id="sharebox">
+    <summary class="card-head">
+      <span>{% translate "分享到團隊" %}</span>
+      <span class="small c-dim">{% translate "剔咗嘅學生就會喺自己嘅影片庫見到呢條片" %}</span>
+    </summary>
+
+    {% if share_groups %}
+      <form method="post" style="padding:14px 18px">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="share">
+        {% for group in share_groups %}
+          <div class="vidshare-grp">
+            <div class="between">
+              <strong class="small">{{ group.project.title }}</strong>
+              <button class="btn ghost sm" type="button"
+                      onclick="var b=this.closest('.vidshare-grp').querySelectorAll('input[type=checkbox]');var on=[].some.call(b,function(x){return !x.checked});[].forEach.call(b,function(x){x.checked=on});">
+                {% translate "全選 / 全不選" %}</button>
+            </div>
+            <div class="vidshare-names">
+              {% for a in group.athletes %}
+                <label class="vidshare-name">
+                  <input type="checkbox" name="share" value="{{ group.project.id }}:{{ a.id }}"
+                         {% if a.id in shared_ids %}checked{% endif %}>
+                  <span>{{ a.user.get_full_name|default:a.user.username }}</span>
+                  <em class="small c-dim">{{ a.primary_event.code }}</em>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+        <button class="btn mt" type="submit">{% translate "儲存分享名單" %}</button>
+        <span class="small c-dim" style="margin-left:8px">
+          {% translate "影片只存一份，分享出去不會佔用學生的影片額度；他們看得到、量得到，但改不到也刪不到。" %}
+        </span>
+      </form>
+    {% else %}
+      <div class="empty" style="padding:18px">
+        {% translate "你負責的計劃裡還沒有已開通 ATM 帳號的學生。把報名表匯入運動員之後，這裡就會列出名單。" %}
+      </div>
+    {% endif %}
+  </details>
+{% endif %}
 
 {% if video.note %}<div class="card mb">{{ video.note }}</div>{% endif %}
 

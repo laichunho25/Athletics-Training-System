@@ -1504,6 +1504,30 @@ h2:has(.foldbtn) { display: flex; align-items: center; }
   background: color-mix(in srgb, var(--yellow) 88%, #000); color: #1a1a1a;
 }
 
+/* 分享入嚟嘅片用藍色角標，同「範本」嗰個黃色角標分得開 */
+.vidflag.share { background: var(--blue); color: #fff; }
+
+/* ---- 分享面板：一個計劃一組名 ---- */
+.vidshare > summary { cursor: pointer; list-style: none; }
+.vidshare > summary::-webkit-details-marker { display: none; }
+.vidshare > summary:hover { color: var(--accent); }
+.vidshare:not([open]) > summary { border-bottom: none; }
+.vidshare-grp { padding: 10px 0; border-bottom: 1px dashed var(--border); }
+.vidshare-grp:last-of-type { border-bottom: none; }
+.vidshare-names {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 4px 10px; margin-top: 8px;
+}
+/* 成行都撳得落——手機上淨係撳到個細細嘅方格會好慘 */
+.vidshare-name {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px;
+}
+.vidshare-name:hover { background: var(--surface-2); }
+.vidshare-name input { flex: none; margin: 0; }
+.vidshare-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vidshare-name em { font-style: normal; margin-left: auto; flex: none; }
+
 /* 窄一點先收成兩行，手機上一行一格——縮圖太小就看不出動作 */
 @media (max-width: 1000px) { .vidwall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .vidwall { grid-template-columns: 1fr; } }

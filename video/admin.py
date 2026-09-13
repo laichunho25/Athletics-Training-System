@@ -8,7 +8,18 @@ from video.models import (
     UpgradeStatus,
     VideoNote,
     VideoQuotaConfig,
+    VideoShare,
 )
+
+
+class VideoShareInline(admin.TabularInline):
+    """一條片派咗俾邊幾個人——教練喺影片頁改，後台淨係用嚟查。"""
+
+    model = VideoShare
+    extra = 0
+    fields = ("athlete", "project", "shared_by", "created_at")
+    readonly_fields = ("created_at",)
+    raw_id_fields = ("athlete", "project", "shared_by")
 
 
 class VideoNoteInline(admin.TabularInline):
@@ -28,7 +39,7 @@ class TrainingVideoAdmin(admin.ModelAdmin):
     date_hierarchy = "date"
     autocomplete_fields = ()
     raw_id_fields = ("record", "activity")
-    inlines = [VideoNoteInline]
+    inlines = [VideoShareInline, VideoNoteInline]
 
     def delete_queryset(self, request, queryset):
         """後台批次刪除也要把實體檔案收掉，否則 R2 會留下一堆孤兒物件。"""
@@ -46,6 +57,22 @@ class VideoNoteAdmin(admin.ModelAdmin):
     list_display = ("video", "at_display", "body", "author", "created_at")
     list_filter = ("author",)
     search_fields = ("body",)
+
+
+@admin.register(VideoShare)
+class VideoShareAdmin(admin.ModelAdmin):
+    list_display = ("video", "athlete", "project", "shared_by", "created_at")
+    list_filter = ("project",)
+    search_fields = (
+        "video__title", "athlete__user__username",
+        "athlete__user__first_name", "athlete__user__last_name",
+    )
+    raw_id_fields = ("video", "athlete", "project", "shared_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "video", "athlete__user", "project", "shared_by"
+        )
 
 
 @admin.register(VideoQuotaConfig)

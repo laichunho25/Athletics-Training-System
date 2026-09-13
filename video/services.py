@@ -28,6 +28,7 @@ from video.models import (
     VideoKind,
     VideoNote,
     VideoQuotaConfig,
+    VideoShare,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,18 +58,48 @@ def visible_videos(user, athlete=None):
     return qs
 
 
+def shared_to(user, athlete=None):
+    """分享到這個人身上的片（教練則是分享到他旗下運動員身上的片）。
+
+    跟 `visible_videos` 分開兩條查詢，不合併成一個 OR：合併之後每條片會
+    按分享對象的數目重複出現，片牆上就會見到同一條片排三次。
+    """
+    qs = (
+        TrainingVideo.objects.select_related(
+            "athlete__user", "uploaded_by", "record__item", "activity"
+        )
+        .annotate(note_count=Count("notes", distinct=True))
+        .filter(shares__athlete_id__in=athlete_ids_visible_to(user))
+    )
+    if athlete is not None:
+        qs = qs.filter(shares__athlete=athlete)
+    return qs.distinct().order_by("-date", "-id")
+
+
 def get_video(user, pk):
     video = visible_videos(user).filter(pk=pk).first()
+    if video is None:
+        # 分享入嚟嘅片唔喺自己個櫃，但一樣要開得到
+        video = shared_to(user).filter(pk=pk).first()
     if video is None:
         raise VideoError(_("找不到這條影片，或你沒有權限看。"))
     return video
 
 
 def may_delete(user, video):
-    """自己傳的片自己刪得掉；教練與管理員刪得掉旗下運動員的片。"""
-    if user.is_superuser or user.role in (Role.COACH, Role.ADMIN):
+    """自己傳的片自己刪得掉；教練刪得掉旗下運動員**名下**的片。
+
+    教練那一關特別看 `video.athlete`，而不是「他望唔望得到這條片」——
+    有了分享之後兩者不再是同一回事：別隊教練分享一條片給我的隊員，
+    我望得到它，但那條片是人家的資產，不應該由我按一下就連檔一齊消失。
+    """
+    if video.uploaded_by_id == user.id:
         return True
-    return video.uploaded_by_id == user.id
+    if user.is_superuser or user.role == Role.ADMIN:
+        return True
+    if user.role == Role.COACH:
+        return video.athlete_id in set(athlete_ids_visible_to(user))
+    return False
 
 
 def may_annotate(user, video):
@@ -443,6 +474,144 @@ def delete_video(user, video):
         raise VideoError(_("這條影片不是你上傳的，只有上傳者或教練刪得掉。"))
     video.drop_file()
     video.delete()
+
+
+# --------------------------------------------------------------- 分享到團隊
+
+
+def may_share(user, video):
+    """能不能把這條片派出去。
+
+    兩個條件：是教練或管理員，而且這條片本來就在他旗下運動員名下。
+    分享入嚟嘅片唔可以再轉發——原本個教練決定俾邊幾個人睇，
+    收到嘅一方再派出去就等於繞過咗佢嗰個決定。
+    """
+    if not (user.is_superuser or user.role in (Role.COACH, Role.ADMIN)):
+        return False
+    return video.athlete_id in set(athlete_ids_visible_to(user))
+
+
+def coach_projects(user):
+    """這位教練帶緊邊幾個計劃。管理員當係全部（封存咗嘅除外）。
+
+    「負責」有兩條路，跟 `core.permissions.athlete_ids_visible_to` 同一套：
+    計劃上的教練名單，或者管理員喺計劃頁做嘅項目分配。
+    """
+    from django.db.models import Q
+
+    from programs.models import Project, ProjectStatus
+
+    qs = Project.objects.exclude(status=ProjectStatus.ARCHIVED)
+    if not (user.is_superuser or user.role == Role.ADMIN):
+        qs = qs.filter(
+            Q(coaches__user=user)
+            | Q(assignments__coach__user=user, assignments__is_active=True)
+        )
+    return qs.distinct().order_by("display_order", "-start_date", "title")
+
+
+def share_targets(user, exclude_athlete=None):
+    """分享面板上一組一組嘅名單：[{"project": 計劃, "athletes": [運動員, ...]}]。
+
+    只列**已經匯入 ATM** 嘅報名（`Application.athlete` 有值）——未有帳號嘅人
+    冇地方睇片，列出嚟只會俾人撳完先發現冇效。取消同候補嗰啲一樣唔列：
+    冇落堂嘅人唔應該收到堂上嘅片。
+
+    `exclude_athlete` 係片本身嘅主人——佢個櫃入面已經有呢條片，
+    再分享俾自己只會喺片牆度見到兩次。
+    """
+    from programs.models import Application, ApplicationStatus
+
+    projects = list(coach_projects(user))
+    if not projects:
+        return []
+
+    applications = (
+        Application.objects.select_related("athlete__user")
+        .filter(
+            project__in=projects,
+            athlete__isnull=False,
+            status__in=[ApplicationStatus.NEW, ApplicationStatus.CONFIRMED],
+        )
+        .order_by("athlete__user__first_name", "athlete__user__username")
+    )
+
+    skip = exclude_athlete.id if exclude_athlete is not None else None
+    by_project = {}
+    for application in applications:
+        if application.athlete_id == skip:
+            continue
+        seen = by_project.setdefault(application.project_id, {})
+        # 同一個人喺同一個計劃有兩份報名表（改過一次）都只出現一次
+        seen.setdefault(application.athlete_id, application.athlete)
+
+    groups = []
+    for project in projects:
+        athletes = list(by_project.get(project.id, {}).values())
+        if athletes:
+            groups.append({"project": project, "athletes": athletes})
+    return groups
+
+
+def _parse_pick(raw):
+    """分享表單一格 checkbox 嘅值："計劃id:運動員id"。"""
+    project_id, _sep, athlete_id = str(raw).partition(":")
+    try:
+        return int(project_id), int(athlete_id)
+    except (TypeError, ValueError):
+        return None, None
+
+
+def set_shares(user, video, picks):
+    """照分享面板上打咗剔嘅人重設呢條片嘅分享名單；回 (加咗幾多, 收返幾多)。
+
+    面板上有咩人就只動咩人——名單以外嘅分享一律唔郁。管理員同教練睇到嘅
+    計劃唔一樣，唔咁做嘅話教練開一次面板就會清走管理員派去第二個班嘅分享。
+    """
+    if not may_share(user, video):
+        raise VideoError(_("只有這條影片所屬運動員的教練才分享得出去。"))
+
+    # 呢個人今次派得俾邊啲運動員，以及每個人喺邊幾個計劃出現過
+    # （同一個人可以同時報咗兩個班，剔邊一格就記邊一個計劃）
+    allowed = {}
+    for group in share_targets(user, exclude_athlete=video.athlete):
+        for athlete in group["athletes"]:
+            allowed.setdefault(athlete.id, {})[group["project"].id] = group["project"]
+    if not allowed:
+        raise VideoError(_("你負責的計劃裡還沒有已開通帳號的學生，暫時沒有人可以分享。"))
+
+    picked = {}
+    for raw in picks or []:
+        project_id, athlete_id = _parse_pick(raw)
+        groups = allowed.get(athlete_id)
+        if not groups:
+            continue
+        # 剔嘅係人，唔係個計劃：計劃 id 對唔上就當佢冇填，隨便記住一個佢真係喺度嘅
+        picked[athlete_id] = groups.get(project_id) or next(iter(groups.values()))
+
+    existing = {share.athlete_id: share for share in video.shares.all()}
+
+    added = [
+        VideoShare(
+            video=video,
+            athlete_id=athlete_id,
+            project=project,
+            shared_by=user,
+        )
+        for athlete_id, project in picked.items()
+        if athlete_id not in existing
+    ]
+    VideoShare.objects.bulk_create(added)
+
+    dropped = [
+        share.id
+        for athlete_id, share in existing.items()
+        if athlete_id in allowed and athlete_id not in picked
+    ]
+    if dropped:
+        VideoShare.objects.filter(id__in=dropped).delete()
+
+    return len(added), len(dropped)
 
 
 # --------------------------------------------------------------- 批註

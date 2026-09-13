@@ -4016,6 +4016,10 @@ def video_list(request):
     if query:
         videos = vsvc.search_videos(videos, query)
 
+    # 教練派俾佢嘅片：唔屬於佢個櫃、唔計佢額度，所以另開一行擺，
+    # 唔混入上面嗰批——混埋一齊佢會以為刪得掉，亦會以為食緊自己額度。
+    shared = list(vsvc.shared_to(request.user, athlete=athlete))
+
     today = date.today()
     return render(
         request,
@@ -4025,6 +4029,7 @@ def video_list(request):
             "athlete": athlete,
             "athletes": _athlete_switcher(request),
             "videos": videos,
+            "shared": shared,
             "kinds": VideoKind.choices,
             "picked_kind": kind or "",
             "query": query,
@@ -4089,6 +4094,18 @@ def video_detail(request, pk):
                     if video.is_keeper
                     else _("已取消範本標記。"),
                 )
+            elif action == "share":
+                added, dropped = vsvc.set_shares(
+                    request.user, video, request.POST.getlist("share")
+                )
+                if added or dropped:
+                    messages.success(
+                        request,
+                        _("已更新分享名單：新增 %(v0)s 人，收回 %(v1)s 人。")
+                        % {"v0": added, "v1": dropped},
+                    )
+                else:
+                    messages.info(request, _("分享名單沒有改動。"))
             elif action == "delete":
                 vsvc.delete_video(request.user, video)
                 messages.success(request, _("已刪除該影片。"))
@@ -4111,6 +4128,13 @@ def video_detail(request, pk):
         .order_by("-date", "-id")[:50]
     )
     notes = list(video.notes.select_related("author"))
+
+    shares = list(video.shares.select_related("athlete__user", "project"))
+    can_share = vsvc.may_share(request.user, video)
+    # 分享面板得教練撳得開先至砌——運動員入嚟睇嘅時候唔使去 query 成個計劃名單
+    share_groups = vsvc.share_targets(request.user, exclude_athlete=video.athlete) if can_share else []
+    shared_ids = {share.athlete_id for share in shares}
+
     return render(
         request,
         "web/video_detail.html",
@@ -4125,6 +4149,12 @@ def video_detail(request, pk):
             "note_shapes": {n.pk: n.data["shapes"] for n in notes if n.has_drawing},
             "can_delete": vsvc.may_delete(request.user, video),
             "can_annotate": vsvc.may_annotate(request.user, video),
+            "can_share": can_share,
+            "share_groups": share_groups,
+            "shared_ids": shared_ids,
+            "shares": shares,
+            # 收片嗰邊：呢條片唔喺佢個櫃，畫面要講清楚佢改唔到、刪唔到
+            "is_guest": video.athlete_id not in set(athlete_ids_visible_to(request.user)),
         },
     )
 
